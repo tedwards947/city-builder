@@ -4,12 +4,12 @@
 import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
-import { resolvePalette } from './CharacterPalette';
+import { resolvePalette, type ColorPalette } from './CharacterPalette';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
   ZONE_NONE, ZONE_R, ZONE_C,
-  ROAD_NONE, ROAD_AVENUE, ROAD_HIGHWAY,
+  ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
@@ -98,45 +98,7 @@ export class CanvasRenderer {
         }
 
         if (road !== ROAD_NONE) {
-          if (trafficOverlay) {
-            const cong = world.layers.congestion[i];
-            const t = cong / 255;
-            let r: number, g: number;
-            if (t <= 0.5) {
-              r = Math.round(t * 2 * 220);
-              g = 180 + Math.round(t * 2 * 20);
-            } else {
-              r = 220;
-              g = Math.round(200 * (1 - (t - 0.5) * 2));
-            }
-            ctx.fillStyle = `rgb(${r},${g},0)`;
-          } else if (road === ROAD_HIGHWAY) {
-            ctx.fillStyle = p.roadHighway;
-          } else if (road === ROAD_AVENUE) {
-            ctx.fillStyle = p.roadAvenue;
-          } else {
-            ctx.fillStyle = p.road;
-          }
-          ctx.fillRect(sxi, syi, tsi, tsi);
-
-          if (ts > 6) {
-            const overlayMark = trafficOverlay ? 'rgba(0,0,0,0.25)' : null;
-            if (road === ROAD_HIGHWAY) {
-              ctx.fillStyle = overlayMark ?? p.roadHighwayLine;
-              ctx.fillRect(sxi + Math.floor(ts * 0.45), syi, 1, tsi);
-              ctx.fillRect(sxi, syi + Math.floor(ts * 0.45), tsi, 1);
-            } else if (road === ROAD_AVENUE) {
-              ctx.fillStyle = overlayMark ?? p.roadAvenueEdge;
-              ctx.fillRect(sxi + Math.floor(ts * 0.15), syi, 1, tsi);
-              ctx.fillRect(sxi + Math.floor(ts * 0.80), syi, 1, tsi);
-              ctx.fillRect(sxi, syi + Math.floor(ts * 0.15), tsi, 1);
-              ctx.fillRect(sxi, syi + Math.floor(ts * 0.80), tsi, 1);
-            } else {
-              ctx.fillStyle = overlayMark ?? p.roadEdge;
-              ctx.fillRect(sxi + Math.floor(ts * 0.45), syi, 1, tsi);
-              ctx.fillRect(sxi, syi + Math.floor(ts * 0.45), tsi, 1);
-            }
-          }
+          this._drawRoad(world, tx, ty, sxi, syi, tsi, ts, p, trafficOverlay);
         }
 
         if (building === BUILDING_POWER_PLANT) {
@@ -370,5 +332,93 @@ export class CanvasRenderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 2;
     ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+  }
+
+  private _drawRoad(
+    world: World,
+    tx: number,
+    ty: number,
+    sxi: number,
+    syi: number,
+    tsi: number,
+    ts: number,
+    p: ColorPalette,
+    trafficOverlay: boolean
+  ): void {
+    const ctx = this.ctx;
+    const i = world.grid.idx(tx, ty);
+    const road = world.layers.roadClass[i];
+
+    // Connectivity mask: 1=N, 2=E, 4=S, 8=W
+    let mask = 0;
+    if (ty > 0 && world.layers.roadClass[world.grid.idx(tx, ty - 1)] !== ROAD_NONE) mask |= 1;
+    if (tx < world.grid.width - 1 && world.layers.roadClass[world.grid.idx(tx + 1, ty)] !== ROAD_NONE) mask |= 2;
+    if (ty < world.grid.height - 1 && world.layers.roadClass[world.grid.idx(tx, ty + 1)] !== ROAD_NONE) mask |= 4;
+    if (tx > 0 && world.layers.roadClass[world.grid.idx(tx - 1, ty)] !== ROAD_NONE) mask |= 8;
+
+    let baseColor = p.road;
+    let lineColor = p.roadEdge;
+
+    if (trafficOverlay) {
+      const cong = world.layers.congestion[i];
+      const t = cong / 255;
+      let r: number, g: number;
+      if (t <= 0.5) {
+        r = Math.round(t * 2 * 220);
+        g = 180 + Math.round(t * 2 * 20);
+      } else {
+        r = 220;
+        g = Math.round(200 * (1 - (t - 0.5) * 2));
+      }
+      baseColor = `rgb(${r},${g},0)`;
+      lineColor = 'rgba(0,0,0,0.25)';
+    } else if (road === ROAD_HIGHWAY) {
+      baseColor = p.roadHighway;
+      lineColor = p.roadHighwayLine;
+    } else if (road === ROAD_AVENUE) {
+      baseColor = p.roadAvenue;
+      lineColor = p.roadAvenueEdge;
+    }
+
+    // Road body: draw a center hub and arms connecting to neighbors.
+    const roadWidth = Math.floor(ts * 0.75);
+    const off = (ts - roadWidth) / 2;
+    const mid = ts / 2;
+
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(sxi + Math.floor(off), syi + Math.floor(off), roadWidth, roadWidth);
+    if (mask & 1) ctx.fillRect(sxi + Math.floor(off), syi, roadWidth, Math.ceil(off) + 1);
+    if (mask & 2) ctx.fillRect(sxi + Math.floor(off) + roadWidth - 1, syi + Math.floor(off), Math.ceil(off) + 1, roadWidth);
+    if (mask & 4) ctx.fillRect(sxi + Math.floor(off), syi + Math.floor(off) + roadWidth - 1, roadWidth, Math.ceil(off) + 1);
+    if (mask & 8) ctx.fillRect(sxi, syi + Math.floor(off), Math.ceil(off) + 1, roadWidth);
+
+    // Decorative road markings
+    if (ts > 8) {
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = Math.max(1, Math.floor(ts * 0.05));
+      ctx.lineCap = 'round';
+
+      if (road === ROAD_STREET && !trafficOverlay) {
+        ctx.setLineDash([Math.floor(ts * 0.2), Math.floor(ts * 0.1)]);
+      } else {
+        ctx.setLineDash([]);
+      }
+
+      ctx.beginPath();
+      if (mask === 5) {
+        ctx.moveTo(sxi + mid, syi);
+        ctx.lineTo(sxi + mid, syi + tsi);
+      } else if (mask === 10) {
+        ctx.moveTo(sxi, syi + mid);
+        ctx.lineTo(sxi + tsi, syi + mid);
+      } else if (mask !== 0) {
+        if (mask & 1) { ctx.moveTo(sxi + mid, syi); ctx.lineTo(sxi + mid, syi + mid); }
+        if (mask & 2) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi + tsi, syi + mid); }
+        if (mask & 4) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi + mid, syi + tsi); }
+        if (mask & 8) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi, syi + mid); }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 }
