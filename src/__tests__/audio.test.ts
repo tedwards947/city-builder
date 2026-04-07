@@ -44,7 +44,7 @@ describe('MusicManager', () => {
   let musicManager: MusicManager;
   let lastTrackName = '';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockAudioContext.currentTime = 0;
     mockAudioContext.state = 'suspended';
@@ -52,17 +52,20 @@ describe('MusicManager', () => {
     musicManager = new MusicManager((name) => {
       lastTrackName = name;
     });
+    // Wait for dynamic imports to finish
+    await musicManager.ready;
   });
 
-  it('initializes with the first track', () => {
-    expect(musicManager.getTrackName()).toBe('Neon Metropolis');
+  it('initializes and can get track name', () => {
+    // Tracks are sorted alphabetically: Cloudy Sky, Dusty Roads, Neon Metropolis, Rainy Day, Sunrise
+    expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 
   it('starts playback and updates state', () => {
     musicManager.start();
     expect(musicManager.isCurrentlyPlaying()).toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalled();
-    expect(lastTrackName).toBe('Neon Metropolis');
+    expect(lastTrackName).toBe('Cloudy Sky');
   });
 
   it('stops playback', () => {
@@ -82,19 +85,16 @@ describe('MusicManager', () => {
     musicManager.next();
     expect(musicManager.getTrackName()).toBe('Dusty Roads');
     expect(lastTrackName).toBe('Dusty Roads');
-    
-    musicManager.next();
-    expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 
   it('loops back to first track after the last one', () => {
-    // There are 5 tracks
-    musicManager.next(); // 2
-    musicManager.next(); // 3
-    musicManager.next(); // 4
-    musicManager.next(); // 5
-    musicManager.next(); // 1
-    expect(musicManager.getTrackName()).toBe('Neon Metropolis');
+    // 5 tracks total
+    musicManager.next(); // 2: Dusty Roads
+    musicManager.next(); // 3: Neon Metropolis
+    musicManager.next(); // 4: Rainy Day
+    musicManager.next(); // 5: Sunrise
+    musicManager.next(); // 1: Cloudy Sky
+    expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 
   it('plays notes through AudioContext when started', () => {

@@ -1,15 +1,4 @@
-export interface Note {
-  pitch: string; // e.g. "C4", "rest"
-  length: number; // in beats
-}
-
-export interface Track {
-  name: string;
-  genre: 'edm' | 'country' | 'ambient';
-  bpm: number;
-  patterns: Note[][][]; // patterns[patternIndex][voiceIndex][noteIndex]
-  sequence: number[]; // order of pattern indices to play
-}
+import type { Track } from './types';
 
 const NOTES: Record<string, number> = {
   'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
@@ -26,100 +15,50 @@ export class MusicManager {
   private tracks: Track[] = [];
   private isPlaying = false;
   private nextNoteTime = 0;
-  private seqIndex = 0; // index in the sequence
-  private noteIndex = 0; // index in the current pattern
+  private seqIndex = 0; 
+  private noteIndex = 0; 
   private timerId: number | null = null;
   private onTrackChange: (trackName: string) => void;
+  public ready: Promise<void>;
 
   constructor(onTrackChange: (trackName: string) => void) {
     this.onTrackChange = onTrackChange;
-    this.initTracks();
+    this.ready = this.loadTracks();
   }
 
-  private initTracks() {
-    // 1. EDM: Neon Metropolis (128 BPM)
-    // 1 bar = 4 beats = 1.875s. 3 mins = ~96 bars.
-    const edmLeadA = [{pitch:'E4',length:0.25},{pitch:'G4',length:0.25},{pitch:'A4',length:0.5},{pitch:'E4',length:0.25},{pitch:'G4',length:0.25},{pitch:'B4',length:0.25},{pitch:'A4',length:0.25}];
-    const edmLeadB = [{pitch:'A4',length:0.25},{pitch:'C5',length:0.25},{pitch:'D5',length:0.5},{pitch:'A4',length:0.25},{pitch:'C5',length:0.25},{pitch:'E5',length:0.25},{pitch:'D5',length:0.25}];
-    const edmBassA = [{pitch:'E2',length:0.5},{pitch:'E2',length:0.5},{pitch:'E2',length:0.5},{pitch:'E2',length:0.5}];
-    const edmBassB = [{pitch:'A2',length:0.5},{pitch:'A2',length:0.5},{pitch:'G2',length:0.5},{pitch:'G2',length:0.5}];
-    
-    this.tracks.push({
-      name: "Neon Metropolis",
-      genre: 'edm',
-      bpm: 128,
-      patterns: [
-        [edmLeadA, edmBassA], // Pattern 0 (Intro/Verse)
-        [edmLeadB, edmBassB], // Pattern 1 (Chorus)
-      ],
-      // Sequence to reach ~3 mins (96 bars)
-      sequence: [0,0,0,0, 1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, 1,1,1,1]
-    });
+  private async loadTracks() {
+    // In Vite, we can use import.meta.glob to find all tracks
+    // In test environment, we might need to handle this differently if import.meta.glob is not available
+    try {
+      const modules = import.meta.glob('./tracks/*.ts');
+      const loadedTracks: Track[] = [];
+      
+      for (const path in modules) {
+        try {
+          const mod = await modules[path]() as { track: Track };
+          if (mod && mod.track) {
+            loadedTracks.push(mod.track);
+          }
+        } catch (err) {
+          console.error(`Failed to load track at ${path}:`, err);
+        }
+      }
+      
+      // Sort tracks by name for consistent order
+      this.tracks = loadedTracks.sort((a, b) => a.name.localeCompare(b.name));
+      
+      if (this.tracks.length === 0) {
+        console.warn("No tracks were successfully loaded.");
+      }
+    } catch (e) {
+      // Handle environment where import.meta.glob is missing (like Node tests)
+      console.warn("import.meta.glob not available, tracks must be added manually in this environment.");
+    }
+  }
 
-    // 2. Country: Dusty Roads (110 BPM)
-    const ctryLeadV1 = [{pitch:'G4',length:0.25},{pitch:'B4',length:0.25},{pitch:'D5',length:0.25},{pitch:'G4',length:0.25},{pitch:'B4',length:0.25},{pitch:'D5',length:0.25},{pitch:'B4',length:0.25},{pitch:'G4',length:0.25}];
-    const ctryLeadV2 = [{pitch:'C5',length:0.25},{pitch:'E5',length:0.25},{pitch:'G5',length:0.25},{pitch:'E5',length:0.25},{pitch:'D5',length:0.25},{pitch:'B4',length:0.25},{pitch:'G4',length:0.25},{pitch:'B4',length:0.25}];
-    const ctryLeadC1 = [{pitch:'D5',length:0.5},{pitch:'E5',length:0.25},{pitch:'D5',length:0.25},{pitch:'B4',length:0.5},{pitch:'G4',length:0.5}];
-    const ctryLeadC2 = [{pitch:'A4',length:0.25},{pitch:'B4',length:0.25},{pitch:'C5',length:0.25},{pitch:'B4',length:0.25},{pitch:'A4',length:0.5},{pitch:'D4',length:0.5}];
-    const ctryLeadB1 = [{pitch:'E4',length:0.5},{pitch:'G4',length:0.5},{pitch:'A4',length:0.5},{pitch:'B4',length:0.5}];
-    
-    const ctryBassV = [{pitch:'G2',length:0.5},{pitch:'D3',length:0.5},{pitch:'G2',length:0.5},{pitch:'D3',length:0.5}];
-    const ctryBassC = [{pitch:'C2',length:0.5},{pitch:'G2',length:0.5},{pitch:'D2',length:0.5},{pitch:'A2',length:0.5}];
-    const ctryBassB = [{pitch:'E2',length:0.5},{pitch:'B2',length:0.5},{pitch:'A2',length:0.5},{pitch:'E2',length:0.5}];
-    
-    this.tracks.push({
-      name: "Dusty Roads",
-      genre: 'country',
-      bpm: 110,
-      patterns: [
-        [ctryLeadV1, ctryBassV], // 0: Verse A
-        [ctryLeadV2, ctryBassV], // 1: Verse B
-        [ctryLeadC1, ctryBassC], // 2: Chorus A
-        [ctryLeadC2, ctryBassC], // 3: Chorus B
-        [ctryLeadB1, ctryBassB], // 4: Bridge
-      ],
-      // Sequence: Intro(0,0), V1(0,1,0,1), C1(2,3,2,3), V2(0,1,0,1), C2(2,3,2,3), Bridge(4,4,4,4), C3(2,3,2,3), Outro(0,0)
-      sequence: [0,0, 0,1,0,1, 2,3,2,3, 0,1,0,1, 2,3,2,3, 4,4,4,4, 2,3,2,3, 0,0, 0,0, 0,1,0,1, 2,3,2,3, 0,1,0,1, 2,3,2,3, 4,4,4,4, 2,3,2,3, 0,0]
-    });
-
-    // 3. Ambient: Cloudy Sky (70 BPM)
-    // 1 bar = 4 beats = 3.43s. 3 mins = ~52 bars.
-    this.tracks.push({
-      name: "Cloudy Sky",
-      genre: 'ambient',
-      bpm: 70,
-      patterns: [
-        [[{pitch:'C4',length:2.0},{pitch:'F4',length:2.0}], [{pitch:'E3',length:4.0}]],
-        [[{pitch:'G4',length:2.0},{pitch:'C5',length:2.0}], [{pitch:'A3',length:4.0}]],
-      ],
-      sequence: new Array(26).fill(0).flatMap(() => [0, 1]) // 52 bars
-    });
-
-    // 4. Ambient: Rainy Day (60 BPM)
-    // 1 bar = 4 beats = 4s. 3 mins = 45 bars.
-    this.tracks.push({
-      name: "Rainy Day",
-      genre: 'ambient',
-      bpm: 60,
-      patterns: [
-        [[{pitch:'A4',length:1.0},{pitch:'G4',length:1.0},{pitch:'E4',length:2.0}], [{pitch:'A2',length:4.0}]],
-        [[{pitch:'F4',length:1.0},{pitch:'E4',length:1.0},{pitch:'C4',length:2.0}], [{pitch:'F2',length:4.0}]],
-      ],
-      sequence: new Array(23).fill(0).flatMap(() => [0, 1])
-    });
-
-    // 5. Ambient: Sunrise (80 BPM)
-    // 1 bar = 4 beats = 3s. 3 mins = 60 bars.
-    this.tracks.push({
-      name: "Sunrise",
-      genre: 'ambient',
-      bpm: 80,
-      patterns: [
-        [[{pitch:'G4',length:1.5},{pitch:'A4',length:0.5},{pitch:'B4',length:2.0}], [{pitch:'G3',length:4.0}]],
-        [[{pitch:'C5',length:1.5},{pitch:'D5',length:0.5},{pitch:'G5',length:2.0}], [{pitch:'C4',length:4.0}]],
-      ],
-      sequence: new Array(30).fill(0).flatMap(() => [0, 1])
-    });
+  // Helper for tests or manual track addition
+  public addTrack(track: Track) {
+    this.tracks.push(track);
   }
 
   private ensureContext() {
@@ -134,6 +73,7 @@ export class MusicManager {
   }
 
   public start() {
+    if (this.tracks.length === 0) return;
     this.ensureContext();
     if (this.isPlaying) return;
     this.isPlaying = true;
@@ -152,6 +92,7 @@ export class MusicManager {
   }
 
   public next() {
+    if (this.tracks.length === 0) return;
     const wasPlaying = this.isPlaying;
     this.stop();
     this.currentTrackIndex = (this.currentTrackIndex + 1) % this.tracks.length;
@@ -169,6 +110,8 @@ export class MusicManager {
 
   private playPatternStep() {
     const track = this.tracks[this.currentTrackIndex];
+    if (!track) return;
+    
     const patternIdx = track.sequence[this.seqIndex % track.sequence.length];
     const pattern = track.patterns[patternIdx];
     const secondsPerBeat = 60.0 / track.bpm;
@@ -184,12 +127,10 @@ export class MusicManager {
     this.nextNoteTime += stepLength;
     this.noteIndex++;
 
-    // If we finished the first voice's pattern, move to next sequence part
     if (this.noteIndex >= pattern[0].length) {
       this.noteIndex = 0;
       this.seqIndex++;
       
-      // If we finished the whole song sequence, move to the next track
       if (this.seqIndex >= track.sequence.length) {
         this.currentTrackIndex = (this.currentTrackIndex + 1) % this.tracks.length;
         this.seqIndex = 0;
@@ -217,6 +158,10 @@ export class MusicManager {
     osc.start(time); osc.stop(time + duration + release);
   }
 
-  public getTrackName(): string { return this.tracks[this.currentTrackIndex].name; }
+  public getTrackName(): string { 
+    if (this.tracks.length === 0) return "Loading...";
+    return this.tracks[this.currentTrackIndex].name; 
+  }
+  
   public isCurrentlyPlaying(): boolean { return this.isPlaying; }
 }
