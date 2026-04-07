@@ -283,7 +283,7 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, trafficOverlay, coveragePreview);
+  renderer.render(state.world, camera, hoverTile, trafficOverlay, coveragePreview, now);
   vehicleLayer.update(dt, state.world);
   vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);

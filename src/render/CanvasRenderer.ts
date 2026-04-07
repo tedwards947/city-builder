@@ -24,7 +24,7 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, serviceCoveragePreview: Set<number> | null = null): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
     ctx.fillStyle = '#0d1b2a';
@@ -69,7 +69,7 @@ export class CanvasRenderer {
         }
 
         if (road !== ROAD_NONE) {
-          this._drawRoad(world, tx, ty, sxi, syi, tsi, ts, p, trafficOverlay);
+          this._drawRoad(world, tx, ty, sxi, syi, tsi, ts, p, trafficOverlay, now);
         }
 
         if (building === BUILDING_POWER_PLANT) {
@@ -347,11 +347,13 @@ export class CanvasRenderer {
     tsi: number,
     ts: number,
     p: ColorPalette,
-    trafficOverlay: boolean
+    trafficOverlay: boolean,
+    now: number
   ): void {
     const ctx = this.ctx;
     const i = world.grid.idx(tx, ty);
     const road = world.layers.roadClass[i];
+    const congestion = world.layers.congestion[i];
 
     // Connectivity mask: 1=N, 2=E, 4=S, 8=W
     let mask = 0;
@@ -364,8 +366,7 @@ export class CanvasRenderer {
     let lineColor = p.roadEdge;
 
     if (trafficOverlay) {
-      const cong = world.layers.congestion[i];
-      const t = cong / 255;
+      const t = congestion / 255;
       let r: number, g: number;
       if (t <= 0.5) {
         r = Math.round(t * 2 * 220);
@@ -423,6 +424,56 @@ export class CanvasRenderer {
       }
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    // Live Traffic Indicators (Blue Cars)
+    if (!trafficOverlay && ts > 10 && congestion > 15) {
+      const carCount = Math.min(6, Math.ceil(congestion / 40));
+      const carSize = Math.max(2, ts * 0.12);
+      ctx.fillStyle = '#4a6a8a'; // Blue-ish car color
+
+      // Use deterministic seed per tile
+      const seed = tx * 13 + ty * 37;
+      const timeScale = 0.0016; // Speed of movement (reduced by 20% from 0.002)
+      
+      for (let c = 0; c < carCount; c++) {
+        const laneVariant = (seed + c) % 2; // 0 = outbound, 1 = inbound
+        const armVariant = (seed + Math.floor(c / 2)) % 4;
+        
+        // Ensure we only pick an arm that exists
+        const arms = [];
+        if (mask & 1) arms.push(1);
+        if (mask & 2) arms.push(2);
+        if (mask & 4) arms.push(4);
+        if (mask & 8) arms.push(8);
+        if (arms.length === 0) continue;
+
+        const arm = arms[armVariant % arms.length];
+        
+        // Progress cycles from 0 to 1
+        const cycleOffset = (c * 0.25) + (seed * 0.1);
+        let progress = ((now * timeScale) + cycleOffset) % 1.0;
+        if (laneVariant === 1) progress = 1.0 - progress; // Move in opposite direction
+
+        let cx = sxi + mid, cy = syi + mid;
+        const laneOffset = ts * 0.15; // Offset from center line to lane center
+
+        if (arm === 1) { // North
+          cy = syi + (1 - progress) * mid;
+          cx += (laneVariant === 0 ? laneOffset : -laneOffset);
+        } else if (arm === 2) { // East
+          cx = sxi + mid + progress * mid;
+          cy += (laneVariant === 0 ? laneOffset : -laneOffset);
+        } else if (arm === 4) { // South
+          cy = syi + mid + progress * mid;
+          cx += (laneVariant === 0 ? -laneOffset : laneOffset);
+        } else if (arm === 8) { // West
+          cx = sxi + (1 - progress) * mid;
+          cy += (laneVariant === 0 ? -laneOffset : laneOffset);
+        }
+
+        ctx.fillRect(cx - carSize / 2, cy - carSize / 2, carSize, carSize);
+      }
     }
   }
 
