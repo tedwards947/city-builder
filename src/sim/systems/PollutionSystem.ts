@@ -6,7 +6,7 @@
 // R and C zones above the threshold cannot grow.
 
 import { World } from '../World';
-import { ZONE_I, BUILDING_POWER_PLANT } from '../constants';
+import { ZONE_I, BUILDING_POWER_PLANT, VEG_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class PollutionSystem {
@@ -18,14 +18,22 @@ export class PollutionSystem {
     const n = width * height;
     const pol = world.layers.pollution;
     const zone = world.layers.zone;
-    const dev = world.layers.devLevel;
+    const dev      = world.layers.devLevel;
     const building = world.layers.building;
+    const veg      = world.layers.vegetation;
 
-    const { decayRate, diffusionRate, industryOutput, powerPlantOutput } = BALANCE.pollution;
+    const { decayRate, diffusionRate, industryOutput, powerPlantOutput, vegDecayMult, vegDecayMultForest } = BALANCE.pollution;
 
     // 1. Decay — multiply every tile by decayRate.
     for (let i = 0; i < n; i++) {
-      pol[i] = Math.floor(pol[i] * decayRate);
+      let rate = decayRate;
+      if (veg[i] !== VEG_NONE) {
+        // Differentiate forest (clumps) vs sparse trees if needed, but for now we have 6 species.
+        // Let's just use vegDecayMult for all trees for now as species are visual.
+        // Actually forest-like density was the clumps. Species 1-6 are the same "tree".
+        rate *= vegDecayMult;
+      }
+      pol[i] = Math.floor(pol[i] * rate);
     }
 
     // 2. Add sources.

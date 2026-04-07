@@ -10,6 +10,7 @@ import {
   TERRAIN_GRASS, TERRAIN_WATER,
   ZONE_NONE, ZONE_R, ZONE_C,
   ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
+  VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
@@ -42,6 +43,7 @@ export class CanvasRenderer {
         const zone     = world.layers.zone[i];
         const road     = world.layers.roadClass[i];
         const building = world.layers.building[i];
+        const vegetation = world.layers.vegetation[i];
         const dev      = world.layers.devLevel[i];
         const powered    = world.layers.power[i] !== 0;
         const watered    = world.layers.water[i] !== 0;
@@ -56,6 +58,10 @@ export class CanvasRenderer {
 
         ctx.fillStyle = terrain === TERRAIN_GRASS ? p.grass : terrain === TERRAIN_WATER ? p.water : p.sand;
         ctx.fillRect(sxi, syi, tsi, tsi);
+
+        if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
+          this._drawTree(ctx, vegetation, sxi, syi, tsi, ts, p);
+        }
 
         if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
           if (isAbandoned) {
@@ -332,6 +338,49 @@ export class CanvasRenderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 2;
     ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+  }
+
+  private _drawTree(ctx: CanvasRenderingContext2D, vegetation: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette): void {
+    const speciesIdx = (vegetation - 1);
+    const color = p.treeColors[speciesIdx] || p.treeColors[0];
+    ctx.fillStyle = color;
+
+    if (ts < 8) {
+      ctx.fillRect(sxi + 2, syi + 2, tsi - 4, tsi - 4);
+      return;
+    }
+
+    const mid = ts / 2;
+    // Map species 1-6 to a few distinct styles.
+    // 1, 2: Fluffy (current)
+    // 3, 4: Pine (conical)
+    // 5, 6: Tall/Slim
+    if (vegetation <= 2) {
+      // Fluffy
+      const r = ts * 0.35;
+      ctx.beginPath();
+      ctx.arc(sxi + mid, syi + mid, r, 0, Math.PI * 2);
+      ctx.arc(sxi + mid * 0.7, syi + mid * 0.8, r * 0.8, 0, Math.PI * 2);
+      ctx.arc(sxi + mid * 1.3, syi + mid * 1.2, r * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (vegetation <= 4) {
+      // Pine (Triangle-ish)
+      const bw = ts * 0.7;
+      const bh = ts * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(sxi + mid, syi + ts * 0.1);
+      ctx.lineTo(sxi + mid - bw/2, syi + ts * 0.9);
+      ctx.lineTo(sxi + mid + bw/2, syi + ts * 0.9);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Tall/Slim
+      const r = ts * 0.25;
+      const h = ts * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(sxi + mid, syi + mid, r, h/2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private _drawRoad(

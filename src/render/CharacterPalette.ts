@@ -30,6 +30,8 @@ export interface ColorPalette {
   roadAvenueEdge: string;
   roadHighway: string;
   roadHighwayLine: string;
+  // Vegetation
+  treeColors: [string, string, string, string, string, string];
   // Infrastructure buildings
   powerPlant: string;
   powerPlantRoof: string;
@@ -75,6 +77,7 @@ const BASE_PALETTE: ColorPalette = {
   roadAvenueEdge:   '#8888aa',
   roadHighway:      '#6a6050',
   roadHighwayLine:  '#ffe060',
+  treeColors:       ['#2d5228', '#3a5a3a', '#4a7a4a', '#2d4a2d', '#5a7a3a', '#1e3a1e'],
   powerPlant:       '#d04040',
   powerPlantRoof:   '#702020',
   waterTower:       '#2a9ad0',
@@ -104,6 +107,7 @@ const GREEN_PALETTE: Partial<ColorPalette> = {
   buildingI: ['#a88040', '#b89048', '#c8a050'],
   park:      '#1a5a1a',
   parkTree:  '#3aa03a',
+  treeColors: ['#1a5a1a', '#2d6a2d', '#3a7a3a', '#1a4a1a', '#3a6a1a', '#0a3a0a'],
 };
 
 // Industrial city: yellowed grass, vivid industrial zones
@@ -113,6 +117,7 @@ const INDUSTRIAL_PALETTE: Partial<ColorPalette> = {
   buildingI: ['#d8a840', '#f0b840', '#ffd050'],
   park:      '#386838',
   parkTree:  '#60b860',
+  treeColors: ['#4a5030', '#5a6040', '#6a7050', '#3a4020', '#5a5020', '#3a3010'],
 };
 
 // Egalitarian city: warm residential, slightly muted commerce

@@ -7,7 +7,9 @@ import {
   TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
   ROAD_NONE,
-  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
+  BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
@@ -38,6 +40,15 @@ const TERRAIN_NAME: Record<number, string> = {
   [TERRAIN_GRASS]: 'Grass',
   [TERRAIN_WATER]: 'Water',
   [TERRAIN_SAND]: 'Sand',
+};
+
+const TREE_SPECIES: Record<number, string> = {
+  [VEG_TREE_1]: 'Oak (Deciduous)',
+  [VEG_TREE_2]: 'Maple (Deciduous)',
+  [VEG_TREE_3]: 'Pine (Evergreen)',
+  [VEG_TREE_4]: 'Spruce (Evergreen)',
+  [VEG_TREE_5]: 'Poplar (Tall)',
+  [VEG_TREE_6]: 'Birch (Tall)',
 };
 
 function hasRoadAccess(world: World, tx: number, ty: number): boolean {
@@ -128,6 +139,7 @@ export class TileInfoPanel {
     const zone     = world.layers.zone[i];
     const road     = world.layers.roadClass[i];
     const building = world.layers.building[i];
+    const vegetation = world.layers.vegetation[i];
     const dev      = world.layers.devLevel[i];
     const pollution = world.layers.pollution[i];
 
@@ -248,8 +260,15 @@ export class TileInfoPanel {
     // ── Empty tile ─────────────────────────────────────────────────────────────
     } else {
       const terrainName = TERRAIN_NAME[terrain] ?? 'Unknown';
-      html += `<div class="ti-type">${terrainName}</div>`;
-      html += `<div class="ti-note">No zone — place Res/Com/Ind to develop</div>`;
+      if (vegetation !== VEG_NONE) {
+        const treeName = TREE_SPECIES[vegetation] ?? 'Trees';
+        html += `<div class="ti-type">${treeName}</div>`;
+        html += `<div class="ti-detail" style="color:#5c5">Improves air quality</div>`;
+        html += `<div class="ti-detail">Terrain: ${terrainName}</div>`;
+      } else {
+        html += `<div class="ti-type">${terrainName}</div>`;
+        html += `<div class="ti-note">No zone — place Res/Com/Ind to develop</div>`;
+      }
     }
 
     this.el.innerHTML = html;

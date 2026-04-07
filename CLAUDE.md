@@ -29,6 +29,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [x] Camera with pan, zoom, pinch-to-zoom
 - [x] Projection module (tileToWorld / worldToTile / depth hook)
 - [x] Terrain rendering
+- [x] Trees/forests. trees improve pollution.
 
 ### ✅ Phase 2: Interaction & First Commands
 - [x] Unified pointer input (mouse + touch)
