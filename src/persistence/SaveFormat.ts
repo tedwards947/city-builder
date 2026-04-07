@@ -5,8 +5,9 @@
 //   2 — added serviceBuildings entity list and services layer (coverage system)
 //   3 — added landValue layer; taxRates to budget; demand + avgLandValue to stats
 //   4 — added abandoned + distress layers (Phase 7.5 abandonment)
+//   5 — added fireRisk, fire, fireStation layers (Phase 7.5 fire)
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -77,11 +78,14 @@ export interface WorldSnapshot {
     pollution: Uint8Array;
     abandoned: Uint8Array;
     distress:  Uint8Array;
+    fireRisk:  Uint8Array;
+    fire:      Uint8Array;
+    fireStation: Uint8Array;
   };
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -114,21 +118,25 @@ export function migrate(raw: unknown): SaveRecord {
   if (!r.version || r.version === 1) rec = upgradeV1toV2(rec);
   if ((rec as { version: number }).version === 2) rec = upgradeV2toV3(rec);
   if ((rec as { version: number }).version === 3) rec = upgradeV3toV4(rec);
-  if ((rec as { version: number }).version === 4) return rec;
+  if ((rec as { version: number }).version === 4) rec = upgradeV4toV5(rec);
+  if ((rec as { version: number }).version === 5) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }
 
-function upgradeV1toV2(v1: SaveRecord): SaveRecord {
-  const snap = v1.snapshot as WorldSnapshot & { serviceBuildings?: unknown[] };
+function upgradeV4toV5(v4: SaveRecord): SaveRecord {
+  const snap = v4.snapshot;
   const n = snap.width * snap.height;
   return {
-    ...v1,
-    version: 2,
+    ...v4,
+    version: 5,
     snapshot: {
       ...snap,
-      stats: { ...snap.stats, servicesCoveredZones: 0 },
-      serviceBuildings: [],
-      layers: { ...snap.layers, services: new Uint8Array(n) },
+      layers: {
+        ...snap.layers,
+        fireRisk: new Uint8Array(n),
+        fire:     new Uint8Array(n),
+        fireStation: new Uint8Array(n),
+      },
     },
   };
 }
@@ -167,6 +175,21 @@ function upgradeV2toV3(v2: SaveRecord): SaveRecord {
         rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: 80,
       },
       layers: { ...snap.layers, landValue: new Uint8Array(n).fill(80) },
+    },
+  };
+}
+
+function upgradeV1toV2(v1: SaveRecord): SaveRecord {
+  const snap = v1.snapshot as any;
+  const n = snap.width * snap.height;
+  return {
+    ...v1,
+    version: 2,
+    snapshot: {
+      ...snap,
+      stats: { ...snap.stats, servicesCoveredZones: 0 },
+      serviceBuildings: [],
+      layers: { ...snap.layers, services: new Uint8Array(n) },
     },
   };
 }

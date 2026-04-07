@@ -35,6 +35,9 @@ export interface Layers {
   accessibility: Uint8Array; // 0–255 reachable complementary zone capacity via roads (TransitSystem)
   abandoned:  Uint8Array; // 0=normal, 1=abandoned (zone devLevel preserved but no income)
   distress:   Uint8Array; // 0–255 distress counter (accumulates when conditions unmet)
+  fireRisk:   Uint8Array; // 0–255 fire risk level
+  fire:       Uint8Array; // 0–255 fire intensity/duration remaining
+  fireStation: Uint8Array; // 0=no fire coverage, 1=covered this tick
 }
 
 export interface Budget {
@@ -148,6 +151,9 @@ export class World {
       accessibility: new Uint8Array(n),
       abandoned:  new Uint8Array(n),
       distress:   new Uint8Array(n),
+      fireRisk:   new Uint8Array(n),
+      fire:       new Uint8Array(n),
+      fireStation: new Uint8Array(n),
     };
     this.budget = {
       money: BALANCE.startingMoney,

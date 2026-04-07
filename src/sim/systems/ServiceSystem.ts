@@ -84,14 +84,18 @@ export class ServiceSystem {
     const { width, height } = world.grid;
     const services = world.layers.services;
     const police = world.layers.police;
+    const fireStation = world.layers.fireStation;
     services.fill(0);
     police.fill(0);
+    fireStation.fill(0);
 
     for (const b of world.serviceBuildings) {
       for (const idx of computeServiceCoverage(world, b.tx, b.ty, b.kind)) {
         services[idx] = 1;
         if (b.kind === 4) { // BUILDING_POLICE
           police[idx] = 1;
+        } else if (b.kind === 5) { // BUILDING_FIRE
+          fireStation[idx] = 1;
         }
       }
     }

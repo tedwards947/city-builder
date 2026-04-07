@@ -11,9 +11,10 @@ import { ServiceSystem, computeServiceCoverage } from './sim/systems/ServiceSyst
 import { LandValueSystem } from './sim/systems/LandValueSystem';
 import { PollutionSystem } from './sim/systems/PollutionSystem';
 import { CrimeSystem } from './sim/systems/CrimeSystem';
+import { TransitSystem } from './sim/systems/TransitSystem';
+import { FireSystem } from './sim/systems/FireSystem';
 import { ZoneGrowthSystem } from './sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from './sim/systems/EconomySystem';
-import { TransitSystem } from './sim/systems/TransitSystem';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { CityCharacterSystem } from './sim/systems/CityCharacterSystem';
 import { AbandonmentSystem } from './sim/systems/AbandonmentSystem';
@@ -77,6 +78,7 @@ const systems = [
   new LandValueSystem(),
   new PollutionSystem(),
   new CrimeSystem(),
+  new FireSystem(),
   new TransitSystem(),
   new AbandonmentSystem(),
   new ZoneGrowthSystem(),
@@ -109,6 +111,7 @@ let currentTool: Tool = 'none';
 let hoverTile: { tx: number; ty: number } | null = null;
 let trafficOverlay = false;
 let crimeOverlay   = false;
+let fireOverlay    = false;
 
 new InputController(
   canvas,
@@ -166,6 +169,19 @@ function toggleCrimeOverlay(): void {
   btnCrime.classList.toggle('active', crimeOverlay);
 }
 btnCrime.addEventListener('click', toggleCrimeOverlay);
+
+const btnFire = document.getElementById('btn-fire')!;
+function toggleFireOverlay(): void {
+  fireOverlay = !fireOverlay;
+  if (fireOverlay) {
+    trafficOverlay = false;
+    crimeOverlay   = false;
+    btnTraffic.classList.remove('active');
+    btnCrime.classList.remove('active');
+  }
+  btnFire.classList.toggle('active', fireOverlay);
+}
+btnFire.addEventListener('click', toggleFireOverlay);
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 
@@ -245,6 +261,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'i' || e.key === 'I') setTool('inspect');
   if (e.key === 't' || e.key === 'T') toggleTrafficOverlay();
   if (e.key === 'c' || e.key === 'C') toggleCrimeOverlay();
+  if (e.key === 'f' || e.key === 'F') toggleFireOverlay();
   if (e.key === ' ') {
     e.preventDefault();
     const newSpeed = state.scheduler.speed === 0 ? 1 : 0;
@@ -302,7 +319,7 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, trafficOverlay, crimeOverlay, coveragePreview, now);
+  renderer.render(state.world, camera, hoverTile, trafficOverlay, crimeOverlay, fireOverlay, coveragePreview, now);
   vehicleLayer.update(dt, state.world);
   vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);

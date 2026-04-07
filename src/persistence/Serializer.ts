@@ -33,6 +33,9 @@ export function serialize(world: World): WorldSnapshot {
       pollution: new Uint8Array(l.pollution),
       abandoned: new Uint8Array(l.abandoned),
       distress:  new Uint8Array(l.distress),
+      fireRisk:  new Uint8Array(l.fireRisk),
+      fire:      new Uint8Array(l.fire),
+      fireStation: new Uint8Array(l.fireStation),
     },
   };
 }
@@ -69,6 +72,9 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.pollution.set(snapshot.layers.pollution);
   l.abandoned.set(snapshot.layers.abandoned);
   l.distress.set(snapshot.layers.distress);
+  l.fireRisk.set(snapshot.layers.fireRisk);
+  l.fire.set(snapshot.layers.fire);
+  l.fireStation.set(snapshot.layers.fireStation);
 
   // Force a full network + render rebuild on next tick.
   world.roadNetDirty = true;
