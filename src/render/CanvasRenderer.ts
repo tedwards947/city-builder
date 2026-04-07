@@ -8,9 +8,9 @@ import { resolvePalette, type ColorPalette } from './CharacterPalette';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
-  ZONE_NONE, ZONE_R, ZONE_C,
+  ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
   ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
-  VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
+  VEG_NONE,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
@@ -64,43 +64,8 @@ export class CanvasRenderer {
         }
 
         if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          if (isAbandoned) {
-            // Abandoned: dim zone patch + dark derelict building + boarded-up X marks.
-            const zoneColor = zone === ZONE_R ? p.zoneR : zone === ZONE_C ? p.zoneC : p.zoneI;
-            ctx.fillStyle = zoneColor;
-            ctx.globalAlpha = 0.35;
-            ctx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
-            ctx.globalAlpha = 1;
-            if (dev > 0) {
-              const inset = Math.max(1, Math.floor(ts * (0.35 - dev * 0.08)));
-              const bx = sxi + inset, by = syi + inset;
-              const bw = tsi - inset * 2, bh = tsi - inset * 2;
-              // Derelict building body — dark gray
-              ctx.fillStyle = '#2a2a2a';
-              ctx.fillRect(bx, by, bw, bh);
-              // Boarded-up X — two diagonal lines in lighter gray
-              if (ts > 6) {
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = Math.max(1, ts * 0.06);
-                ctx.beginPath();
-                ctx.moveTo(bx, by);
-                ctx.lineTo(bx + bw, by + bh);
-                ctx.moveTo(bx + bw, by);
-                ctx.lineTo(bx, by + bh);
-                ctx.stroke();
-              }
-            }
-          } else {
-            const zoneColor = zone === ZONE_R ? p.zoneR : zone === ZONE_C ? p.zoneC : p.zoneI;
-            ctx.fillStyle = zoneColor;
-            ctx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
-            if (dev > 0) {
-              const bldPalette = zone === ZONE_R ? p.buildingR : zone === ZONE_C ? p.buildingC : p.buildingI;
-              ctx.fillStyle = bldPalette[dev - 1];
-              const inset = Math.max(1, Math.floor(ts * (0.35 - dev * 0.08)));
-              ctx.fillRect(sxi + inset, syi + inset, tsi - inset * 2, tsi - inset * 2);
-            }
-          }
+          const variant = (tx + ty * 31) % 4;
+          this._drawZoneBuilding(ctx, zone, dev, sxi, syi, tsi, ts, p, isAbandoned, variant);
         }
 
         if (road !== ROAD_NONE) {
@@ -237,18 +202,8 @@ export class CanvasRenderer {
         }
 
         if (building === BUILDING_PARK) {
-          ctx.fillStyle = '#0a1a0a';
-          ctx.fillRect(sxi, syi, tsi, tsi);
-          ctx.fillStyle = p.park;
-          ctx.fillRect(sxi, syi, tsi, tsi);
-          if (ts > 6) {
-            ctx.fillStyle = p.parkTree;
-            const tr = Math.max(2, Math.floor(ts * 0.22));
-            const cx4 = sxi + Math.floor(tsi * 0.35);
-            const cy4 = syi + Math.floor(tsi * 0.4);
-            ctx.beginPath(); ctx.arc(cx4, cy4, tr, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(sxi + Math.floor(tsi * 0.68), cy4, tr, 0, Math.PI * 2); ctx.fill();
-          }
+          const variant = (tx + ty * 37) % 5;
+          this._drawPark(ctx, sxi, syi, tsi, ts, p, variant);
         }
 
         if (!isAbandoned && !serviced && dev >= 2 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
@@ -369,8 +324,8 @@ export class CanvasRenderer {
       const bh = ts * 0.8;
       ctx.beginPath();
       ctx.moveTo(sxi + mid, syi + ts * 0.1);
-      ctx.lineTo(sxi + mid - bw/2, syi + ts * 0.9);
-      ctx.lineTo(sxi + mid + bw/2, syi + ts * 0.9);
+      ctx.lineTo(sxi + mid - bw/2, syi + ts * 0.1 + bh);
+      ctx.lineTo(sxi + mid + bw/2, syi + ts * 0.1 + bh);
       ctx.closePath();
       ctx.fill();
     } else {
@@ -468,6 +423,317 @@ export class CanvasRenderer {
       }
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+  }
+
+  private _drawZoneBuilding(
+    ctx: CanvasRenderingContext2D,
+    zone: number,
+    dev: number,
+    sxi: number,
+    syi: number,
+    tsi: number,
+    ts: number,
+    p: ColorPalette,
+    isAbandoned: boolean,
+    variant: number
+  ): void {
+    const zoneColor = zone === ZONE_R ? p.zoneR : zone === ZONE_C ? p.zoneC : p.zoneI;
+
+    if (isAbandoned) {
+      ctx.fillStyle = zoneColor;
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = zoneColor;
+      ctx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
+    }
+
+    if (dev === 0) return;
+
+    const bldPalette = zone === ZONE_R ? p.buildingR : zone === ZONE_C ? p.buildingC : p.buildingI;
+    const bodyColor = isAbandoned ? '#2a2a2a' : bldPalette[dev - 1];
+
+    if (zone === ZONE_R) {
+      this._drawResidential(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);
+    } else if (zone === ZONE_C) {
+      this._drawCommercial(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);
+    } else if (zone === ZONE_I) {
+      this._drawIndustrial(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);
+    }
+
+    if (isAbandoned && ts > 6) {
+      // Boarded-up X
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = Math.max(1, ts * 0.06);
+      ctx.beginPath();
+      const inset = Math.max(1, Math.floor(ts * (0.35 - dev * 0.08)));
+      ctx.moveTo(sxi + inset, syi + inset);
+      ctx.lineTo(sxi + tsi - inset, syi + tsi - inset);
+      ctx.moveTo(sxi + tsi - inset, syi + inset);
+      ctx.lineTo(sxi + inset, syi + tsi - inset);
+      ctx.stroke();
+    }
+  }
+
+  private _drawResidential(ctx: CanvasRenderingContext2D, dev: number, sxi: number, syi: number, tsi: number, ts: number, color: string, isAbandoned: boolean, variant: number): void {
+    const inset = Math.max(1, Math.floor(ts * (0.32 - dev * 0.06)));
+    const bx = sxi + inset, by = syi + inset;
+    const bw = tsi - inset * 2, bh = tsi - inset * 2;
+
+    // Main house body
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, bw, bh);
+
+    if (ts < 8) return;
+
+    // Roof Logic - More varied styles and colors
+    const roofColors = isAbandoned ? ['#1a1a1a'] : ['#5a3a2a', '#3a4a5a', '#7a4a3a', '#4a5a4a'];
+    ctx.fillStyle = roofColors[variant % roofColors.length];
+
+    if (dev === 1) {
+      // Level 1: Quaint cottages / Small houses
+      // Draw a front-facing gable or a hip roof
+      if (variant % 2 === 0) {
+        ctx.beginPath();
+        ctx.moveTo(bx - 1, by + bh * 0.5);
+        ctx.lineTo(bx + bw / 2, by - 1);
+        ctx.lineTo(bx + bw + 1, by + bh * 0.5);
+        ctx.fill();
+      } else {
+        ctx.fillRect(bx - 1, by - 1, bw + 2, bh * 0.4);
+      }
+      
+      // Small chimney for houses
+      if (!isAbandoned && variant % 3 === 0) {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(bx + bw * 0.7, by - 2, 2, 4);
+      }
+    } else if (dev === 2) {
+      // Level 2: Duplexes / Townhouses
+      // Split the building visually into two halves or add an extension
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(bx + bw * 0.45, by, bw * 0.1, bh); // Vertical split line
+      
+      ctx.fillStyle = roofColors[(variant + 1) % roofColors.length];
+      ctx.fillRect(bx - 1, by - 1, bw + 2, bh * 0.25); // Flat roof with trim
+      
+      // Small balcony/porch detail
+      if (!isAbandoned) {
+        ctx.fillStyle = '#444';
+        ctx.fillRect(bx + bw * 0.2, by + bh * 0.4, bw * 0.6, 1);
+      }
+    } else {
+      // Level 3: Apartment Complexes
+      // Add a "penthouse" or utility block on the roof
+      ctx.fillStyle = roofColors[variant % roofColors.length];
+      ctx.fillRect(bx, by, bw, bh * 0.15);
+      
+      ctx.fillStyle = color;
+      const pW = bw * 0.5, pH = bh * 0.3;
+      ctx.fillRect(bx + (bw - pW) / 2, by - pH * 0.4, pW, pH);
+      
+      ctx.fillStyle = '#222';
+      ctx.fillRect(bx + (bw - pW) / 2, by - pH * 0.4, pW, 2); // Tiny flat roof for the top block
+    }
+
+    // Door detail
+    ctx.fillStyle = isAbandoned ? '#111' : '#3d2b1f';
+    const doorW = Math.max(2, bw * 0.2);
+    const doorH = Math.max(3, bh * 0.3);
+    ctx.fillRect(bx + (bw - doorW) / 2, by + bh - doorH, doorW, doorH);
+
+    // Enhanced Windows
+    if (!isAbandoned && ts > 12) {
+      const winColor = '#ffe680';
+      const winSize = Math.max(1, ts * 0.08);
+      
+      ctx.fillStyle = winColor;
+      if (dev === 1) {
+        // Simple two windows
+        ctx.fillRect(bx + bw * 0.2, by + bh * 0.55, winSize, winSize);
+        ctx.fillRect(bx + bw * 0.7, by + bh * 0.55, winSize, winSize);
+      } else {
+        // Grid of windows for larger buildings
+        const rows = dev + 1;
+        const cols = 2 + (variant % 2);
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            // Randomized lights being "off"
+            if ((variant + r + c) % 5 === 0) continue;
+            
+            const wx = bx + (bw / (cols + 1)) * (c + 1) - winSize / 2;
+            const wy = by + (bh / (rows + 1)) * (r + 1) - winSize / 2;
+            
+            // Skip window if it overlaps the door area
+            if (wy > by + bh - doorH - 2 && wx > bx + (bw - doorW) / 2 - 2 && wx < bx + (bw + doorW) / 2 + 2) continue;
+            
+            ctx.fillRect(wx, wy, winSize, winSize);
+            
+            // Subtle window "sill" or frame
+            if (ts > 20) {
+              ctx.fillStyle = 'rgba(0,0,0,0.2)';
+              ctx.fillRect(wx, wy + winSize, winSize, 1);
+              ctx.fillStyle = winColor;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private _drawCommercial(ctx: CanvasRenderingContext2D, dev: number, sxi: number, syi: number, tsi: number, ts: number, color: string, isAbandoned: boolean, variant: number): void {
+    const inset = Math.max(1, Math.floor(ts * (0.25 - dev * 0.05)));
+    const bx = sxi + inset, by = syi + inset;
+    const bw = tsi - inset * 2, bh = tsi - inset * 2;
+
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, bw, bh);
+
+    if (ts < 8) return;
+
+    // Storefront or entrance
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(bx + bw * 0.1, by + bh * 0.7, bw * 0.8, bh * 0.2);
+
+    // Signage
+    if (!isAbandoned && ts > 10) {
+      ctx.fillStyle = variant % 2 === 0 ? '#e07070' : '#7070e0';
+      ctx.fillRect(bx + bw * 0.2, by + bh * 0.1, bw * 0.6, bh * 0.15);
+    }
+
+    // Windows
+    if (!isAbandoned && ts > 12) {
+      ctx.fillStyle = '#80e6ff'; // cool office light
+      const winSize = Math.max(1, ts * 0.1);
+      for (let row = 0; row < dev + 1; row++) {
+        for (let col = 0; col < 3; col++) {
+           ctx.fillRect(bx + bw * (0.15 + col * 0.25), by + bh * (0.3 + row * 0.15), winSize, winSize * 0.8);
+        }
+      }
+    }
+  }
+
+  private _drawPark(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette, variant: number): void {
+    // Base grass/ground
+    ctx.fillStyle = variant === 1 ? '#4a4a4a' : p.park; // Plaza has stone ground
+    ctx.fillRect(sxi, syi, tsi, tsi);
+
+    if (ts < 6) return;
+
+    if (variant === 0) {
+      // Style 0: Classic Park (Trees + Path)
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(sxi + tsi * 0.4, syi, tsi * 0.2, tsi); // North-south path
+      
+      ctx.fillStyle = p.parkTree;
+      const tr = Math.max(2, Math.floor(ts * 0.22));
+      ctx.beginPath(); ctx.arc(sxi + tsi * 0.25, syi + tsi * 0.3, tr, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sxi + tsi * 0.75, syi + tsi * 0.7, tr, 0, Math.PI * 2); ctx.fill();
+      
+      if (ts > 12) {
+        ctx.fillStyle = '#5a3a2a'; // Tiny bench
+        ctx.fillRect(sxi + tsi * 0.45, syi + tsi * 0.5, tsi * 0.1, 2);
+      }
+    } else if (variant === 1) {
+      // Style 1: Urban Plaza (Stone + Fountain/Statue)
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sxi + 2, syi + 2, tsi - 4, tsi - 4); // Grid pattern
+      
+      const cx = sxi + tsi / 2, cy = syi + tsi / 2;
+      ctx.fillStyle = '#8aa'; // Central feature base
+      ctx.fillRect(cx - 2, cy - 2, 4, 4);
+      
+      if (ts > 10) {
+        ctx.fillStyle = '#aaf'; // Water/Fountain
+        ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (variant === 2) {
+      // Style 2: Flower Garden (Hedges + Flowers)
+      ctx.fillStyle = '#0a3a0a'; // Dark green hedge
+      ctx.fillRect(sxi + 2, syi + 2, tsi - 4, 2);
+      ctx.fillRect(sxi + 2, syi + tsi - 4, tsi - 4, 2);
+      
+      const flowers = ['#f66', '#f6f', '#ff6'];
+      const fSize = Math.max(1, ts * 0.08);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = flowers[i % flowers.length];
+        ctx.fillRect(sxi + tsi * (0.2 + i * 0.3), syi + tsi * 0.5, fSize, fSize);
+      }
+    } else if (variant === 3) {
+      // Style 3: Playground (Sandpit + Equipment)
+      ctx.fillStyle = '#d2b48c'; // Tan sand
+      const pad = tsi * 0.2;
+      ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
+      
+      if (ts > 8) {
+        ctx.fillStyle = '#e55'; // Red slide/equipment
+        ctx.fillRect(sxi + tsi * 0.3, syi + tsi * 0.3, tsi * 0.1, tsi * 0.3);
+        ctx.fillStyle = '#55e'; // Blue swing/equipment
+        ctx.fillRect(sxi + tsi * 0.6, syi + tsi * 0.4, 2, tsi * 0.2);
+      }
+    } else {
+      // Style 4: Wooded Grove (Dense Trees)
+      ctx.fillStyle = '#3d2b1f'; // Dirt patch
+      ctx.beginPath(); ctx.arc(sxi + tsi / 2, syi + tsi / 2, tsi * 0.3, 0, Math.PI * 2); ctx.fill();
+      
+      ctx.fillStyle = p.parkTree;
+      const tr = Math.max(2, Math.floor(ts * 0.18));
+      const pos = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]];
+      for (const [px, py] of pos) {
+        ctx.beginPath(); ctx.arc(sxi + tsi * px, syi + tsi * py, tr, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  private _drawIndustrial(ctx: CanvasRenderingContext2D, dev: number, sxi: number, syi: number, tsi: number, ts: number, color: string, isAbandoned: boolean, variant: number): void {
+    const inset = Math.max(1, Math.floor(ts * 0.15));
+    const bx = sxi + inset, by = syi + inset;
+    const bw = tsi - inset * 2, bh = tsi - inset * 2;
+
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, bw, bh);
+
+    if (ts < 8) return;
+
+    // Vents / Chimneys
+    ctx.fillStyle = '#3a3a3a';
+    const chimneyCount = dev;
+    for (let i = 0; i < chimneyCount; i++) {
+        const offset = (variant % 2 === 0) ? 0.2 : 0.1;
+        const cx = bx + bw * (offset + i * 0.3);
+        if (cx + bw * 0.15 > bx + bw) break;
+        ctx.fillRect(cx, by - bh * 0.15, bw * 0.15, bh * 0.3);
+        
+        // Smoke (if not abandoned)
+        if (!isAbandoned && ts > 16) {
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+            ctx.beginPath();
+            ctx.arc(cx + bw * 0.07, by - bh * 0.25, bw * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#3a3a3a'; // Reset for next chimney
+        }
+    }
+
+    // Large bay doors
+    ctx.fillStyle = isAbandoned ? '#1a1a1a' : '#4a4a4a';
+    const doorW = bw * 0.6;
+    ctx.fillRect(bx + (bw - doorW) / 2, by + bh * 0.5, doorW, bh * 0.4);
+
+    // Detail lines
+    if (ts > 10) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const lineCount = dev * 2;
+      for (let i = 1; i <= lineCount; i++) {
+        const ly = by + (bh / (lineCount + 1)) * i;
+        ctx.moveTo(bx, ly);
+        ctx.lineTo(bx + bw, ly);
+      }
+      ctx.stroke();
     }
   }
 }
