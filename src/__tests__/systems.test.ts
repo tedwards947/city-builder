@@ -1522,3 +1522,176 @@ describe('CharacterPalette.resolvePalette', () => {
     expect(onlyGreen.zoneR).toBe(base.zoneR);
   });
 });
+
+// ─── TransitSystem (road pathing) ─────────────────────────────────────────────
+
+describe('TransitSystem — road-network BFS pathing', () => {
+  // Helper: place a strip of road tiles along row y from x0 to x1 (inclusive).
+  function buildRoad(w: World, x0: number, x1: number, y: number) {
+    for (let x = x0; x <= x1; x++) {
+      forceBuildable(w, x, y);
+      w.layers.roadClass[w.grid.idx(x, y)] = ROAD_STREET;
+    }
+    w.roadNetDirty = true;
+  }
+
+  // Helper: place a developed zone tile with all prerequisites met.
+  function placeDev(w: World, tx: number, ty: number, zoneType: number, level = 1) {
+    forceBuildable(w, tx, ty);
+    w.layers.zone[w.grid.idx(tx, ty)]     = zoneType;
+    w.layers.devLevel[w.grid.idx(tx, ty)] = level;
+    w.layers.power[w.grid.idx(tx, ty)]    = 1;
+    w.layers.water[w.grid.idx(tx, ty)]    = 1;
+  }
+
+  it('zone with no adjacent road has zero accessibility', () => {
+    const w = makeWorld();
+    // R zone at (3,3) — no road anywhere nearby
+    placeDev(w, 3, 3, ZONE_R);
+    w.tick = 0;
+    new TransitSystem().update(w);
+    expect(w.layers.accessibility[w.grid.idx(3, 3)]).toBe(0);
+  });
+
+  it('R zone adjacent to road that can reach C zone has non-zero accessibility', () => {
+    const w = makeWorld();
+    // Layout: R(0,0) — road(1,0)—road(2,0)—road(3,0) — C(4,0)
+    placeDev(w, 0, 0, ZONE_R);
+    buildRoad(w, 1, 3, 0);
+    placeDev(w, 4, 0, ZONE_C);
+    w.tick = 0;
+    new TransitSystem().update(w);
+    expect(w.layers.accessibility[w.grid.idx(0, 0)]).toBeGreaterThan(0);
+  });
+
+  it('disconnected R zone (road does not reach C) has zero accessibility', () => {
+    const w = makeWorld();
+    // R has its own road stub (1,0)–(2,0); C is on a separate unconnected road
+    // (8,0)–(9,0). There is a gap so they cannot reach each other.
+    placeDev(w, 0, 0, ZONE_R);
+    buildRoad(w, 1, 2, 0);
+    buildRoad(w, 8, 9, 0);  // isolated segment — R cannot BFS across the gap
+    placeDev(w, 10, 0, ZONE_C);
+    w.tick = 0;
+    new TransitSystem().update(w);
+    expect(w.layers.accessibility[w.grid.idx(0, 0)]).toBe(0);
+  });
+
+  it('connecting road raises accessibility of previously isolated zone', () => {
+    const w = makeWorld();
+    // Same as above but we bridge the gap at (3,0)–(7,0).
+    placeDev(w, 0, 0, ZONE_R);
+    buildRoad(w, 1, 9, 0);   // now one continuous road
+    placeDev(w, 10, 0, ZONE_C);
+    w.tick = 0;
+    new TransitSystem().update(w);
+    expect(w.layers.accessibility[w.grid.idx(0, 0)]).toBeGreaterThan(0);
+  });
+
+  it('road between R and C carries congestion; stub serving only R does not', () => {
+    const w = makeWorld(16, 16);
+    // R district at column 0, C district at column 6.
+    // Artery: road(1,4)–road(2,4)–…–road(5,4) connects them.
+    // Stub: road(1,8) is a dead-end serving no C zone.
+    for (let y = 2; y <= 6; y++) placeDev(w, 0, y, ZONE_R);
+    buildRoad(w, 1, 5, 4);
+    for (let y = 2; y <= 6; y++) placeDev(w, 6, y, ZONE_C);
+    forceBuildable(w, 1, 8);
+    w.layers.roadClass[w.grid.idx(1, 8)] = ROAD_STREET;
+
+    w.tick = 0;
+    new TransitSystem().update(w);
+
+    const arteryMid  = w.layers.congestion[w.grid.idx(3, 4)];
+    const deadEndCong = w.layers.congestion[w.grid.idx(1, 8)];
+    expect(arteryMid).toBeGreaterThan(deadEndCong);
+  });
+
+  it('parallel road reduces congestion on original artery', () => {
+    const w = makeWorld(16, 16);
+    // Vertical connector at col 1, rows 1-5: gives ALL R zones road access.
+    // Without this connector each R zone would only reach the one horizontal
+    // artery adjacent to it, and the parallel-road normalization wouldn't fire.
+    for (let y = 1; y <= 5; y++) {
+      forceBuildable(w, 1, y);
+      w.layers.roadClass[w.grid.idx(1, y)] = ROAD_STREET;
+    }
+    w.roadNetDirty = true;
+    // R district at col 0 rows 1-5 (all adjacent to the connector).
+    for (let y = 1; y <= 5; y++) placeDev(w, 0, y, ZONE_R, 3);
+    // Single artery at row 3, cols 2–8. C zone at col 9.
+    buildRoad(w, 2, 8, 3);
+    placeDev(w, 9, 3, ZONE_C, 3);
+
+    w.tick = 0;
+    const ts = new TransitSystem();
+    ts.update(w);
+    const singleArteryCong = w.layers.congestion[w.grid.idx(5, 3)];
+
+    // Add parallel artery at row 1, cols 2–8. C zone at col 9.
+    // The connector now branches into BOTH arteries, so R zones BFS expands
+    // across both; normalization reduces each artery's share of the R load.
+    buildRoad(w, 2, 8, 1);
+    placeDev(w, 9, 1, ZONE_C, 3);
+
+    w.tick = BALANCE.transit.flowInterval;
+    ts.update(w);
+    const twoRoadArteryCong = w.layers.congestion[w.grid.idx(5, 3)];
+
+    expect(singleArteryCong).toBeGreaterThan(0);
+    expect(twoRoadArteryCong).toBeLessThan(singleArteryCong);
+  });
+
+  it('higher-capacity road (avenue) has lower congestion than street for same zones', () => {
+    const w = makeWorld(16, 16);
+    // Same connected topology as parallel-road test (single artery only).
+    for (let y = 1; y <= 5; y++) {
+      forceBuildable(w, 1, y);
+      w.layers.roadClass[w.grid.idx(1, y)] = ROAD_STREET;
+    }
+    w.roadNetDirty = true;
+    for (let y = 1; y <= 5; y++) placeDev(w, 0, y, ZONE_R, 3);
+    buildRoad(w, 2, 8, 3);
+    placeDev(w, 9, 3, ZONE_C, 3);
+
+    w.tick = 0;
+    const ts = new TransitSystem();
+    ts.update(w);
+    const streetCong = w.layers.congestion[w.grid.idx(5, 3)];
+
+    // Upgrade artery to avenue (ROAD_AVENUE = 2) — same flow, 4× capacity.
+    for (let x = 2; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 3)] = 2;
+    w.roadNetDirty = true;
+    w.tick = BALANCE.transit.flowInterval;
+    ts.update(w);
+    const avenueCong = w.layers.congestion[w.grid.idx(5, 3)];
+
+    expect(streetCong).toBeGreaterThan(0);
+    expect(avenueCong).toBeLessThan(streetCong);
+  });
+
+  it('accessibility multiplier slows growth for zones with no complementary connectivity', () => {
+    const w = makeWorld(16, 16);
+    // Zone at dev level 1 with no accessibility → accessMult = accessFloor = 0.3
+    // Growth probability = base × accessFloor → chance to grow should be lower.
+    forceBuildable(w, 2, 2);
+    w.layers.zone[w.grid.idx(2, 2)]     = ZONE_R;
+    w.layers.devLevel[w.grid.idx(2, 2)] = 1; // dev > 0 triggers accessibility check
+    w.layers.power[w.grid.idx(2, 2)]    = 1;
+    w.layers.water[w.grid.idx(2, 2)]    = 1;
+    forceBuildable(w, 3, 2);
+    w.layers.roadClass[w.grid.idx(3, 2)] = ROAD_STREET; // has road access
+    // No C or I zones anywhere → accessibility stays 0 after transit tick.
+    w.tick = 0;
+    new TransitSystem().update(w);
+    expect(w.layers.accessibility[w.grid.idx(2, 2)]).toBe(0);
+    // With rng always returning 0.4 (above base 0.08 × 0.3 = 0.024 floor but
+    // below base 0.08 alone), zone should NOT grow (floor multiplier).
+    w.stats.rDemand = 1; w.stats.powerSupply = 9999; w.stats.powerDemand = 0;
+    w.stats.waterSupply = 9999; w.stats.waterDemand = 0;
+    w.tick = 0;
+    w.rng = () => 0.05; // > 0.08 × 0.3 = 0.024, so growth is blocked
+    new ZoneGrowthSystem().update(w);
+    expect(w.layers.devLevel[w.grid.idx(2, 2)]).toBe(1); // did not grow
+  });
+});

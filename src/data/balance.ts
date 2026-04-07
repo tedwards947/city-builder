@@ -94,12 +94,24 @@ export const BALANCE = {
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
-    rGenRate: 1.0,        // trip units per R devLevel (TripGenerator: residents leaving)
-    cAttrRate: 1.0,       // trip units per C devLevel (TripAttractor: commerce destinations)
-    iAttrRate: 1.5,       // trip units per I devLevel (TripAttractor: more workers per tile)
-    spreadRadius: 4,      // road tiles within this manhattan distance receive load
-    streetCapacity: 20,   // kept for backward compat — TransitSystem uses roadClasses[].capacity
+    // Legacy radial-spread params kept for backward compat (no longer used by TransitSystem).
+    rGenRate: 1.0,
+    cAttrRate: 1.0,
+    iAttrRate: 1.5,
+    spreadRadius: 4,
+    streetCapacity: 20,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
+    // ── Road-network pathing ─────────────────────────────────────────────────
+    // BFS radius (road hops) for zone-to-road load spreading.
+    // Higher = zones spread traffic to more distant roads; raises cost per tick.
+    accessRadius: 8,
+    // Scales raw road-tile complementary load → 0-255 accessibility byte.
+    // Tune upward if accessibility is always near 0; downward if always near 255.
+    accessNormFactor: 60,
+    // Growth multiplier floor for zone tiles with zero accessibility.
+    // 0.3 = isolated zones grow at 30% normal rate, so the map isn't dead at game
+    // start but poor connectivity is a meaningful drag on development.
+    accessFloor: 0.3,
   },
   agents: {
     maxVehicles:   80,   // hard cap — sim is correct with zero

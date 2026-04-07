@@ -58,7 +58,15 @@ export class ZoneGrowthSystem {
                        : world.stats.iDemand;
       // Congestion penalty: heavily congested roads throttle further growth.
       const congestionMult = 1 - (maxCongestion / 255) * BALANCE.transit.congestionGrowthPenalty;
-      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult) {
+      // Accessibility multiplier: zones with no road path to complementary zone
+      // types grow slower. Only applied at dev >= 1 so new zones can always
+      // get started without requiring pre-existing complementary zones nearby.
+      let accessMult = 1.0;
+      if (dev[i] > 0) {
+        const a = world.layers.accessibility[i] / 255;
+        accessMult = BALANCE.transit.accessFloor + (1 - BALANCE.transit.accessFloor) * a;
+      }
+      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult) {
         dev[i]++;
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });
