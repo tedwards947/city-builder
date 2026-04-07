@@ -74,6 +74,10 @@ export const BALANCE = {
     decayRate: 0.94,     // fraction remaining after decay each tick (0-1)
     diffusionRate: 0.15, // fraction spreading to each of 4 neighbors per tick
     growthThreshold: 20, // 0-255: R/C zones above this can't grow
+    // Vegetation pollution reduction — fraction of the current decay rate.
+    // e.g. if decayRate is 0.94 and vegDecayMult is 0.9, the effective decay on that tile is 0.846.
+    vegDecayMult: 0.95,       // single tree / sparse
+    vegDecayMultForest: 0.88,  // dense forest (species 1-6 are currently all treated same, but could differentiate)
   },
   growth: {
     tickInterval: 4,
@@ -103,6 +107,16 @@ export const BALANCE = {
     baseSpeed:     1.8,  // tiles per second at zero congestion
     minTtl:        12,   // seconds
     maxTtl:        28,   // seconds
+  },
+  vegetation: {
+    // Probability per grass/sand tile for a "seed" tree (starts a cluster)
+    seedProbability: 0.012,
+    // Probability per grass/sand tile for a sparse random tree
+    sparseProbability: 0.02,
+    // Probability to grow from an existing tree to a neighbor
+    clusterGrowProbability: 0.45,
+    // Multiplier for all probabilities if adjacent to water (lower = fewer trees)
+    shorelinePenalty: 0.01,
   },
   // ── City Character ───────────────────────────────────────────────────────────
   // Each axis ranges from −axisMax to +axisMax.

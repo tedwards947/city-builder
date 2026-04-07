@@ -11,6 +11,7 @@ import {
   ROAD_NONE,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   SERVICE_BUILDING_KINDS,
+  VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
 } from './constants';
 import { BALANCE } from '../data/balance';
 
@@ -19,6 +20,7 @@ export interface Layers {
   zone:      Uint8Array;
   roadClass: Uint8Array; // 0=none, 1=street, reserved: avenue/highway
   building:  Uint8Array; // 0=none, 1=power plant, 2=water tower, 3=sewage plant, 4–8=service
+  vegetation: Uint8Array; // 0=none, 1-6=tree species
   devLevel:  Uint8Array; // 0-3: development level
   power:     Uint8Array; // 0=no power, 1=powered this tick
   water:     Uint8Array; // 0=no water, 1=water coverage this tick
@@ -79,15 +81,23 @@ export interface ServiceBuilding {
 }
 
 export type WaterAmount = 'low' | 'medium' | 'high';
+export type VegAmount   = 'low' | 'medium' | 'high';
 
 export interface TerrainOptions {
   waterAmount?: WaterAmount;
+  vegAmount?:   VegAmount;
 }
 
 const WATER_PARAMS: Record<WaterAmount, { riverHalfWidth: number; lakeRadius: number }> = {
   low:    { riverHalfWidth: 1, lakeRadius: 5  },
   medium: { riverHalfWidth: 2, lakeRadius: 8  },
   high:   { riverHalfWidth: 3, lakeRadius: 12 },
+};
+
+const VEG_PARAMS: Record<VegAmount, { probMult: number }> = {
+  low:    { probMult: 0.5 },
+  medium: { probMult: 1.0 },
+  high:   { probMult: 2.0 },
 };
 
 export class World {
@@ -120,6 +130,7 @@ export class World {
       zone:      new Uint8Array(n),
       roadClass: new Uint8Array(n),
       building:  new Uint8Array(n),
+      vegetation: new Uint8Array(n),
       devLevel:  new Uint8Array(n),
       power:     new Uint8Array(n),
       water:     new Uint8Array(n),
@@ -149,6 +160,7 @@ export class World {
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
     this._generateTerrain();
+    this._generateVegetation();
   }
 
   private _generateTerrain(): void {
@@ -209,11 +221,85 @@ export class World {
     this.grid.markAllDirty();
   }
 
+  private _generateVegetation(): void {
+    const rng = mulberry32(this.seed ^ 0xFEED);
+    const { width, height } = this.grid;
+    const v = this.layers.vegetation;
+    const t = this.layers.terrain;
+    const b = BALANCE.vegetation;
+    const treeTypes = [VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6];
+    const { probMult } = VEG_PARAMS[this.terrainOptions.vegAmount ?? 'low'];
+
+    // First pass: seeds and sparse trees.
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (t[i] === TERRAIN_WATER) continue;
+
+        let nearWater = false;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              if (t[ny * width + nx] === TERRAIN_WATER) { nearWater = true; break; }
+            }
+          }
+          if (nearWater) break;
+        }
+
+        const mult = (nearWater ? b.shorelinePenalty : 1.0) * probMult;
+        const roll = rng();
+
+        if (roll < b.seedProbability * mult) {
+          // Forest seed
+          v[i] = treeTypes[Math.floor(rng() * treeTypes.length)];
+        } else if (roll < (b.seedProbability + b.sparseProbability) * mult) {
+          // Sparse individual tree
+          v[i] = treeTypes[Math.floor(rng() * treeTypes.length)];
+        }
+      }
+    }
+
+    // Second pass: grow clusters from seeds.
+    for (let iter = 0; iter < 3; iter++) {
+      const nextV = new Uint8Array(v);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = y * width + x;
+          if (v[i] !== VEG_NONE || t[i] === TERRAIN_WATER) continue;
+
+          // Check neighbors and inherit type if growing.
+          let neighborType = VEG_NONE;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const nt = v[ny * width + nx];
+                if (nt !== VEG_NONE) {
+                  neighborType = nt;
+                  break;
+                }
+              }
+            }
+            if (neighborType !== VEG_NONE) break;
+          }
+
+          if (neighborType !== VEG_NONE && rng() < b.clusterGrowProbability) {
+            nextV[i] = neighborType;
+          }
+        }
+      }
+      v.set(nextV);
+    }
+  }
+
   // Tile accessors — the only way game code should read/write layers.
   getTerrain(tx: number, ty: number):  number { return this.layers.terrain[this.grid.idx(tx, ty)]; }
   getZone(tx: number, ty: number):     number { return this.layers.zone[this.grid.idx(tx, ty)]; }
   getRoad(tx: number, ty: number):     number { return this.layers.roadClass[this.grid.idx(tx, ty)]; }
   getBuilding(tx: number, ty: number): number { return this.layers.building[this.grid.idx(tx, ty)]; }
+  getVegetation(tx: number, ty: number): number { return this.layers.vegetation[this.grid.idx(tx, ty)]; }
   getDevLevel(tx: number, ty: number): number { return this.layers.devLevel[this.grid.idx(tx, ty)]; }
   isPowered(tx: number, ty: number):   boolean { return this.layers.power[this.grid.idx(tx, ty)] !== 0; }
 
@@ -233,6 +319,7 @@ export class World {
       this.layers.devLevel[i] = 0;
       this.layers.abandoned[i] = 0;
       this.layers.distress[i] = 0;
+      this.layers.vegetation[i] = VEG_NONE;
     }
     this.layers.zone[i] = z;
     this.grid.markDirty(tx, ty);
@@ -249,6 +336,7 @@ export class World {
     if (r !== ROAD_NONE) {
       this.layers.zone[i] = ZONE_NONE;
       this.layers.devLevel[i] = 0;
+      this.layers.vegetation[i] = VEG_NONE;
     }
     if (prev !== r) this.roadNetDirty = true;
     this.grid.markDirty(tx, ty);
@@ -261,6 +349,7 @@ export class World {
     this.layers.building[i] = b;
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;
+    this.layers.vegetation[i] = VEG_NONE;
     this.layers.devLevel[i] = 0;
     if (b === BUILDING_POWER_PLANT) {
       this.powerPlants.push({ tx, ty });
@@ -283,6 +372,7 @@ export class World {
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;
     this.layers.building[i] = BUILDING_NONE;
+    this.layers.vegetation[i] = VEG_NONE;
     this.layers.devLevel[i] = 0;
     this.layers.abandoned[i] = 0;
     this.layers.distress[i] = 0;

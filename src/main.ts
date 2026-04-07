@@ -97,7 +97,7 @@ function startGame(world: World): void {
 }
 
 // Start with the default world.
-startGame(new World(256, 256, 42));
+startGame(new World(256, 256, 42, { vegAmount: 'low' }));
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ const manager = new SaveManager(store); // userId defaults to 'local'
 // ── UI dialogs ────────────────────────────────────────────────────────────────
 
 const newGameDialog = new NewGameDialog((opts) => {
-  startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount }));
+  startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
 });
 
 const tileInfoPanel = new TileInfoPanel();

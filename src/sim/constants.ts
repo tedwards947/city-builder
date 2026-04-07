@@ -30,3 +30,12 @@ export const BUILDING_HOSPITAL = 7;
 export const BUILDING_PARK     = 8;
 
 export const SERVICE_BUILDING_KINDS = [4, 5, 6, 7, 8] as const;
+
+// Vegetation layer
+export const VEG_NONE   = 0;
+export const VEG_TREE_1 = 1;
+export const VEG_TREE_2 = 2;
+export const VEG_TREE_3 = 3;
+export const VEG_TREE_4 = 4;
+export const VEG_TREE_5 = 5;
+export const VEG_TREE_6 = 6;

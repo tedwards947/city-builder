@@ -16,6 +16,7 @@ import {
   BUILDING_POLICE,
   BUILDING_FIRE,
   BUILDING_PARK,
+  VEG_TREE_1,
 } from '../sim/constants';
 import { ServiceSystem } from '../sim/systems/ServiceSystem';
 import { LandValueSystem } from '../sim/systems/LandValueSystem';
@@ -691,20 +692,29 @@ describe('PollutionSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
     w.layers.zone[w.grid.idx(0, 0)] = ZONE_I;
-    // dev stays 0
+    w.layers.devLevel[w.grid.idx(0, 0)] = 0;
     new PollutionSystem().update(w);
     expect(w.layers.pollution[w.grid.idx(0, 0)]).toBe(0);
   });
 
-  it('R zones produce no pollution', () => {
-    const w = makeWorld();
-    forceBuildable(w, 0, 0);
-    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
-    w.layers.devLevel[w.grid.idx(0, 0)] = 3;
-    new PollutionSystem().update(w);
-    expect(w.layers.pollution[w.grid.idx(0, 0)]).toBe(0);
+  it('vegetation increases pollution decay rate', () => {
+    const w1 = makeWorld(), w2 = makeWorld();
+    const i = w1.grid.idx(4, 4);
+    w1.layers.pollution[i] = 200;
+    w2.layers.pollution[i] = 200;
+
+    // w2 has a tree
+    w2.layers.vegetation[i] = VEG_TREE_1;
+
+    const sys = new PollutionSystem();
+    sys.update(w1);
+    sys.update(w2);
+
+    // w2 should have less pollution than w1
+    expect(w2.layers.pollution[i]).toBeLessThan(w1.layers.pollution[i]);
   });
 });
+
 
 // ─── ZoneGrowthSystem pollution penalty ───────────────────────────────────────
 

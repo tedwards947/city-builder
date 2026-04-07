@@ -1,10 +1,11 @@
-import type { WaterAmount } from '../sim/World';
+import type { WaterAmount, VegAmount } from '../sim/World';
 
 export interface NewGameOptions {
   width: number;
   height: number;
   seed: number;
   waterAmount: WaterAmount;
+  vegAmount:   VegAmount;
 }
 
 const SIZE_MAP: Record<string, { width: number; height: number }> = {
@@ -17,6 +18,7 @@ export class NewGameDialog {
   private readonly el: HTMLElement;
   private selectedSize = 'medium';
   private selectedWater: WaterAmount = 'medium';
+  private selectedVeg: VegAmount = 'low';
 
   constructor(private readonly onStart: (opts: NewGameOptions) => void) {
     this.el = document.getElementById('new-game-modal')!;
@@ -45,6 +47,15 @@ export class NewGameDialog {
       });
     });
 
+    // Veg options
+    this.el.querySelectorAll<HTMLButtonElement>('[data-veg]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectedVeg = btn.dataset.veg as VegAmount;
+        this.el.querySelectorAll('[data-veg]').forEach(b =>
+          b.classList.toggle('active', b === btn));
+      });
+    });
+
     // Cancel
     this.el.querySelector('#ng-cancel')!.addEventListener('click', () => this.hide());
 
@@ -59,7 +70,7 @@ export class NewGameDialog {
       const seed = seedInput ? (parseInt(seedInput, 10) >>> 0) : (Math.random() * 0xFFFFFFFF) >>> 0;
       const { width, height } = SIZE_MAP[this.selectedSize];
       this.hide();
-      this.onStart({ width, height, seed, waterAmount: this.selectedWater });
+      this.onStart({ width, height, seed, waterAmount: this.selectedWater, vegAmount: this.selectedVeg });
     });
   }
 }
