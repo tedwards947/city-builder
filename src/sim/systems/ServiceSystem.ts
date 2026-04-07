@@ -83,11 +83,16 @@ export class ServiceSystem {
   update(world: World): void {
     const { width, height } = world.grid;
     const services = world.layers.services;
+    const police = world.layers.police;
     services.fill(0);
+    police.fill(0);
 
     for (const b of world.serviceBuildings) {
       for (const idx of computeServiceCoverage(world, b.tx, b.ty, b.kind)) {
         services[idx] = 1;
+        if (b.kind === 4) { // BUILDING_POLICE
+          police[idx] = 1;
+        }
       }
     }
 

@@ -29,6 +29,8 @@ export interface Layers {
   landValue:  Uint8Array; // 0–255 desirability/value (affects tax, updated each interval)
   roadNet:    Uint16Array; // connected-component ID for road network
   pollution:  Uint8Array; // 0–255 pollution level
+  crime:      Uint8Array; // 0–255 crime level (ZoneGrowthSystem and PoliticsSystem read this)
+  police:     Uint8Array; // 0=no police coverage, 1=covered this tick
   congestion:   Uint8Array; // 0–255 road traffic congestion (computed by TransitSystem)
   accessibility: Uint8Array; // 0–255 reachable complementary zone capacity via roads (TransitSystem)
   abandoned:  Uint8Array; // 0=normal, 1=abandoned (zone devLevel preserved but no income)
@@ -140,6 +142,8 @@ export class World {
       landValue:  new Uint8Array(n),
       roadNet:    new Uint16Array(n),
       pollution:  new Uint8Array(n),
+      crime:      new Uint8Array(n),
+      police:     new Uint8Array(n),
       congestion:    new Uint8Array(n),
       accessibility: new Uint8Array(n),
       abandoned:  new Uint8Array(n),

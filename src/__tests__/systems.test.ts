@@ -1272,9 +1272,9 @@ describe('PoliticsSystem', () => {
     w.layers.services[w.grid.idx(0, 0)] = 1; // only tile 0 has services
     const sys = new PoliticsSystem();
     const sat = sys.satisfaction(w);
-    // servicesCoverage=0.5 (w=0.5), powerCoverage=1.0 (w=0.25), waterCoverage=1.0 (w=0.25)
-    // weighted = (0.5*0.5 + 1.0*0.25 + 1.0*0.25) / 1.0 = 0.75
-    expect(sat).toBeCloseTo(0.75, 5);
+    // servicesCoverage=0.5 (w=0.4), powerCoverage=1.0 (w=0.2), waterCoverage=1.0 (w=0.2), crime=0.0 (w=0.2, sat=1.0)
+    // weighted = (0.5*0.4 + 1.0*0.2 + 1.0*0.2 + 1.0*0.2) = 0.2 + 0.2 + 0.2 + 0.2 = 0.8
+    expect(sat).toBeCloseTo(0.8, 5);
   });
 
   it('writes satisfaction to world.stats', () => {

@@ -24,7 +24,7 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
     ctx.fillStyle = '#0d1b2a';
@@ -50,6 +50,7 @@ export class CanvasRenderer {
         const sewaged    = world.layers.sewage[i] !== 0;
         const serviced   = world.layers.services[i] !== 0;
         const pollutionV = world.layers.pollution[i];
+        const crimeV     = world.layers.crime[i];
         const isAbandoned = world.layers.abandoned[i] !== 0;
         const { x: wx, y: wy } = Projection.tileToWorld(tx, ty);
         const { sx, sy } = camera.worldToScreen(wx, wy);
@@ -217,6 +218,27 @@ export class CanvasRenderer {
           ctx.fillStyle = `rgba(160, 80, 0, ${alpha.toFixed(3)})`;
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
+
+        if (crimeOverlay && crimeV > 10) {
+          const alpha = Math.min(0.7, (crimeV / 255) * 0.9);
+          ctx.fillStyle = `rgba(255, 0, 0, ${alpha.toFixed(3)})`;
+          ctx.fillRect(sxi, syi, tsi, tsi);
+        }
+
+        // Crime indicator: small red dots in corner for high-crime developed zones.
+        if (!crimeOverlay && crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
+          const crimeAlpha = Math.min(0.8, (crimeV / 255) * 1.2);
+          ctx.fillStyle = `rgba(255, 0, 0, ${crimeAlpha.toFixed(3)})`;
+          const dotSize = Math.max(2, Math.floor(ts * 0.18));
+          // Draw 1-3 dots based on crime level
+          ctx.fillRect(sxi + 1, syi + 1, dotSize, dotSize);
+          if (crimeV > 120 && ts > 8) {
+            ctx.fillRect(sxi + tsi - dotSize - 1, syi + 1, dotSize, dotSize);
+          }
+          if (crimeV > 200 && ts > 12) {
+            ctx.fillRect(sxi + 1, syi + tsi - dotSize - 1, dotSize, dotSize);
+          }
+        }
       }
     }
 
@@ -243,23 +265,40 @@ export class CanvasRenderer {
       ctx.stroke();
     }
 
-    if (trafficOverlay) {
-      // Traffic legend — bottom-left corner, above toolbar
+    if (trafficOverlay || crimeOverlay) {
+      // Legend — bottom-left corner, above toolbar
       const lx = 12, ly = ch - 70;
       ctx.font = '11px sans-serif';
       ctx.textBaseline = 'middle';
-      const stops: [string, string][] = [
-        ['rgb(0,180,0)',   'Free'],
-        ['rgb(220,200,0)', 'Moderate'],
-        ['rgb(220,0,0)',   'Gridlock'],
-      ];
-      let lxOff = lx;
-      for (const [color, label] of stops) {
-        ctx.fillStyle = color;
-        ctx.fillRect(lxOff, ly, 10, 10);
-        ctx.fillStyle = '#ccc';
-        ctx.fillText(label, lxOff + 14, ly + 5);
-        lxOff += 14 + ctx.measureText(label).width + 14;
+      
+      if (trafficOverlay) {
+        const stops: [string, string][] = [
+          ['rgb(0,180,0)',   'Free'],
+          ['rgb(220,200,0)', 'Moderate'],
+          ['rgb(220,0,0)',   'Gridlock'],
+        ];
+        let lxOff = lx;
+        for (const [color, label] of stops) {
+          ctx.fillStyle = color;
+          ctx.fillRect(lxOff, ly, 10, 10);
+          ctx.fillStyle = '#ccc';
+          ctx.fillText(label, lxOff + 14, ly + 5);
+          lxOff += 14 + ctx.measureText(label).width + 14;
+        }
+      } else if (crimeOverlay) {
+        const stops: [string, string][] = [
+          ['rgba(255,0,0,0.1)', 'Low'],
+          ['rgba(255,0,0,0.4)', 'Moderate'],
+          ['rgba(255,0,0,0.8)', 'High'],
+        ];
+        let lxOff = lx;
+        for (const [color, label] of stops) {
+          ctx.fillStyle = color;
+          ctx.fillRect(lxOff, ly, 10, 10);
+          ctx.fillStyle = '#ccc';
+          ctx.fillText(label, lxOff + 14, ly + 5);
+          lxOff += 14 + ctx.measureText(label).width + 14;
+        }
       }
     }
 

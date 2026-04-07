@@ -75,6 +75,26 @@ const waterCoverageFactor: SatisfactionFactor = {
   },
 };
 
+/** Inverse of average crime across all developed zones. */
+const crimeFactor: SatisfactionFactor = {
+  name: 'crime',
+  compute(world) {
+    const { zone, devLevel, crime } = world.layers;
+    const n = world.grid.width * world.grid.height;
+    let total = 0, sum = 0;
+    for (let i = 0; i < n; i++) {
+      if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
+        total++;
+        sum += crime[i];
+      }
+    }
+    if (total === 0) return 1;
+    const avg = sum / total;
+    // Map 0-255 crime to 1-0 satisfaction.
+    return Math.max(0, 1 - (avg / 255));
+  },
+};
+
 // ── PoliticsSystem ────────────────────────────────────────────────────────────
 
 export class PoliticsSystem {
@@ -92,6 +112,7 @@ export class PoliticsSystem {
       servicesCoverageFactor,
       powerCoverageFactor,
       waterCoverageFactor,
+      crimeFactor,
     ];
   }
 

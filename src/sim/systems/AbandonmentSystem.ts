@@ -17,7 +17,7 @@ export class AbandonmentSystem {
 
     const { width, height } = world.grid;
     const n = width * height;
-    const { zone, devLevel, power, water, abandoned, distress } = world.layers;
+    const { zone, devLevel, power, water, abandoned, distress, crime } = world.layers;
 
     for (let i = 0; i < n; i++) {
       // Skip already-abandoned tiles — abandonment is permanent until bulldozed.
@@ -30,22 +30,34 @@ export class AbandonmentSystem {
         continue;
       }
 
-      // Basic condition check — placeholder. Future systems (crime, fire) can
-      // increment distress[i] directly before this system runs.
-      const conditionsMet = power[i] !== 0 && water[i] !== 0;
+      // Basic condition check.
+      const resourcesMet = power[i] !== 0 && water[i] !== 0;
+      const crimeSevere = crime[i] >= BALANCE.crime.abandonThreshold;
+      const crimeElevated = crime[i] > BALANCE.crime.growthThreshold;
+      
+      const conditionsMet = resourcesMet && !crimeSevere;
 
       if (!conditionsMet) {
-        if (distress[i] < 255) distress[i]++;
-        if (distress[i] >= BALANCE.abandonment.abandonThreshold) {
-          abandoned[i] = 1;
-          const x = i % width;
-          const y = (i - x) / width;
-          world.grid.markDirty(x, y);
-          world.events.emit('tileAbandoned', { tx: x, ty: y, zone: zone[i], level: devLevel[i] });
+        // Severe crime or missing resources adds 1-2 distress.
+        const distressAdd = crimeSevere ? 2 : 1;
+        distress[i] = Math.min(255, distress[i] + distressAdd);
+      } else if (crimeElevated) {
+        // Elevated crime (above growth threshold but below abandonment) 
+        // adds distress slowly (only every 2nd system tick on avg).
+        if (world.tick % (BALANCE.abandonment.distressInterval * 2) === 0) {
+          distress[i] = Math.min(255, distress[i] + 1);
         }
       } else {
         // Conditions good — drain distress (building recovers before abandoning).
         if (distress[i] > 0) distress[i]--;
+      }
+
+      if (distress[i] >= BALANCE.abandonment.abandonThreshold) {
+        abandoned[i] = 1;
+        const x = i % width;
+        const y = (i - x) / width;
+        world.grid.markDirty(x, y);
+        world.events.emit('tileAbandoned', { tx: x, ty: y, zone: zone[i], level: devLevel[i] });
       }
     }
   }
