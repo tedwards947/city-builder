@@ -202,18 +202,8 @@ export class CanvasRenderer {
         }
 
         if (building === BUILDING_PARK) {
-          ctx.fillStyle = '#0a1a0a';
-          ctx.fillRect(sxi, syi, tsi, tsi);
-          ctx.fillStyle = p.park;
-          ctx.fillRect(sxi, syi, tsi, tsi);
-          if (ts > 6) {
-            ctx.fillStyle = p.parkTree;
-            const tr = Math.max(2, Math.floor(ts * 0.22));
-            const cx4 = sxi + Math.floor(tsi * 0.35);
-            const cy4 = syi + Math.floor(tsi * 0.4);
-            ctx.beginPath(); ctx.arc(cx4, cy4, tr, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(sxi + Math.floor(tsi * 0.68), cy4, tr, 0, Math.PI * 2); ctx.fill();
-          }
+          const variant = (tx + ty * 37) % 5;
+          this._drawPark(ctx, sxi, syi, tsi, ts, p, variant);
         }
 
         if (!isAbandoned && !serviced && dev >= 2 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
@@ -621,6 +611,79 @@ export class CanvasRenderer {
         for (let col = 0; col < 3; col++) {
            ctx.fillRect(bx + bw * (0.15 + col * 0.25), by + bh * (0.3 + row * 0.15), winSize, winSize * 0.8);
         }
+      }
+    }
+  }
+
+  private _drawPark(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette, variant: number): void {
+    // Base grass/ground
+    ctx.fillStyle = variant === 1 ? '#4a4a4a' : p.park; // Plaza has stone ground
+    ctx.fillRect(sxi, syi, tsi, tsi);
+
+    if (ts < 6) return;
+
+    if (variant === 0) {
+      // Style 0: Classic Park (Trees + Path)
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(sxi + tsi * 0.4, syi, tsi * 0.2, tsi); // North-south path
+      
+      ctx.fillStyle = p.parkTree;
+      const tr = Math.max(2, Math.floor(ts * 0.22));
+      ctx.beginPath(); ctx.arc(sxi + tsi * 0.25, syi + tsi * 0.3, tr, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sxi + tsi * 0.75, syi + tsi * 0.7, tr, 0, Math.PI * 2); ctx.fill();
+      
+      if (ts > 12) {
+        ctx.fillStyle = '#5a3a2a'; // Tiny bench
+        ctx.fillRect(sxi + tsi * 0.45, syi + tsi * 0.5, tsi * 0.1, 2);
+      }
+    } else if (variant === 1) {
+      // Style 1: Urban Plaza (Stone + Fountain/Statue)
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sxi + 2, syi + 2, tsi - 4, tsi - 4); // Grid pattern
+      
+      const cx = sxi + tsi / 2, cy = syi + tsi / 2;
+      ctx.fillStyle = '#8aa'; // Central feature base
+      ctx.fillRect(cx - 2, cy - 2, 4, 4);
+      
+      if (ts > 10) {
+        ctx.fillStyle = '#aaf'; // Water/Fountain
+        ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (variant === 2) {
+      // Style 2: Flower Garden (Hedges + Flowers)
+      ctx.fillStyle = '#0a3a0a'; // Dark green hedge
+      ctx.fillRect(sxi + 2, syi + 2, tsi - 4, 2);
+      ctx.fillRect(sxi + 2, syi + tsi - 4, tsi - 4, 2);
+      
+      const flowers = ['#f66', '#f6f', '#ff6'];
+      const fSize = Math.max(1, ts * 0.08);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = flowers[i % flowers.length];
+        ctx.fillRect(sxi + tsi * (0.2 + i * 0.3), syi + tsi * 0.5, fSize, fSize);
+      }
+    } else if (variant === 3) {
+      // Style 3: Playground (Sandpit + Equipment)
+      ctx.fillStyle = '#d2b48c'; // Tan sand
+      const pad = tsi * 0.2;
+      ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
+      
+      if (ts > 8) {
+        ctx.fillStyle = '#e55'; // Red slide/equipment
+        ctx.fillRect(sxi + tsi * 0.3, syi + tsi * 0.3, tsi * 0.1, tsi * 0.3);
+        ctx.fillStyle = '#55e'; // Blue swing/equipment
+        ctx.fillRect(sxi + tsi * 0.6, syi + tsi * 0.4, 2, tsi * 0.2);
+      }
+    } else {
+      // Style 4: Wooded Grove (Dense Trees)
+      ctx.fillStyle = '#3d2b1f'; // Dirt patch
+      ctx.beginPath(); ctx.arc(sxi + tsi / 2, syi + tsi / 2, tsi * 0.3, 0, Math.PI * 2); ctx.fill();
+      
+      ctx.fillStyle = p.parkTree;
+      const tr = Math.max(2, Math.floor(ts * 0.18));
+      const pos = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]];
+      for (const [px, py] of pos) {
+        ctx.beginPath(); ctx.arc(sxi + tsi * px, syi + tsi * py, tr, 0, Math.PI * 2); ctx.fill();
       }
     }
   }
