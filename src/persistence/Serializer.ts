@@ -1,0 +1,74 @@
+// Converts a live World to a point-in-time WorldSnapshot and back.
+// All typed arrays are copied (not referenced) so the snapshot is immutable.
+
+import { World } from '../sim/World';
+import type { WorldSnapshot } from './SaveFormat';
+
+export function serialize(world: World): WorldSnapshot {
+  const l = world.layers;
+  return {
+    width:  world.grid.width,
+    height: world.grid.height,
+    seed:   world.seed,
+    tick:   world.tick,
+    budget: { ...world.budget },
+    stats:  { ...world.stats },
+    character: { ...world.character },
+    powerPlants: world.powerPlants.map(p => ({ ...p })),
+    waterTowers: world.waterTowers.map(w => ({ ...w })),
+    sewagePlants: world.sewagePlants.map(s => ({ ...s })),
+    serviceBuildings: world.serviceBuildings.map(b => ({ ...b })),
+    layers: {
+      terrain:   new Uint8Array(l.terrain),
+      zone:      new Uint8Array(l.zone),
+      roadClass: new Uint8Array(l.roadClass),
+      building:  new Uint8Array(l.building),
+      devLevel:  new Uint8Array(l.devLevel),
+      power:     new Uint8Array(l.power),
+      water:     new Uint8Array(l.water),
+      sewage:    new Uint8Array(l.sewage),
+      services:  new Uint8Array(l.services),
+      landValue: new Uint8Array(l.landValue),
+      roadNet:   new Uint16Array(l.roadNet),
+      pollution: new Uint8Array(l.pollution),
+    },
+  };
+}
+
+export function deserialize(snapshot: WorldSnapshot): World {
+  // Construct the world with the original seed — terrain is regenerated
+  // deterministically, then overwritten by the snapshot (same bytes).
+  const world = new World(snapshot.width, snapshot.height, snapshot.seed);
+
+  world.tick = snapshot.tick;
+
+  Object.assign(world.budget, snapshot.budget);
+  Object.assign(world.stats,  snapshot.stats);
+  Object.assign(world.character, snapshot.character);
+
+  world.powerPlants = snapshot.powerPlants.map(p => ({ ...p }));
+  world.waterTowers = snapshot.waterTowers.map(w => ({ ...w }));
+  world.sewagePlants = snapshot.sewagePlants.map(s => ({ ...s }));
+  world.serviceBuildings = snapshot.serviceBuildings.map(b => ({ ...b }));
+
+  // Overwrite every layer in-place so array references inside world stay valid.
+  const l = world.layers;
+  l.terrain.set(snapshot.layers.terrain);
+  l.zone.set(snapshot.layers.zone);
+  l.roadClass.set(snapshot.layers.roadClass);
+  l.building.set(snapshot.layers.building);
+  l.devLevel.set(snapshot.layers.devLevel);
+  l.power.set(snapshot.layers.power);
+  l.water.set(snapshot.layers.water);
+  l.sewage.set(snapshot.layers.sewage);
+  l.services.set(snapshot.layers.services);
+  l.landValue.set(snapshot.layers.landValue);
+  l.roadNet.set(snapshot.layers.roadNet);
+  l.pollution.set(snapshot.layers.pollution);
+
+  // Force a full network + render rebuild on next tick.
+  world.roadNetDirty = true;
+  world.grid.markAllDirty();
+
+  return world;
+}

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>City Builder</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #eee; touch-action: none; }
+    #game { position: absolute; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; background: #0d1b2a; }
+
+    /* ── HUD ── */
+    #hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; font-size: 13px; }
+    #stats, #citystats { background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(8px); line-height: 1.5; }
+    #stats .label, #citystats .label { color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    #stats .value, #citystats .value { color: #fff; font-weight: 600; }
+    #citystats { text-align: right; }
+    #citystats .value.money { color: #7dd87d; }
+    #citystats .value.money.negative { color: #e07070; }
+    #demand-chart-wrap { margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; }
+    #demand-chart-label { font-size: 10px; color: #8aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; display: flex; justify-content: flex-end; gap: 8px; }
+    #demand-chart-label .dl-r { color: #6fd86f; } #demand-chart-label .dl-c { color: #8faee0; } #demand-chart-label .dl-i { color: #e0b060; }
+    #demand-chart { display: block; width: 130px; height: 46px; margin-left: auto; }
+
+    /* ── Speed bar ── */
+    #speedbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: none; }
+    .speed { pointer-events: auto; background: rgba(0,0,0,0.7); color: #eee; border: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; backdrop-filter: blur(8px); min-width: 36px; }
+    .speed.active { background: #4a7a9a; border-color: #6ba0c0; }
+
+    /* ── Toolbar ── */
+    #toolbar { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; pointer-events: none; }
+    .tool { pointer-events: auto; background: rgba(0,0,0,0.7); color: #eee; border: 1px solid rgba(255,255,255,0.15); padding: 10px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; backdrop-filter: blur(8px); transition: all 0.15s; min-width: 60px; }
+    .tool:active { transform: scale(0.95); }
+    .tool.active { background: #4a7a9a; border-color: #6ba0c0; color: #fff; }
+    .tool-sep { pointer-events: none; width: 1px; background: rgba(255,255,255,0.15); margin: 6px 2px; }
+    .tool.action { background: rgba(20,30,20,0.8); border-color: rgba(100,180,100,0.3); }
+    .tool.action:hover { background: rgba(40,60,40,0.9); border-color: rgba(100,180,100,0.6); }
+
+    /* ── Hint ── */
+    #hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.4); font-size: 12px; pointer-events: none; text-align: center; }
+    #hint.hidden { display: none; }
+
+    /* ── Modals ── */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal.hidden { display: none; }
+    .modal-box { background: #14202e; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 28px; min-width: 320px; max-width: 460px; width: 90%; }
+    .modal-box h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #cde; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8aa; margin-bottom: 8px; }
+    .opts { display: flex; gap: 6px; }
+    .opt { flex: 1; background: rgba(255,255,255,0.07); color: #ccc; border: 1px solid rgba(255,255,255,0.12); padding: 8px 6px; border-radius: 5px; font-size: 13px; cursor: pointer; text-align: center; }
+    .opt.active { background: #2a5070; border-color: #4a90c0; color: #fff; }
+    .field input[type=number], .field input[type=text] { width: 100%; background: rgba(255,255,255,0.07); color: #eee; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; padding: 8px 10px; font-size: 13px; outline: none; }
+    .field input::placeholder { color: #666; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+    .btn { background: rgba(255,255,255,0.08); color: #ccc; border: 1px solid rgba(255,255,255,0.15); padding: 9px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .btn.primary { background: #2a6a4a; border-color: #4a9a6a; color: #fff; font-weight: 600; }
+    .btn.primary:hover { background: #357a58; }
+
+    /* ── Economics panel ── */
+    #econ-panel { position: absolute; top: 10px; right: 10px; margin-top: 200px; background: rgba(0,0,0,0.80); padding: 14px 16px; border-radius: 8px; backdrop-filter: blur(8px); font-size: 12px; color: #eee; border: 1px solid rgba(255,255,255,0.15); min-width: 210px; pointer-events: auto; }
+    #econ-panel.hidden { display: none; }
+    .ep-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8aa; margin-bottom: 10px; }
+    .ep-section { margin-bottom: 10px; }
+    .ep-label { color: #8aa; font-size: 11px; }
+    .ep-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+    .ep-zone { width: 16px; font-weight: 600; }
+    .ep-zone.r { color: #6fd86f; } .ep-zone.c { color: #8faee0; } .ep-zone.i { color: #e0b060; }
+    .ep-rate { width: 32px; text-align: center; font-weight: 600; color: #fff; }
+    .ep-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ccc; width: 22px; height: 22px; border-radius: 4px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .ep-btn:hover { background: rgba(255,255,255,0.2); }
+    .ep-dem { font-size: 12px; }
+    .ep-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0; }
+
+    /* ── Tile info panel ── */
+    #tile-info { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); max-width: 240px; background: rgba(0,0,0,0.75); padding: 12px 14px; border-radius: 8px; backdrop-filter: blur(8px); font-size: 12px; pointer-events: none; line-height: 1.7; border: 1px solid rgba(255,255,255,0.12); }
+    #tile-info.hidden { display: none; }
+    .ti-coord { font-size: 10px; color: #778; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .ti-type { font-size: 14px; font-weight: 600; color: #dde; margin-bottom: 6px; }
+    .ti-dots { font-size: 12px; color: #aac; letter-spacing: 2px; }
+    .ti-detail { color: #99a; font-size: 11px; }
+    .ti-poll { color: #c96; }
+    .ti-note { color: #778; font-style: italic; }
+    .ti-growth-header { color: #9ab; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; margin-bottom: 4px; }
+    .ti-req { font-size: 12px; color: #ccc; padding: 1px 0; }
+    .ti-yes { color: #5c5; font-weight: bold; }
+    .ti-no  { color: #e55; font-weight: bold; }
+    .ti-growth-ok { margin-top: 6px; color: #5c5; font-size: 11px; }
+
+    /* ── Save/load slots ── */
+    #sl-slots { display: flex; flex-direction: column; gap: 6px; }
+    .sl-slot { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px 12px; cursor: pointer; transition: background 0.1s; }
+    .sl-slot:hover { background: rgba(255,255,255,0.1); }
+    .sl-slot.sl-empty { opacity: 0.45; cursor: default; }
+    .sl-slot.sl-empty:hover { background: rgba(255,255,255,0.05); }
+    .sl-slot-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .sl-name { font-size: 14px; font-weight: 600; color: #ddf; }
+    .sl-empty-label { font-size: 13px; color: #777; }
+    .sl-detail { font-size: 11px; color: #7a9; }
+    .sl-map { color: #7aa; }
+    .sl-delete { background: none; border: none; color: #a55; font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 4px; flex-shrink: 0; }
+    .sl-delete:hover { background: rgba(200,80,80,0.2); color: #e77; }
+  </style>
+</head>
+<body>
+<div id="game">
+  <canvas id="canvas"></canvas>
+  <div id="tile-info" class="hidden"></div>
+
+  <div id="econ-panel" class="hidden">
+    <div class="ep-title">Economics</div>
+    <div class="ep-section">
+      <div class="ep-label">Tax rates (per dev level)</div>
+      <div class="ep-row"><span class="ep-zone r">R</span><button class="ep-btn" id="econ-r-down">−</button><span class="ep-rate" id="econ-rate-r">0.8</span><button class="ep-btn" id="econ-r-up">+</button></div>
+      <div class="ep-row"><span class="ep-zone c">C</span><button class="ep-btn" id="econ-c-down">−</button><span class="ep-rate" id="econ-rate-c">1.2</span><button class="ep-btn" id="econ-c-up">+</button></div>
+      <div class="ep-row"><span class="ep-zone i">I</span><button class="ep-btn" id="econ-i-down">−</button><span class="ep-rate" id="econ-rate-i">1.5</span><button class="ep-btn" id="econ-i-up">+</button></div>
+    </div>
+    <hr class="ep-divider">
+    <div class="ep-section">
+      <div class="ep-label">Zone demand</div>
+      <div class="ep-row"><span class="ep-zone r">R</span><span class="ep-dem" id="econ-dem-r">1.00×</span></div>
+      <div class="ep-row"><span class="ep-zone c">C</span><span class="ep-dem" id="econ-dem-c">1.00×</span></div>
+      <div class="ep-row"><span class="ep-zone i">I</span><span class="ep-dem" id="econ-dem-i">1.00×</span></div>
+    </div>
+    <hr class="ep-divider">
+    <div class="ep-row ep-label">Avg land value: <span id="econ-lv" style="color:#fff;margin-left:4px">80</span></div>
+  </div>
+
+  <div id="hud">
+    <div id="stats">
+      <div><span class="label">Tile</span> <span class="value" id="stat-tile">-</span></div>
+      <div><span class="label">Camera</span> <span class="value" id="stat-cam">-</span></div>
+      <div><span class="label">Zoom</span> <span class="value" id="stat-zoom">-</span></div>
+    </div>
+    <div id="citystats">
+      <div><span class="label">Money</span> <span class="value money" id="stat-money">$0</span></div>
+      <div><span class="label">Population</span> <span class="value" id="stat-pop">0</span></div>
+      <div><span class="label">Power</span> <span class="value" id="stat-power">0 / 0</span></div>
+      <div><span class="label">Water</span> <span class="value" id="stat-water">0 / 0</span></div>
+      <div><span class="label">Sewage</span> <span class="value" id="stat-sewage">0 / 0</span></div>
+      <div><span class="label">Services</span> <span class="value" id="stat-services">0</span></div>
+      <div><span class="label">Date</span> <span class="value" id="stat-date">—</span></div>
+      <div id="demand-chart-wrap">
+        <div id="demand-chart-label">
+          <span class="dl-r">R</span><span class="dl-c">C</span><span class="dl-i">I</span>
+          <span style="color:#8aa">demand</span>
+        </div>
+        <canvas id="demand-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="speedbar">
+    <button class="speed" data-speed="0">❚❚</button>
+    <button class="speed active" data-speed="1">1×</button>
+    <button class="speed" data-speed="2">2×</button>
+    <button class="speed" data-speed="3">3×</button>
+  </div>
+
+  <div id="hint">Drag to pan · Pinch or scroll to zoom · Tap a tool then tap the map</div>
+
+  <div id="toolbar">
+    <button class="tool action" id="btn-new">New</button>
+    <button class="tool action" id="btn-save">Save</button>
+    <button class="tool action" id="btn-load">Load</button>
+    <button class="tool action" id="btn-econ">Econ</button>
+    <div class="tool-sep"></div>
+    <button class="tool active" data-tool="none">View</button>
+    <button class="tool" data-tool="inspect">Inspect</button>
+    <button class="tool" data-tool="road">Road</button>
+    <button class="tool" data-tool="zoneR">Res</button>
+    <button class="tool" data-tool="zoneC">Com</button>
+    <button class="tool" data-tool="zoneI">Ind</button>
+    <button class="tool" data-tool="power">Plant</button>
+    <button class="tool" data-tool="water">Water</button>
+    <button class="tool" data-tool="sewage">Sewage</button>
+    <div class="tool-sep"></div>
+    <button class="tool" data-tool="police">Police</button>
+    <button class="tool" data-tool="fire">Fire</button>
+    <button class="tool" data-tool="school">School</button>
+    <button class="tool" data-tool="hospital">Hospital</button>
+    <button class="tool" data-tool="park">Park</button>
+    <div class="tool-sep"></div>
+    <button class="tool" data-tool="bulldoze">Clear</button>
+    <button class="tool" data-tool="undo">Undo</button>
+  </div>
+</div>
+
+<!-- ── New Game Dialog ── -->
+<div id="new-game-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2>New Game</h2>
+    <div class="field">
+      <label>Map Size</label>
+      <div class="opts">
+        <button class="opt" data-size="small">Small<br><span style="font-size:10px;opacity:.6">128×128</span></button>
+        <button class="opt active" data-size="medium">Medium<br><span style="font-size:10px;opacity:.6">256×256</span></button>
+        <button class="opt" data-size="large">Large<br><span style="font-size:10px;opacity:.6">512×512</span></button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Water</label>
+      <div class="opts">
+        <button class="opt" data-water="low">Low</button>
+        <button class="opt active" data-water="medium">Medium</button>
+        <button class="opt" data-water="high">High</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Seed (leave blank for random)</label>
+      <input id="ng-seed" type="number" placeholder="random" min="0" max="4294967295">
+    </div>
+    <div class="modal-actions">
+      <button id="ng-cancel" class="btn">Cancel</button>
+      <button id="ng-start" class="btn primary">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Save / Load Panel ── -->
+<div id="save-load-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="sl-title">Save Game</h2>
+    <div id="sl-slots"></div>
+    <div class="modal-actions">
+      <button id="sl-cancel" class="btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
