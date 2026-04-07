@@ -82,7 +82,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [x] Road upgrade UI (mutate edges, don't demolish)
 - [ ] Bus routes, subways as additional graphs, modal split
 - [x] Visual agent layer (eye candy only, hard vehicle budget cap)
-- [ ] Road pathing improvements -- residents need to travel to commercial zones to shop and to industrial zones to work. industry needs to ship things to commerce. don't use agents, but let's find a simple-ish way to model this so that traffic flow becomes something serious to consider
+- [x] Road pathing improvements — normalized BFS spreading through road network; cross-zone gravity flow (R×C/I product); accessibility layer per zone; parallel roads split load; growth penalized by accessibility
 
 ### Phase 7: Identity — Political Capital & City Character
 - [x] PoliticsSystem — per-tick regen from satisfaction (servicesCoverage/powerCoverage/waterCoverage, weighted, extensible via SatisfactionFactor interface); satisfaction exposed on world.stats

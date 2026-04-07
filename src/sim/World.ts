@@ -29,7 +29,8 @@ export interface Layers {
   landValue:  Uint8Array; // 0–255 desirability/value (affects tax, updated each interval)
   roadNet:    Uint16Array; // connected-component ID for road network
   pollution:  Uint8Array; // 0–255 pollution level
-  congestion: Uint8Array; // 0–255 road traffic congestion (computed by TransitSystem)
+  congestion:   Uint8Array; // 0–255 road traffic congestion (computed by TransitSystem)
+  accessibility: Uint8Array; // 0–255 reachable complementary zone capacity via roads (TransitSystem)
   abandoned:  Uint8Array; // 0=normal, 1=abandoned (zone devLevel preserved but no income)
   distress:   Uint8Array; // 0–255 distress counter (accumulates when conditions unmet)
 }
@@ -139,7 +140,8 @@ export class World {
       landValue:  new Uint8Array(n),
       roadNet:    new Uint16Array(n),
       pollution:  new Uint8Array(n),
-      congestion: new Uint8Array(n),
+      congestion:    new Uint8Array(n),
+      accessibility: new Uint8Array(n),
       abandoned:  new Uint8Array(n),
       distress:   new Uint8Array(n),
     };
