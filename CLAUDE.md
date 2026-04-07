@@ -100,7 +100,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [x] implement crime. Police service proximity has a direct impact on crime (Police radius=12). Too much crime actively hurts political capital satisfaction. Zones have knowledge of police and crime. High crime (above threshold 180) causes buildings to abandon. Visual state for crime (red dots in corners). Crime also blocks R/C growth above threshold 100.
 - [ ] crime should impact political capital regen... toooo much and it can actually decrease political capital.
 - [x] implement fire... fire risk, etc. fire stations actively impact it. opine and ask for clarification. buildings burn and if not put out quickly enough they become abandoned. even service or infrastructure buildings can be hurt by fire. we need a visual state for zones and buildings on fire. fire should be able to spread; proportional to fire risk of adjacent buildings
-- [ ] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities.
+- [x] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities. low educational service availability should prevent growth to top-tier
 - [ ] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
 - [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
 - [ ] Balance tuning from playtesting
@@ -198,6 +198,8 @@ index.html
 | police | Uint8Array | 0/1 — police coverage this tick |
 | abandoned | Uint8Array | 0=normal, 1=abandoned (no income, no growth, distinct visual) |
 | distress | Uint8Array | 0–255 distress accumulator (increments when conditions unmet) |
+| school | Uint8Array | 0/1 — school coverage this tick |
+| education | Uint8Array | 0–255 persistent education level (only R zones) |
 
 ### Entity Lists on World
 - `world.powerPlants: PowerPlant[]` — `{ tx, ty }`
@@ -212,19 +214,26 @@ index.html
 ### Zone Growth Requirements (layered)
 - **Level 0→1**: power coverage + water coverage
 - **Level 1→2**: power coverage + water coverage (+ surplus)
-- **Level 2→3**: power + water + sewage coverage + services coverage (+ all surpluses)
+- **Level 2→3**: power + water + sewage coverage + services coverage (+ all surpluses) + education level (R zones only)
 - **R/C blocked at any level** if `pollution[i] > BALANCE.pollution.growthThreshold` (I zones immune)
 
 ### System Execution Order (per tick)
 1. NetworkSystem — road connected components
 2. PowerSystem — power layer + powerSupply/powerDemand
-3. WaterSystem — water layer + waterSupply/waterDemand
+3. WaterSystem — water layer + waterSupply/powerDemand
 4. SewageSystem — sewage layer + sewageSupply/sewageDemand
 5. ServiceSystem — services coverage layer (direct radius, no road network)
-6. LandValueSystem — land value per tile + demand multipliers (runs every tickInterval)
-7. PollutionSystem — pollution diffusion (conserving Laplacian + decay)
-8. ZoneGrowthSystem — reads all of the above; growth probability × demand multiplier
-9. EconomySystem — taxes × landValue multiplier × taxRates, maintenance, population
+6. EducationSystem — persistent education levels for R zones
+7. LandValueSystem — land value per tile + demand multipliers (runs every tickInterval)
+8. PollutionSystem — pollution diffusion (conserving Laplacian + decay)
+9. CrimeSystem — crime levels per tile (affected by education)
+10. FireSystem — fire risk, ignition, and spreading
+11. TransitSystem — flow simulation and accessibility
+12. AbandonmentSystem — handles building abandonment
+13. ZoneGrowthSystem — reads all of the above; growth probability × demand multiplier
+14. EconomySystem — taxes × landValue multiplier × education multiplier × taxRates, maintenance, population
+15. CityCharacterSystem — ambient city profile shifts
+16. PoliticsSystem — per-tick PC regen from satisfaction
 
 ### Toolbar Tools & Key Bindings
 | Key | Tool | Command |

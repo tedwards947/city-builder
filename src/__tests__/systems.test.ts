@@ -591,6 +591,7 @@ describe('ZoneGrowthSystem sewage requirement', () => {
     w.stats.waterSupply = 9999; w.stats.waterDemand = 0;
     w.layers.power[w.grid.idx(0, 0)] = 1;
     w.layers.water[w.grid.idx(0, 0)] = 1;
+    w.layers.education[w.grid.idx(0, 0)] = 150;
     return w;
   }
 
@@ -882,6 +883,7 @@ describe('ZoneGrowthSystem services requirement', () => {
     w.layers.power[w.grid.idx(0, 0)] = 1;
     w.layers.water[w.grid.idx(0, 0)] = 1;
     w.layers.sewage[w.grid.idx(0, 0)] = 1;
+    w.layers.education[w.grid.idx(0, 0)] = 150; // Add education for level 3 growth
     return w;
   }
 
@@ -901,6 +903,16 @@ describe('ZoneGrowthSystem services requirement', () => {
     w.tick = 0;
     new ZoneGrowthSystem().update(w);
     expect(w.layers.devLevel[w.grid.idx(0, 0)]).toBe(3);
+  });
+
+  it('zone at level 2 cannot grow to level 3 without education', () => {
+    const w = makeServiceWorld();
+    w.layers.services[w.grid.idx(0, 0)] = 1; // covered
+    w.layers.education[w.grid.idx(0, 0)] = 0; // no education
+    w.rng = () => 0;
+    w.tick = 0;
+    new ZoneGrowthSystem().update(w);
+    expect(w.layers.devLevel[w.grid.idx(0, 0)]).toBe(2);
   });
 
   it('zone at level 1 can grow to level 2 without services (services only required for 2->3)', () => {

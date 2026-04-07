@@ -102,7 +102,7 @@ describe('FireSystem', () => {
     let rngCalls = 0;
     w.rng = () => {
       rngCalls++;
-      if (rngCalls === 1) return 0.05; // spread check < spreadProbability (0.1)
+      if (rngCalls === 1) return 0.02; // spread check < spreadProbability (0.04)
       if (rngCalls === 2) return 0.8;  // neighbor index 3: [tx, ty+1] = [5, 6]
       return 0.5;
     };
