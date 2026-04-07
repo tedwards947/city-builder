@@ -38,6 +38,8 @@ export interface Layers {
   fireRisk:   Uint8Array; // 0–255 fire risk level
   fire:       Uint8Array; // 0–255 fire intensity/duration remaining
   fireStation: Uint8Array; // 0=no fire coverage, 1=covered this tick
+  school:     Uint8Array; // 0=no school coverage, 1=covered this tick
+  education:  Uint8Array; // 0–255 persistent education level (only R zones)
 }
 
 export interface Budget {
@@ -154,6 +156,8 @@ export class World {
       fireRisk:   new Uint8Array(n),
       fire:       new Uint8Array(n),
       fireStation: new Uint8Array(n),
+      school:     new Uint8Array(n),
+      education:  new Uint8Array(n),
     };
     this.budget = {
       money: BALANCE.startingMoney,

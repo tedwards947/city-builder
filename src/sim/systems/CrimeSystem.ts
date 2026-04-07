@@ -46,6 +46,14 @@ export class CrimeSystem {
         targetCrime *= b.policeEffectiveness;
       }
 
+      // Education reduction for R zones.
+      if (z === ZONE_R) {
+        const edu = world.layers.education[i];
+        // 0 education = 1.0 mult, 255 education = BALANCE.education.crimeReduction
+        const eduMult = 1.0 - (edu / 255) * (1.0 - BALANCE.education.crimeReduction);
+        targetCrime *= eduMult;
+      }
+
       // Clamp target.
       targetCrime = Math.min(255, Math.max(0, targetCrime));
 

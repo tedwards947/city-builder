@@ -13,6 +13,7 @@ import { PollutionSystem } from './sim/systems/PollutionSystem';
 import { CrimeSystem } from './sim/systems/CrimeSystem';
 import { TransitSystem } from './sim/systems/TransitSystem';
 import { FireSystem } from './sim/systems/FireSystem';
+import { EducationSystem } from './sim/systems/EducationSystem';
 import { ZoneGrowthSystem } from './sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from './sim/systems/EconomySystem';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
@@ -81,6 +82,7 @@ const systems = [
   new FireSystem(),
   new TransitSystem(),
   new AbandonmentSystem(),
+  new EducationSystem(),
   new ZoneGrowthSystem(),
   new EconomySystem(),
   characterSystem,  // event-driven nudges + decay; no layer dependencies

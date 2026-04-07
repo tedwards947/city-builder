@@ -81,6 +81,20 @@ export const BALANCE = {
     // Fire risk (0-255) above which abandonment might trigger.
     abandonThreshold: 150,
   },
+  education: {
+    // Education gain per tick if school[i] === 1.
+    baseRate: 2.0,
+    // Education decay per tick if school[i] === 0.
+    decayRate: 1.0,
+    // Tax bonus multiplier for fully educated zones (education=255).
+    // scales linearly from 1.0 (education=0) to 1.5 (education=255).
+    taxMultiplier: 1.5,
+    // Crime reduction multiplier for fully educated zones.
+    // scales linearly from 1.0 (no effect) to 0.4 (60% reduction).
+    crimeReduction: 0.4,
+    // Education level (0-255) above which R zones can grow to level 3.
+    growthThreshold: 100,
+  },
   landValue: {
     base: 80,             // starting value before modifiers (0–255 scale)
     serviceBonus: 35,     // if services[i] === 1

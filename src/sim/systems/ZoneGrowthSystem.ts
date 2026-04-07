@@ -15,6 +15,7 @@ export class ZoneGrowthSystem {
     const water = world.layers.water;
     const sewage = world.layers.sewage;
     const services = world.layers.services;
+    const education = world.layers.education;
     const pollution = world.layers.pollution;
     const crime = world.layers.crime;
     const roadClass = world.layers.roadClass;
@@ -40,6 +41,7 @@ export class ZoneGrowthSystem {
       if (dev[i] >= 2 && sewage[i] === 0) continue;    // no sewage: cap at level 2
       if (!hasSewageSurplus && dev[i] >= 2) continue;   // sewage overload: cap at level 2
       if (dev[i] >= 2 && services[i] === 0) continue;   // no service coverage: cap at level 2
+      if (zone[i] === ZONE_R && dev[i] >= 2 && education[i] < BALANCE.education.growthThreshold) continue; // education too low
       // R and C zones don't grow in heavily polluted or high-crime areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
       if (zone[i] !== ZONE_I && crime[i] > BALANCE.crime.growthThreshold) continue;

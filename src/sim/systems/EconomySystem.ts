@@ -26,7 +26,13 @@ export class EconomySystem {
                        : taxRates.I;
         // Land value multiplies income: lv 128 = neutral, 0 = half, 255 = ~2×
         const lvMult = lv[i] / 128;
-        income += dev[i] * baseRate * lvMult;
+        // Education multiplies income for R zones: 0 = 1x, 255 = taxMultiplier
+        let eduMult = 1.0;
+        if (zone[i] === ZONE_R) {
+          const edu = world.layers.education[i];
+          eduMult = 1.0 + (edu / 255) * (BALANCE.education.taxMultiplier - 1.0);
+        }
+        income += dev[i] * baseRate * lvMult * eduMult;
       }
       if (roadClass[i] !== ROAD_NONE) roadCount++;
     }

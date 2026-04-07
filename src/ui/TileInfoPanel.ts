@@ -78,6 +78,7 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
   const water    = world.layers.water[i] !== 0;
   const sewage   = world.layers.sewage[i] !== 0;
   const services = world.layers.services[i] !== 0;
+  const education = world.layers.education[i];
   const pollution = world.layers.pollution[i];
   const crime     = world.layers.crime[i];
   const road      = hasRoadAccess(world, tx, ty);
@@ -100,6 +101,12 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
     reqs.push({ label: 'Sewage coverage', met: sewage });
     reqs.push({ label: 'Sewage surplus city-wide', met: hasSewageSurplus });
     reqs.push({ label: 'Services coverage', met: services });
+    if (zone === ZONE_R) {
+      reqs.push({
+        label: `Education level (${education} / ${BALANCE.education.growthThreshold})`,
+        met: education >= BALANCE.education.growthThreshold,
+      });
+    }
   }
   if (zone !== ZONE_I) {
     reqs.push({
@@ -241,6 +248,12 @@ export class TileInfoPanel {
       if (crime > 0) {
         const cLabel = crime < 40 ? 'low' : crime < 100 ? 'medium' : 'high';
         html += `<div class="ti-detail" style="color:#e55">Crime: ${crime} (${cLabel})</div>`;
+      }
+
+      if (zone === ZONE_R) {
+        const edu = world.layers.education[i];
+        const eduLabel = edu < 50 ? 'uneducated' : edu < 120 ? 'basic' : edu < 200 ? 'educated' : 'highly educated';
+        html += `<div class="ti-detail" style="color:#5cf">Education: ${edu} (${eduLabel})</div>`;
       }
 
       if (fireRisk > 0) {
