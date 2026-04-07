@@ -20,8 +20,10 @@ import { InputController } from './input/InputController';
 import type { Tool } from './input/InputController';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
+import { MusicManager } from './audio/MusicManager';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
+import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { EconPanel } from './ui/EconPanel';
 import { DemandChart } from './ui/DemandChart';
@@ -310,3 +312,20 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// ── Music ─────────────────────────────────────────────────────────────────────
+
+const musicManager = new MusicManager((name) => musicPanel.onTrackChange(name));
+const musicPanel = new MusicPanel(musicManager);
+
+// Auto-play on first interaction
+const startMusic = () => {
+  musicManager.start();
+  musicPanel.updateUI();
+  window.removeEventListener('mousedown', startMusic);
+  window.removeEventListener('touchstart', startMusic);
+  window.removeEventListener('keydown', startMusic);
+};
+window.addEventListener('mousedown', startMusic);
+window.addEventListener('touchstart', startMusic);
+window.addEventListener('keydown', startMusic);

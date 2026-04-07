@@ -113,8 +113,17 @@
     .sl-detail { font-size: 11px; color: #7a9; }
     .sl-map { color: #7aa; }
     .sl-delete { background: none; border: none; color: #a55; font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 4px; flex-shrink: 0; }
-    .sl-delete:hover { background: rgba(200,80,80,0.2); color: #e77; }
-  </style>
+    #sl-delete:hover { background: rgba(200,80,80,0.2); color: #e77; }
+
+    /* ── Music panel ── */
+    #music-panel { position: absolute; top: 10px; left: 160px; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(8px); pointer-events: auto; font-size: 11px; color: #eee; border: 1px solid rgba(255,255,255,0.12); }
+    .mp-track-info { display: flex; flex-direction: column; min-width: 100px; }
+    .mp-label { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .mp-track-name { font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+    .mp-controls { display: flex; gap: 6px; }
+    .mp-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 28px; height: 28px; border-radius: 4px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .mp-btn:hover { background: rgba(255,255,255,0.2); }
+    </style>
 </head>
 <body>
 <div id="game">
