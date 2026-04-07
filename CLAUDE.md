@@ -104,6 +104,9 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
 - [ ] Balance tuning from playtesting
 
+### Phase 7.6 visual improvements
+- [ ] improve visual sprites for zones... level 1, 2, 3 should have different visual treatments, ideally looking like industrial, commerical, and residential buildings. there should be 10-15 different sprites for each level for each zone type, so that the city looks varied and visually interesting. for close zoom levels, the sprites should be visible. however, after a certain zoom level, it can fall back to the current "box size -> zone level" method it uses today.
+
 ### Phase 8: Server & Cloud Saves
 - [ ] RemoteStore implementation against backend
 - [ ] API: POST/GET/DELETE /saves (save blobs opaque to server)
