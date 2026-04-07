@@ -488,45 +488,105 @@ export class CanvasRenderer {
   }
 
   private _drawResidential(ctx: CanvasRenderingContext2D, dev: number, sxi: number, syi: number, tsi: number, ts: number, color: string, isAbandoned: boolean, variant: number): void {
-    const inset = Math.max(1, Math.floor(ts * (0.35 - dev * 0.08)));
+    const inset = Math.max(1, Math.floor(ts * (0.32 - dev * 0.06)));
     const bx = sxi + inset, by = syi + inset;
     const bw = tsi - inset * 2, bh = tsi - inset * 2;
 
+    // Main house body
     ctx.fillStyle = color;
     ctx.fillRect(bx, by, bw, bh);
 
     if (ts < 8) return;
 
-    // Draw a roof
-    ctx.fillStyle = isAbandoned ? '#1a1a1a' : (variant % 2 === 0 ? '#5a3a2a' : '#3a4a5a');
+    // Roof Logic - More varied styles and colors
+    const roofColors = isAbandoned ? ['#1a1a1a'] : ['#5a3a2a', '#3a4a5a', '#7a4a3a', '#4a5a4a'];
+    ctx.fillStyle = roofColors[variant % roofColors.length];
+
     if (dev === 1) {
-      // Pitched roof (triangle-ish)
-      ctx.beginPath();
-      ctx.moveTo(bx, by + bh * 0.4);
-      ctx.lineTo(bx + bw / 2, by);
-      ctx.lineTo(bx + bw, by + bh * 0.4);
-      ctx.fill();
+      // Level 1: Quaint cottages / Small houses
+      // Draw a front-facing gable or a hip roof
+      if (variant % 2 === 0) {
+        ctx.beginPath();
+        ctx.moveTo(bx - 1, by + bh * 0.5);
+        ctx.lineTo(bx + bw / 2, by - 1);
+        ctx.lineTo(bx + bw + 1, by + bh * 0.5);
+        ctx.fill();
+      } else {
+        ctx.fillRect(bx - 1, by - 1, bw + 2, bh * 0.4);
+      }
+      
+      // Small chimney for houses
+      if (!isAbandoned && variant % 3 === 0) {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(bx + bw * 0.7, by - 2, 2, 4);
+      }
     } else if (dev === 2) {
-      // Flat roof with rim
-      ctx.fillRect(bx, by, bw, bh * 0.2);
+      // Level 2: Duplexes / Townhouses
+      // Split the building visually into two halves or add an extension
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(bx + bw * 0.45, by, bw * 0.1, bh); // Vertical split line
+      
+      ctx.fillStyle = roofColors[(variant + 1) % roofColors.length];
+      ctx.fillRect(bx - 1, by - 1, bw + 2, bh * 0.25); // Flat roof with trim
+      
+      // Small balcony/porch detail
+      if (!isAbandoned) {
+        ctx.fillStyle = '#444';
+        ctx.fillRect(bx + bw * 0.2, by + bh * 0.4, bw * 0.6, 1);
+      }
     } else {
-      // Complex roof
+      // Level 3: Apartment Complexes
+      // Add a "penthouse" or utility block on the roof
+      ctx.fillStyle = roofColors[variant % roofColors.length];
       ctx.fillRect(bx, by, bw, bh * 0.15);
-      ctx.fillRect(bx + bw * 0.2, by - bh * 0.1, bw * 0.6, bh * 0.1);
+      
+      ctx.fillStyle = color;
+      const pW = bw * 0.5, pH = bh * 0.3;
+      ctx.fillRect(bx + (bw - pW) / 2, by - pH * 0.4, pW, pH);
+      
+      ctx.fillStyle = '#222';
+      ctx.fillRect(bx + (bw - pW) / 2, by - pH * 0.4, pW, 2); // Tiny flat roof for the top block
     }
 
-    // Windows
+    // Door detail
+    ctx.fillStyle = isAbandoned ? '#111' : '#3d2b1f';
+    const doorW = Math.max(2, bw * 0.2);
+    const doorH = Math.max(3, bh * 0.3);
+    ctx.fillRect(bx + (bw - doorW) / 2, by + bh - doorH, doorW, doorH);
+
+    // Enhanced Windows
     if (!isAbandoned && ts > 12) {
-      ctx.fillStyle = '#ffe680'; // warm window light
+      const winColor = '#ffe680';
       const winSize = Math.max(1, ts * 0.08);
+      
+      ctx.fillStyle = winColor;
       if (dev === 1) {
-        ctx.fillRect(bx + bw * 0.3, by + bh * 0.6, winSize, winSize);
-        ctx.fillRect(bx + bw * 0.6, by + bh * 0.6, winSize, winSize);
+        // Simple two windows
+        ctx.fillRect(bx + bw * 0.2, by + bh * 0.55, winSize, winSize);
+        ctx.fillRect(bx + bw * 0.7, by + bh * 0.55, winSize, winSize);
       } else {
-        for (let row = 0; row < dev; row++) {
-          for (let col = 0; col < 2; col++) {
-             if ((variant + row + col) % 3 === 0) continue;
-             ctx.fillRect(bx + bw * (0.25 + col * 0.4), by + bh * (0.3 + row * 0.2), winSize, winSize);
+        // Grid of windows for larger buildings
+        const rows = dev + 1;
+        const cols = 2 + (variant % 2);
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            // Randomized lights being "off"
+            if ((variant + r + c) % 5 === 0) continue;
+            
+            const wx = bx + (bw / (cols + 1)) * (c + 1) - winSize / 2;
+            const wy = by + (bh / (rows + 1)) * (r + 1) - winSize / 2;
+            
+            // Skip window if it overlaps the door area
+            if (wy > by + bh - doorH - 2 && wx > bx + (bw - doorW) / 2 - 2 && wx < bx + (bw + doorW) / 2 + 2) continue;
+            
+            ctx.fillRect(wx, wy, winSize, winSize);
+            
+            // Subtle window "sill" or frame
+            if (ts > 20) {
+              ctx.fillStyle = 'rgba(0,0,0,0.2)';
+              ctx.fillRect(wx, wy + winSize, winSize, 1);
+              ctx.fillStyle = winColor;
+            }
           }
         }
       }
