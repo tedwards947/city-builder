@@ -24,7 +24,7 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
     ctx.fillStyle = '#0d1b2a';
@@ -51,6 +51,8 @@ export class CanvasRenderer {
         const serviced   = world.layers.services[i] !== 0;
         const pollutionV = world.layers.pollution[i];
         const crimeV     = world.layers.crime[i];
+        const fireV      = world.layers.fire[i];
+        const fireRiskV  = world.layers.fireRisk[i];
         const isAbandoned = world.layers.abandoned[i] !== 0;
         const { x: wx, y: wy } = Projection.tileToWorld(tx, ty);
         const { sx, sy } = camera.worldToScreen(wx, wy);
@@ -225,6 +227,16 @@ export class CanvasRenderer {
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
+        if (fireOverlay && fireRiskV > 10) {
+          const alpha = Math.min(0.7, (fireRiskV / 255) * 0.9);
+          ctx.fillStyle = `rgba(255, 128, 0, ${alpha.toFixed(3)})`;
+          ctx.fillRect(sxi, syi, tsi, tsi);
+        }
+
+        if (fireV > 0) {
+          this._drawFire(ctx, sxi, syi, tsi, ts, now);
+        }
+
         // Crime indicator: small red dots in corner for high-crime developed zones.
         if (!crimeOverlay && crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
           const crimeAlpha = Math.min(0.8, (crimeV / 255) * 1.2);
@@ -265,7 +277,7 @@ export class CanvasRenderer {
       ctx.stroke();
     }
 
-    if (trafficOverlay || crimeOverlay) {
+    if (trafficOverlay || crimeOverlay || fireOverlay) {
       // Legend — bottom-left corner, above toolbar
       const lx = 12, ly = ch - 70;
       ctx.font = '11px sans-serif';
@@ -290,6 +302,20 @@ export class CanvasRenderer {
           ['rgba(255,0,0,0.1)', 'Low'],
           ['rgba(255,0,0,0.4)', 'Moderate'],
           ['rgba(255,0,0,0.8)', 'High'],
+        ];
+        let lxOff = lx;
+        for (const [color, label] of stops) {
+          ctx.fillStyle = color;
+          ctx.fillRect(lxOff, ly, 10, 10);
+          ctx.fillStyle = '#ccc';
+          ctx.fillText(label, lxOff + 14, ly + 5);
+          lxOff += 14 + ctx.measureText(label).width + 14;
+        }
+      } else if (fireOverlay) {
+        const stops: [string, string][] = [
+          ['rgba(255,128,0,0.1)', 'Low'],
+          ['rgba(255,128,0,0.4)', 'Moderate'],
+          ['rgba(255,128,0,0.8)', 'High'],
         ];
         let lxOff = lx;
         for (const [color, label] of stops) {
@@ -332,6 +358,18 @@ export class CanvasRenderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 2;
     ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+  }
+
+  private _drawFire(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, now: number): void {
+    const flicker = Math.sin(now * 0.015) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(255, 60, 0, ${flicker.toFixed(3)})`;
+    ctx.fillRect(sxi, syi, tsi, tsi);
+    
+    if (ts > 8) {
+      ctx.fillStyle = `rgba(255, 200, 0, ${(flicker * 0.8).toFixed(3)})`;
+      const pad = ts * 0.2;
+      ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
+    }
   }
 
   private _drawTree(ctx: CanvasRenderingContext2D, vegetation: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette): void {

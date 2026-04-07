@@ -17,7 +17,7 @@ export class AbandonmentSystem {
 
     const { width, height } = world.grid;
     const n = width * height;
-    const { zone, devLevel, power, water, abandoned, distress, crime } = world.layers;
+    const { zone, devLevel, power, water, abandoned, distress, crime, fire, fireRisk } = world.layers;
 
     for (let i = 0; i < n; i++) {
       // Skip already-abandoned tiles — abandonment is permanent until bulldozed.
@@ -34,12 +34,14 @@ export class AbandonmentSystem {
       const resourcesMet = power[i] !== 0 && water[i] !== 0;
       const crimeSevere = crime[i] >= BALANCE.crime.abandonThreshold;
       const crimeElevated = crime[i] > BALANCE.crime.growthThreshold;
+      const isBurning = fire[i] > 0;
+      const fireRiskSevere = fireRisk[i] >= BALANCE.fire.abandonThreshold;
       
-      const conditionsMet = resourcesMet && !crimeSevere;
+      const conditionsMet = resourcesMet && !crimeSevere && !isBurning && !fireRiskSevere;
 
       if (!conditionsMet) {
-        // Severe crime or missing resources adds 1-2 distress.
-        const distressAdd = crimeSevere ? 2 : 1;
+        // Severe crime, fire, or missing resources adds 1-2 distress.
+        const distressAdd = (crimeSevere || isBurning || fireRiskSevere) ? 2 : 1;
         distress[i] = Math.min(255, distress[i] + distressAdd);
       } else if (crimeElevated) {
         // Elevated crime (above growth threshold but below abandonment) 

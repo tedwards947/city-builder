@@ -45,7 +45,7 @@ export const BALANCE = {
   },
   service: {
     // Coverage radius (manhattan distance) per building kind (4–8)
-    coverageRange: { 4: 12, 5: 5, 6: 4, 7: 6, 8: 3 } as Record<number, number>,
+    coverageRange: { 4: 12, 5: 15, 6: 4, 7: 6, 8: 3 } as Record<number, number>,
   },
   crime: {
     // Base crime added per tick per developed level.
@@ -60,6 +60,26 @@ export const BALANCE = {
     growthThreshold: 100,
     // Crime level (0-255) above which abandonment might trigger.
     abandonThreshold: 180,
+  },
+  fire: {
+    // Probability of fire starting per tick per developed level.
+    baseProbability: 0.0003,
+    // Risk factors
+    riskR: 0.8,
+    riskC: 1.0,
+    riskI: 1.5,
+    // Risk added per pollution level (0-255).
+    pollutionRiskMult: 0.05,
+    // Fire reduction multiplier if fireStation[i] === 1.
+    fireStationEffectiveness: 0.05, // 95% reduction in fire risk/spread
+    // Smoothing factor for fire risk.
+    riskSmoothing: 0.1,
+    // Fire spread probability to adjacent tiles per tick if burning.
+    spreadProbability: 0.04,
+    // Fire burn duration in ticks.
+    burnDuration: 20,
+    // Fire risk (0-255) above which abandonment might trigger.
+    abandonThreshold: 150,
   },
   landValue: {
     base: 80,             // starting value before modifiers (0–255 scale)

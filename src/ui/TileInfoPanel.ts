@@ -148,6 +148,8 @@ export class TileInfoPanel {
     const dev      = world.layers.devLevel[i];
     const pollution = world.layers.pollution[i];
     const crime     = world.layers.crime[i];
+    const fireRisk  = world.layers.fireRisk[i];
+    const fire      = world.layers.fire[i];
     const distress  = world.layers.distress[i];
 
     let html = `<div class="ti-coord">(${tx}, ${ty})</div>`;
@@ -170,6 +172,9 @@ export class TileInfoPanel {
       }
       if (building === BUILDING_SEWAGE_PLANT) {
         html += `<div class="ti-detail">Capacity: ${BALANCE.sewage.plantOutput} units/tick</div>`;
+      }
+      if (fire > 0) {
+        html += `<div class="ti-detail" style="color:#f60;font-weight:bold">ON FIRE! (${fire} ticks left)</div>`;
       }
 
     // ── Road tile ──────────────────────────────────────────────────────────────
@@ -194,6 +199,9 @@ export class TileInfoPanel {
         const penalty = Math.round((cong / 255) * BALANCE.transit.congestionGrowthPenalty * 100);
         html += `<div class="ti-detail" style="color:#999">Growth penalty to nearby zones: −${penalty}%</div>`;
       }
+      if (fire > 0) {
+        html += `<div class="ti-detail" style="color:#f60;font-weight:bold">ON FIRE!</div>`;
+      }
 
     // ── Water terrain ──────────────────────────────────────────────────────────
     } else if (terrain === TERRAIN_WATER) {
@@ -206,6 +214,10 @@ export class TileInfoPanel {
       const dots = '●'.repeat(dev) + '○'.repeat(BALANCE.growth.maxLevel - dev);
       const isAbandoned = world.layers.abandoned[i] !== 0;
       html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ' <span style="color:#e84;font-weight:bold">ABANDONED</span>' : ''}</div>`;
+
+      if (fire > 0) {
+        html += `<div class="ti-detail" style="color:#f60;font-weight:bold">ON FIRE! (${fire} ticks left)</div>`;
+      }
 
       if (isAbandoned) {
         html += `<div class="ti-detail" style="color:#e84">Abandoned — no residents, no income. Bulldoze to clear.</div>`;
@@ -229,6 +241,11 @@ export class TileInfoPanel {
       if (crime > 0) {
         const cLabel = crime < 40 ? 'low' : crime < 100 ? 'medium' : 'high';
         html += `<div class="ti-detail" style="color:#e55">Crime: ${crime} (${cLabel})</div>`;
+      }
+
+      if (fireRisk > 0) {
+        const fLabel = fireRisk < 40 ? 'low' : fireRisk < 100 ? 'medium' : 'high';
+        html += `<div class="ti-detail" style="color:#f80">Fire Risk: ${fireRisk} (${fLabel})</div>`;
       }
 
       // Demand and tax display
