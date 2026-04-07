@@ -9,21 +9,24 @@ export class EconomySystem {
     const dev = world.layers.devLevel;
     const lv = world.layers.landValue;
     const roadClass = world.layers.roadClass;
+    const abandoned = world.layers.abandoned;
     const { taxRates } = world.budget;
     let income = 0;
     let population = 0;
     let roadCount = 0;
     for (let i = 0; i < width * height; i++) {
       if (zone[i] !== ZONE_NONE && dev[i] > 0) {
+        // Abandoned tiles have no residents and generate no income.
+        if (abandoned[i] !== 0) continue;
+        if (zone[i] === ZONE_R) {
+          population += BALANCE.growth.popPerLevel[dev[i]] ?? 0;
+        }
         const baseRate = zone[i] === ZONE_R ? taxRates.R
                        : zone[i] === ZONE_C ? taxRates.C
                        : taxRates.I;
         // Land value multiplies income: lv 128 = neutral, 0 = half, 255 = ~2×
         const lvMult = lv[i] / 128;
         income += dev[i] * baseRate * lvMult;
-        if (zone[i] === ZONE_R) {
-          population += BALANCE.growth.popPerLevel[dev[i]] ?? 0;
-        }
       }
       if (roadClass[i] !== ROAD_NONE) roadCount++;
     }

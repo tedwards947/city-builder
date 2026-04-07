@@ -11,9 +11,11 @@ export const ZONE_R    = 1;
 export const ZONE_C    = 2;
 export const ZONE_I    = 3;
 
-// Road class layer: 0=none, 1=street, (2=avenue, 3=highway — reserved)
-export const ROAD_NONE   = 0;
-export const ROAD_STREET = 1;
+// Road class layer
+export const ROAD_NONE    = 0;
+export const ROAD_STREET  = 1;
+export const ROAD_AVENUE  = 2;
+export const ROAD_HIGHWAY = 3;
 
 // Building layer
 export const BUILDING_NONE         = 0;

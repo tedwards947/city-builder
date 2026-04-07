@@ -17,6 +17,8 @@ export class ZoneGrowthSystem {
     const services = world.layers.services;
     const pollution = world.layers.pollution;
     const roadClass = world.layers.roadClass;
+    const congestion = world.layers.congestion;
+    const abandoned = world.layers.abandoned;
     const hasPowerSurplus = world.stats.powerSupply >= world.stats.powerDemand;
     const hasWaterSurplus = world.stats.waterSupply >= world.stats.waterDemand;
     const hasSewageSurplus = world.stats.sewageSupply >= world.stats.sewageDemand;
@@ -28,6 +30,7 @@ export class ZoneGrowthSystem {
     for (let k = 0; k < n; k++) {
       const i = (idx + k * step) % n;
       if (zone[i] === ZONE_NONE) continue;
+      if (abandoned[i] !== 0) continue;
       if (dev[i] >= BALANCE.growth.maxLevel) continue;
       if (power[i] === 0) continue;
       if (!hasPowerSurplus && dev[i] > 0) continue;  // brownout: cap growth at level 1
@@ -39,19 +42,23 @@ export class ZoneGrowthSystem {
       // R and C zones don't grow in heavily polluted areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
       // Road access: straight-line search in 4 directions, up to 3 tiles.
+      // Also track max nearby road congestion for the growth penalty.
       const x = i % width, y = (i - x) / width;
       let hasRoad = false;
-      for (let r = 1; r <= 3 && !hasRoad; r++) {
-        if (x - r >= 0        && roadClass[i - r]         !== 0) hasRoad = true;
-        if (x + r < width     && roadClass[i + r]         !== 0) hasRoad = true;
-        if (y - r >= 0        && roadClass[i - r * width] !== 0) hasRoad = true;
-        if (y + r < height    && roadClass[i + r * width] !== 0) hasRoad = true;
+      let maxCongestion = 0;
+      for (let r = 1; r <= 3; r++) {
+        if (x - r >= 0     && roadClass[i - r]         !== 0) { hasRoad = true; if (congestion[i - r]         > maxCongestion) maxCongestion = congestion[i - r]; }
+        if (x + r < width  && roadClass[i + r]         !== 0) { hasRoad = true; if (congestion[i + r]         > maxCongestion) maxCongestion = congestion[i + r]; }
+        if (y - r >= 0     && roadClass[i - r * width] !== 0) { hasRoad = true; if (congestion[i - r * width] > maxCongestion) maxCongestion = congestion[i - r * width]; }
+        if (y + r < height && roadClass[i + r * width] !== 0) { hasRoad = true; if (congestion[i + r * width] > maxCongestion) maxCongestion = congestion[i + r * width]; }
       }
       if (!hasRoad) continue;
       const demandMult = zone[i] === ZONE_R ? world.stats.rDemand
                        : zone[i] === ZONE_C ? world.stats.cDemand
                        : world.stats.iDemand;
-      if (world.rng() < BALANCE.growth.probability * demandMult) {
+      // Congestion penalty: heavily congested roads throttle further growth.
+      const congestionMult = 1 - (maxCongestion / 255) * BALANCE.transit.congestionGrowthPenalty;
+      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult) {
         dev[i]++;
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });

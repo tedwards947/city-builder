@@ -156,8 +156,25 @@ export class TileInfoPanel {
     // ── Road tile ──────────────────────────────────────────────────────────────
     } else if (road !== ROAD_NONE) {
       const netId = world.layers.roadNet[i];
+      const cong  = world.layers.congestion[i];
+      const congPct = Math.round(cong / 255 * 100);
+      const congLabel = cong < 30  ? 'Free'
+                      : cong < 85  ? 'Light'
+                      : cong < 140 ? 'Moderate'
+                      : cong < 200 ? 'Heavy'
+                      :              'Gridlock';
+      const congColor = cong < 30  ? '#5c5'
+                      : cong < 85  ? '#9c5'
+                      : cong < 140 ? '#cc5'
+                      : cong < 200 ? '#e95'
+                      :              '#e55';
       html += `<div class="ti-type">Road</div>`;
       html += `<div class="ti-detail">Network #${netId}</div>`;
+      html += `<div class="ti-detail" style="color:${congColor}">Congestion: ${congLabel} (${congPct}%)</div>`;
+      if (cong > 0) {
+        const penalty = Math.round((cong / 255) * BALANCE.transit.congestionGrowthPenalty * 100);
+        html += `<div class="ti-detail" style="color:#999">Growth penalty to nearby zones: −${penalty}%</div>`;
+      }
 
     // ── Water terrain ──────────────────────────────────────────────────────────
     } else if (terrain === TERRAIN_WATER) {
@@ -168,7 +185,18 @@ export class TileInfoPanel {
     } else if (zone !== ZONE_NONE) {
       const zoneName = ZONE_NAME[zone] ?? 'Zone';
       const dots = '●'.repeat(dev) + '○'.repeat(BALANCE.growth.maxLevel - dev);
-      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}</div>`;
+      const isAbandoned = world.layers.abandoned[i] !== 0;
+      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ' <span style="color:#e84;font-weight:bold">ABANDONED</span>' : ''}</div>`;
+
+      if (isAbandoned) {
+        html += `<div class="ti-detail" style="color:#e84">Abandoned — no residents, no income. Bulldoze to clear.</div>`;
+      } else {
+        const distress = world.layers.distress[i];
+        if (distress > 0) {
+          const threshold = BALANCE.abandonment.abandonThreshold;
+          html += `<div class="ti-detail" style="color:#cc5">Distress: ${distress}/${threshold} — conditions unmet, risk of abandonment</div>`;
+        }
+      }
 
       const landValue = world.layers.landValue[i];
       const lvLabel = landValue < 60 ? 'low' : landValue < 110 ? 'medium' : landValue < 160 ? 'good' : 'prime';
@@ -179,9 +207,30 @@ export class TileInfoPanel {
         html += `<div class="ti-detail ti-poll">Pollution: ${pollution} (${pLabel})</div>`;
       }
 
+      // Demand and tax display
+      const demand = zone === ZONE_R ? world.stats.rDemand
+                   : zone === ZONE_C ? world.stats.cDemand
+                   : world.stats.iDemand;
+      const demandColor = demand >= 1.2 ? '#5c5' : demand >= 0.8 ? '#cc5' : '#e55';
+      html += `<div class="ti-detail" style="color:${demandColor}">Demand: ${demand.toFixed(2)}×</div>`;
+
+      const neutralRate = zone === ZONE_R ? BALANCE.tax.zoneR
+                        : zone === ZONE_C ? BALANCE.tax.zoneC
+                        : BALANCE.tax.zoneI;
+      const currentRate = zone === ZONE_R ? world.budget.taxRates.R
+                        : zone === ZONE_C ? world.budget.taxRates.C
+                        : world.budget.taxRates.I;
+      const taxMult = Math.max(BALANCE.demand.min, Math.min(BALANCE.demand.max, neutralRate / currentRate));
+      const taxDelta = Math.round((taxMult - 1) * 100);
+      const taxColor = taxDelta >= 0 ? '#5c5' : '#e55';
+      const taxSign  = taxDelta >= 0 ? '+' : '';
+      html += `<div class="ti-detail" style="color:${taxColor}">Tax rate: ${currentRate.toFixed(1)} (${taxSign}${taxDelta}% demand from taxes)</div>`;
+
       const { reqs, maxLevel } = analyzeZone(world, tx, ty);
 
-      if (dev >= maxLevel) {
+      if (isAbandoned) {
+        html += `<div class="ti-growth-header" style="color:#e84">Growth blocked — building is abandoned</div>`;
+      } else if (dev >= maxLevel) {
         html += `<div class="ti-growth-ok">✦ Fully developed</div>`;
       } else {
         html += `<div class="ti-growth-header">To reach Lv ${dev + 1}:</div>`;
@@ -191,7 +240,8 @@ export class TileInfoPanel {
         }
         const allMet = reqs.every(r => r.met);
         if (allMet) {
-          html += `<div class="ti-growth-ok">All met — growing at ${Math.round(BALANCE.growth.probability * 100)}% chance/interval</div>`;
+          const effectivePct = Math.round(BALANCE.growth.probability * demand * 100);
+          html += `<div class="ti-growth-ok">All met — growing at ~${effectivePct}% chance/interval</div>`;
         }
       }
 

@@ -35,11 +35,6 @@ export class EconPanel {
     this.el.classList.toggle('hidden', !this.visible);
   }
 
-  hide(): void {
-    this.visible = false;
-    this.el.classList.add('hidden');
-  }
-
   /** Call each frame to refresh demand + land value display. */
   update(): void {
     if (!this.visible) return;

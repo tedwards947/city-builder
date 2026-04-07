@@ -30,6 +30,16 @@ import { World } from '../World';
 import { ROAD_NONE, ZONE_NONE, ZONE_R, ZONE_C } from '../constants';
 import { BALANCE } from '../../data/balance';
 
+// Pre-build a capacity lookup (index = road class byte, value = flow capacity).
+// Rebuilt lazily once — road classes are constant at runtime.
+const CLASS_CAPACITY: number[] = (() => {
+  const arr: number[] = [0, 0, 0, 0]; // index 0 unused (ROAD_NONE)
+  for (const [k, v] of Object.entries(BALANCE.roadClasses)) {
+    arr[Number(k)] = v.capacity;
+  }
+  return arr;
+})();
+
 export class TransitSystem {
   private _flow: Float32Array | null = null;
 
@@ -66,20 +76,20 @@ export class TransitSystem {
 
         for (let dy = -r; dy <= r; dy++) {
           for (let dx = -r; dx <= r; dx++) {
+            const dist = Math.abs(dx) + Math.abs(dy);
+            if (dist > r) continue;  // stay within the manhattan diamond, not the full square
             const nx = zx + dx, ny = zy + dy;
             if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
             const ni = ny * width + nx;
             if (roadClass[ni] === ROAD_NONE) continue;
-            const dist = Math.abs(dx) + Math.abs(dy);
             flow[ni] += load * (1 - dist / rPlus1);
           }
         }
       }
     }
 
-    // ── Write congestion layer ─────────────────────────────────────────────────
+    // ── Write congestion layer (normalise by per-class capacity) ──────────────
     const congestion = world.layers.congestion;
-    const scale = 255 / T.streetCapacity;
     let total = 0;
     let count = 0;
 
@@ -87,7 +97,8 @@ export class TransitSystem {
       if (roadClass[i] === ROAD_NONE) {
         congestion[i] = 0;
       } else {
-        const c = Math.min(255, Math.round(flow[i] * scale));
+        const cap = CLASS_CAPACITY[roadClass[i]] || T.streetCapacity;
+        const c = Math.min(255, Math.round(flow[i] / cap * 255));
         congestion[i] = c;
         total += c;
         count++;

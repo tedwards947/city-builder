@@ -1,5 +1,5 @@
 // All costs, tax rates, maintenance costs, and balance constants.
-// Will migrate to balance.json in Phase 4. No magic numbers in game code.
+// No magic numbers in game code.
 
 export const BALANCE = {
   costs: {
@@ -71,9 +71,9 @@ export const BALANCE = {
   pollution: {
     industryOutput: 30,  // added per industrial dev level per tick
     powerPlantOutput: 15,// added per power plant per tick
-    decayRate: 0.90,     // fraction remaining after decay each tick (0-1)
-    diffusionRate: 0.12, // fraction spreading to each of 4 neighbors per tick
-    growthThreshold: 40, // 0-255: R/C zones above this can't grow
+    decayRate: 0.94,     // fraction remaining after decay each tick (0-1)
+    diffusionRate: 0.15, // fraction spreading to each of 4 neighbors per tick
+    growthThreshold: 20, // 0-255: R/C zones above this can't grow
   },
   growth: {
     tickInterval: 4,
@@ -81,16 +81,100 @@ export const BALANCE = {
     maxLevel: 3,
     popPerLevel: { 1: 4, 2: 10, 3: 20 } as Record<number, number>,
   },
+  // Per road-class data — keyed by ROAD_STREET/AVENUE/HIGHWAY (1/2/3).
+  // upgrade cost = roadClasses[target].cost − roadClasses[current].cost
+  roadClasses: {
+    1: { cost: 10,  maintenance: 0.01, capacity: 20,  speedMult: 1.0 }, // Street
+    2: { cost: 50,  maintenance: 0.04, capacity: 80,  speedMult: 1.4 }, // Avenue
+    3: { cost: 150, maintenance: 0.12, capacity: 200, speedMult: 2.0 }, // Highway
+  } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
     rGenRate: 1.0,        // trip units per R devLevel (TripGenerator: residents leaving)
     cAttrRate: 1.0,       // trip units per C devLevel (TripAttractor: commerce destinations)
     iAttrRate: 1.5,       // trip units per I devLevel (TripAttractor: more workers per tile)
     spreadRadius: 4,      // road tiles within this manhattan distance receive load
-    streetCapacity: 20,   // flow units at which congestion saturates (255)
+    streetCapacity: 20,   // kept for backward compat — TransitSystem uses roadClasses[].capacity
+    congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
   },
+  agents: {
+    maxVehicles:   80,   // hard cap — sim is correct with zero
+    spawnInterval: 0.4,  // seconds between spawn attempts
+    baseSpeed:     1.8,  // tiles per second at zero congestion
+    minTtl:        12,   // seconds
+    maxTtl:        28,   // seconds
+  },
+  // ── City Character ───────────────────────────────────────────────────────────
+  // Each axis ranges from −axisMax to +axisMax.
+  // Positive values lean toward: egalitarian / green / planned.
+  // Negative values lean toward: laissez-faire / industrial / organic.
+  // Add new nudge keys by adding entries here + handling them in CityCharacterSystem.
+  character: {
+    axisMax: 100,
+    // Per-tick decay toward neutral — very slow so character accumulates and persists.
+    // At axisMax with this rate: ~6000 ticks (~750 game-days) to fully decay.
+    decayRate: 0.015,
+    nudges: {
+      egalitarian: {
+        serviceBuilt:          3.0,  // placing police/fire/school/hospital
+        parkBuilt:             1.0,  // parks are mildly egalitarian
+        populationDisplaced:  -0.5,  // per resident displaced (bulldoze/repaint)
+        industrialZone:       -1.0,  // per I zone painted
+        residentialZone:       0.3,  // per R zone painted
+      },
+      green: {
+        parkBuilt:             5.0,
+        industrialZone:       -3.0,  // per I zone painted
+        powerPlantBuilt:      -2.0,
+        residentialZone:       0.2,
+        commercialZone:        0.1,
+      },
+      planned: {
+        roadBuilt:             0.15, // roads = deliberate infrastructure
+        serviceBuilt:          0.5,
+        populationDisplaced:  -0.3,  // displacement = unplanned demolition
+        residentialZone:       0.05,
+      },
+    },
+  },
+
+  // ── Abandonment ──────────────────────────────────────────────────────────────
+  // Zones lose conditions long enough → distress accumulates → abandonment.
+  // Abandoned tiles generate no income and cannot grow.
+  // Conditions are checked every distressInterval ticks.
+  // More contributors (crime, fire) can be added to AbandonmentSystem later.
+  abandonment: {
+    distressInterval: 4,    // ticks between distress checks (aligned with growth interval)
+    abandonThreshold: 12,   // distress checks without conditions before abandonment (~6 game-days)
+  },
+
   ticksPerDay: 8,
   baseTickMs: 500,      // 2 ticks/sec at 1×
   startingMoney: 20000,
   startingPoliticalCapital: 100,
+
+  // ── Political Capital ────────────────────────────────────────────────────────
+  // PC regenerates each tick based on citizen satisfaction.
+  // Disruptive player actions drain it. The cap is enforced by PoliticsSystem.
+  politicalCapital: {
+    max: 100,
+    // Passive regen per tick regardless of satisfaction.
+    baseRegen: 0.1,
+    // Additional regen per tick at 100% satisfaction (scales linearly).
+    // Total regen range: 0.1 (miserable city) → 0.4 (happy city).
+    satisfactionRegenBonus: 0.3,
+    // Named satisfaction factors with weights (must sum to 1.0).
+    // Keys are matched by name to SatisfactionFactor.name in PoliticsSystem.
+    // Add new factors here + implement compute() in PoliticsSystem.defaultFactors().
+    satisfactionWeights: {
+      servicesCoverage: 0.50, // fraction of developed R zones with service coverage
+      powerCoverage:    0.25, // fraction of developed zones with power
+      waterCoverage:    0.25, // fraction of developed zones with water
+    } as Record<string, number>,
+    // Costs for disruptive actions — applied at execute() time, same as money costs.
+    // Gating: if budget.politicalCapital < cost, the action is blocked.
+    disruptionCosts: {
+      bulldozePerPop: 3.5, // per displaced resident (level-3 R zone = 20 pop → 70 PC)
+    },
+  },
 } as const;

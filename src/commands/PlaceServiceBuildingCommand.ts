@@ -25,7 +25,9 @@ export class PlaceServiceBuildingCommand extends Command {
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
     world.budget.money -= this.cost;
-    return world.placeBuilding(this.tx, this.ty, this.kind);
+    const ok = world.placeBuilding(this.tx, this.ty, this.kind);
+    if (ok) world.events.emit('serviceBuilt', { tx: this.tx, ty: this.ty, kind: this.kind, cost });
+    return ok;
   }
 
   undo(world: World): void {

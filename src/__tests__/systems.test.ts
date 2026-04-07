@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { World } from '../sim/World';
 import { NetworkSystem } from '../sim/systems/NetworkSystem';
 import { PowerSystem } from '../sim/systems/PowerSystem';
@@ -21,6 +21,12 @@ import { ServiceSystem } from '../sim/systems/ServiceSystem';
 import { LandValueSystem } from '../sim/systems/LandValueSystem';
 import { BALANCE } from '../data/balance';
 import { TransitSystem } from '../sim/systems/TransitSystem';
+import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
+import { CityCharacterSystem } from '../sim/systems/CityCharacterSystem';
+import { BulldozeCommand } from '../commands/BulldozeCommand';
+import { PaintZoneCommand } from '../commands/PaintZoneCommand';
+import { PlaceServiceBuildingCommand } from '../commands/PlaceServiceBuildingCommand';
+import { resolvePalette } from '../render/CharacterPalette';
 
 // Use a tiny world so tests are fast and grid positions are predictable.
 // Seed 0 — we manually set up all the tile state we need.
@@ -773,46 +779,61 @@ describe('ServiceSystem', () => {
     expect(w.layers.services[w.grid.idx(5, 5)]).toBe(1);
   });
 
-  it('service building covers tiles within its range', () => {
+  it('service building covers road tiles and adjacent zones within its range', () => {
     const w = makeWorld();
-    forceBuildable(w, 8, 8);
-    w.layers.building[w.grid.idx(8, 8)] = BUILDING_POLICE;
-    w.serviceBuildings = [{ tx: 8, ty: 8, kind: BUILDING_POLICE }];
+    // Police at (2,8), road running east: (3,8)…(8,8) — 5 hops from building.
+    // Police range=5, so hop-5 tile (8,8) is the last covered road tile.
+    forceBuildable(w, 2, 8);
+    w.layers.building[w.grid.idx(2, 8)] = BUILDING_POLICE;
+    for (let x = 3; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
+    w.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_POLICE }];
     new ServiceSystem().update(w);
-    // Police has range 5 — tile at (8+3, 8) should be covered (manhattan dist = 3 <= 5)
-    expect(w.layers.services[w.grid.idx(11, 8)]).toBe(1);
-    // Tile just beyond range should not be covered
-    expect(w.layers.services[w.grid.idx(14, 8)]).toBe(0);
+    // Tile at (6,8) — road hop 3 — covered.
+    expect(w.layers.services[w.grid.idx(6, 8)]).toBe(1);
+    // Tile at (9,8) — 1 tile off the hop-5 road endpoint — covered by radiation.
+    expect(w.layers.services[w.grid.idx(9, 8)]).toBe(1);
+    // Tile at (11,8) — 3 tiles off road endpoint — not covered.
+    expect(w.layers.services[w.grid.idx(11, 8)]).toBe(0);
   });
 
-  it('park covers a smaller radius than hospital', () => {
-    const wPark = makeWorld(), wHosp = makeWorld();
-    forceBuildable(wPark, 8, 8);
-    wPark.layers.building[wPark.grid.idx(8, 8)] = BUILDING_PARK;
-    wPark.serviceBuildings = [{ tx: 8, ty: 8, kind: BUILDING_PARK }];
-    forceBuildable(wHosp, 8, 8);
-    wHosp.layers.building[wHosp.grid.idx(8, 8)] = BUILDING_FIRE;
-    wHosp.serviceBuildings = [{ tx: 8, ty: 8, kind: BUILDING_FIRE }];
+  it('park covers a smaller road range than fire station', () => {
+    // Both at (2,8). Road runs east: (3,8)…(8,8) — 5 hops.
+    // Park range=3: reaches hop 3 = (6,8). Radiation covers (7,8).
+    // Fire range=5: reaches hop 5 = (8,8). Radiation covers (9,8).
+    const wPark = makeWorld(), wFire = makeWorld();
+    for (const w of [wPark, wFire]) {
+      forceBuildable(w, 2, 8);
+      for (let x = 3; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
+    }
+    wPark.layers.building[wPark.grid.idx(2, 8)] = BUILDING_PARK;
+    wPark.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_PARK }];
+    wFire.layers.building[wFire.grid.idx(2, 8)] = BUILDING_FIRE;
+    wFire.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_FIRE }];
     new ServiceSystem().update(wPark);
-    new ServiceSystem().update(wHosp);
-    // Park range=3: (8+4, 8) is distance 4 — not covered
-    expect(wPark.layers.services[wPark.grid.idx(12, 8)]).toBe(0);
-    // Fire range=5: (8+4, 8) is distance 4 — covered
-    expect(wHosp.layers.services[wHosp.grid.idx(12, 8)]).toBe(1);
+    new ServiceSystem().update(wFire);
+    // (8,8) is at road hop 5 — beyond park range=3, not covered; within fire range=5, covered.
+    expect(wPark.layers.services[wPark.grid.idx(8, 8)]).toBe(0);
+    expect(wFire.layers.services[wFire.grid.idx(8, 8)]).toBe(1);
   });
 
   it('multiple service buildings both contribute to coverage', () => {
     const w = makeWorld();
-    // Two police stations far apart, each covering their own area
-    forceBuildable(w, 2, 2); forceBuildable(w, 14, 14);
+    // Two police stations, each with their own short road stub pointing inward.
+    // Police at (1,8): road (2,8)…(4,8) — 3 hops, covers to (5,8) by radiation.
+    // Police at (14,8): road (13,8)…(11,8) — 3 hops, covers to (10,8) by radiation.
+    // Gap at (6,8)–(9,8) — not reachable by either.
+    forceBuildable(w, 1, 8); forceBuildable(w, 14, 8);
+    for (let x = 2; x <= 4; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
+    for (let x = 11; x <= 13; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
     w.serviceBuildings = [
-      { tx: 2, ty: 2, kind: BUILDING_POLICE },
-      { tx: 14, ty: 14, kind: BUILDING_POLICE },
+      { tx: 1,  ty: 8, kind: BUILDING_POLICE },
+      { tx: 14, ty: 8, kind: BUILDING_POLICE },
     ];
     new ServiceSystem().update(w);
-    expect(w.layers.services[w.grid.idx(2, 2)]).toBe(1);
-    expect(w.layers.services[w.grid.idx(14, 14)]).toBe(1);
-    // Mid-point (8,8) — distance to both is 12 > range 5, should not be covered
+    // Building tiles themselves covered.
+    expect(w.layers.services[w.grid.idx(1,  8)]).toBe(1);
+    expect(w.layers.services[w.grid.idx(14, 8)]).toBe(1);
+    // Gap tile (8,8) not reachable by either road stub.
     expect(w.layers.services[w.grid.idx(8, 8)]).toBe(0);
   });
 
@@ -1120,5 +1141,374 @@ describe('TransitSystem', () => {
     w.layers.devLevel[w.grid.idx(0, r + 2)]  = 3;
     runAt(w, interval);
     expect(w.layers.congestion[w.grid.idx(0, 0)]).toBe(0);
+  });
+
+  it('road at diagonal corner of spread square (manhattan dist > r) has zero congestion', () => {
+    // Regression for negative-weight wrap-around bug:
+    // the kernel iterated a square but weighted by manhattan distance.
+    // At dx=r, dy=r the weight is 1-(2r/r+1) < 0 → negative flow →
+    // Uint8Array wraps to high congestion.  After the fix (diamond clip),
+    // the road at (zx+r, zy+r) is outside the manhattan radius and must be 0.
+    const w = makeWorld(16, 16);
+    const r = BALANCE.transit.spreadRadius;
+    const zx = 0, zy = 0;          // zone origin
+    const rx = zx + r, ry = zy + r; // diagonal corner, manhattan dist = 2r
+    forceBuildable(w, zx, zy);
+    forceBuildable(w, rx, ry);
+    w.layers.zone[w.grid.idx(zx, zy)]     = ZONE_R;
+    w.layers.devLevel[w.grid.idx(zx, zy)] = 3;
+    w.layers.roadClass[w.grid.idx(rx, ry)] = ROAD_STREET;
+    runAt(w, interval);
+    expect(w.layers.congestion[w.grid.idx(rx, ry)]).toBe(0);
+  });
+});
+
+// ─── Congestion feedback into ZoneGrowthSystem ────────────────────────────────
+
+describe('ZoneGrowthSystem — congestion feedback', () => {
+  // Build two worlds with identical eligible R zones next to a road.
+  // One world has congestion=0 on that road; the other has congestion=255.
+  // Run many growth ticks with the same seed and count how many tiles grew.
+  function buildCongestionWorld(congestionLevel: number) {
+    // Use a large world to get many eligible zone tiles and a stable average.
+    const w = new World(16, 16, 42);
+    // Strip all terrain variation and build a road column at x=8, zone tiles at x=7 and x=9.
+    for (let y = 0; y < 16; y++) {
+      for (let x = 6; x <= 10; x++) forceBuildable(w, x, y);
+      w.layers.roadClass[w.grid.idx(8, y)] = ROAD_STREET;
+      w.layers.zone[w.grid.idx(7, y)]      = ZONE_R;
+      w.layers.zone[w.grid.idx(9, y)]      = ZONE_R;
+      w.layers.power[w.grid.idx(7, y)]     = 1;
+      w.layers.power[w.grid.idx(9, y)]     = 1;
+      w.layers.water[w.grid.idx(7, y)]     = 1;
+      w.layers.water[w.grid.idx(9, y)]     = 1;
+      w.layers.congestion[w.grid.idx(8, y)] = congestionLevel;
+    }
+    w.stats.powerSupply  = 9999; w.stats.powerDemand  = 0;
+    w.stats.waterSupply  = 9999; w.stats.waterDemand  = 0;
+    w.stats.sewageSupply = 9999; w.stats.sewageDemand = 0;
+    w.stats.rDemand      = 1.0;
+    return w;
+  }
+
+  it('high congestion reduces zone growth compared to zero congestion', () => {
+    const wFree = buildCongestionWorld(0);
+    const wCong = buildCongestionWorld(255);
+    let growFree = 0, growCong = 0;
+    const ticks = 30;
+    for (let t = 0; t < ticks; t++) {
+      const tick = t * BALANCE.growth.tickInterval;
+      wFree.tick = tick; new ZoneGrowthSystem().update(wFree);
+      wCong.tick = tick; new ZoneGrowthSystem().update(wCong);
+    }
+    for (let y = 0; y < 16; y++) {
+      growFree += wFree.layers.devLevel[wFree.grid.idx(7, y)];
+      growFree += wFree.layers.devLevel[wFree.grid.idx(9, y)];
+      growCong += wCong.layers.devLevel[wCong.grid.idx(7, y)];
+      growCong += wCong.layers.devLevel[wCong.grid.idx(9, y)];
+    }
+    expect(growCong).toBeLessThan(growFree);
+  });
+
+  it('congestion=0 does not reduce growth (congestionMult=1)', () => {
+    // With congestion=0, mult = 1 - 0 = 1.0 → no penalty.
+    // Growth should still occur over many ticks.
+    const w = buildCongestionWorld(0);
+    let grew = 0;
+    for (let t = 0; t < 200; t++) {
+      w.tick = t * BALANCE.growth.tickInterval;
+      new ZoneGrowthSystem().update(w);
+    }
+    for (let y = 0; y < 16; y++) {
+      grew += w.layers.devLevel[w.grid.idx(7, y)];
+      grew += w.layers.devLevel[w.grid.idx(9, y)];
+    }
+    expect(grew).toBeGreaterThan(0);
+  });
+});
+
+// ─── PoliticsSystem ───────────────────────────────────────────────────────────
+
+describe('PoliticsSystem', () => {
+  it('regenerates PC by at least baseRegen per tick', () => {
+    const w = makeWorld();
+    w.budget.politicalCapital = 0;
+    new PoliticsSystem().update(w);
+    expect(w.budget.politicalCapital).toBeGreaterThanOrEqual(BALANCE.politicalCapital.baseRegen);
+  });
+
+  it('does not exceed max PC', () => {
+    const w = makeWorld();
+    w.budget.politicalCapital = BALANCE.politicalCapital.max - 0.1;
+    new PoliticsSystem().update(w);
+    expect(w.budget.politicalCapital).toBeLessThanOrEqual(BALANCE.politicalCapital.max);
+  });
+
+  it('satisfaction is 1 when city has no developed zones (neutral early game)', () => {
+    const w = makeWorld();
+    const sys = new PoliticsSystem();
+    expect(sys.satisfaction(w)).toBe(1);
+  });
+
+  it('satisfaction reflects services coverage on developed R zones', () => {
+    const w = makeWorld();
+    // Two developed R zones — both powered+watered, only one has services.
+    for (const tx of [0, 1]) {
+      forceBuildable(w, tx, 0);
+      const i = w.grid.idx(tx, 0);
+      w.layers.zone[i] = ZONE_R; w.layers.devLevel[i] = 1;
+      w.layers.power[i] = 1; w.layers.water[i] = 1;
+    }
+    w.layers.services[w.grid.idx(0, 0)] = 1; // only tile 0 has services
+    const sys = new PoliticsSystem();
+    const sat = sys.satisfaction(w);
+    // servicesCoverage=0.5 (w=0.5), powerCoverage=1.0 (w=0.25), waterCoverage=1.0 (w=0.25)
+    // weighted = (0.5*0.5 + 1.0*0.25 + 1.0*0.25) / 1.0 = 0.75
+    expect(sat).toBeCloseTo(0.75, 5);
+  });
+
+  it('writes satisfaction to world.stats', () => {
+    const w = makeWorld();
+    new PoliticsSystem().update(w);
+    expect(w.stats.satisfaction).toBeDefined();
+    expect(w.stats.satisfaction).toBeGreaterThanOrEqual(0);
+    expect(w.stats.satisfaction).toBeLessThanOrEqual(1);
+  });
+
+  it('custom factors override defaults', () => {
+    const w = makeWorld();
+    const fakeFactor = { name: 'test', compute: vi.fn(() => 0.5) };
+    const sys = new PoliticsSystem([fakeFactor]);
+    // Weights table has no 'test' key → weighted sum = 0 → satisfaction = 0.
+    expect(sys.satisfaction(w)).toBe(0);
+    expect(fakeFactor.compute).not.toHaveBeenCalled(); // weight=0 → skipped
+  });
+});
+
+// ─── BulldozeCommand + political capital gating ───────────────────────────────
+
+describe('BulldozeCommand political capital', () => {
+  it('does not charge PC when bulldozing empty / undeveloped tile', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 0; // undeveloped
+    const pcBefore = w.budget.politicalCapital;
+    new BulldozeCommand(0, 0).execute(w);
+    expect(w.budget.politicalCapital).toBe(pcBefore);
+  });
+
+  it('charges PC proportional to displaced population', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 1; // dev level 1 = popPerLevel[1] pop
+    const pop = BALANCE.growth.popPerLevel[1];
+    const expectedPcCost = pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
+    const pcBefore = w.budget.politicalCapital;
+    new BulldozeCommand(0, 0).execute(w);
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore - expectedPcCost);
+  });
+
+  it('blocks bulldoze when political capital is insufficient', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 3; // level 3 = high cost
+    w.budget.politicalCapital = 0; // no PC
+    const ok = new BulldozeCommand(0, 0).execute(w);
+    expect(ok).toBe(false);
+    expect(w.layers.zone[w.grid.idx(0, 0)]).toBe(ZONE_R); // tile unchanged
+  });
+
+  it('restores PC on undo', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 1;
+    const pcBefore = w.budget.politicalCapital;
+    const cmd = new BulldozeCommand(0, 0);
+    cmd.execute(w);
+    cmd.undo(w);
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore);
+  });
+});
+
+// ─── PaintZoneCommand + political capital gating ──────────────────────────────
+
+describe('PaintZoneCommand political capital', () => {
+  it('does not charge PC when painting onto an empty tile', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    const pcBefore = w.budget.politicalCapital;
+    new PaintZoneCommand(0, 0, ZONE_R).execute(w);
+    expect(w.budget.politicalCapital).toBe(pcBefore);
+  });
+
+  it('does not charge PC when repainting same zone type', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 2;
+    const pcBefore = w.budget.politicalCapital;
+    new PaintZoneCommand(0, 0, ZONE_R).execute(w); // same zone type
+    expect(w.budget.politicalCapital).toBe(pcBefore);
+  });
+
+  it('charges PC when overwriting a populated R zone with a different zone', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 1;
+    const pop = BALANCE.growth.popPerLevel[1];
+    const expectedPcCost = pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
+    const pcBefore = w.budget.politicalCapital;
+    new PaintZoneCommand(0, 0, ZONE_C).execute(w);
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore - expectedPcCost);
+  });
+
+  it('blocks overwrite when political capital is insufficient', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 3;
+    w.budget.politicalCapital = 0;
+    const ok = new PaintZoneCommand(0, 0, ZONE_I).execute(w);
+    expect(ok).toBe(false);
+    expect(w.layers.zone[w.grid.idx(0, 0)]).toBe(ZONE_R);
+  });
+
+  it('restores PC on undo after overwrite', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 1;
+    const pcBefore = w.budget.politicalCapital;
+    const cmd = new PaintZoneCommand(0, 0, ZONE_C);
+    cmd.execute(w);
+    cmd.undo(w);
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore);
+  });
+});
+
+// ─── CityCharacterSystem ──────────────────────────────────────────────────────
+
+describe('CityCharacterSystem', () => {
+  it('starts all axes at 0', () => {
+    const w = makeWorld();
+    expect(w.character.egalitarian).toBe(0);
+    expect(w.character.green).toBe(0);
+    expect(w.character.planned).toBe(0);
+  });
+
+  it('nudges green axis negative when industrial zone is painted', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    const sys = new CityCharacterSystem();
+    sys.update(w); // register listeners
+    new PaintZoneCommand(0, 0, ZONE_I).execute(w);
+    expect(w.character.green).toBeLessThan(0);
+  });
+
+  it('nudges green axis positive when park is placed', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    const sys = new CityCharacterSystem();
+    sys.update(w);
+    new PlaceServiceBuildingCommand(0, 0, BUILDING_PARK).execute(w);
+    expect(w.character.green).toBeGreaterThan(0);
+  });
+
+  it('nudges egalitarian axis positive when service building placed', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    const sys = new CityCharacterSystem();
+    sys.update(w);
+    new PlaceServiceBuildingCommand(0, 0, BUILDING_POLICE).execute(w);
+    expect(w.character.egalitarian).toBeGreaterThan(0);
+  });
+
+  it('nudges planned axis positive when road is built', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    const sys = new CityCharacterSystem();
+    sys.update(w);
+    w.setRoad(0, 0, ROAD_STREET);
+    w.events.emit('roadBuilt', { tx: 0, ty: 0, cost: 10 });
+    expect(w.character.planned).toBeGreaterThan(0);
+  });
+
+  it('nudges egalitarian/planned negative when population is displaced', () => {
+    const w = makeWorld();
+    forceBuildable(w, 0, 0);
+    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
+    w.layers.devLevel[w.grid.idx(0, 0)] = 2;
+    const sys = new CityCharacterSystem();
+    sys.update(w);
+    new BulldozeCommand(0, 0).execute(w);
+    expect(w.character.egalitarian).toBeLessThan(0);
+    expect(w.character.planned).toBeLessThan(0);
+  });
+
+  it('decays axes toward zero each tick', () => {
+    const w = makeWorld();
+    w.character.green = 50;
+    w.character.egalitarian = -30;
+    const sys = new CityCharacterSystem();
+    sys.update(w); // first update registers listeners + decays
+    expect(w.character.green).toBeLessThan(50);
+    expect(w.character.egalitarian).toBeGreaterThan(-30);
+  });
+
+  it('clamps axes to axisMax', () => {
+    const w = makeWorld();
+    w.character.green = BALANCE.character.axisMax - 0.1;
+    const sys = new CityCharacterSystem();
+    sys.update(w); // register listeners
+    // Place many parks to push past the max
+    for (let x = 0; x < 10; x++) {
+      forceBuildable(w, x, 5);
+      new PlaceServiceBuildingCommand(x, 5, BUILDING_PARK).execute(w);
+    }
+    expect(w.character.green).toBeLessThanOrEqual(BALANCE.character.axisMax);
+  });
+});
+
+// ─── CharacterPalette ─────────────────────────────────────────────────────────
+
+describe('CharacterPalette.resolvePalette', () => {
+  const axisMax = BALANCE.character.axisMax;
+
+  it('returns base palette at neutral character', () => {
+    const p = resolvePalette({ egalitarian: 0, green: 0, planned: 0 }, axisMax);
+    expect(p.grass).toBe('#3a5a3a');
+    expect(p.zoneI).toBe('#a07a3a');
+  });
+
+  it('shifts grass toward green-variant at max green', () => {
+    const neutral = resolvePalette({ egalitarian: 0, green: 0,       planned: 0 }, axisMax);
+    const green   = resolvePalette({ egalitarian: 0, green: axisMax,  planned: 0 }, axisMax);
+    expect(green.grass).not.toBe(neutral.grass);
+    // Green variant grass should be different from base
+    expect(green.grass).toBe('#2d5228');
+  });
+
+  it('shifts industrial zone more vivid at max industrial', () => {
+    const neutral    = resolvePalette({ egalitarian: 0, green: 0,        planned: 0 }, axisMax);
+    const industrial = resolvePalette({ egalitarian: 0, green: -axisMax, planned: 0 }, axisMax);
+    expect(industrial.zoneI).not.toBe(neutral.zoneI);
+  });
+
+  it('building palette arrays are lerped per element', () => {
+    const industrial = resolvePalette({ egalitarian: 0, green: -axisMax, planned: 0 }, axisMax);
+    expect(industrial.buildingI).toHaveLength(3);
+    expect(industrial.buildingI[0]).not.toBe('#c89850'); // shifted from base
+  });
+
+  it('axes are independent — green shift does not affect egalitarian colors', () => {
+    const onlyGreen = resolvePalette({ egalitarian: 0, green: axisMax, planned: 0 }, axisMax);
+    const base      = resolvePalette({ egalitarian: 0, green: 0,       planned: 0 }, axisMax);
+    // zoneR is only modified by egalitarian/laissez-faire, not green
+    expect(onlyGreen.zoneR).toBe(base.zoneR);
   });
 });

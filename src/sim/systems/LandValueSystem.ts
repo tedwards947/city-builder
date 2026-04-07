@@ -2,8 +2,13 @@
 // Land value (0–255) is a per-tile desirability score that modulates tax
 // income and provides player feedback about city health.
 //
-// Demand multipliers (0.25–2.0) adjust zone growth probability based on the
-// balance of R / C / I development — too much of one type slows it down.
+// Demand multipliers (0.25–2.0) adjust zone growth probability based on two
+// factors:
+//   1. Zone balance — too much of one type slows that type down.
+//   2. Tax rates — taxing above the neutral rate (BALANCE.tax.*) suppresses
+//      demand for that zone type; taxing below it boosts demand.
+//      Formula: taxMult = neutralRate / currentRate, clamped to [0.25, 2.0].
+//      Applied after the sqrt so the effect is direct (2× rate → 0.5× demand).
 //
 // Runs every growth.tickInterval ticks (same cadence as ZoneGrowthSystem).
 
@@ -82,9 +87,17 @@ export class LandValueSystem {
     // iDemand: I grows fast when combined labor+market exceeds industrial capacity.
     const iRatio = (rDev + cDev + 1) / (iDev * DM.workersPerIndustry + 1);
 
-    const clamp = (v: number) => Math.max(DM.min, Math.min(DM.max, Math.sqrt(v)));
-    world.stats.rDemand = clamp(rRatio);
-    world.stats.cDemand = clamp(cRatio);
-    world.stats.iDemand = clamp(iRatio);
+    // Tax demand multipliers — neutral at default rate, inverse of rate change.
+    const { taxRates } = world.budget;
+    const TAX = BALANCE.tax;
+    const taxClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, v));
+    const rTaxMult = taxClamp(TAX.zoneR / taxRates.R);
+    const cTaxMult = taxClamp(TAX.zoneC / taxRates.C);
+    const iTaxMult = taxClamp(TAX.zoneI / taxRates.I);
+
+    const sqrtClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, Math.sqrt(v)));
+    world.stats.rDemand = taxClamp(sqrtClamp(rRatio) * rTaxMult);
+    world.stats.cDemand = taxClamp(sqrtClamp(cRatio) * cTaxMult);
+    world.stats.iDemand = taxClamp(sqrtClamp(iRatio) * iTaxMult);
   }
 }

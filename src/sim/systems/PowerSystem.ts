@@ -58,12 +58,13 @@ export class PowerSystem {
       }
     }
 
-    // Compute demand from developed zones.
+    // Compute demand from developed zones (abandoned tiles consume nothing).
     let totalDemand = 0;
     const devLevel = world.layers.devLevel;
     const zone = world.layers.zone;
+    const abandoned = world.layers.abandoned;
     for (let i = 0; i < width * height; i++) {
-      if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
+      if (zone[i] !== ZONE_NONE && devLevel[i] > 0 && abandoned[i] === 0) {
         totalDemand += devLevel[i] * BALANCE.power.perDevLevel;
       }
     }

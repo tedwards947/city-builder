@@ -72,25 +72,35 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [x] Richer economics (variable tax rates, land value, demand curves)
 
 ### Phase 6: Transit
-- [ ] Flow simulation on road graph (not agent-based — flow scales, agents don't)
-- [ ] TripGenerator / TripAttractor components
-- [ ] Demand computation and flow solver (runs periodically)
-- [ ] Congestion as edge property feeding back into growth
-- [ ] Traffic overlay view
-- [ ] Road classes: street / avenue / highway (capacity/speed differ)
-- [ ] Road upgrade UI (mutate edges, don't demolish)
+- [x] Flow simulation on road graph (not agent-based — flow scales, agents don't)
+- [x] TripGenerator / TripAttractor components
+- [x] Demand computation and flow solver (runs periodically)
+- [x] Congestion as edge property feeding back into growth
+- [x] Traffic overlay view
+- [x] Road classes: street / avenue / highway (capacity/speed differ)
+- [x] Road upgrade UI (mutate edges, don't demolish)
 - [ ] Bus routes, subways as additional graphs, modal split
-- [ ] Visual agent layer (eye candy only, hard vehicle budget cap)
+- [x] Visual agent layer (eye candy only, hard vehicle budget cap)
+- [ ] Road pathing improvements -- residents need to travel to commercial zones to shop and to industrial zones to work. industry needs to ship things to commerce. don't use agents, but let's find a simple-ish way to model this so that traffic flow becomes something serious to consider
 
 ### Phase 7: Identity — Political Capital & City Character
-- [ ] PoliticsSystem — consumes EventBus events, updates politicalCapital on budget
-- [ ] Disruptive action cost table in `/data`
-- [ ] Visible political capital meter in HUD
-- [ ] Disruptive actions gated on capital
-- [ ] CityCharacterSystem — updates character axes from action context
-- [ ] Sprite variant lookup keyed on character profile
-- [ ] Ambient presentation shifts (color grading, building variants)
+- [x] PoliticsSystem — per-tick regen from satisfaction (servicesCoverage/powerCoverage/waterCoverage, weighted, extensible via SatisfactionFactor interface); satisfaction exposed on world.stats
+- [x] Disruptive action cost table in `/data` (balance.ts politicalCapital section: max, baseRegen, satisfactionRegenBonus, satisfactionWeights, disruptionCosts)
+- [x] Visible political capital meter in HUD (value + animated bar, color shifts at low/critical thresholds)
+- [x] Disruptive actions gated on capital — bulldozing and painting over populated R zones check+deduct PC; undo restores it
+- [x] CityCharacterSystem — event-driven nudges (zonePainted/tileCleared/roadBuilt/serviceBuilt/powerPlantBuilt) + per-tick decay; world.character axes clamped to ±axisMax
+- [x] Sprite variant lookup keyed on character profile — CharacterPalette.resolvePalette(character, axisMax) returns a ColorPalette; renderer calls it once per frame
+- [x] Ambient presentation shifts — green↔industrial (grass, zoneI, buildingI, park colors), egalitarian↔laissez-faire (zoneR/C warmth, vividness), planned↔organic (road shade/definition); all lerped, no meters shown
 - [ ] **No character meter** — player discovers vibe through ambient feedback only
+- [x] Balance tuning from playtesting
+
+### Phase 7.5: Services and stuff
+- [x] implement abandonment; build the scaffolding/capability and we'll worry about the conditions to become abandoned later. build a visual state for abandonment
+- [ ] implement crime. opine and ask for clarification and then implement. eventually we'll implement education and that will impact crime (but not quite yet). police service proximity should have a direct impact on crime. too much crime should actively hurt political capital. you will probably need to expand the radius of police stations to make this non-tedious gameplay. zones should have knowledge of police and crime. if there's too much crime for too long, buildings abandon. we need a visual state for crime
+- [ ] implement fire... fire risk, etc. fire stations actively impact it. opine and ask for clarification. buildings burn and if not put out quickly enough they become abandoned. even service or infrastructure buildings can be hurt by fire. we need a visual state for zones and buildings on fire
+- [ ] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities.
+- [ ] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
+- [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
 - [ ] Balance tuning from playtesting
 
 ### Phase 8: Server & Cloud Saves
@@ -176,6 +186,8 @@ index.html
 | landValue | Uint8Array | 0–255 desirability (modulates tax income; smoothed each interval) |
 | roadNet | Uint16Array | connected-component ID |
 | pollution | Uint8Array | 0–255 pollution level (diffuses, decays) |
+| abandoned | Uint8Array | 0=normal, 1=abandoned (no income, no growth, distinct visual) |
+| distress | Uint8Array | 0–255 distress accumulator (increments when conditions unmet) |
 
 ### Entity Lists on World
 - `world.powerPlants: PowerPlant[]` — `{ tx, ty }`
@@ -257,7 +269,7 @@ Load-bearing decisions — don't change without good reason.
 
 Already in the code — must not be removed:
 
-- `roadClass` byte: `ROAD_STREET=1`, reserved for `AVENUE`, `HIGHWAY`
+- `roadClass` byte: `ROAD_STREET=1`, `ROAD_AVENUE=2`, `ROAD_HIGHWAY=3`
 - `politicalCapital` on budget: present but unused (Phase 7)
 - `character` object (`{egalitarian, green, planned}`) on world: unused (Phase 7)
 - Events carry rich context so future systems can react meaningfully

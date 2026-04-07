@@ -28,6 +28,8 @@ export interface Layers {
   roadNet:    Uint16Array; // connected-component ID for road network
   pollution:  Uint8Array; // 0–255 pollution level
   congestion: Uint8Array; // 0–255 road traffic congestion (computed by TransitSystem)
+  abandoned:  Uint8Array; // 0=normal, 1=abandoned (zone devLevel preserved but no income)
+  distress:   Uint8Array; // 0–255 distress counter (accumulates when conditions unmet)
 }
 
 export interface Budget {
@@ -52,6 +54,7 @@ export interface Stats {
   iDemand: number;
   avgLandValue: number;   // 0–255 average across all tiles
   avgCongestion: number;  // 0–255 average road congestion (updated by TransitSystem)
+  satisfaction: number;   // 0–1 weighted citizen satisfaction (updated by PoliticsSystem)
 }
 
 export interface PowerPlant {
@@ -126,6 +129,8 @@ export class World {
       roadNet:    new Uint16Array(n),
       pollution:  new Uint8Array(n),
       congestion: new Uint8Array(n),
+      abandoned:  new Uint8Array(n),
+      distress:   new Uint8Array(n),
     };
     this.budget = {
       money: BALANCE.startingMoney,
@@ -134,7 +139,7 @@ export class World {
       expenses: 0,
       taxRates: { R: BALANCE.tax.zoneR, C: BALANCE.tax.zoneC, I: BALANCE.tax.zoneI },
     };
-    this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0 };
+    this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
     this.powerPlants = [];
     this.waterTowers = [];
@@ -224,7 +229,11 @@ export class World {
     if (this.getTerrain(tx, ty) === TERRAIN_WATER) return false;
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
-    if (this.layers.zone[i] !== z) this.layers.devLevel[i] = 0;
+    if (this.layers.zone[i] !== z) {
+      this.layers.devLevel[i] = 0;
+      this.layers.abandoned[i] = 0;
+      this.layers.distress[i] = 0;
+    }
     this.layers.zone[i] = z;
     this.grid.markDirty(tx, ty);
     return true;
@@ -275,6 +284,8 @@ export class World {
     this.layers.roadClass[i] = ROAD_NONE;
     this.layers.building[i] = BUILDING_NONE;
     this.layers.devLevel[i] = 0;
+    this.layers.abandoned[i] = 0;
+    this.layers.distress[i] = 0;
     if (hadBuilding === BUILDING_POWER_PLANT) {
       this.powerPlants = this.powerPlants.filter(p => !(p.tx === tx && p.ty === ty));
     } else if (hadBuilding === BUILDING_WATER_TOWER) {

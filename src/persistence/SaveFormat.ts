@@ -4,8 +4,9 @@
 //   1 — initial format
 //   2 — added serviceBuildings entity list and services layer (coverage system)
 //   3 — added landValue layer; taxRates to budget; demand + avgLandValue to stats
+//   4 — added abandoned + distress layers (Phase 7.5 abandonment)
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -74,11 +75,13 @@ export interface WorldSnapshot {
     landValue: Uint8Array;
     roadNet:   Uint16Array;
     pollution: Uint8Array;
+    abandoned: Uint8Array;
+    distress:  Uint8Array;
   };
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -110,7 +113,8 @@ export function migrate(raw: unknown): SaveRecord {
   let rec = raw as SaveRecord;
   if (!r.version || r.version === 1) rec = upgradeV1toV2(rec);
   if ((rec as { version: number }).version === 2) rec = upgradeV2toV3(rec);
-  if ((rec as { version: number }).version === 3) return rec;
+  if ((rec as { version: number }).version === 3) rec = upgradeV3toV4(rec);
+  if ((rec as { version: number }).version === 4) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }
 
@@ -125,6 +129,23 @@ function upgradeV1toV2(v1: SaveRecord): SaveRecord {
       stats: { ...snap.stats, servicesCoveredZones: 0 },
       serviceBuildings: [],
       layers: { ...snap.layers, services: new Uint8Array(n) },
+    },
+  };
+}
+
+function upgradeV3toV4(v3: SaveRecord): SaveRecord {
+  const snap = v3.snapshot;
+  const n = snap.width * snap.height;
+  return {
+    ...v3,
+    version: 4,
+    snapshot: {
+      ...snap,
+      layers: {
+        ...snap.layers,
+        abandoned: new Uint8Array(n),
+        distress:  new Uint8Array(n),
+      },
     },
   };
 }

@@ -11,9 +11,9 @@ import { PlaceWaterTowerCommand } from '../commands/PlaceWaterTowerCommand';
 import { PlaceSewagePlantCommand } from '../commands/PlaceSewagePlantCommand';
 import { PlaceServiceBuildingCommand } from '../commands/PlaceServiceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
-import { ZONE_R, ZONE_C, ZONE_I, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
+import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
 
 export class InputController {
   private readonly canvas: HTMLCanvasElement;
@@ -133,7 +133,9 @@ export class InputController {
   private _applyTool(tx: number, ty: number): void {
     const tool = this.getTool();
     const history = this.getHistory();
-    if (tool === 'road')          history.run(new BuildRoadCommand(tx, ty));
+    if      (tool === 'road')     history.run(new BuildRoadCommand(tx, ty, ROAD_STREET));
+    else if (tool === 'avenue')   history.run(new BuildRoadCommand(tx, ty, ROAD_AVENUE));
+    else if (tool === 'highway')  history.run(new BuildRoadCommand(tx, ty, ROAD_HIGHWAY));
     else if (tool === 'zoneR')    history.run(new PaintZoneCommand(tx, ty, ZONE_R));
     else if (tool === 'zoneC')    history.run(new PaintZoneCommand(tx, ty, ZONE_C));
     else if (tool === 'zoneI')    history.run(new PaintZoneCommand(tx, ty, ZONE_I));
