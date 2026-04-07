@@ -148,6 +148,7 @@ export class TileInfoPanel {
     const dev      = world.layers.devLevel[i];
     const pollution = world.layers.pollution[i];
     const crime     = world.layers.crime[i];
+    const distress  = world.layers.distress[i];
 
     let html = `<div class="ti-coord">(${tx}, ${ty})</div>`;
 

@@ -108,6 +108,9 @@ Check items off here as they are implemented and tested. When all items in a pha
 ### Phase 7.6 visual improvements
 - [x] improve visual sprites for zones... level 1, 2, 3 should have different visual treatments, ideally looking like industrial, commerical, and residential buildings. there should be 10-15 different sprites for each level for each zone type, so that the city looks varied and visually interesting. for close zoom levels, the sprites should be visible. however, after a certain zoom level, it can fall back to the current "box size -> zone level" method it uses today.
 
+### Phase 7.7: alerts
+- [ ] for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear.
+
 ### Phase 8: Server & Cloud Saves
 - [ ] RemoteStore implementation against backend
 - [ ] API: POST/GET/DELETE /saves (save blobs opaque to server)

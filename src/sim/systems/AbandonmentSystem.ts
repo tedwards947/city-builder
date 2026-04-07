@@ -32,24 +32,32 @@ export class AbandonmentSystem {
 
       // Basic condition check.
       const resourcesMet = power[i] !== 0 && water[i] !== 0;
-      const crimeTooHigh = crime[i] >= BALANCE.crime.abandonThreshold;
-      const conditionsMet = resourcesMet && !crimeTooHigh;
+      const crimeSevere = crime[i] >= BALANCE.crime.abandonThreshold;
+      const crimeElevated = crime[i] > BALANCE.crime.growthThreshold;
+      
+      const conditionsMet = resourcesMet && !crimeSevere;
 
       if (!conditionsMet) {
-        // Crime contributes more to distress if very high.
-        const distressAdd = crimeTooHigh ? 2 : 1;
+        // Severe crime or missing resources adds 1-2 distress.
+        const distressAdd = crimeSevere ? 2 : 1;
         distress[i] = Math.min(255, distress[i] + distressAdd);
-
-        if (distress[i] >= BALANCE.abandonment.abandonThreshold) {
-          abandoned[i] = 1;
-          const x = i % width;
-          const y = (i - x) / width;
-          world.grid.markDirty(x, y);
-          world.events.emit('tileAbandoned', { tx: x, ty: y, zone: zone[i], level: devLevel[i] });
+      } else if (crimeElevated) {
+        // Elevated crime (above growth threshold but below abandonment) 
+        // adds distress slowly (only every 2nd system tick on avg).
+        if (world.tick % (BALANCE.abandonment.distressInterval * 2) === 0) {
+          distress[i] = Math.min(255, distress[i] + 1);
         }
       } else {
         // Conditions good — drain distress (building recovers before abandoning).
         if (distress[i] > 0) distress[i]--;
+      }
+
+      if (distress[i] >= BALANCE.abandonment.abandonThreshold) {
+        abandoned[i] = 1;
+        const x = i % width;
+        const y = (i - x) / width;
+        world.grid.markDirty(x, y);
+        world.events.emit('tileAbandoned', { tx: x, ty: y, zone: zone[i], level: devLevel[i] });
       }
     }
   }

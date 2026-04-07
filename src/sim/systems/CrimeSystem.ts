@@ -39,7 +39,7 @@ export class CrimeSystem {
       else if (z === ZONE_C) baseRate = b.baseRateC;
       else if (z === ZONE_I) baseRate = b.baseRateI;
 
-      let targetCrime = baseRate * level * 20; // Scale to 0-255 range
+      let targetCrime = baseRate * level * 40; // Increased from 20 to 40
 
       // Police reduction.
       if (police[i] === 1) {
