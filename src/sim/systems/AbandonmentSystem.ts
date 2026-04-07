@@ -17,7 +17,7 @@ export class AbandonmentSystem {
 
     const { width, height } = world.grid;
     const n = width * height;
-    const { zone, devLevel, power, water, abandoned, distress } = world.layers;
+    const { zone, devLevel, power, water, abandoned, distress, crime } = world.layers;
 
     for (let i = 0; i < n; i++) {
       // Skip already-abandoned tiles — abandonment is permanent until bulldozed.
@@ -30,12 +30,16 @@ export class AbandonmentSystem {
         continue;
       }
 
-      // Basic condition check — placeholder. Future systems (crime, fire) can
-      // increment distress[i] directly before this system runs.
-      const conditionsMet = power[i] !== 0 && water[i] !== 0;
+      // Basic condition check.
+      const resourcesMet = power[i] !== 0 && water[i] !== 0;
+      const crimeTooHigh = crime[i] >= BALANCE.crime.abandonThreshold;
+      const conditionsMet = resourcesMet && !crimeTooHigh;
 
       if (!conditionsMet) {
-        if (distress[i] < 255) distress[i]++;
+        // Crime contributes more to distress if very high.
+        const distressAdd = crimeTooHigh ? 2 : 1;
+        distress[i] = Math.min(255, distress[i] + distressAdd);
+
         if (distress[i] >= BALANCE.abandonment.abandonThreshold) {
           abandoned[i] = 1;
           const x = i % width;

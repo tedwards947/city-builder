@@ -16,6 +16,7 @@ export class ZoneGrowthSystem {
     const sewage = world.layers.sewage;
     const services = world.layers.services;
     const pollution = world.layers.pollution;
+    const crime = world.layers.crime;
     const roadClass = world.layers.roadClass;
     const congestion = world.layers.congestion;
     const abandoned = world.layers.abandoned;
@@ -39,8 +40,9 @@ export class ZoneGrowthSystem {
       if (dev[i] >= 2 && sewage[i] === 0) continue;    // no sewage: cap at level 2
       if (!hasSewageSurplus && dev[i] >= 2) continue;   // sewage overload: cap at level 2
       if (dev[i] >= 2 && services[i] === 0) continue;   // no service coverage: cap at level 2
-      // R and C zones don't grow in heavily polluted areas.
+      // R and C zones don't grow in heavily polluted or high-crime areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
+      if (zone[i] !== ZONE_I && crime[i] > BALANCE.crime.growthThreshold) continue;
       // Road access: straight-line search in 4 directions, up to 3 tiles.
       // Also track max nearby road congestion for the growth penalty.
       const x = i % width, y = (i - x) / width;

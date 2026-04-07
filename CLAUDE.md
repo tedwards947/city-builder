@@ -97,7 +97,8 @@ Check items off here as they are implemented and tested. When all items in a pha
 
 ### Phase 7.5: Services and stuff
 - [x] implement abandonment; build the scaffolding/capability and we'll worry about the conditions to become abandoned later. build a visual state for abandonment
-- [ ] implement crime. opine and ask for clarification and then implement. eventually we'll implement education and that will impact crime (but not quite yet). police service proximity should have a direct impact on crime. too much crime should actively hurt political capital. you will probably need to expand the radius of police stations to make this non-tedious gameplay. zones should have knowledge of police and crime. if there's too much crime for too long, buildings abandon. we need a visual state for crime
+- [x] implement crime. Police service proximity has a direct impact on crime (Police radius=12). Too much crime actively hurts political capital satisfaction. Zones have knowledge of police and crime. High crime (above threshold 180) causes buildings to abandon. Visual state for crime (red dots in corners). Crime also blocks R/C growth above threshold 100.
+- [x] crime should impact political capital regen... toooo much and it can actually decrease political capital.
 - [ ] implement fire... fire risk, etc. fire stations actively impact it. opine and ask for clarification. buildings burn and if not put out quickly enough they become abandoned. even service or infrastructure buildings can be hurt by fire. we need a visual state for zones and buildings on fire. fire should be able to spread; proportional to fire risk of adjacent buildings
 - [ ] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities.
 - [ ] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
@@ -105,7 +106,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [ ] Balance tuning from playtesting
 
 ### Phase 7.6 visual improvements
-- [ ] improve visual sprites for zones... level 1, 2, 3 should have different visual treatments, ideally looking like industrial, commerical, and residential buildings. there should be 10-15 different sprites for each level for each zone type, so that the city looks varied and visually interesting. for close zoom levels, the sprites should be visible. however, after a certain zoom level, it can fall back to the current "box size -> zone level" method it uses today.
+- [x] improve visual sprites for zones... level 1, 2, 3 should have different visual treatments, ideally looking like industrial, commerical, and residential buildings. there should be 10-15 different sprites for each level for each zone type, so that the city looks varied and visually interesting. for close zoom levels, the sprites should be visible. however, after a certain zoom level, it can fall back to the current "box size -> zone level" method it uses today.
 
 ### Phase 8: Server & Cloud Saves
 - [ ] RemoteStore implementation against backend
@@ -148,7 +149,7 @@ city-builder/src/
     World.ts, Grid.ts, Scheduler.ts, EventBus.ts, rng.ts, constants.ts
     systems/
       NetworkSystem.ts, PowerSystem.ts, WaterSystem.ts, SewageSystem.ts,
-      PollutionSystem.ts, ZoneGrowthSystem.ts, EconomySystem.ts
+      PollutionSystem.ts, ZoneGrowthSystem.ts, EconomySystem.ts, CrimeSystem.ts
       (future: ServiceSystem, TransitSystem, PoliticsSystem, CharacterSystem)
   render/
     CanvasRenderer.ts, Camera.ts, Projection.ts
@@ -190,6 +191,8 @@ index.html
 | landValue | Uint8Array | 0–255 desirability (modulates tax income; smoothed each interval) |
 | roadNet | Uint16Array | connected-component ID |
 | pollution | Uint8Array | 0–255 pollution level (diffuses, decays) |
+| crime | Uint8Array | 0–255 crime level (ZoneGrowthSystem and PoliticsSystem read this) |
+| police | Uint8Array | 0/1 — police coverage this tick |
 | abandoned | Uint8Array | 0=normal, 1=abandoned (no income, no growth, distinct visual) |
 | distress | Uint8Array | 0–255 distress accumulator (increments when conditions unmet) |
 

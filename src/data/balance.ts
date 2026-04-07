@@ -45,7 +45,21 @@ export const BALANCE = {
   },
   service: {
     // Coverage radius (manhattan distance) per building kind (4–8)
-    coverageRange: { 4: 5, 5: 5, 6: 4, 7: 6, 8: 3 } as Record<number, number>,
+    coverageRange: { 4: 12, 5: 5, 6: 4, 7: 6, 8: 3 } as Record<number, number>,
+  },
+  crime: {
+    // Base crime added per tick per developed level.
+    baseRateR: 1.2,
+    baseRateC: 2.0,
+    baseRateI: 0.8,
+    // Crime reduction multiplier if police[i] === 1.
+    policeEffectiveness: 0.15, // 85% reduction
+    // Smoothing factor (blend rate toward target per tick).
+    smoothing: 0.1,
+    // Crime level (0-255) above which R/C zones can't grow.
+    growthThreshold: 100,
+    // Crime level (0-255) above which abandonment might trigger.
+    abandonThreshold: 180,
   },
   landValue: {
     base: 80,             // starting value before modifiers (0–255 scale)
@@ -193,9 +207,10 @@ export const BALANCE = {
     // Keys are matched by name to SatisfactionFactor.name in PoliticsSystem.
     // Add new factors here + implement compute() in PoliticsSystem.defaultFactors().
     satisfactionWeights: {
-      servicesCoverage: 0.50, // fraction of developed R zones with service coverage
-      powerCoverage:    0.25, // fraction of developed zones with power
-      waterCoverage:    0.25, // fraction of developed zones with water
+      servicesCoverage: 0.40, // fraction of developed R zones with service coverage
+      powerCoverage:    0.20, // fraction of developed zones with power
+      waterCoverage:    0.20, // fraction of developed zones with water
+      crime:            0.20, // (1 - average crime level)
     } as Record<string, number>,
     // Costs for disruptive actions — applied at execute() time, same as money costs.
     // Gating: if budget.politicalCapital < cost, the action is blocked.

@@ -79,7 +79,8 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
   const sewage   = world.layers.sewage[i] !== 0;
   const services = world.layers.services[i] !== 0;
   const pollution = world.layers.pollution[i];
-  const road     = hasRoadAccess(world, tx, ty);
+  const crime     = world.layers.crime[i];
+  const road      = hasRoadAccess(world, tx, ty);
 
   const hasPowerSurplus  = world.stats.powerSupply  >= world.stats.powerDemand;
   const hasWaterSurplus  = world.stats.waterSupply  >= world.stats.waterDemand;
@@ -104,6 +105,10 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
     reqs.push({
       label: `Pollution below threshold (${pollution} / ${BALANCE.pollution.growthThreshold})`,
       met: pollution <= BALANCE.pollution.growthThreshold,
+    });
+    reqs.push({
+      label: `Crime below threshold (${crime} / ${BALANCE.crime.growthThreshold})`,
+      met: crime <= BALANCE.crime.growthThreshold,
     });
   }
 
@@ -142,6 +147,7 @@ export class TileInfoPanel {
     const vegetation = world.layers.vegetation[i];
     const dev      = world.layers.devLevel[i];
     const pollution = world.layers.pollution[i];
+    const crime     = world.layers.crime[i];
 
     let html = `<div class="ti-coord">(${tx}, ${ty})</div>`;
 
@@ -217,6 +223,11 @@ export class TileInfoPanel {
       if (pollution > 0) {
         const pLabel = pollution < 40 ? 'low' : pollution < 100 ? 'medium' : 'high';
         html += `<div class="ti-detail ti-poll">Pollution: ${pollution} (${pLabel})</div>`;
+      }
+
+      if (crime > 0) {
+        const cLabel = crime < 40 ? 'low' : crime < 100 ? 'medium' : 'high';
+        html += `<div class="ti-detail" style="color:#e55">Crime: ${crime} (${cLabel})</div>`;
       }
 
       // Demand and tax display
