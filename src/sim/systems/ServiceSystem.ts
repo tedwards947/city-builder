@@ -86,10 +86,12 @@ export class ServiceSystem {
     const police = world.layers.police;
     const fireStation = world.layers.fireStation;
     const school = world.layers.school;
+    const hospital = world.layers.hospital;
     services.fill(0);
     police.fill(0);
     fireStation.fill(0);
     school.fill(0);
+    hospital.fill(0);
 
     for (const b of world.serviceBuildings) {
       for (const idx of computeServiceCoverage(world, b.tx, b.ty, b.kind)) {
@@ -100,6 +102,8 @@ export class ServiceSystem {
           fireStation[idx] = 1;
         } else if (b.kind === 6) { // BUILDING_SCHOOL
           school[idx] = 1;
+        } else if (b.kind === 7) { // BUILDING_HOSPITAL
+          hospital[idx] = 1;
         }
       }
     }

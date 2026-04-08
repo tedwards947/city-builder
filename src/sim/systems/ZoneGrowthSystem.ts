@@ -42,6 +42,7 @@ export class ZoneGrowthSystem {
       if (!hasSewageSurplus && dev[i] >= 2) continue;   // sewage overload: cap at level 2
       if (dev[i] >= 2 && services[i] === 0) continue;   // no service coverage: cap at level 2
       if (zone[i] === ZONE_R && dev[i] >= 2 && education[i] < BALANCE.education.growthThreshold) continue; // education too low
+      if (zone[i] === ZONE_R && world.layers.sickness[i] > BALANCE.healthcare.growthThreshold) continue; // too sick to attract residents
       // R and C zones don't grow in heavily polluted or high-crime areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
       if (zone[i] !== ZONE_I && crime[i] > BALANCE.crime.growthThreshold) continue;

@@ -53,6 +53,8 @@ export class CanvasRenderer {
         const crimeV     = world.layers.crime[i];
         const fireV      = world.layers.fire[i];
         const fireRiskV  = world.layers.fireRisk[i];
+        const sicknessV  = world.layers.sickness[i];
+        const recentDeathV = world.layers.recentDeath[i];
         const isAbandoned = world.layers.abandoned[i] !== 0;
         const { x: wx, y: wy } = Projection.tileToWorld(tx, ty);
         const { sx, sy } = camera.worldToScreen(wx, wy);
@@ -249,6 +251,45 @@ export class CanvasRenderer {
           }
           if (crimeV > 200 && ts > 12) {
             ctx.fillRect(sxi + 1, syi + tsi - dotSize - 1, dotSize, dotSize);
+          }
+        }
+
+        // Sickness indicator: teal cross in bottom-right for sick residential zones.
+        if (sicknessV > 80 && zone === ZONE_R && dev > 0 && !isAbandoned) {
+          const sickAlpha = Math.min(0.85, (sicknessV / 255) * 1.1);
+          ctx.fillStyle = `rgba(0, 200, 180, ${sickAlpha.toFixed(3)})`;
+          const cs = Math.max(2, Math.floor(ts * 0.15));
+          const cx = sxi + tsi - cs - 1;
+          const cy = syi + tsi - cs - 1;
+          // Small cross: horizontal + vertical bar
+          if (ts > 6) {
+            const arm = Math.max(1, Math.floor(cs * 0.4));
+            ctx.fillRect(cx - arm, cy - cs, arm * 2, cs * 2);   // vertical
+            ctx.fillRect(cx - cs, cy - arm, cs * 2, arm * 2);   // horizontal
+          } else {
+            ctx.fillRect(cx, cy, cs, cs);
+          }
+        }
+
+        // Recent death indicator: pale tombstone shape in bottom-left when recentDeath > 0.
+        if (recentDeathV > 0 && zone === ZONE_R && dev > 0) {
+          const deathAlpha = Math.min(0.9, (recentDeathV / BALANCE.healthcare.deathVisualDuration) * 0.9);
+          ctx.fillStyle = `rgba(220, 220, 240, ${deathAlpha.toFixed(3)})`;
+          const ds = Math.max(2, Math.floor(ts * 0.18));
+          const dx = sxi + 1;
+          const dy = syi + tsi - ds - 1;
+          if (ts > 8) {
+            // Simple tombstone: rectangle with rounded top (approximated by a square)
+            ctx.fillRect(dx, dy, ds, ds);
+            // Small cross on top
+            ctx.fillStyle = `rgba(180, 180, 200, ${deathAlpha.toFixed(3)})`;
+            const arm2 = Math.max(1, Math.floor(ds * 0.3));
+            const cx2 = dx + Math.floor(ds / 2);
+            const cy2 = dy - arm2;
+            ctx.fillRect(cx2 - arm2, cy2 - arm2, arm2 * 2, arm2 * 3);
+            ctx.fillRect(cx2 - arm2 * 2, cy2, arm2 * 4, arm2);
+          } else {
+            ctx.fillRect(dx, dy, ds, ds);
           }
         }
       }

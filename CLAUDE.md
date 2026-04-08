@@ -71,6 +71,9 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [x] information tool -- insight to the player about each zone or tile and perhaps why it's not able to grow, etc
 - [ ] Disaster event scheduler (fires, floods, random events) [SKIP FOR NOW]
 - [x] Richer economics (variable tax rates, land value, demand curves)
+- [ ] population: each residential zone level can have a maximum number of people that can live there. as a zone upgrades, more people can move in. the number of residents in each zone is not fixed.. it starts at 0 and moves up to the maximum allowed in that level. upon leveling, it increases slowly. population increase is driven by distress, health, services, leisure, taxes, etc.
+- [ ] jobs: commercial and industrial zones have employment figures commensurate with their levels.
+- [ ] unemployment: eventually we'll need to make sure every citizen has a job (to a healthy degree; some employment is good)...
 
 ### Phase 6: Transit
 - [x] Flow simulation on road graph (not agent-based — flow scales, agents don't)
@@ -101,7 +104,8 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [ ] crime should impact political capital regen... toooo much and it can actually decrease political capital.
 - [x] implement fire... fire risk, etc. fire stations actively impact it. opine and ask for clarification. buildings burn and if not put out quickly enough they become abandoned. even service or infrastructure buildings can be hurt by fire. we need a visual state for zones and buildings on fire. fire should be able to spread; proportional to fire risk of adjacent buildings
 - [x] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities. low educational service availability should prevent growth to top-tier
-- [ ] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
+- [x] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
+- [ ] deaths should actually decrease population (and zone residents, when they die, decrease)
 - [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
 - [ ] Balance tuning from playtesting
 
@@ -200,6 +204,9 @@ index.html
 | distress | Uint8Array | 0–255 distress accumulator (increments when conditions unmet) |
 | school | Uint8Array | 0/1 — school coverage this tick |
 | education | Uint8Array | 0–255 persistent education level (only R zones) |
+| hospital | Uint8Array | 0/1 — hospital coverage this tick |
+| sickness | Uint8Array | 0–255 persistent sickness level (only R zones; rises without healthcare) |
+| recentDeath | Uint8Array | 0–255 countdown after a death event (visual indicator while > 0) |
 
 ### Entity Lists on World
 - `world.powerPlants: PowerPlant[]` — `{ tx, ty }`
@@ -216,6 +223,7 @@ index.html
 - **Level 1→2**: power coverage + water coverage (+ surplus)
 - **Level 2→3**: power + water + sewage coverage + services coverage (+ all surpluses) + education level (R zones only)
 - **R/C blocked at any level** if `pollution[i] > BALANCE.pollution.growthThreshold` (I zones immune)
+- **R blocked at any level** if `sickness[i] > BALANCE.healthcare.growthThreshold`
 
 ### System Execution Order (per tick)
 1. NetworkSystem — road connected components
@@ -230,7 +238,8 @@ index.html
 10. FireSystem — fire risk, ignition, and spreading
 11. TransitSystem — flow simulation and accessibility
 12. AbandonmentSystem — handles building abandonment
-13. ZoneGrowthSystem — reads all of the above; growth probability × demand multiplier
+13. HealthcareSystem — sickness accumulation/decay and death events for R zones
+14. ZoneGrowthSystem — reads all of the above; growth probability × demand multiplier
 14. EconomySystem — taxes × landValue multiplier × education multiplier × taxRates, maintenance, population
 15. CityCharacterSystem — ambient city profile shifts
 16. PoliticsSystem — per-tick PC regen from satisfaction
@@ -341,3 +350,4 @@ cd city-builder && npm test
 - Zone colors should be defined as a cohesive palette with contrast checked against terrain colors.
 - Pollution diffusion must be **conserving** (Laplacian step subtracts what it spreads) — additive diffusion causes values to grow unboundedly even with decay.
 - When a user says zones can develop without a resource, check whether the growth gate uses `dev[i] >= N` as a guard — that means the resource is only required for levels ≥ N, which may not be the intended behaviour.
+- **Typed-array accumulation rates must be ≥ 1**, or `Math.floor` truncates them to 0 every tick (sickness bug: `sicknessRate: 0.08` → never accumulated). Prefer integer ±1 increments gated by a probability roll (`if (rng() < prob) layer[i]++`) over fractional additive rates. This also makes accumulation feel organic rather than mechanical — each zone's trajectory diverges. Apply this pattern to any new `Uint8Array` accumulator (sickness, education, etc.).

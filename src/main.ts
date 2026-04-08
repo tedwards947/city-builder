@@ -19,6 +19,7 @@ import { EconomySystem } from './sim/systems/EconomySystem';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { CityCharacterSystem } from './sim/systems/CityCharacterSystem';
 import { AbandonmentSystem } from './sim/systems/AbandonmentSystem';
+import { HealthcareSystem } from './sim/systems/HealthcareSystem';
 import { InputController } from './input/InputController';
 import type { Tool } from './input/InputController';
 import { LocalStore } from './persistence/LocalStore';
@@ -83,6 +84,7 @@ const systems = [
   new TransitSystem(),
   new AbandonmentSystem(),
   new EducationSystem(),
+  new HealthcareSystem(),
   new ZoneGrowthSystem(),
   new EconomySystem(),
   characterSystem,  // event-driven nudges + decay; no layer dependencies

@@ -95,6 +95,28 @@ export const BALANCE = {
     // Education level (0-255) above which R zones can grow to level 3.
     growthThreshold: 100,
   },
+  healthcare: {
+    // Probability per tick of sickness increasing by 1 (no hospital coverage).
+    // Expected 0→255 in ~850 ticks ≈ 106 game-days; actual path varies per zone.
+    sicknessProbability: 0.3,
+    // Probability per tick of sickness decreasing by 1 (hospital coverage).
+    // Expected 255→0 in ~425 ticks ≈ 53 game-days.
+    recoveryProbability: 0.6,
+    // Tax income multiplier at maximum sickness (sickness=255).
+    // Scales linearly: 1.0 at sickness=0 → taxPenalty at sickness=255.
+    taxPenalty: 0.3,
+    // Sickness level above which R zones cannot grow.
+    growthThreshold: 180,
+    // Probability of a death event per R zone per tick at maximum sickness (sickness=255).
+    // At sickness=0, death chance is effectively 0.
+    // Scales linearly: 0.000001 + (sickness/255) * deathChanceMax
+    // Example: at sickness=255, ~1 death per ~330 ticks (~41 game-days) per zone.
+    baseDeathChance: 0.000001,
+    deathChanceMax: 0.003,
+    // How long the "recent death" visual indicator persists (ticks, decrements by 1/tick).
+    // 80 ticks = 10 game-days.
+    deathVisualDuration: 80,
+  },
   landValue: {
     base: 80,             // starting value before modifiers (0–255 scale)
     serviceBonus: 35,     // if services[i] === 1
