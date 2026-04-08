@@ -15,6 +15,37 @@ import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
 
+// Pre-computed color string caches indexed by Uint8 value (0–255).
+// Eliminates template-string allocations in the hot render loop.
+const _pollutionColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.65, (v / 255) * 0.85);
+  return `rgba(160,80,0,${alpha.toFixed(3)})`;
+});
+const _crimeOverlayColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.7, (v / 255) * 0.9);
+  return `rgba(255,0,0,${alpha.toFixed(3)})`;
+});
+const _fireOverlayColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.7, (v / 255) * 0.9);
+  return `rgba(255,128,0,${alpha.toFixed(3)})`;
+});
+const _crimeIndicatorColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.8, (v / 255) * 1.2);
+  return `rgba(255,0,0,${alpha.toFixed(3)})`;
+});
+const _sicknessColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.85, (v / 255) * 1.1);
+  return `rgba(0,200,180,${alpha.toFixed(3)})`;
+});
+const _deathColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.9, (v / BALANCE.healthcare.deathVisualDuration) * 0.9);
+  return `rgba(220,220,240,${alpha.toFixed(3)})`;
+});
+const _deathAccentColors: string[] = Array.from({ length: 256 }, (_, v) => {
+  const alpha = Math.min(0.9, (v / BALANCE.healthcare.deathVisualDuration) * 0.9);
+  return `rgba(180,180,200,${alpha.toFixed(3)})`;
+});
+
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
   private readonly canvas: HTMLCanvasElement;
@@ -56,8 +87,8 @@ export class CanvasRenderer {
         const sicknessV  = world.layers.sickness[i];
         const recentDeathV = world.layers.recentDeath[i];
         const isAbandoned = world.layers.abandoned[i] !== 0;
-        const { x: wx, y: wy } = Projection.tileToWorld(tx, ty);
-        const { sx, sy } = camera.worldToScreen(wx, wy);
+        const sx = camera.worldToScreenX(Projection.tileToWorldX(tx));
+        const sy = camera.worldToScreenY(Projection.tileToWorldY(ty));
         const sxi = Math.floor(sx), syi = Math.floor(sy);
         const tsi = Math.ceil(ts) + 1;
 
@@ -218,20 +249,17 @@ export class CanvasRenderer {
 
         // Pollution overlay: visible on any non-water tile above a low threshold.
         if (pollutionV > 8 && terrain !== TERRAIN_WATER) {
-          const alpha = Math.min(0.65, (pollutionV / 255) * 0.85);
-          ctx.fillStyle = `rgba(160, 80, 0, ${alpha.toFixed(3)})`;
+          ctx.fillStyle = _pollutionColors[pollutionV];
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
         if (crimeOverlay && crimeV > 10) {
-          const alpha = Math.min(0.7, (crimeV / 255) * 0.9);
-          ctx.fillStyle = `rgba(255, 0, 0, ${alpha.toFixed(3)})`;
+          ctx.fillStyle = _crimeOverlayColors[crimeV];
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
         if (fireOverlay && fireRiskV > 10) {
-          const alpha = Math.min(0.7, (fireRiskV / 255) * 0.9);
-          ctx.fillStyle = `rgba(255, 128, 0, ${alpha.toFixed(3)})`;
+          ctx.fillStyle = _fireOverlayColors[fireRiskV];
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
@@ -241,8 +269,7 @@ export class CanvasRenderer {
 
         // Crime indicator: small red dots in corner for high-crime developed zones.
         if (!crimeOverlay && crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
-          const crimeAlpha = Math.min(0.8, (crimeV / 255) * 1.2);
-          ctx.fillStyle = `rgba(255, 0, 0, ${crimeAlpha.toFixed(3)})`;
+          ctx.fillStyle = _crimeIndicatorColors[crimeV];
           const dotSize = Math.max(2, Math.floor(ts * 0.18));
           // Draw 1-3 dots based on crime level
           ctx.fillRect(sxi + 1, syi + 1, dotSize, dotSize);
@@ -256,8 +283,7 @@ export class CanvasRenderer {
 
         // Sickness indicator: teal cross in bottom-right for sick residential zones.
         if (sicknessV > 80 && zone === ZONE_R && dev > 0 && !isAbandoned) {
-          const sickAlpha = Math.min(0.85, (sicknessV / 255) * 1.1);
-          ctx.fillStyle = `rgba(0, 200, 180, ${sickAlpha.toFixed(3)})`;
+          ctx.fillStyle = _sicknessColors[sicknessV];
           const cs = Math.max(2, Math.floor(ts * 0.15));
           const cx = sxi + tsi - cs - 1;
           const cy = syi + tsi - cs - 1;
@@ -273,8 +299,7 @@ export class CanvasRenderer {
 
         // Recent death indicator: pale tombstone shape in bottom-left when recentDeath > 0.
         if (recentDeathV > 0 && zone === ZONE_R && dev > 0) {
-          const deathAlpha = Math.min(0.9, (recentDeathV / BALANCE.healthcare.deathVisualDuration) * 0.9);
-          ctx.fillStyle = `rgba(220, 220, 240, ${deathAlpha.toFixed(3)})`;
+          ctx.fillStyle = _deathColors[recentDeathV];
           const ds = Math.max(2, Math.floor(ts * 0.18));
           const dx = sxi + 1;
           const dy = syi + tsi - ds - 1;
@@ -282,7 +307,7 @@ export class CanvasRenderer {
             // Simple tombstone: rectangle with rounded top (approximated by a square)
             ctx.fillRect(dx, dy, ds, ds);
             // Small cross on top
-            ctx.fillStyle = `rgba(180, 180, 200, ${deathAlpha.toFixed(3)})`;
+            ctx.fillStyle = _deathAccentColors[recentDeathV];
             const arm2 = Math.max(1, Math.floor(ds * 0.3));
             const cx2 = dx + Math.floor(ds / 2);
             const cy2 = dy - arm2;
@@ -299,21 +324,20 @@ export class CanvasRenderer {
       ctx.strokeStyle = 'rgba(0,0,0,0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
+      // Hoist constant endpoints out of the loops.
+      const gridX0 = camera.worldToScreenX(Projection.tileToWorldX(bounds.x0));
+      const gridX1 = camera.worldToScreenX(Projection.tileToWorldX(bounds.x1 + 1));
+      const gridY0 = camera.worldToScreenY(Projection.tileToWorldY(bounds.y0));
+      const gridY1 = camera.worldToScreenY(Projection.tileToWorldY(bounds.y1 + 1));
       for (let ty = bounds.y0; ty <= bounds.y1 + 1; ty++) {
-        const { y: wy } = Projection.tileToWorld(0, ty);
-        const { sy } = camera.worldToScreen(0, wy);
-        const x0 = camera.worldToScreen(Projection.tileToWorld(bounds.x0, 0).x, 0).sx;
-        const x1 = camera.worldToScreen(Projection.tileToWorld(bounds.x1 + 1, 0).x, 0).sx;
-        ctx.moveTo(x0, Math.floor(sy) + 0.5);
-        ctx.lineTo(x1, Math.floor(sy) + 0.5);
+        const sy = camera.worldToScreenY(Projection.tileToWorldY(ty));
+        ctx.moveTo(gridX0, Math.floor(sy) + 0.5);
+        ctx.lineTo(gridX1, Math.floor(sy) + 0.5);
       }
       for (let tx = bounds.x0; tx <= bounds.x1 + 1; tx++) {
-        const { x: wx } = Projection.tileToWorld(tx, 0);
-        const { sx } = camera.worldToScreen(wx, 0);
-        const y0 = camera.worldToScreen(0, Projection.tileToWorld(0, bounds.y0).y).sy;
-        const y1 = camera.worldToScreen(0, Projection.tileToWorld(0, bounds.y1 + 1).y).sy;
-        ctx.moveTo(Math.floor(sx) + 0.5, y0);
-        ctx.lineTo(Math.floor(sx) + 0.5, y1);
+        const sx = camera.worldToScreenX(Projection.tileToWorldX(tx));
+        ctx.moveTo(Math.floor(sx) + 0.5, gridY0);
+        ctx.lineTo(Math.floor(sx) + 0.5, gridY1);
       }
       ctx.stroke();
     }
@@ -375,8 +399,8 @@ export class CanvasRenderer {
         for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
           const i = world.grid.idx(tx, ty);
           if (!serviceCoveragePreview.has(i)) continue;
-          const { x: wx, y: wy } = Projection.tileToWorld(tx, ty);
-          const { sx, sy } = camera.worldToScreen(wx, wy);
+          const sx = camera.worldToScreenX(Projection.tileToWorldX(tx));
+          const sy = camera.worldToScreenY(Projection.tileToWorldY(ty));
           const isRoad = world.layers.roadClass[i] !== ROAD_NONE;
           ctx.fillStyle = isRoad
             ? 'rgba(80, 200, 255, 0.55)'   // brighter on roads — shows the coverage flow
@@ -387,18 +411,20 @@ export class CanvasRenderer {
     }
 
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
-      const { x: wx, y: wy } = Projection.tileToWorld(hoverTile.tx, hoverTile.ty);
-      const { sx, sy } = camera.worldToScreen(wx, wy);
+      const sx = camera.worldToScreenX(Projection.tileToWorldX(hoverTile.tx));
+      const sy = camera.worldToScreenY(Projection.tileToWorldY(hoverTile.ty));
       ctx.strokeStyle = world.isBuildable(hoverTile.tx, hoverTile.ty) ? '#fff' : '#f66';
       ctx.lineWidth = 2;
       ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
     }
 
-    const tl = camera.worldToScreen(0, 0);
-    const br = camera.worldToScreen(world.grid.width * TILE_SIZE, world.grid.height * TILE_SIZE);
+    const tlsx = camera.worldToScreenX(0);
+    const tlsy = camera.worldToScreenY(0);
+    const brsx = camera.worldToScreenX(world.grid.width * TILE_SIZE);
+    const brsy = camera.worldToScreenY(world.grid.height * TILE_SIZE);
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 2;
-    ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+    ctx.strokeRect(tlsx, tlsy, brsx - tlsx, brsy - tlsy);
   }
 
   private _drawFire(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, now: number): void {

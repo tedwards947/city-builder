@@ -151,9 +151,11 @@ describe('Crime integration with other systems', () => {
 
   it('CanvasRenderer.render accepts crimeOverlay parameter', () => {
     const w = makeWorld();
-    const camera = { 
+    const camera = {
       visibleTileBounds: () => ({ x0: 0, y0: 0, x1: 5, y1: 5 }),
       worldToScreen: () => ({ sx: 0, sy: 0 }),
+      worldToScreenX: () => 0,
+      worldToScreenY: () => 0,
       zoom: 1
     } as any;
     const mockCtx = {
