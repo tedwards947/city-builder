@@ -73,12 +73,34 @@ describe('Serializer round-trip', () => {
 
   it('preserves all tile layers exactly', () => {
     const w = makeWorld();
+    // Set some values in new layers
+    const i = w.grid.idx(5, 5);
+    w.layers.crime[i] = 123;
+    w.layers.sickness[i] = 45;
+    w.layers.education[i] = 200;
+    w.layers.congestion[i] = 80;
+    w.layers.vegetation[i] = 1;
+
     const restored = deserialize(serialize(w));
-    const layers = ['terrain', 'zone', 'roadClass', 'building', 'devLevel', 'pollution'] as const;
+    const layers = [
+      'terrain', 'zone', 'roadClass', 'building', 'devLevel', 'pollution',
+      'crime', 'sickness', 'education', 'congestion', 'vegetation',
+      'abandoned', 'distress', 'fireRisk', 'fire', 'fireStation',
+      'police', 'school', 'hospital', 'recentDeath', 'accessibility'
+    ] as const;
     for (const layer of layers) {
       expect(Array.from(restored.layers[layer])).toEqual(Array.from(w.layers[layer]));
     }
     expect(Array.from(restored.layers.roadNet)).toEqual(Array.from(w.layers.roadNet));
+  });
+
+  it('preserves all stats exactly', () => {
+    const w = makeWorld();
+    w.stats.avgCongestion = 42;
+    w.stats.satisfaction = 0.75;
+    const restored = deserialize(serialize(w));
+    expect(restored.stats.avgCongestion).toBe(42);
+    expect(restored.stats.satisfaction).toBe(0.75);
   });
 
   it('preserves powerPlants list', () => {
@@ -197,5 +219,60 @@ describe('SaveManager', () => {
     expect(meta.tick).toBe(w.tick);
     expect(meta.population).toBe(w.stats.population);
     expect(meta.money).toBe(w.budget.money);
+  });
+});
+
+// ── Migration ─────────────────────────────────────────────────────────────────
+
+import { migrate } from '../persistence/SaveFormat';
+
+describe('Migration', () => {
+  it('upgrades v5 to v6 by adding new layers and stats', () => {
+    // Construct a partial v5 save record
+    const v5: any = {
+      version: 5,
+      userId: 'test',
+      slot: 1,
+      meta: { name: 'Test', savedAt: 0, tick: 10, population: 0, money: 0 },
+      snapshot: {
+        width: 10,
+        height: 10,
+        seed: 1,
+        tick: 10,
+        budget: { money: 0, politicalCapital: 100, income: 0, expenses: 0, taxRates: { R: 0.8, C: 1.2, I: 1.5 } },
+        stats: { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: 80 },
+        character: { egalitarian: 0, green: 0, planned: 0 },
+        powerPlants: [], waterTowers: [], sewagePlants: [], serviceBuildings: [],
+        layers: {
+          terrain: new Uint8Array(100),
+          zone: new Uint8Array(100),
+          roadClass: new Uint8Array(100),
+          building: new Uint8Array(100),
+          devLevel: new Uint8Array(100),
+          power: new Uint8Array(100),
+          water: new Uint8Array(100),
+          sewage: new Uint8Array(100),
+          services: new Uint8Array(100),
+          landValue: new Uint8Array(100),
+          roadNet: new Uint16Array(100),
+          pollution: new Uint8Array(100),
+          abandoned: new Uint8Array(100),
+          distress: new Uint8Array(100),
+          fireRisk: new Uint8Array(100),
+          fire: new Uint8Array(100),
+          fireStation: new Uint8Array(100),
+        }
+      }
+    };
+
+    const v6 = migrate(v5);
+    expect(v6.version).toBe(6);
+    expect(v6.snapshot.stats.avgCongestion).toBe(0);
+    expect(v6.snapshot.stats.satisfaction).toBe(1);
+    expect(v6.snapshot.layers.crime).toBeDefined();
+    expect(v6.snapshot.layers.crime.length).toBe(100);
+    expect(v6.snapshot.layers.education).toBeDefined();
+    expect(v6.snapshot.layers.sickness).toBeDefined();
+    expect(v6.snapshot.layers.vegetation).toBeDefined();
   });
 });

@@ -6,8 +6,9 @@
 //   3 — added landValue layer; taxRates to budget; demand + avgLandValue to stats
 //   4 — added abandoned + distress layers (Phase 7.5 abandonment)
 //   5 — added fireRisk, fire, fireStation layers (Phase 7.5 fire)
+//   6 — added missing derived layers (crime, education, sickness, etc.) and missing stats
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ export interface WorldSnapshot {
     cDemand: number;
     iDemand: number;
     avgLandValue: number;
+    avgCongestion: number;
+    satisfaction: number;
   };
   character: {
     egalitarian: number;
@@ -68,6 +71,7 @@ export interface WorldSnapshot {
     zone:      Uint8Array;
     roadClass: Uint8Array;
     building:  Uint8Array;
+    vegetation: Uint8Array;
     devLevel:  Uint8Array;
     power:     Uint8Array;
     water:     Uint8Array;
@@ -76,16 +80,25 @@ export interface WorldSnapshot {
     landValue: Uint8Array;
     roadNet:   Uint16Array;
     pollution: Uint8Array;
-    abandoned: Uint8Array;
-    distress:  Uint8Array;
-    fireRisk:  Uint8Array;
-    fire:      Uint8Array;
+    crime:      Uint8Array;
+    police:     Uint8Array;
+    congestion:    Uint8Array;
+    accessibility: Uint8Array;
+    abandoned:  Uint8Array;
+    distress:   Uint8Array;
+    fireRisk:   Uint8Array;
+    fire:       Uint8Array;
     fireStation: Uint8Array;
+    school:     Uint8Array;
+    education:  Uint8Array;
+    hospital:   Uint8Array;
+    sickness:   Uint8Array;
+    recentDeath: Uint8Array;
   };
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5;
+  version: 1 | 2 | 3 | 4 | 5 | 6;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -119,8 +132,39 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 2) rec = upgradeV2toV3(rec);
   if ((rec as { version: number }).version === 3) rec = upgradeV3toV4(rec);
   if ((rec as { version: number }).version === 4) rec = upgradeV4toV5(rec);
-  if ((rec as { version: number }).version === 5) return rec;
+  if ((rec as { version: number }).version === 5) rec = upgradeV5toV6(rec);
+  if ((rec as { version: number }).version === 6) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
+}
+
+function upgradeV5toV6(v5: SaveRecord): SaveRecord {
+  const snap = v5.snapshot;
+  const n = snap.width * snap.height;
+  return {
+    ...v5,
+    version: 6,
+    snapshot: {
+      ...snap,
+      stats: {
+        ...snap.stats,
+        avgCongestion: 0,
+        satisfaction: 1,
+      },
+      layers: {
+        ...snap.layers,
+        vegetation: new Uint8Array(n),
+        crime:      new Uint8Array(n),
+        police:     new Uint8Array(n),
+        congestion:    new Uint8Array(n),
+        accessibility: new Uint8Array(n),
+        school:     new Uint8Array(n),
+        education:  new Uint8Array(n),
+        hospital:   new Uint8Array(n),
+        sickness:   new Uint8Array(n),
+        recentDeath: new Uint8Array(n),
+      },
+    },
+  };
 }
 
 function upgradeV4toV5(v4: SaveRecord): SaveRecord {
