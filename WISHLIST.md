@@ -1,18 +1,30 @@
 # Wishlist! This is Tony's wishlist/backlog
 
-
-## Minor Backlog Items
-- [ ] inspect view for roads should tell the player what kind of road it is
-- [x] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
-- [ ] make poltical capital/vibes actually worth a damn
-- [ ] highways cannot be "built" on -- zones/services _can_ propagate over/thru highways but they cannot be "activated" by being adjacent to them. they need to be placed on streets/avenues.
-- [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
-- [ ] bulldozing abandoned buildings should increase political capital, not decrease
-- [ ] Alerts/messages: for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear. I believe we have an event system for this?
-- [ ] In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities 
-
 ## Bug Backlog
 - [ ]
+
+
+
+## Priority 1:
+- [ ] Standardize building/utility types: In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities 
+- [ ] restoreTile automation or tests: Add a unit test that asserts every BUILDING_* constant is handled in restoreTile. Cheap now; a silent undo bug later.
+- [ ] 1 pass of balancing before introducing more features
+- [ ] EventBus audit for alerts: Before building the toast UI, enumerate every alert-worth event (crime spike, power shortage, fire ignition, abandonment, healthcare crisis) and confirm each system emits it with the right payload. Prevents the "event doesn't carry enough context" bugs mid-feature.
+- [ ] Alerts/toast system: for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear. I believe we have an event system for this?
+- [ ] Localization via t() lookup
+
+## Priority 2:
+- [ ] bulldozing abandoned buildings should increase political capital, not decrease
+- [ ] highways cannot be "built" on -- zones/services _can_ propagate over/thru highways but they cannot be "activated" by being adjacent to them. they need to be placed on streets/avenues.
+- [ ] inspect view for roads should tell the player what kind of road it is
+- [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
+
+## Priority 3:
+- [ ] Sprite registry / metadata system
+   - [ ] make sure the sprites are very extensible (and eventually moddable?)
+   - [ ] they should be able to be tagged with various metadata to allow the game to be smart about which sprite/sprite vibes go where
+
+
 
 
 
@@ -43,13 +55,6 @@ Arterials/connecting roads should actually have a purpose... to make this happen
 ### Transit / subway
 Once we improve traffic / flow, we can implement subways to bulk-carry large numbers of citizens between major neighborhoods
 
-### Extensible and rich sprites
-This is a simple game--we should be able to generatively create many many sprites for various zones and buildings. 
-- [ ] make sure the sprites are very extensible (and eventually moddable?)
-- [ ] they should be able to be tagged with various metadata to allow the game to be smart about which sprite/sprite vibes go where
-
-### Localization
-- [ ] Localization via t() lookup
 
 
 ## Major Feature: Neighborhoods and culture! 
