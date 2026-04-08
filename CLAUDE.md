@@ -143,6 +143,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [ ] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
 - [ ] make poltical capital/vibes actually worth a damn
 - [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
+- [ ] bulldozing abandoned buildings should increase political capital, not decrease
 --- 
 
 ## Target Tech Stack
