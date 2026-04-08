@@ -102,7 +102,8 @@ export class MusicManager {
   }
 
   private scheduler() {
-    while (this.isPlaying && this.nextNoteTime < this.ctx!.currentTime + 0.1) {
+    // 0.5s lookahead: large enough that background tab throttling (setTimeout → ~1s) won't cause gaps
+    while (this.isPlaying && this.nextNoteTime < this.ctx!.currentTime + 0.5) {
       this.playPatternStep();
     }
     if (this.isPlaying) this.timerId = setTimeout(() => this.scheduler(), 25) as unknown as number;
