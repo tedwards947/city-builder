@@ -1,152 +1,14 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
 
----
+Browser-based 2D top-down city builder (SimCity-style).
 
-## Project Status
-
-Browser-based 2D top-down city builder (SimCity-style). The Vite + TypeScript project lives in `city-builder/`. The original single-file prototype is `city-builder-prototype.html` (reference only).
-
-I'm using a Claude Pro plan so tokens and context length REALLY MATTER! Please ask before importing large resources and please be dilligent before reading too much...
-
-**Currently on: Phase 5** — systems depth.
-
----
-
-## Phase Roadmap
-
-Check items off here as they are implemented and tested. When all items in a phase are checked, mark the phase header ✅.
-
-### ✅ Phase 0: Foundation
-- [x] Typed-array World with all layers
-- [x] Grid with chunk dirty tracking
-- [x] Seeded PRNG (mulberry32)
-- [x] EventBus
-
-### ✅ Phase 1: Minimum Viable Renderer
-- [x] Canvas renderer with viewport culling
-- [x] Camera with pan, zoom, pinch-to-zoom
-- [x] Projection module (tileToWorld / worldToTile / depth hook)
-- [x] Terrain rendering
-- [x] Trees/forests. trees improve pollution.
-
-### ✅ Phase 2: Interaction & First Commands
-- [x] Unified pointer input (mouse + touch)
-- [x] PaintZoneCommand, BuildRoadCommand, PlacePowerPlantCommand, BulldozeCommand
-- [x] CommandHistory with undo (Ctrl+Z)
-- [x] Tool selection UI + hover preview
-
-### ✅ Phase 3: First Simulation Loop
-- [x] Scheduler with pause / 1× / 2× / 3× speed
-- [x] NetworkSystem (road connected components via flood fill)
-- [x] PowerSystem (plant → road network → 1-tile radiation)
-- [x] ZoneGrowthSystem (zoned + powered + road access → develop)
-- [x] EconomySystem (taxes, maintenance, population)
-- [x] HUD (money, population, power, date)
-
-### ✅ Phase 3.5: Port & Tests
-- [x] Ported prototype to Vite + TypeScript
-- [x] Vitest suite: Grid, RNG, World mutations, all 4 commands, all 4 systems (78 tests)
-
-### ✅ Phase 4: Persistence & Playability Polish
-- [x] SaveFormat.ts with `version` field and migration stub
-- [x] Serializer.ts — World ↔ bytes (typed arrays → ArrayBuffer)
-- [x] LocalStore.ts — IndexedDB backend
-- [x] SaveManager.ts — high-level save/load API (userId-scoped, defaults to 'local')
-- [x] RemoteStore.ts — HTTP interface (stub, not implemented)
-- [x] Multiple save slots UI (5 slots, save/load/delete, name prompt)
-- [x] New game screen with map generation options (size, water amount, seed)
-- [ ] Settings menu (sim speed default, key bindings) ← deferred post-Phase 5
-- [ ] Tutorial tooltips ← deferred post-Phase 5
-- [ ] Balance tuning from playtesting ← deferred post-Phase 5
-
-**Exit criterion:** A stranger can start a new city, play 30 minutes, save, close, come back, continue.
-
-### Phase 5: Systems Depth
-- [x] WaterSystem — propagation system (copy PowerSystem pattern, different rules)
-- [x] Sewage system — SewagePlant building, required for level 2→3 growth
-- [x] Pollution as diffusion layer affecting desirability
-- [x] Generic coverage system (police, fire, schools, hospitals, parks)
-- [x] information tool -- insight to the player about each zone or tile and perhaps why it's not able to grow, etc
-- [ ] Disaster event scheduler (fires, floods, random events) [SKIP FOR NOW]
-- [x] Richer economics (variable tax rates, land value, demand curves)
-- [ ] population: each residential zone level can have a maximum number of people that can live there. as a zone upgrades, more people can move in. the number of residents in each zone is not fixed.. it starts at 0 and moves up to the maximum allowed in that level. upon leveling, it increases slowly. population increase is driven by distress, health, services, leisure, taxes, etc.
-- [ ] jobs: commercial and industrial zones have employment figures commensurate with their levels.
-- [ ] unemployment: eventually we'll need to make sure every citizen has a job (to a healthy degree; some employment is good)...
-
-### Phase 6: Transit
-- [x] Flow simulation on road graph (not agent-based — flow scales, agents don't)
-- [x] TripGenerator / TripAttractor components
-- [x] Demand computation and flow solver (runs periodically)
-- [x] Congestion as edge property feeding back into growth
-- [x] Traffic overlay view
-- [x] Road classes: street / avenue / highway (capacity/speed differ)
-- [x] Road upgrade UI (mutate edges, don't demolish)
-- [ ] Bus routes, subways as additional graphs, modal split
-- [x] Visual agent layer (eye candy only, hard vehicle budget cap)
-- [x] Road pathing improvements — normalized BFS spreading through road network; cross-zone gravity flow (R×C/I product); accessibility layer per zone; parallel roads split load; growth penalized by accessibility
-
-### Phase 7: Identity — Political Capital & City Character
-- [x] PoliticsSystem — per-tick regen from satisfaction (servicesCoverage/powerCoverage/waterCoverage, weighted, extensible via SatisfactionFactor interface); satisfaction exposed on world.stats
-- [x] Disruptive action cost table in `/data` (balance.ts politicalCapital section: max, baseRegen, satisfactionRegenBonus, satisfactionWeights, disruptionCosts)
-- [x] Visible political capital meter in HUD (value + animated bar, color shifts at low/critical thresholds)
-- [x] Disruptive actions gated on capital — bulldozing and painting over populated R zones check+deduct PC; undo restores it
-- [x] CityCharacterSystem — event-driven nudges (zonePainted/tileCleared/roadBuilt/serviceBuilt/powerPlantBuilt) + per-tick decay; world.character axes clamped to ±axisMax
-- [x] Sprite variant lookup keyed on character profile — CharacterPalette.resolvePalette(character, axisMax) returns a ColorPalette; renderer calls it once per frame
-- [x] Ambient presentation shifts — green↔industrial (grass, zoneI, buildingI, park colors), egalitarian↔laissez-faire (zoneR/C warmth, vividness), planned↔organic (road shade/definition); all lerped, no meters shown
-- [ ] **No character meter** — player discovers vibe through ambient feedback only
-- [x] Balance tuning from playtesting
-
-### Phase 7.5: Services and stuff
-- [x] implement abandonment; build the scaffolding/capability and we'll worry about the conditions to become abandoned later. build a visual state for abandonment
-- [x] implement crime. Police service proximity has a direct impact on crime (Police radius=12). Too much crime actively hurts political capital satisfaction. Zones have knowledge of police and crime. High crime (above threshold 180) causes buildings to abandon. Visual state for crime (red dots in corners). Crime also blocks R/C growth above threshold 100.
-- [ ] crime should impact political capital regen... toooo much and it can actually decrease political capital.
-- [x] implement fire... fire risk, etc. fire stations actively impact it. opine and ask for clarification. buildings burn and if not put out quickly enough they become abandoned. even service or infrastructure buildings can be hurt by fire. we need a visual state for zones and buildings on fire. fire should be able to spread; proportional to fire risk of adjacent buildings
-- [x] implement educational levels. schools improve it. more educated citizens make more tax revenue and generate less crime. residential zones should be aware of educational facilities. low educational service availability should prevent growth to top-tier
-- [x] implement healthcare. implement death and sickness. with perfect healthcare, cititzens live naturally to 75 years old (we might need to tune this??). if no healthcare, citizens get sick and die early. implement a visual state for a sick citizen (maybe a zone has a different border or something if there's a sick citizen. the inspect tooltip shows sickness). implement a temporary visual state for a dead citizen (maybe a zone has a border or something if there's been a recent death). up to you on how long that visual state persists. inspect tooltip should also display if there's been a recent death.
-- [ ] deaths should actually decrease population (and zone residents, when they die, decrease)
-- [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
-- [ ] Balance tuning from playtesting
-
-### Phase 7.6 visual improvements
-- [x] improve visual sprites for zones... level 1, 2, 3 should have different visual treatments, ideally looking like industrial, commerical, and residential buildings. there should be 10-15 different sprites for each level for each zone type, so that the city looks varied and visually interesting. for close zoom levels, the sprites should be visible. however, after a certain zoom level, it can fall back to the current "box size -> zone level" method it uses today.
-
-### Phase 7.7: alerts
-- [ ] for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear.
-
-### Phase 8: Server & Cloud Saves
-- [ ] RemoteStore implementation against backend
-- [ ] API: POST/GET/DELETE /saves (save blobs opaque to server)
-- [ ] very simple auth; username match only for now. will optimize and migrate in future.
-- [ ] Local-first: game always saves to IndexedDB; "sync to cloud" is a button
-- [ ] Auth via Clerk or magic links
-
-### Phase 9: Depth & Longevity
-- [ ] Historical eras with shifting constraints
-- [ ] Achievements via EventBus
-- [ ] Scenarios
-- [ ] Constituencies (v2 political capital — competing interest groups)
-- [ ] Mod support
-- [ ] Localization via t() lookup
-
-### Phase 10: Speculative — defer indefinitely
-- [ ] Emergent resistance / protest movements
-- [ ] Individual citizen simulation
-- [ ] Regional / multi-city
-- [ ] Lockstep multiplayer
-- [ ] Isometric view
+**IMPORTANT** 
+I'm using a somewhat limited Pro plan so tokens and context length REALLY MATTER! Please ask before importing large resources and please be dilligent before adding too much context!
 
 
-
-### Other todos:
-- [ ] inspect view for roads should tell the player what kind of road it is
-- [x] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
-- [ ] make poltical capital/vibes actually worth a damn
-
-- [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
-- [ ] bulldozing abandoned buildings should increase political capital, not decrease
---- 
+See the backlog/wishlist at WISHLIST.md
 
 ## Target Tech Stack
 
@@ -154,8 +16,7 @@ Check items off here as they are implemented and tested. When all items in a pha
 - Vitest for tests
 - Canvas 2D renderer (MVP); PixiJS later
 - Cloudflare Pages for hosting
-- IndexedDB for local saves; Cloudflare Workers + R2/D1 for cloud saves (Phase 8)
-
+- IndexedDB for local saves; Cloudflare Workers + R2/D1 for cloud saves (future phases)
 ---
 
 ## Module Structure
