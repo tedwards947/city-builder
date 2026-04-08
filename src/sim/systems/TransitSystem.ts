@@ -48,6 +48,10 @@ export class TransitSystem {
   private _queue: Int32Array | null = null;
   private _qdepth: Uint8Array | null = null;
   private _gen = 0;
+  // Layer checksums — if zone+dev+roadClass haven't changed since the last
+  // full BFS pass, skip re-computation entirely.
+  private _lastZoneDevSum = -1;
+  private _lastRoadSum = -1;
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
@@ -63,6 +67,23 @@ export class TransitSystem {
       this._queue      = new Int32Array(n);
       this._qdepth     = new Uint8Array(n);
       this._gen        = 0;
+      this._lastZoneDevSum = -1;
+      this._lastRoadSum    = -1;
+    }
+
+    // Skip the expensive BFS passes when roads and zones are unchanged.
+    const roadClass = world.layers.roadClass;
+    const zone      = world.layers.zone;
+    const dev       = world.layers.devLevel;
+    {
+      let zdSum = 0, rdSum = 0;
+      for (let i = 0; i < n; i++) {
+        zdSum += zone[i] * 4 + dev[i];
+        rdSum += roadClass[i];
+      }
+      if (zdSum === this._lastZoneDevSum && rdSum === this._lastRoadSum) return;
+      this._lastZoneDevSum = zdSum;
+      this._lastRoadSum    = rdSum;
     }
 
     const rLoad      = this._rLoad;
@@ -76,9 +97,6 @@ export class TransitSystem {
     cLoad.fill(0);
     iLoad.fill(0);
 
-    const roadClass = world.layers.roadClass;
-    const zone      = world.layers.zone;
-    const dev       = world.layers.devLevel;
     const R         = BALANCE.transit.accessRadius;
     const Rp1       = R + 1;
 

@@ -13,6 +13,13 @@ export class EventBus {
     this.listeners.get(type)!.push(fn);
   }
 
+  off(type: string, fn: EventListener): void {
+    const ls = this.listeners.get(type);
+    if (!ls) return;
+    const idx = ls.indexOf(fn);
+    if (idx !== -1) ls.splice(idx, 1);
+  }
+
   emit(type: string, payload: EventPayload): void {
     const ls = this.listeners.get(type);
     if (ls) for (const fn of ls) fn(payload);

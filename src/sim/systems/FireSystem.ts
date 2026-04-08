@@ -19,10 +19,16 @@ export class FireSystem {
     const fireStation = world.layers.fireStation;
     const b = BALANCE.fire;
 
+    const building = world.layers.building;
+
     for (let i = 0; i < n; i++) {
+      const z = zone[i];
+
+      // Skip tiles that are empty and have no active fire / residual risk.
+      if (z === ZONE_NONE && building[i] === BUILDING_NONE && fire[i] === 0 && fireRisk[i] === 0) continue;
+
       // 1. Calculate Risk
       let targetRisk = 0;
-      const z = zone[i];
       const level = dev[i];
 
       if (z !== ZONE_NONE && level > 0) {
@@ -58,17 +64,16 @@ export class FireSystem {
 
         // 3. Fire Spreading
         if (fire[i] > 0 && world.rng() < b.spreadProbability) {
-          // Spread to a random neighbor
+          // Spread to a random neighbor (no array allocation).
           const tx = i % width;
           const ty = (i / width) | 0;
-          const neighbors = [
-            [tx - 1, ty], [tx + 1, ty], [tx, ty - 1], [tx, ty + 1]
-          ];
-          const [ntx, nty] = neighbors[Math.floor(world.rng() * 4)];
+          const dir = Math.floor(world.rng() * 4);
+          const ntx = dir === 0 ? tx - 1 : dir === 1 ? tx + 1 : tx;
+          const nty = dir === 2 ? ty - 1 : dir === 3 ? ty + 1 : ty;
           if (world.grid.inBounds(ntx, nty)) {
             const ni = world.grid.idx(ntx, nty);
             // Can only spread to developed zones or buildings
-            if (fire[ni] === 0 && (zone[ni] !== ZONE_NONE || world.layers.building[ni] !== BUILDING_NONE)) {
+            if (fire[ni] === 0 && (zone[ni] !== ZONE_NONE || building[ni] !== BUILDING_NONE)) {
               // If fire station covers it, spread is much less likely
               if (fireStation[ni] === 0 || world.rng() < b.fireStationEffectiveness) {
                 fire[ni] = b.burnDuration;
