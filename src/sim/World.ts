@@ -40,6 +40,9 @@ export interface Layers {
   fireStation: Uint8Array; // 0=no fire coverage, 1=covered this tick
   school:     Uint8Array; // 0=no school coverage, 1=covered this tick
   education:  Uint8Array; // 0–255 persistent education level (only R zones)
+  hospital:   Uint8Array; // 0=no hospital coverage, 1=covered this tick
+  sickness:   Uint8Array; // 0–255 persistent sickness level (only R zones; rises without healthcare)
+  recentDeath: Uint8Array; // 0–255 countdown after a death event (visual indicator while > 0)
 }
 
 export interface Budget {
@@ -158,6 +161,9 @@ export class World {
       fireStation: new Uint8Array(n),
       school:     new Uint8Array(n),
       education:  new Uint8Array(n),
+      hospital:   new Uint8Array(n),
+      sickness:   new Uint8Array(n),
+      recentDeath: new Uint8Array(n),
     };
     this.budget = {
       money: BALANCE.startingMoney,

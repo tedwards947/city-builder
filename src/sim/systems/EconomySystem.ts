@@ -32,7 +32,13 @@ export class EconomySystem {
           const edu = world.layers.education[i];
           eduMult = 1.0 + (edu / 255) * (BALANCE.education.taxMultiplier - 1.0);
         }
-        income += dev[i] * baseRate * lvMult * eduMult;
+        // Sickness reduces income for R zones: 0 = no penalty, 255 = taxPenalty reduction
+        let sickMult = 1.0;
+        if (zone[i] === ZONE_R) {
+          const sick = world.layers.sickness[i];
+          sickMult = 1.0 - (sick / 255) * BALANCE.healthcare.taxPenalty;
+        }
+        income += dev[i] * baseRate * lvMult * eduMult * sickMult;
       }
       if (roadClass[i] !== ROAD_NONE) roadCount++;
     }

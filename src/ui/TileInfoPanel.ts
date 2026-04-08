@@ -108,6 +108,13 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
       });
     }
   }
+  if (zone === ZONE_R) {
+    const sickness = world.layers.sickness[i];
+    reqs.push({
+      label: `Sickness below threshold (${sickness} / ${BALANCE.healthcare.growthThreshold})`,
+      met: sickness <= BALANCE.healthcare.growthThreshold,
+    });
+  }
   if (zone !== ZONE_I) {
     reqs.push({
       label: `Pollution below threshold (${pollution} / ${BALANCE.pollution.growthThreshold})`,
@@ -254,6 +261,18 @@ export class TileInfoPanel {
         const edu = world.layers.education[i];
         const eduLabel = edu < 50 ? 'uneducated' : edu < 120 ? 'basic' : edu < 200 ? 'educated' : 'highly educated';
         html += `<div class="ti-detail" style="color:#5cf">Education: ${edu} (${eduLabel})</div>`;
+
+        const sick = world.layers.sickness[i];
+        if (sick > 0) {
+          const sickLabel = sick < 80 ? 'mild' : sick < 160 ? 'moderate' : 'severe';
+          const sickColor = sick < 80 ? '#5cc' : sick < 160 ? '#fc0' : '#f55';
+          html += `<div class="ti-detail" style="color:${sickColor}">Sickness: ${sick} (${sickLabel})${!world.layers.hospital[i] ? ' — no hospital coverage' : ''}</div>`;
+        }
+
+        const rd = world.layers.recentDeath[i];
+        if (rd > 0) {
+          html += `<div class="ti-detail" style="color:#ccd;font-weight:bold">Recent death (${rd} ticks ago)</div>`;
+        }
       }
 
       if (fireRisk > 0) {

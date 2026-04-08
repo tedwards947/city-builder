@@ -28,6 +28,8 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceServiceBuildingCommand } from '../commands/PlaceServiceBuildingCommand';
 import { resolvePalette } from '../render/CharacterPalette';
+import { HealthcareSystem } from '../sim/systems/HealthcareSystem';
+import { BUILDING_HOSPITAL, BUILDING_SCHOOL } from '../sim/constants';
 
 // Use a tiny world so tests are fast and grid positions are predictable.
 // Seed 0 — we manually set up all the tile state we need.
@@ -1709,5 +1711,185 @@ describe('TransitSystem — road-network BFS pathing', () => {
     w.rng = () => 0.05; // > 0.08 × 0.3 = 0.024, so growth is blocked
     new ZoneGrowthSystem().update(w);
     expect(w.layers.devLevel[w.grid.idx(2, 2)]).toBe(1); // did not grow
+  });
+});
+
+// ─── HealthcareSystem ────────────────────────────────────────────────────────
+
+describe('HealthcareSystem', () => {
+  it('sickness increases when rng rolls below sicknessProbability (no hospital)', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 0;
+    w.layers.sickness[i] = 50;
+    w.rng = () => 0; // 0 < sicknessProbability → always tick up; also 0 < deathChance → always death
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(51);
+  });
+
+  it('sickness does not increase when rng rolls above sicknessProbability', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 0;
+    w.layers.sickness[i] = 50;
+    w.rng = () => 1; // 1 > sicknessProbability → never tick up
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(50);
+  });
+
+  it('sickness decreases when rng rolls below recoveryProbability (with hospital)', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 1;
+    w.layers.sickness[i] = 100;
+    w.rng = () => 0; // 0 < recoveryProbability → always tick down
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(99);
+  });
+
+  it('sickness does not decrease when rng rolls above recoveryProbability', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 1;
+    w.layers.sickness[i] = 100;
+    w.rng = () => 1; // 1 > recoveryProbability → never tick down
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(100);
+  });
+
+  it('sickness stays at 0 for undeveloped R zone', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 0; // not developed
+    w.layers.hospital[i] = 0;
+    w.layers.sickness[i] = 0;
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(0);
+  });
+
+  it('sickness stays at 0 for non-R zones', () => {
+    const w = makeWorld();
+    for (const zone of [ZONE_C, ZONE_I]) {
+      const i = w.grid.idx(1, 1);
+      forceBuildable(w, 1, 1);
+      w.layers.zone[i]     = zone;
+      w.layers.devLevel[i] = 2;
+      w.layers.hospital[i] = 0;
+      w.layers.sickness[i] = 0;
+
+      new HealthcareSystem().update(w);
+
+      expect(w.layers.sickness[i]).toBe(0);
+    }
+  });
+
+  it('sickness stays at 255 when already at max', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 0;
+    w.layers.sickness[i] = 255;
+    w.rng = () => 0; // would trigger increase, but already at max
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.sickness[i]).toBe(255);
+  });
+
+  it('death event sets recentDeath timer', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]     = ZONE_R;
+    w.layers.devLevel[i] = 1;
+    w.layers.hospital[i] = 0;
+    w.layers.sickness[i] = 255;
+    w.rng = () => 0; // 0 < deathChance → triggers death
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.recentDeath[i]).toBe(BALANCE.healthcare.deathVisualDuration);
+  });
+
+  it('recentDeath timer decrements each tick', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]       = ZONE_R;
+    w.layers.devLevel[i]   = 1;
+    w.layers.hospital[i]   = 0;
+    w.layers.sickness[i]   = 0;
+    w.layers.recentDeath[i] = 40;
+    w.rng = () => 0.99; // never trigger death
+
+    new HealthcareSystem().update(w);
+
+    expect(w.layers.recentDeath[i]).toBe(39);
+  });
+
+  it('high sickness blocks R zone growth', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(1, 1);
+    forceBuildable(w, 1, 1);
+    w.layers.zone[i]      = ZONE_R;
+    w.layers.devLevel[i]  = 1;
+    w.layers.power[i]     = 1;
+    w.layers.water[i]     = 1;
+    w.layers.sickness[i]  = 255; // above growthThreshold
+    forceBuildable(w, 2, 1);
+    w.layers.roadClass[w.grid.idx(2, 1)] = ROAD_STREET;
+    w.stats.powerSupply = 9999; w.stats.powerDemand = 0;
+    w.stats.waterSupply = 9999; w.stats.waterDemand = 0;
+    w.stats.rDemand = 1;
+    w.rng = () => 0; // would grow if not blocked
+
+    new ZoneGrowthSystem().update(w);
+
+    expect(w.layers.devLevel[i]).toBe(1); // growth blocked by sickness
+  });
+
+  it('hospital coverage reduces sickness in ServiceSystem output', () => {
+    const w = makeWorld();
+    // Place a hospital and confirm the hospital layer gets set.
+    forceBuildable(w, 5, 5);
+    w.placeBuilding(5, 5, BUILDING_HOSPITAL);
+    // Road adjacent to hospital so coverage can propagate.
+    forceBuildable(w, 4, 5);
+    w.layers.roadClass[w.grid.idx(4, 5)] = ROAD_STREET;
+    forceBuildable(w, 3, 5);
+    w.layers.roadClass[w.grid.idx(3, 5)] = ROAD_STREET;
+
+    new ServiceSystem().update(w);
+
+    // The hospital tile itself should be covered.
+    expect(w.layers.hospital[w.grid.idx(5, 5)]).toBe(1);
+    // Road-adjacent tiles should also be covered.
+    expect(w.layers.hospital[w.grid.idx(4, 5)]).toBe(1);
   });
 });
