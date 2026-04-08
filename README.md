@@ -60,5 +60,6 @@ npm run test:watch # Run tests in watch mode
 - **Pattern**: Command pattern for all mutations (supporting full Undo/Redo) and an ECS-inspired system architecture.
 - **Tooling**: Vite for fast bundling and Vitest for testing.
 
-## 📜 License
-Internal/Private (See `CLAUDE.md` for project status and roadmap).
+
+Agentic helper file: AGENT.md
+Backlog/wishlist file: WISHLIST.md
