@@ -136,7 +136,12 @@ Check items off here as they are implemented and tested. When all items in a pha
 - [ ] Lockstep multiplayer
 - [ ] Isometric view
 
----
+
+
+### Smaller todos:
+- [ ] inspect view for roads should tell the player what kind of road it is
+- [ ] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
+--- 
 
 ## Target Tech Stack
 
