@@ -205,7 +205,7 @@ Untuned — balance pass needed after more systems land.
 
 ## Testing
 
-Vitest suite at `city-builder/src/__tests__/`. 154 tests across 7 files. After any code changes, run tests and confirm all pass before declaring done.
+Vitest suite at `city-builder/src/__tests__/`. After any code changes, run tests and confirm all pass before declaring done.
 
 ```
 cd city-builder && npm test

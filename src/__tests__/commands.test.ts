@@ -9,7 +9,10 @@ import {
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
   ROAD_NONE, ROAD_STREET,
   BUILDING_NONE, BUILDING_POWER_PLANT,
+  BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
+import { snapshotTile, restoreTile } from '../commands/Command';
 import { BALANCE } from '../data/balance';
 
 function makeWorld() { return new World(32, 32, 999); }
@@ -292,4 +295,58 @@ describe('CommandHistory', () => {
     expect(w.getRoad(tiles[1].tx, tiles[1].ty)).toBe(ROAD_NONE);
     expect(w.getRoad(tiles[0].tx, tiles[0].ty)).toBe(ROAD_STREET);
   });
+});
+
+// ─── restoreTile — every BUILDING_* constant ─────────────────────────────────
+
+const ALL_BUILDING_KINDS = [
+  BUILDING_POWER_PLANT,
+  BUILDING_WATER_TOWER,
+  BUILDING_SEWAGE_PLANT,
+  BUILDING_POLICE,
+  BUILDING_FIRE,
+  BUILDING_SCHOOL,
+  BUILDING_HOSPITAL,
+  BUILDING_PARK,
+];
+
+describe('restoreTile — buildings list consistency', () => {
+  it('covers every BUILDING_* constant (update this list when adding constants)', () => {
+    // If this count is wrong, a new BUILDING_* was added without updating the test.
+    expect(ALL_BUILDING_KINDS).toHaveLength(8);
+  });
+
+  it.each(ALL_BUILDING_KINDS)(
+    'building kind %i: restoring to BUILDING_NONE removes from buildings list',
+    (kind) => {
+      const w = makeWorld();
+      const { tx, ty } = grassTile(w);
+      w.placeBuilding(tx, ty, kind);
+      expect(w.buildings).toHaveLength(1);
+
+      const snap = snapshotTile(w, tx, ty);
+      // Manually wipe the tile so restoreTile sees a "before" state with the building.
+      w.layers.building[w.grid.idx(tx, ty)] = kind; // already set — just take empty snap
+      const emptySnap = { zone: 0, road: 0, building: BUILDING_NONE, dev: 0 };
+      restoreTile(w, tx, ty, emptySnap);
+
+      expect(w.layers.building[w.grid.idx(tx, ty)]).toBe(BUILDING_NONE);
+      expect(w.buildings).toHaveLength(0);
+    },
+  );
+
+  it.each(ALL_BUILDING_KINDS)(
+    'building kind %i: restoring to that kind re-adds to buildings list',
+    (kind) => {
+      const w = makeWorld();
+      const { tx, ty } = grassTile(w);
+      // Start empty, restore to this building kind.
+      const snap = { zone: 0, road: 0, building: kind, dev: 0 };
+      restoreTile(w, tx, ty, snap);
+
+      expect(w.layers.building[w.grid.idx(tx, ty)]).toBe(kind);
+      expect(w.buildings).toHaveLength(1);
+      expect(w.buildings[0]).toEqual({ tx, ty, kind });
+    },
+  );
 });
