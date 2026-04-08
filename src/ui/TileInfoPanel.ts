@@ -176,7 +176,7 @@ export class TileInfoPanel {
       if (building >= BUILDING_POLICE) {
         const range = BALANCE.service.coverageRange[building];
         html += `<div class="ti-detail">Coverage radius: ${range} tiles</div>`;
-        html += `<div class="ti-detail">Maintenance: $${BALANCE.maintenance.service[building]}/tick</div>`;
+        html += `<div class="ti-detail">Maintenance: $${BALANCE.buildings[building]?.maintenance ?? 0}/tick</div>`;
       }
       if (building === BUILDING_POWER_PLANT) {
         html += `<div class="ti-detail">Output: ${BALANCE.power.plantOutput} units/tick</div>`;

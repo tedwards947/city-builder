@@ -6,12 +6,9 @@ import type { World } from '../sim/World';
 import type { CommandHistory } from '../commands/CommandHistory';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
-import { PlacePowerPlantCommand } from '../commands/PlacePowerPlantCommand';
-import { PlaceWaterTowerCommand } from '../commands/PlaceWaterTowerCommand';
-import { PlaceSewagePlantCommand } from '../commands/PlaceSewagePlantCommand';
-import { PlaceServiceBuildingCommand } from '../commands/PlaceServiceBuildingCommand';
+import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
-import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
+import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 
 export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
 
@@ -139,14 +136,14 @@ export class InputController {
     else if (tool === 'zoneR')    history.run(new PaintZoneCommand(tx, ty, ZONE_R));
     else if (tool === 'zoneC')    history.run(new PaintZoneCommand(tx, ty, ZONE_C));
     else if (tool === 'zoneI')    history.run(new PaintZoneCommand(tx, ty, ZONE_I));
-    else if (tool === 'power')    history.run(new PlacePowerPlantCommand(tx, ty));
-    else if (tool === 'water')    history.run(new PlaceWaterTowerCommand(tx, ty));
-    else if (tool === 'sewage')   history.run(new PlaceSewagePlantCommand(tx, ty));
-    else if (tool === 'police')   history.run(new PlaceServiceBuildingCommand(tx, ty, BUILDING_POLICE));
-    else if (tool === 'fire')     history.run(new PlaceServiceBuildingCommand(tx, ty, BUILDING_FIRE));
-    else if (tool === 'school')   history.run(new PlaceServiceBuildingCommand(tx, ty, BUILDING_SCHOOL));
-    else if (tool === 'hospital') history.run(new PlaceServiceBuildingCommand(tx, ty, BUILDING_HOSPITAL));
-    else if (tool === 'park')     history.run(new PlaceServiceBuildingCommand(tx, ty, BUILDING_PARK));
+    else if (tool === 'power')    history.run(new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT));
+    else if (tool === 'water')    history.run(new PlaceBuildingCommand(tx, ty, BUILDING_WATER_TOWER));
+    else if (tool === 'sewage')   history.run(new PlaceBuildingCommand(tx, ty, BUILDING_SEWAGE_PLANT));
+    else if (tool === 'police')   history.run(new PlaceBuildingCommand(tx, ty, BUILDING_POLICE));
+    else if (tool === 'fire')     history.run(new PlaceBuildingCommand(tx, ty, BUILDING_FIRE));
+    else if (tool === 'school')   history.run(new PlaceBuildingCommand(tx, ty, BUILDING_SCHOOL));
+    else if (tool === 'hospital') history.run(new PlaceBuildingCommand(tx, ty, BUILDING_HOSPITAL));
+    else if (tool === 'park')     history.run(new PlaceBuildingCommand(tx, ty, BUILDING_PARK));
     else if (tool === 'bulldoze') history.run(new BulldozeCommand(tx, ty));
   }
 }

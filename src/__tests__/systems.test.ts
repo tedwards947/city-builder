@@ -26,7 +26,7 @@ import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
 import { CityCharacterSystem } from '../sim/systems/CityCharacterSystem';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
-import { PlaceServiceBuildingCommand } from '../commands/PlaceServiceBuildingCommand';
+import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { resolvePalette } from '../render/CharacterPalette';
 import { HealthcareSystem } from '../sim/systems/HealthcareSystem';
 import { BUILDING_HOSPITAL, BUILDING_SCHOOL } from '../sim/constants';
@@ -107,7 +107,7 @@ describe('PowerSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 5, 5);
     w.layers.building[w.grid.idx(5, 5)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 5, ty: 5 }];
+    w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_POWER_PLANT }];
     new NetworkSystem().update(w);
     new PowerSystem().update(w);
     expect(w.layers.power[w.grid.idx(5, 5)]).toBe(1);
@@ -118,7 +118,7 @@ describe('PowerSystem', () => {
     forceBuildable(w, 5, 5);
     forceBuildable(w, 6, 5);
     w.layers.building[w.grid.idx(5, 5)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 5, ty: 5 }];
+    w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_POWER_PLANT }];
     w.layers.roadClass[w.grid.idx(6, 5)] = ROAD_STREET;
     w.roadNetDirty = true;
     new NetworkSystem().update(w);
@@ -131,7 +131,7 @@ describe('PowerSystem', () => {
     // Plant at (0,0), road strip (1,0)→(4,0)
     forceBuildable(w, 0, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 0, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }];
     for (let x = 1; x <= 4; x++) {
       forceBuildable(w, x, 0);
       w.layers.roadClass[w.grid.idx(x, 0)] = ROAD_STREET;
@@ -148,7 +148,7 @@ describe('PowerSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 0, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }];
     forceBuildable(w, 1, 0);
     w.layers.roadClass[w.grid.idx(1, 0)] = ROAD_STREET;
     forceBuildable(w, 2, 0);
@@ -175,7 +175,7 @@ describe('PowerSystem', () => {
     forceBuildable(w, 1, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 0, ty: 0 }, { tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }, { tx: 1, ty: 0, kind: BUILDING_POWER_PLANT }];
     new NetworkSystem().update(w);
     new PowerSystem().update(w);
     expect(w.stats.powerSupply).toBe(BALANCE.power.plantOutput * 2);
@@ -190,7 +190,7 @@ describe('ZoneGrowthSystem', () => {
     // Power plant at (0,0), road at (1,0), zone at (2,0).
     forceBuildable(w, 0, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 0, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }];
     forceBuildable(w, 1, 0);
     w.layers.roadClass[w.grid.idx(1, 0)] = ROAD_STREET;
     forceBuildable(w, zoneTx, zoneTy);
@@ -317,11 +317,11 @@ describe('EconomySystem', () => {
 
   it('charges power plant maintenance per plant', () => {
     const w = makeWorld();
-    w.powerPlants = [{ tx: 0, ty: 0 }, { tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }, { tx: 1, ty: 0, kind: BUILDING_POWER_PLANT }];
     const before = w.budget.money;
     new EconomySystem().update(w);
-    expect(w.budget.expenses).toBeCloseTo(2 * BALANCE.maintenance.powerPlant);
-    expect(w.budget.money).toBeCloseTo(before - 2 * BALANCE.maintenance.powerPlant);
+    expect(w.budget.expenses).toBeCloseTo(2 * BALANCE.buildings[BUILDING_POWER_PLANT].maintenance);
+    expect(w.budget.money).toBeCloseTo(before - 2 * BALANCE.buildings[BUILDING_POWER_PLANT].maintenance);
   });
 
   it('R zone population = popPerLevel × devLevel count', () => {
@@ -357,7 +357,7 @@ describe('WaterSystem', () => {
     forceBuildable(w, 3, 0);
     w.layers.roadClass[w.grid.idx(2, 0)] = ROAD_STREET;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_WATER_TOWER;
-    w.waterTowers = [{ tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 1, ty: 0, kind: BUILDING_WATER_TOWER }];
     w.layers.zone[w.grid.idx(3, 0)] = ZONE_R;
     w.roadNetDirty = true;
     new NetworkSystem().update(w);
@@ -410,7 +410,7 @@ describe('WaterSystem', () => {
     // Tower only on first segment
     forceBuildable(w, 0, 1);
     w.layers.building[w.grid.idx(0, 1)] = BUILDING_WATER_TOWER;
-    w.waterTowers = [{ tx: 0, ty: 1 }];
+    w.buildings = [{ tx: 0, ty: 1, kind: BUILDING_WATER_TOWER }];
     w.roadNetDirty = true;
     new NetworkSystem().update(w);
     new WaterSystem().update(w);
@@ -423,7 +423,7 @@ describe('WaterSystem', () => {
     forceBuildable(w, 0, 0); forceBuildable(w, 1, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_WATER_TOWER;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_WATER_TOWER;
-    w.waterTowers = [{ tx: 0, ty: 0 }, { tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_WATER_TOWER }, { tx: 1, ty: 0, kind: BUILDING_WATER_TOWER }];
     new WaterSystem().update(w);
     expect(w.stats.waterSupply).toBe(2 * BALANCE.water.towerOutput);
   });
@@ -515,7 +515,7 @@ describe('SewageSystem', () => {
     forceBuildable(w, 3, 0);
     w.layers.roadClass[w.grid.idx(2, 0)] = ROAD_STREET;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_SEWAGE_PLANT;
-    w.sewagePlants = [{ tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 1, ty: 0, kind: BUILDING_SEWAGE_PLANT }];
     w.layers.zone[w.grid.idx(3, 0)] = ZONE_R;
     w.roadNetDirty = true;
     new NetworkSystem().update(w);
@@ -560,7 +560,7 @@ describe('SewageSystem', () => {
     forceBuildable(w, 0, 0); forceBuildable(w, 1, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_SEWAGE_PLANT;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_SEWAGE_PLANT;
-    w.sewagePlants = [{ tx: 0, ty: 0 }, { tx: 1, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_SEWAGE_PLANT }, { tx: 1, ty: 0, kind: BUILDING_SEWAGE_PLANT }];
     new SewageSystem().update(w);
     expect(w.stats.sewageSupply).toBe(2 * BALANCE.sewage.plantOutput);
   });
@@ -666,7 +666,7 @@ describe('PollutionSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
-    w.powerPlants = [{ tx: 0, ty: 0 }];
+    w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }];
     new PollutionSystem().update(w);
     expect(w.layers.pollution[w.grid.idx(0, 0)]).toBeGreaterThan(0);
   });
@@ -787,7 +787,7 @@ describe('ServiceSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 5, 5);
     w.layers.building[w.grid.idx(5, 5)] = BUILDING_POLICE;
-    w.serviceBuildings = [{ tx: 5, ty: 5, kind: BUILDING_POLICE }];
+    w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_POLICE }];
     new ServiceSystem().update(w);
     expect(w.layers.services[w.grid.idx(5, 5)]).toBe(1);
   });
@@ -799,7 +799,7 @@ describe('ServiceSystem', () => {
     forceBuildable(w, 2, 8);
     w.layers.building[w.grid.idx(2, 8)] = BUILDING_POLICE;
     for (let x = 3; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
-    w.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_POLICE }];
+    w.buildings = [{ tx: 2, ty: 8, kind: BUILDING_POLICE }];
     new ServiceSystem().update(w);
     // Tile at (6,8) — road hop 3 — covered.
     expect(w.layers.services[w.grid.idx(6, 8)]).toBe(1);
@@ -819,9 +819,9 @@ describe('ServiceSystem', () => {
       for (let x = 3; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
     }
     wPark.layers.building[wPark.grid.idx(2, 8)] = BUILDING_PARK;
-    wPark.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_PARK }];
+    wPark.buildings = [{ tx: 2, ty: 8, kind: BUILDING_PARK }];
     wFire.layers.building[wFire.grid.idx(2, 8)] = BUILDING_FIRE;
-    wFire.serviceBuildings = [{ tx: 2, ty: 8, kind: BUILDING_FIRE }];
+    wFire.buildings = [{ tx: 2, ty: 8, kind: BUILDING_FIRE }];
     new ServiceSystem().update(wPark);
     new ServiceSystem().update(wFire);
     // (8,8) is at road hop 5 — beyond park range=3, not covered; within fire range=5, covered.
@@ -838,7 +838,7 @@ describe('ServiceSystem', () => {
     forceBuildable(w, 1, 8); forceBuildable(w, 14, 8);
     for (let x = 2; x <= 4; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
     for (let x = 11; x <= 13; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
-    w.serviceBuildings = [
+    w.buildings = [
       { tx: 1,  ty: 8, kind: BUILDING_POLICE },
       { tx: 14, ty: 8, kind: BUILDING_POLICE },
     ];
@@ -861,7 +861,7 @@ describe('ServiceSystem', () => {
     forceBuildable(w, 5, 5);
     w.layers.zone[w.grid.idx(5, 5)] = ZONE_R;
     w.layers.devLevel[w.grid.idx(5, 5)] = 1;
-    w.serviceBuildings = [{ tx: 5, ty: 5, kind: BUILDING_PARK }];
+    w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_PARK }];
     new ServiceSystem().update(w);
     expect(w.stats.servicesCoveredZones).toBeGreaterThan(0);
   });
@@ -1441,7 +1441,7 @@ describe('CityCharacterSystem', () => {
     forceBuildable(w, 0, 0);
     const sys = new CityCharacterSystem();
     sys.update(w);
-    new PlaceServiceBuildingCommand(0, 0, BUILDING_PARK).execute(w);
+    new PlaceBuildingCommand(0, 0, BUILDING_PARK).execute(w);
     expect(w.character.green).toBeGreaterThan(0);
   });
 
@@ -1450,7 +1450,7 @@ describe('CityCharacterSystem', () => {
     forceBuildable(w, 0, 0);
     const sys = new CityCharacterSystem();
     sys.update(w);
-    new PlaceServiceBuildingCommand(0, 0, BUILDING_POLICE).execute(w);
+    new PlaceBuildingCommand(0, 0, BUILDING_POLICE).execute(w);
     expect(w.character.egalitarian).toBeGreaterThan(0);
   });
 
@@ -1494,7 +1494,7 @@ describe('CityCharacterSystem', () => {
     // Place many parks to push past the max
     for (let x = 0; x < 10; x++) {
       forceBuildable(w, x, 5);
-      new PlaceServiceBuildingCommand(x, 5, BUILDING_PARK).execute(w);
+      new PlaceBuildingCommand(x, 5, BUILDING_PARK).execute(w);
     }
     expect(w.character.green).toBeLessThanOrEqual(BALANCE.character.axisMax);
   });

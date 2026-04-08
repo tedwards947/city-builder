@@ -9,8 +9,7 @@ import {
   TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
   ZONE_NONE,
   ROAD_NONE,
-  BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
-  SERVICE_BUILDING_KINDS,
+  BUILDING_NONE,
   VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
 } from './constants';
 import { BALANCE } from '../data/balance';
@@ -70,25 +69,11 @@ export interface Stats {
   satisfaction: number;   // 0–1 weighted citizen satisfaction (updated by PoliticsSystem)
 }
 
-export interface PowerPlant {
+// Unified entity type for every placed building (utilities and services alike).
+export interface BuildingEntity {
   tx: number;
   ty: number;
-}
-
-export interface WaterTower {
-  tx: number;
-  ty: number;
-}
-
-export interface SewagePlant {
-  tx: number;
-  ty: number;
-}
-
-export interface ServiceBuilding {
-  tx: number;
-  ty: number;
-  kind: number; // BUILDING_POLICE | BUILDING_FIRE | BUILDING_SCHOOL | BUILDING_HOSPITAL | BUILDING_PARK
+  kind: number; // Any BUILDING_* constant (1–8)
 }
 
 export type WaterAmount = 'low' | 'medium' | 'high';
@@ -122,10 +107,7 @@ export class World {
   readonly stats: Stats;
   // City character — unused until Phase 7, present so events can update it.
   readonly character: { egalitarian: number; green: number; planned: number };
-  powerPlants: PowerPlant[];
-  waterTowers: WaterTower[];
-  sewagePlants: SewagePlant[];
-  serviceBuildings: ServiceBuilding[];
+  buildings: BuildingEntity[];
   readonly events: EventBus;
   roadNetDirty: boolean;
 
@@ -174,10 +156,7 @@ export class World {
     };
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
-    this.powerPlants = [];
-    this.waterTowers = [];
-    this.sewagePlants = [];
-    this.serviceBuildings = [];
+    this.buildings = [];
     this.events = new EventBus();
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
@@ -373,15 +352,7 @@ export class World {
     this.layers.roadClass[i] = ROAD_NONE;
     this.layers.vegetation[i] = VEG_NONE;
     this.layers.devLevel[i] = 0;
-    if (b === BUILDING_POWER_PLANT) {
-      this.powerPlants.push({ tx, ty });
-    } else if (b === BUILDING_WATER_TOWER) {
-      this.waterTowers.push({ tx, ty });
-    } else if (b === BUILDING_SEWAGE_PLANT) {
-      this.sewagePlants.push({ tx, ty });
-    } else if ((SERVICE_BUILDING_KINDS as readonly number[]).includes(b)) {
-      this.serviceBuildings.push({ tx, ty, kind: b });
-    }
+    this.buildings.push({ tx, ty, kind: b });
     this.grid.markDirty(tx, ty);
     return true;
   }
@@ -398,14 +369,8 @@ export class World {
     this.layers.devLevel[i] = 0;
     this.layers.abandoned[i] = 0;
     this.layers.distress[i] = 0;
-    if (hadBuilding === BUILDING_POWER_PLANT) {
-      this.powerPlants = this.powerPlants.filter(p => !(p.tx === tx && p.ty === ty));
-    } else if (hadBuilding === BUILDING_WATER_TOWER) {
-      this.waterTowers = this.waterTowers.filter(w => !(w.tx === tx && w.ty === ty));
-    } else if (hadBuilding === BUILDING_SEWAGE_PLANT) {
-      this.sewagePlants = this.sewagePlants.filter(s => !(s.tx === tx && s.ty === ty));
-    } else if ((SERVICE_BUILDING_KINDS as readonly number[]).includes(hadBuilding)) {
-      this.serviceBuildings = this.serviceBuildings.filter(s => !(s.tx === tx && s.ty === ty));
+    if (hadBuilding !== BUILDING_NONE) {
+      this.buildings = this.buildings.filter(b => !(b.tx === tx && b.ty === ty));
     }
     if (hadRoad) this.roadNetDirty = true;
     this.grid.markDirty(tx, ty);

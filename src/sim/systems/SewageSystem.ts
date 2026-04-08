@@ -4,7 +4,7 @@
 // Mirrors WaterSystem / PowerSystem exactly, using sewagePlants.
 
 import { World } from '../World';
-import { ROAD_NONE, ZONE_NONE } from '../constants';
+import { ROAD_NONE, ZONE_NONE, BUILDING_SEWAGE_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class SewageSystem {
@@ -18,11 +18,12 @@ export class SewageSystem {
     // 1. Determine which road networks have at least one sewage plant.
     const servicedNetworks = new Set<number>();
     let totalSupply = 0;
-    for (const plant of world.sewagePlants) {
+    for (const b of world.buildings) {
+      if (b.kind !== BUILDING_SEWAGE_PLANT) continue;
       totalSupply += BALANCE.sewage.plantOutput;
-      sewage[plant.ty * width + plant.tx] = 1;
+      sewage[b.ty * width + b.tx] = 1;
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
-        const nx = plant.tx + dx, ny = plant.ty + dy;
+        const nx = b.tx + dx, ny = b.ty + dy;
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         const ni = ny * width + nx;
         if (roadClass[ni] !== ROAD_NONE) servicedNetworks.add(roadNet[ni]);

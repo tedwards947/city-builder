@@ -14,10 +14,7 @@ export function serialize(world: World): WorldSnapshot {
     budget: { ...world.budget },
     stats:  { ...world.stats },
     character: { ...world.character },
-    powerPlants: world.powerPlants.map(p => ({ ...p })),
-    waterTowers: world.waterTowers.map(w => ({ ...w })),
-    sewagePlants: world.sewagePlants.map(s => ({ ...s })),
-    serviceBuildings: world.serviceBuildings.map(b => ({ ...b })),
+    buildings: world.buildings.map(b => ({ ...b })),
     layers: {
       terrain:   new Uint8Array(l.terrain),
       zone:      new Uint8Array(l.zone),
@@ -61,10 +58,7 @@ export function deserialize(snapshot: WorldSnapshot): World {
   Object.assign(world.stats,  snapshot.stats);
   Object.assign(world.character, snapshot.character);
 
-  world.powerPlants = snapshot.powerPlants.map(p => ({ ...p }));
-  world.waterTowers = snapshot.waterTowers.map(w => ({ ...w }));
-  world.sewagePlants = snapshot.sewagePlants.map(s => ({ ...s }));
-  world.serviceBuildings = snapshot.serviceBuildings.map(b => ({ ...b }));
+  world.buildings = snapshot.buildings.map(b => ({ ...b }));
 
   // Overwrite every layer in-place so array references inside world stay valid.
   const l = world.layers;

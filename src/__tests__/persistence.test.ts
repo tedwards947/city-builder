@@ -103,7 +103,7 @@ describe('Serializer round-trip', () => {
     expect(restored.stats.satisfaction).toBe(0.75);
   });
 
-  it('preserves powerPlants list', () => {
+  it('preserves buildings list', () => {
     const w = new World(16, 16, 1);
     // force a buildable tile and place a plant
     const tx = 0, ty = 0;
@@ -111,8 +111,8 @@ describe('Serializer round-trip', () => {
     w.layers.building[w.grid.idx(tx, ty)] = 0;
     w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
     const restored = deserialize(serialize(w));
-    expect(restored.powerPlants).toHaveLength(1);
-    expect(restored.powerPlants[0]).toEqual({ tx, ty });
+    expect(restored.buildings).toHaveLength(1);
+    expect(restored.buildings[0]).toEqual({ tx, ty, kind: BUILDING_POWER_PLANT });
   });
 
   it('snapshot is a deep copy — mutating the original does not affect it', () => {
@@ -227,7 +227,7 @@ describe('SaveManager', () => {
 import { migrate } from '../persistence/SaveFormat';
 
 describe('Migration', () => {
-  it('upgrades v5 to v6 by adding new layers and stats', () => {
+  it('upgrades v5 to v7 adding new layers, stats, and unified buildings list', () => {
     // Construct a partial v5 save record
     const v5: any = {
       version: 5,
@@ -265,14 +265,16 @@ describe('Migration', () => {
       }
     };
 
-    const v6 = migrate(v5);
-    expect(v6.version).toBe(6);
-    expect(v6.snapshot.stats.avgCongestion).toBe(0);
-    expect(v6.snapshot.stats.satisfaction).toBe(1);
-    expect(v6.snapshot.layers.crime).toBeDefined();
-    expect(v6.snapshot.layers.crime.length).toBe(100);
-    expect(v6.snapshot.layers.education).toBeDefined();
-    expect(v6.snapshot.layers.sickness).toBeDefined();
-    expect(v6.snapshot.layers.vegetation).toBeDefined();
+    const migrated = migrate(v5);
+    expect(migrated.version).toBe(7);
+    expect(migrated.snapshot.stats.avgCongestion).toBe(0);
+    expect(migrated.snapshot.stats.satisfaction).toBe(1);
+    expect(migrated.snapshot.layers.crime).toBeDefined();
+    expect(migrated.snapshot.layers.crime.length).toBe(100);
+    expect(migrated.snapshot.layers.education).toBeDefined();
+    expect(migrated.snapshot.layers.sickness).toBeDefined();
+    expect(migrated.snapshot.layers.vegetation).toBeDefined();
+    expect(migrated.snapshot.buildings).toBeDefined();
+    expect(Array.isArray(migrated.snapshot.buildings)).toBe(true);
   });
 });

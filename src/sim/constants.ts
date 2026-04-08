@@ -29,7 +29,6 @@ export const BUILDING_SCHOOL   = 6;
 export const BUILDING_HOSPITAL = 7;
 export const BUILDING_PARK     = 8;
 
-export const SERVICE_BUILDING_KINDS = [4, 5, 6, 7, 8] as const;
 
 // Vegetation layer
 export const VEG_NONE   = 0;

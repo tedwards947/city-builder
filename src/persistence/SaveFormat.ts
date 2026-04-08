@@ -7,8 +7,9 @@
 //   4 — added abandoned + distress layers (Phase 7.5 abandonment)
 //   5 — added fireRisk, fire, fireStation layers (Phase 7.5 fire)
 //   6 — added missing derived layers (crime, education, sickness, etc.) and missing stats
+//   7 — unified powerPlants/waterTowers/sewagePlants/serviceBuildings into buildings[]
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -60,10 +61,7 @@ export interface WorldSnapshot {
     green: number;
     planned: number;
   };
-  powerPlants: { tx: number; ty: number }[];
-  waterTowers: { tx: number; ty: number }[];
-  sewagePlants: { tx: number; ty: number }[];
-  serviceBuildings: { tx: number; ty: number; kind: number }[];
+  buildings: { tx: number; ty: number; kind: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
   layers: {
@@ -98,7 +96,7 @@ export interface WorldSnapshot {
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -133,8 +131,25 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 3) rec = upgradeV3toV4(rec);
   if ((rec as { version: number }).version === 4) rec = upgradeV4toV5(rec);
   if ((rec as { version: number }).version === 5) rec = upgradeV5toV6(rec);
-  if ((rec as { version: number }).version === 6) return rec;
+  if ((rec as { version: number }).version === 6) rec = upgradeV6toV7(rec);
+  if ((rec as { version: number }).version === 7) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
+}
+
+function upgradeV6toV7(v6: SaveRecord): SaveRecord {
+  const snap = v6.snapshot as any;
+  const buildings = [
+    ...(snap.powerPlants  ?? []).map((p: { tx: number; ty: number }) => ({ ...p, kind: 1 })),
+    ...(snap.waterTowers  ?? []).map((p: { tx: number; ty: number }) => ({ ...p, kind: 2 })),
+    ...(snap.sewagePlants ?? []).map((p: { tx: number; ty: number }) => ({ ...p, kind: 3 })),
+    ...(snap.serviceBuildings ?? []),
+  ];
+  const { powerPlants: _pp, waterTowers: _wt, sewagePlants: _sp, serviceBuildings: _sb, ...restSnap } = snap;
+  return {
+    ...v6,
+    version: 7,
+    snapshot: { ...restSnap, buildings },
+  };
 }
 
 function upgradeV5toV6(v5: SaveRecord): SaveRecord {
