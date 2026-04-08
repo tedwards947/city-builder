@@ -9,7 +9,7 @@
 - [x] Standardize building/utility types: In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities 
 - [x] restoreTile automation or tests: Add a unit test that asserts every BUILDING_* constant is handled in restoreTile. Cheap now; a silent undo bug later.
 - [ ] 1 pass of balancing before introducing more features
-- [ ] EventBus audit for alerts: Before building the toast UI, enumerate every alert-worth event (crime spike, power shortage, fire ignition, abandonment, healthcare crisis) and confirm each system emits it with the right payload. Prevents the "event doesn't carry enough context" bugs mid-feature.
+- [x] EventBus audit for alerts: Before building the toast UI, enumerate every alert-worth event (crime spike, power shortage, fire ignition, abandonment, healthcare crisis) and confirm each system emits it with the right payload. Prevents the "event doesn't carry enough context" bugs mid-feature.
 - [ ] Alerts/toast system: for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear. I believe we have an event system for this?
 - [ ] Localization via t() lookup
 
