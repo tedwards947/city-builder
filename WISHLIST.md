@@ -6,7 +6,7 @@
 
 
 ## Priority 1:
-- [ ] Standardize building/utility types: In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities 
+- [x] Standardize building/utility types: In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities 
 - [ ] restoreTile automation or tests: Add a unit test that asserts every BUILDING_* constant is handled in restoreTile. Cheap now; a silent undo bug later.
 - [ ] 1 pass of balancing before introducing more features
 - [ ] EventBus audit for alerts: Before building the toast UI, enumerate every alert-worth event (crime spike, power shortage, fire ignition, abandonment, healthcare crisis) and confirm each system emits it with the right payload. Prevents the "event doesn't carry enough context" bugs mid-feature.
