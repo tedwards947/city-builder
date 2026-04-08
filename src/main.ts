@@ -30,6 +30,7 @@ import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { EconPanel } from './ui/EconPanel';
+import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
 import { VehicleLayer } from './render/VehicleLayer';
 import { BALANCE } from './data/balance';
@@ -97,14 +98,34 @@ const state = {
   scheduler: null as unknown as Scheduler,
 };
 
+// UI Panels (must be initialized before first startGame call)
+const tileInfoPanel = new TileInfoPanel();
+const econPanel = new EconPanel(() => state.world);
+const toastPanel = new ToastPanel();
+const demandChart = new DemandChart();
+
+const store   = new LocalStore();
+const manager = new SaveManager(store); // userId defaults to 'local'
+
 function startGame(world: World): void {
   state.world     = world;
   state.history   = new CommandHistory(world);
   state.scheduler = new Scheduler(world, systems);
+  toastPanel.setWorld(world);
   vehicleLayer.reset();
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
 }
+
+const saveLoadPanel = new SaveLoadPanel(
+  manager,
+  () => state.world,
+  (world) => startGame(world),
+);
+
+const newGameDialog = new NewGameDialog((opts) => {
+  startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
+});
 
 // Start with the default world.
 startGame(new World(256, 256, 42, { vegAmount: 'low' }));
@@ -126,26 +147,7 @@ new InputController(
   (tile) => { hoverTile = tile; },
 );
 
-// ── Persistence ───────────────────────────────────────────────────────────────
-
-const store   = new LocalStore();
-const manager = new SaveManager(store); // userId defaults to 'local'
-
-// ── UI dialogs ────────────────────────────────────────────────────────────────
-
-const newGameDialog = new NewGameDialog((opts) => {
-  startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
-});
-
-const tileInfoPanel = new TileInfoPanel();
-const econPanel = new EconPanel(() => state.world);
-const demandChart = new DemandChart();
-
-const saveLoadPanel = new SaveLoadPanel(
-  manager,
-  () => state.world,
-  (world) => startGame(world),
-);
+// ── Event Listeners ───────────────────────────────────────────────────────────
 
 document.getElementById('btn-new')!.addEventListener('click',  () => newGameDialog.show());
 document.getElementById('btn-save')!.addEventListener('click', () => saveLoadPanel.showSave());
