@@ -185,6 +185,11 @@ export interface TranslationSchema {
     road: string;
     zone: string;
   };
+  roads: {
+    street: string;
+    avenue: string;
+    highway: string;
+  };
   buildings: {
     powerPlant: string;
     waterTower: string;
