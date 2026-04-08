@@ -142,10 +142,11 @@ export const BALANCE = {
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
-    // Legacy radial-spread params kept for backward compat (no longer used by TransitSystem).
-    rGenRate: 1.0,
-    cAttrRate: 1.0,
-    iAttrRate: 1.5,
+    // Load generation rates per developed level per zone type.
+    // Higher values → more load per tile → stronger cross-zone congestion signal.
+    rGenRate: 2.5,
+    cAttrRate: 2.5,
+    iAttrRate: 4.0,
     spreadRadius: 4,
     streetCapacity: 20,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
@@ -154,12 +155,13 @@ export const BALANCE = {
     // Higher = zones spread traffic to more distant roads; raises cost per tick.
     accessRadius: 8,
     // Scales raw road-tile complementary load → 0-255 accessibility byte.
-    // Tune upward if accessibility is always near 0; downward if always near 255.
-    accessNormFactor: 60,
+    // Scales raw road-tile complementary load → 0-255 accessibility byte.
+    // At 2.5× load rates, one adjacent dev-1 complementary zone (~0.5 load/tile)
+    // maps to ~80/255 (31%) accessibility; multiple nearby zones push toward 255.
+    accessNormFactor: 80,
     // Growth multiplier floor for zone tiles with zero accessibility.
-    // 0.3 = isolated zones grow at 30% normal rate, so the map isn't dead at game
-    // start but poor connectivity is a meaningful drag on development.
-    accessFloor: 0.3,
+    // 0.2 = isolated zones still get started, but connectivity is a real drag.
+    accessFloor: 0.2,
   },
   agents: {
     maxVehicles:   80,   // hard cap — sim is correct with zero

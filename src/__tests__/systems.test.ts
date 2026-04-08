@@ -9,7 +9,7 @@ import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import {
   ZONE_R, ZONE_C, ZONE_I,
-  ROAD_STREET,
+  ROAD_STREET, ROAD_HIGHWAY,
   BUILDING_POWER_PLANT,
   BUILDING_WATER_TOWER,
   BUILDING_SEWAGE_PLANT,
@@ -1086,19 +1086,20 @@ describe('TransitSystem', () => {
 
   it('road between R and C zones is busier than road only near R', () => {
     const w = makeWorld();
-    // Road A at (3,3) flanked by R zone (2,3) and C zone (4,3)
+    // Road A at (3,3) flanked by R zone (2,3) and C zone (4,3).
+    // Use dev 1 + highway (cap 80) so cross-zone product doesn't saturate.
     forceBuildable(w, 3, 3); forceBuildable(w, 2, 3); forceBuildable(w, 4, 3);
-    w.layers.roadClass[w.grid.idx(3, 3)] = ROAD_STREET;
+    w.layers.roadClass[w.grid.idx(3, 3)] = ROAD_HIGHWAY;
     w.layers.zone[w.grid.idx(2, 3)]      = ZONE_R;
-    w.layers.devLevel[w.grid.idx(2, 3)]  = 2;
+    w.layers.devLevel[w.grid.idx(2, 3)]  = 1;
     w.layers.zone[w.grid.idx(4, 3)]      = ZONE_C;
-    w.layers.devLevel[w.grid.idx(4, 3)]  = 2;
+    w.layers.devLevel[w.grid.idx(4, 3)]  = 1;
 
     // Road B at (8,8) only near an R zone
     forceBuildable(w, 8, 8); forceBuildable(w, 9, 8);
-    w.layers.roadClass[w.grid.idx(8, 8)] = ROAD_STREET;
+    w.layers.roadClass[w.grid.idx(8, 8)] = ROAD_HIGHWAY;
     w.layers.zone[w.grid.idx(9, 8)]      = ZONE_R;
-    w.layers.devLevel[w.grid.idx(9, 8)]  = 2;
+    w.layers.devLevel[w.grid.idx(9, 8)]  = 1;
 
     runAt(w, interval);
     expect(w.layers.congestion[w.grid.idx(3, 3)])
@@ -1122,10 +1123,11 @@ describe('TransitSystem', () => {
 
   it('I zones produce more load than C zones at same devLevel (iAttrRate > cAttrRate)', () => {
     const wC = makeWorld(), wI = makeWorld();
+    // Use dev 1 + highway (cap 80) so both cases stay below 255 saturation.
     for (const w of [wC, wI]) {
       forceBuildable(w, 5, 5); forceBuildable(w, 5, 6);
-      w.layers.roadClass[w.grid.idx(5, 5)] = ROAD_STREET;
-      w.layers.devLevel[w.grid.idx(5, 6)]  = 2;
+      w.layers.roadClass[w.grid.idx(5, 5)] = ROAD_HIGHWAY;
+      w.layers.devLevel[w.grid.idx(5, 6)]  = 1;
     }
     wC.layers.zone[wC.grid.idx(5, 6)] = ZONE_C;
     wI.layers.zone[wI.grid.idx(5, 6)] = ZONE_I;
@@ -1624,16 +1626,18 @@ describe('TransitSystem — road-network BFS pathing', () => {
     // Vertical connector at col 1, rows 1-5: gives ALL R zones road access.
     // Without this connector each R zone would only reach the one horizontal
     // artery adjacent to it, and the parallel-road normalization wouldn't fire.
+    // Use ROAD_HIGHWAY (cap 80) + dev 1 so the single-artery case doesn't
+    // immediately saturate at 255, leaving room to show the parallel-road relief.
     for (let y = 1; y <= 5; y++) {
       forceBuildable(w, 1, y);
-      w.layers.roadClass[w.grid.idx(1, y)] = ROAD_STREET;
+      w.layers.roadClass[w.grid.idx(1, y)] = ROAD_HIGHWAY;
     }
     w.roadNetDirty = true;
     // R district at col 0 rows 1-5 (all adjacent to the connector).
-    for (let y = 1; y <= 5; y++) placeDev(w, 0, y, ZONE_R, 3);
+    for (let y = 1; y <= 5; y++) placeDev(w, 0, y, ZONE_R, 1);
     // Single artery at row 3, cols 2–8. C zone at col 9.
     buildRoad(w, 2, 8, 3);
-    placeDev(w, 9, 3, ZONE_C, 3);
+    placeDev(w, 9, 3, ZONE_C, 1);
 
     w.tick = 0;
     const ts = new TransitSystem();
@@ -1644,7 +1648,7 @@ describe('TransitSystem — road-network BFS pathing', () => {
     // The connector now branches into BOTH arteries, so R zones BFS expands
     // across both; normalization reduces each artery's share of the R load.
     buildRoad(w, 2, 8, 1);
-    placeDev(w, 9, 1, ZONE_C, 3);
+    placeDev(w, 9, 1, ZONE_C, 1);
 
     w.tick = BALANCE.transit.flowInterval;
     ts.update(w);
