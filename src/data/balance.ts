@@ -62,6 +62,10 @@ export const BALANCE = {
     growthThreshold: 100,
     // Crime level (0-255) above which abandonment might trigger.
     abandonThreshold: 180,
+    // City-wide average crime (0-255) above which a crimeSpike alert fires.
+    alertThreshold: 60,
+    // Minimum ticks between repeated crimeSpike alerts.
+    alertCooldownTicks: 40,
   },
   fire: {
     // Probability of fire starting per tick per developed level.
@@ -118,6 +122,10 @@ export const BALANCE = {
     // How long the "recent death" visual indicator persists (ticks, decrements by 1/tick).
     // 80 ticks = 10 game-days.
     deathVisualDuration: 80,
+    // City-wide average sickness (0-255) above which a healthcareCrisis alert fires.
+    crisisThreshold: 100,
+    // Minimum ticks between repeated healthcareCrisis alerts.
+    crisisCooldownTicks: 40,
   },
   landValue: {
     base: 80,             // starting value before modifiers (0–255 scale)

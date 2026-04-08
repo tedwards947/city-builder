@@ -8,6 +8,8 @@ import { ROAD_NONE, ZONE_NONE, BUILDING_POWER_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class PowerSystem {
+  private _inShortage = false;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const power = world.layers.power;
@@ -71,6 +73,15 @@ export class PowerSystem {
     }
     world.stats.powerSupply = totalSupply;
     world.stats.powerDemand = totalDemand;
+
+    const shortage = totalDemand > totalSupply;
+    if (shortage && !this._inShortage) {
+      world.events.emit('powerShortage', { supply: totalSupply, demand: totalDemand, deficit: totalDemand - totalSupply });
+    } else if (!shortage && this._inShortage) {
+      world.events.emit('powerRestored', { supply: totalSupply, demand: totalDemand });
+    }
+    this._inShortage = shortage;
+
     // Mark all chunks dirty — power state changed across many tiles.
     world.grid.markAllDirty();
   }

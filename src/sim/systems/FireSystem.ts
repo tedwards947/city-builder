@@ -78,6 +78,7 @@ export class FireSystem {
               if (fireStation[ni] === 0 || world.rng() < b.fireStationEffectiveness) {
                 fire[ni] = b.burnDuration;
                 world.grid.markDirty(ntx, nty);
+                world.events.emit('fireSpreading', { tx: ntx, ty: nty });
               }
             }
           }
@@ -90,7 +91,10 @@ export class FireSystem {
         const ignitionProb = b.baseProbability * (fireRisk[i] / 20);
         if (world.rng() < ignitionProb) {
           fire[i] = b.burnDuration;
-          world.grid.markDirty(i % width, (i / width) | 0);
+          const itx = i % width;
+          const ity = (i / width) | 0;
+          world.grid.markDirty(itx, ity);
+          world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level });
         }
       }
     }
