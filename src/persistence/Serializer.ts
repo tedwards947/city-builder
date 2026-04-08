@@ -23,6 +23,7 @@ export function serialize(world: World): WorldSnapshot {
       zone:      new Uint8Array(l.zone),
       roadClass: new Uint8Array(l.roadClass),
       building:  new Uint8Array(l.building),
+      vegetation: new Uint8Array(l.vegetation),
       devLevel:  new Uint8Array(l.devLevel),
       power:     new Uint8Array(l.power),
       water:     new Uint8Array(l.water),
@@ -31,11 +32,20 @@ export function serialize(world: World): WorldSnapshot {
       landValue: new Uint8Array(l.landValue),
       roadNet:   new Uint16Array(l.roadNet),
       pollution: new Uint8Array(l.pollution),
-      abandoned: new Uint8Array(l.abandoned),
-      distress:  new Uint8Array(l.distress),
-      fireRisk:  new Uint8Array(l.fireRisk),
-      fire:      new Uint8Array(l.fire),
+      crime:      new Uint8Array(l.crime),
+      police:     new Uint8Array(l.police),
+      congestion:    new Uint8Array(l.congestion),
+      accessibility: new Uint8Array(l.accessibility),
+      abandoned:  new Uint8Array(l.abandoned),
+      distress:   new Uint8Array(l.distress),
+      fireRisk:   new Uint8Array(l.fireRisk),
+      fire:       new Uint8Array(l.fire),
       fireStation: new Uint8Array(l.fireStation),
+      school:     new Uint8Array(l.school),
+      education:  new Uint8Array(l.education),
+      hospital:   new Uint8Array(l.hospital),
+      sickness:   new Uint8Array(l.sickness),
+      recentDeath: new Uint8Array(l.recentDeath),
     },
   };
 }
@@ -62,6 +72,7 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.zone.set(snapshot.layers.zone);
   l.roadClass.set(snapshot.layers.roadClass);
   l.building.set(snapshot.layers.building);
+  l.vegetation.set(snapshot.layers.vegetation);
   l.devLevel.set(snapshot.layers.devLevel);
   l.power.set(snapshot.layers.power);
   l.water.set(snapshot.layers.water);
@@ -70,11 +81,20 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.landValue.set(snapshot.layers.landValue);
   l.roadNet.set(snapshot.layers.roadNet);
   l.pollution.set(snapshot.layers.pollution);
+  l.crime.set(snapshot.layers.crime);
+  l.police.set(snapshot.layers.police);
+  l.congestion.set(snapshot.layers.congestion);
+  l.accessibility.set(snapshot.layers.accessibility);
   l.abandoned.set(snapshot.layers.abandoned);
   l.distress.set(snapshot.layers.distress);
   l.fireRisk.set(snapshot.layers.fireRisk);
   l.fire.set(snapshot.layers.fire);
   l.fireStation.set(snapshot.layers.fireStation);
+  l.school.set(snapshot.layers.school);
+  l.education.set(snapshot.layers.education);
+  l.hospital.set(snapshot.layers.hospital);
+  l.sickness.set(snapshot.layers.sickness);
+  l.recentDeath.set(snapshot.layers.recentDeath);
 
   // Force a full network + render rebuild on next tick.
   world.roadNetDirty = true;

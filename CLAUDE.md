@@ -118,8 +118,9 @@ Check items off here as they are implemented and tested. When all items in a pha
 ### Phase 8: Server & Cloud Saves
 - [ ] RemoteStore implementation against backend
 - [ ] API: POST/GET/DELETE /saves (save blobs opaque to server)
-- [ ] Auth via Clerk or magic links
+- [ ] very simple auth; username match only for now. will optimize and migrate in future.
 - [ ] Local-first: game always saves to IndexedDB; "sync to cloud" is a button
+- [ ] Auth via Clerk or magic links
 
 ### Phase 9: Depth & Longevity
 - [ ] Historical eras with shifting constraints
@@ -140,8 +141,9 @@ Check items off here as they are implemented and tested. When all items in a pha
 
 ### Other todos:
 - [ ] inspect view for roads should tell the player what kind of road it is
-- [ ] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
+- [x] crime, sickness, traffic, education, any any other derived value should be serialized. otherwise, you could just save and reload to reset any debuffs.
 - [ ] make poltical capital/vibes actually worth a damn
+
 - [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
 - [ ] bulldozing abandoned buildings should increase political capital, not decrease
 --- 
