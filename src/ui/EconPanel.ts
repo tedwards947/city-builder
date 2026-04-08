@@ -2,6 +2,7 @@
 // Toggleable via the "Econ" toolbar button.
 
 import type { World } from '../sim/World';
+import { t } from '../i18n';
 
 const STEP = 0.1;
 const MIN_RATE = 0.1;
@@ -9,11 +10,11 @@ const MAX_RATE = 3.0;
 
 function fmt(n: number): string { return n.toFixed(1); }
 function demandLabel(d: number): string {
-  if (d >= 1.8) return 'very high';
-  if (d >= 1.2) return 'high';
-  if (d >= 0.8) return 'normal';
-  if (d >= 0.4) return 'low';
-  return 'very low';
+  if (d >= 1.8) return t('ui.econ.veryHigh');
+  if (d >= 1.2) return t('ui.econ.high');
+  if (d >= 0.8) return t('ui.econ.normal');
+  if (d >= 0.4) return t('ui.econ.low');
+  return t('ui.econ.veryLow');
 }
 function demandColor(d: number): string {
   if (d >= 1.2) return '#5c5';

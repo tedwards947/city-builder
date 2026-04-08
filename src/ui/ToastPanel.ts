@@ -1,5 +1,6 @@
 import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
+import { t } from '../i18n';
 
 export type ToastType = 'info' | 'warning' | 'alert';
 
@@ -35,36 +36,36 @@ export class ToastPanel {
 
   private setupHandlers(): void {
     this.handlers['powerShortage'] = (p: CityEvents['powerShortage']) => {
-      this.showToast('Resource Shortage', `Power demand exceeds supply! Deficit: ${p.deficit} MW`, 'alert');
+      this.showToast(t('ui.toast.resourceShortage'), t('ui.toast.powerDemandExceeds', { deficit: p.deficit }), 'alert');
     };
     this.handlers['powerRestored'] = () => {
-      this.showToast('Resource Restored', 'Power supply has been stabilized.', 'info');
+      this.showToast(t('ui.toast.resourceRestored'), t('ui.toast.powerStabilized'), 'info');
     };
     this.handlers['waterShortage'] = (p: CityEvents['waterShortage']) => {
-      this.showToast('Resource Shortage', `Water demand exceeds supply! Deficit: ${p.deficit} units`, 'alert');
+      this.showToast(t('ui.toast.resourceShortage'), t('ui.toast.waterDemandExceeds', { deficit: p.deficit }), 'alert');
     };
     this.handlers['waterRestored'] = () => {
-      this.showToast('Resource Restored', 'Water supply has been stabilized.', 'info');
+      this.showToast(t('ui.toast.resourceRestored'), t('ui.toast.waterStabilized'), 'info');
     };
     this.handlers['sewageShortage'] = (p: CityEvents['sewageShortage']) => {
-      this.showToast('Resource Shortage', `Sewage treatment capacity exceeded! Deficit: ${p.deficit} units`, 'alert');
+      this.showToast(t('ui.toast.resourceShortage'), t('ui.toast.sewageCapacityExceeded', { deficit: p.deficit }), 'alert');
     };
     this.handlers['sewageRestored'] = () => {
-      this.showToast('Resource Restored', 'Sewage treatment capacity stabilized.', 'info');
+      this.showToast(t('ui.toast.resourceRestored'), t('ui.toast.sewageStabilized'), 'info');
     };
     this.handlers['crimeSpike'] = (p: CityEvents['crimeSpike']) => {
-      this.showToast('Crime Wave', `High crime reported in ${p.affectedTiles} areas!`, 'warning');
+      this.showToast(t('ui.toast.crimeWaveTitle'), t('ui.toast.crimeWaveMsg', { affectedTiles: p.affectedTiles }), 'warning');
     };
     this.handlers['fireIgnition'] = (p: CityEvents['fireIgnition']) => {
-      this.showToast('Fire Alert', `Fire started at ${p.tx}, ${p.ty}!`, 'alert');
+      this.showToast(t('ui.toast.fireAlertTitle'), t('ui.toast.fireAlertMsg', { tx: p.tx, ty: p.ty }), 'alert');
     };
     this.handlers['healthcareCrisis'] = (p: CityEvents['healthcareCrisis']) => {
-      this.showToast('Healthcare Crisis', `Widespread sickness reported in ${p.affectedTiles} areas!`, 'alert');
+      this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert');
     };
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam
       if (p.level >= 2) {
-        this.showToast('Building Abandoned', `A level ${p.level} building was abandoned at ${p.tx}, ${p.ty}.`, 'warning');
+        this.showToast(t('ui.toast.buildingAbandonedTitle'), t('ui.toast.buildingAbandonedMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning');
       }
     };
   }

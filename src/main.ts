@@ -1,6 +1,10 @@
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
+import { localizeHTML, tArray } from './i18n';
+
+localizeHTML();
+
 import { CommandHistory } from './commands/CommandHistory';
 import { Scheduler } from './sim/Scheduler';
 import { NetworkSystem } from './sim/systems/NetworkSystem';
@@ -308,8 +312,8 @@ function formatDate(tick: number): string {
   const dayOfYear = totalDays % 360;
   const month     = Math.floor(dayOfYear / 30) + 1;
   const day       = (dayOfYear % 30) + 1;
-  const months    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return months[month - 1] + ' ' + day + ', ' + year;
+  const months    = tArray('common.months');
+  return (months[month - 1] ?? '???') + ' ' + day + ', ' + year;
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────

@@ -148,47 +148,47 @@
   <div id="tile-info" class="hidden"></div>
 
   <div id="econ-panel" class="hidden">
-    <div class="ep-title">Economics</div>
+    <div class="ep-title" data-i18n="ui.econ.title">Economics</div>
     <div class="ep-section">
-      <div class="ep-label">Tax rates (per dev level)</div>
+      <div class="ep-label" data-i18n="ui.econ.taxRates">Tax rates (per dev level)</div>
       <div class="ep-row"><span class="ep-zone r">R</span><button class="ep-btn" id="econ-r-down">−</button><span class="ep-rate" id="econ-rate-r">0.8</span><button class="ep-btn" id="econ-r-up">+</button></div>
       <div class="ep-row"><span class="ep-zone c">C</span><button class="ep-btn" id="econ-c-down">−</button><span class="ep-rate" id="econ-rate-c">1.2</span><button class="ep-btn" id="econ-c-up">+</button></div>
       <div class="ep-row"><span class="ep-zone i">I</span><button class="ep-btn" id="econ-i-down">−</button><span class="ep-rate" id="econ-rate-i">1.5</span><button class="ep-btn" id="econ-i-up">+</button></div>
     </div>
     <hr class="ep-divider">
     <div class="ep-section">
-      <div class="ep-label">Zone demand</div>
+      <div class="ep-label" data-i18n="ui.econ.zoneDemand">Zone demand</div>
       <div class="ep-row"><span class="ep-zone r">R</span><span class="ep-dem" id="econ-dem-r">1.00×</span></div>
       <div class="ep-row"><span class="ep-zone c">C</span><span class="ep-dem" id="econ-dem-c">1.00×</span></div>
       <div class="ep-row"><span class="ep-zone i">I</span><span class="ep-dem" id="econ-dem-i">1.00×</span></div>
     </div>
     <hr class="ep-divider">
-    <div class="ep-row ep-label">Avg land value: <span id="econ-lv" style="color:#fff;margin-left:4px">80</span></div>
+    <div class="ep-row ep-label"><span data-i18n="ui.econ.avgLandValue">Avg land value:</span> <span id="econ-lv" style="color:#fff;margin-left:4px">80</span></div>
   </div>
 
   <div id="hud">
     <div id="stats">
-      <div><span class="label">Tile</span> <span class="value" id="stat-tile">-</span></div>
-      <div><span class="label">Camera</span> <span class="value" id="stat-cam">-</span></div>
-      <div><span class="label">Zoom</span> <span class="value" id="stat-zoom">-</span></div>
+      <div><span class="label" data-i18n="ui.hud.tile">Tile</span> <span class="value" id="stat-tile">-</span></div>
+      <div><span class="label" data-i18n="ui.hud.camera">Camera</span> <span class="value" id="stat-cam">-</span></div>
+      <div><span class="label" data-i18n="ui.hud.zoom">Zoom</span> <span class="value" id="stat-zoom">-</span></div>
     </div>
     <div id="citystats">
       <div>
-        <span class="label">Pol. Capital</span> <span class="value pc" id="stat-pc">100</span>
+        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100</span>
         <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
       </div>
-      <div><span class="label">Money</span> <span class="value money" id="stat-money">$0</span></div>
-      <div><span class="label">Population</span> <span class="value" id="stat-pop">0</span></div>
-      <div><span class="label">Power</span> <span class="value" id="stat-power">0 / 0</span></div>
-      <div><span class="label">Water</span> <span class="value" id="stat-water">0 / 0</span></div>
-      <div><span class="label">Sewage</span> <span class="value" id="stat-sewage">0 / 0</span></div>
-      <div><span class="label">Services</span> <span class="value" id="stat-services">0</span></div>
-      <div><span class="label">Congestion</span> <span class="value" id="stat-congestion">0</span></div>
-      <div><span class="label">Date</span> <span class="value" id="stat-date">—</span></div>
+      <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span></div>
+      <div><span class="label" data-i18n="ui.hud.population">Population</span> <span class="value" id="stat-pop">0</span></div>
+      <div><span class="label" data-i18n="ui.hud.power">Power</span> <span class="value" id="stat-power">0 / 0</span></div>
+      <div><span class="label" data-i18n="ui.hud.water">Water</span> <span class="value" id="stat-water">0 / 0</span></div>
+      <div><span class="label" data-i18n="ui.hud.sewage">Sewage</span> <span class="value" id="stat-sewage">0 / 0</span></div>
+      <div><span class="label" data-i18n="ui.hud.services">Services</span> <span class="value" id="stat-services">0</span></div>
+      <div><span class="label" data-i18n="ui.hud.congestion">Congestion</span> <span class="value" id="stat-congestion">0</span></div>
+      <div><span class="label" data-i18n="ui.hud.date">Date</span> <span class="value" id="stat-date">—</span></div>
       <div id="demand-chart-wrap">
         <div id="demand-chart-label">
           <span class="dl-r">R</span><span class="dl-c">C</span><span class="dl-i">I</span>
-          <span style="color:#8aa">demand</span>
+          <span style="color:#8aa" data-i18n="ui.hud.demand">demand</span>
         </div>
         <canvas id="demand-chart"></canvas>
       </div>
@@ -207,72 +207,72 @@
   <div id="toolbar-tip"><div class="tip-desc"></div><div class="tip-cost"></div><div class="tip-upkeep"></div></div>
 
   <div id="toolbar">
-    <button class="tool action" id="btn-new" data-desc="Start a new city">New</button>
-    <button class="tool action" id="btn-save" data-desc="Save your city">Save</button>
-    <button class="tool action" id="btn-load" data-desc="Load a saved city">Load</button>
-    <button class="tool action" id="btn-econ" data-desc="Adjust tax rates &amp; view demand">Econ</button>
-    <button class="tool action" id="btn-traffic" data-desc="Toggle traffic congestion overlay">Traffic</button>
-    <button class="tool action" id="btn-crime" data-desc="Toggle crime heatmap overlay">Crime</button>
-    <button class="tool action" id="btn-fire" data-desc="Toggle fire risk overlay">Fire</button>
+    <button class="tool action" id="btn-new" data-i18n="ui.toolbar.new" data-i18n-desc="ui.toolbarDesc.new">New</button>
+    <button class="tool action" id="btn-save" data-i18n="ui.toolbar.save" data-i18n-desc="ui.toolbarDesc.save">Save</button>
+    <button class="tool action" id="btn-load" data-i18n="ui.toolbar.load" data-i18n-desc="ui.toolbarDesc.load">Load</button>
+    <button class="tool action" id="btn-econ" data-i18n="ui.toolbar.econ" data-i18n-desc="ui.toolbarDesc.econ">Econ</button>
+    <button class="tool action" id="btn-traffic" data-i18n="ui.toolbar.traffic" data-i18n-desc="ui.toolbarDesc.traffic">Traffic</button>
+    <button class="tool action" id="btn-crime" data-i18n="ui.toolbar.crime" data-i18n-desc="ui.toolbarDesc.crime">Crime</button>
+    <button class="tool action" id="btn-fire" data-i18n="ui.toolbar.fire" data-i18n-desc="ui.toolbarDesc.fire">Fire</button>
     <div class="tool-sep"></div>
-    <button class="tool active" data-tool="none" data-desc="Pan and zoom the map">View</button>
-    <button class="tool" data-tool="inspect" data-desc="Inspect a tile's details">Inspect</button>
-    <button class="tool" data-tool="road" data-desc="Build a street" data-cost="$10" data-upkeep="$0.01/tile/tick">Street</button>
-    <button class="tool" data-tool="avenue" data-desc="Build a wider avenue (4× capacity)" data-cost="$50" data-upkeep="$0.04/tile/tick">Avenue</button>
-    <button class="tool" data-tool="highway" data-desc="Build a highway (10× capacity)" data-cost="$150" data-upkeep="$0.12/tile/tick">Highway</button>
-    <button class="tool" data-tool="zoneR" data-desc="Zone land for residential development" data-cost="$20">Res</button>
-    <button class="tool" data-tool="zoneC" data-desc="Zone land for commercial development" data-cost="$25">Com</button>
-    <button class="tool" data-tool="zoneI" data-desc="Zone land for industrial development" data-cost="$25">Ind</button>
-    <button class="tool" data-tool="power" data-desc="Place a coal power plant (500 MW output)" data-cost="$2,000" data-upkeep="$5/tick">Plant</button>
-    <button class="tool" data-tool="water" data-desc="Place a water tower (300 units output)" data-cost="$500" data-upkeep="$2/tick">Water</button>
-    <button class="tool" data-tool="sewage" data-desc="Place a sewage treatment plant (400 units)" data-cost="$1,500" data-upkeep="$3/tick">Sewage</button>
+    <button class="tool active" data-tool="none" data-i18n="ui.toolbar.view" data-i18n-desc="ui.toolbarDesc.view">View</button>
+    <button class="tool" data-tool="inspect" data-i18n="ui.toolbar.inspect" data-i18n-desc="ui.toolbarDesc.inspect">Inspect</button>
+    <button class="tool" data-tool="road" data-i18n="ui.toolbar.street" data-i18n-desc="ui.toolbarDesc.street" data-cost="$10" data-upkeep="$0.01/tile/tick">Street</button>
+    <button class="tool" data-tool="avenue" data-i18n="ui.toolbar.avenue" data-i18n-desc="ui.toolbarDesc.avenue" data-cost="$50" data-upkeep="$0.04/tile/tick">Avenue</button>
+    <button class="tool" data-tool="highway" data-i18n="ui.toolbar.highway" data-i18n-desc="ui.toolbarDesc.highway" data-cost="$150" data-upkeep="$0.12/tile/tick">Highway</button>
+    <button class="tool" data-tool="zoneR" data-i18n="ui.toolbar.res" data-i18n-desc="ui.toolbarDesc.res" data-cost="$20">Res</button>
+    <button class="tool" data-tool="zoneC" data-i18n="ui.toolbar.com" data-i18n-desc="ui.toolbarDesc.com" data-cost="$25">Com</button>
+    <button class="tool" data-tool="zoneI" data-i18n="ui.toolbar.ind" data-i18n-desc="ui.toolbarDesc.ind" data-cost="$25">Ind</button>
+    <button class="tool" data-tool="power" data-i18n="ui.toolbar.plant" data-i18n-desc="ui.toolbarDesc.plant" data-cost="$2,000" data-upkeep="$5/tick">Plant</button>
+    <button class="tool" data-tool="water" data-i18n="ui.toolbar.water" data-i18n-desc="ui.toolbarDesc.water" data-cost="$500" data-upkeep="$2/tick">Water</button>
+    <button class="tool" data-tool="sewage" data-i18n="ui.toolbar.sewage" data-i18n-desc="ui.toolbarDesc.sewage" data-cost="$1,500" data-upkeep="$3/tick">Sewage</button>
     <div class="tool-sep"></div>
-    <button class="tool" data-tool="police" data-desc="Place a police station (12-tile range)" data-cost="$1,200" data-upkeep="$3/tick">Police</button>
-    <button class="tool" data-tool="fire" data-desc="Place a fire station (5-tile range)" data-cost="$800" data-upkeep="$2/tick">Fire</button>
-    <button class="tool" data-tool="school" data-desc="Place a school (4-tile range)" data-cost="$1,500" data-upkeep="$4/tick">School</button>
-    <button class="tool" data-tool="hospital" data-desc="Place a hospital (6-tile range)" data-cost="$3,000" data-upkeep="$6/tick">Hospital</button>
-    <button class="tool" data-tool="park" data-desc="Place a park (3-tile range)" data-cost="$300" data-upkeep="$0.50/tick">Park</button>
+    <button class="tool" data-tool="police" data-i18n="ui.toolbar.police" data-i18n-desc="ui.toolbarDesc.police" data-cost="$1,200" data-upkeep="$3/tick">Police</button>
+    <button class="tool" data-tool="fire" data-i18n="ui.toolbar.fireStation" data-i18n-desc="ui.toolbarDesc.fireStation" data-cost="$800" data-upkeep="$2/tick">Fire</button>
+    <button class="tool" data-tool="school" data-i18n="ui.toolbar.school" data-i18n-desc="ui.toolbarDesc.school" data-cost="$1,500" data-upkeep="$4/tick">School</button>
+    <button class="tool" data-tool="hospital" data-i18n="ui.toolbar.hospital" data-i18n-desc="ui.toolbarDesc.hospital" data-cost="$3,000" data-upkeep="$6/tick">Hospital</button>
+    <button class="tool" data-tool="park" data-i18n="ui.toolbar.park" data-i18n-desc="ui.toolbarDesc.park" data-cost="$300" data-upkeep="$0.50/tick">Park</button>
     <div class="tool-sep"></div>
-    <button class="tool" data-tool="bulldoze" data-desc="Demolish a tile" data-cost="$5">Clear</button>
-    <button class="tool" data-tool="undo" data-desc="Undo the last action">Undo</button>
+    <button class="tool" data-tool="bulldoze" data-i18n="ui.toolbar.clear" data-i18n-desc="ui.toolbarDesc.clear" data-cost="$5">Clear</button>
+    <button class="tool" data-tool="undo" data-i18n="ui.toolbar.undo" data-i18n-desc="ui.toolbarDesc.undo">Undo</button>
   </div>
 </div>
 
 <!-- ── New Game Dialog ── -->
 <div id="new-game-modal" class="modal hidden">
   <div class="modal-box">
-    <h2>New Game</h2>
+    <h2 data-i18n="ui.newGame.title">New Game</h2>
     <div class="field">
-      <label>Map Size</label>
+      <label data-i18n="ui.newGame.mapSize">Map Size</label>
       <div class="opts">
-        <button class="opt" data-size="small">Small<br><span style="font-size:10px;opacity:.6">128×128</span></button>
-        <button class="opt active" data-size="medium">Medium<br><span style="font-size:10px;opacity:.6">256×256</span></button>
-        <button class="opt" data-size="large">Large<br><span style="font-size:10px;opacity:.6">512×512</span></button>
+        <button class="opt" data-size="small"><span data-i18n="ui.newGame.small">Small</span><br><span style="font-size:10px;opacity:.6">128×128</span></button>
+        <button class="opt active" data-size="medium"><span data-i18n="ui.newGame.medium">Medium</span><br><span style="font-size:10px;opacity:.6">256×256</span></button>
+        <button class="opt" data-size="large"><span data-i18n="ui.newGame.large">Large</span><br><span style="font-size:10px;opacity:.6">512×512</span></button>
       </div>
     </div>
     <div class="field">
-      <label>Water</label>
+      <label data-i18n="ui.newGame.water">Water</label>
       <div class="opts">
-        <button class="opt" data-water="low">Low</button>
-        <button class="opt active" data-water="medium">Medium</button>
-        <button class="opt" data-water="high">High</button>
+        <button class="opt" data-water="low" data-i18n="ui.newGame.low">Low</button>
+        <button class="opt active" data-water="medium" data-i18n="ui.newGame.medium">Medium</button>
+        <button class="opt" data-water="high" data-i18n="ui.newGame.high">High</button>
       </div>
     </div>
     <div class="field">
-      <label>Vegetation</label>
+      <label data-i18n="ui.newGame.veg">Vegetation</label>
       <div class="opts">
-        <button class="opt active" data-veg="low">Low</button>
-        <button class="opt" data-veg="medium">Medium</button>
-        <button class="opt" data-veg="high">High</button>
+        <button class="opt active" data-veg="low" data-i18n="ui.newGame.low">Low</button>
+        <button class="opt" data-veg="medium" data-i18n="ui.newGame.medium">Medium</button>
+        <button class="opt" data-veg="high" data-i18n="ui.newGame.high">High</button>
       </div>
     </div>
     <div class="field">
-      <label>Seed (leave blank for random)</label>
-      <input id="ng-seed" type="number" placeholder="random" min="0" max="4294967295">
+      <label data-i18n="ui.newGame.seed">Seed (leave blank for random)</label>
+      <input id="ng-seed" type="number" data-i18n-placeholder="ui.newGame.seedPlaceholder" placeholder="random" min="0" max="4294967295">
     </div>
     <div class="modal-actions">
-      <button id="ng-cancel" class="btn">Cancel</button>
-      <button id="ng-start" class="btn primary">Start Game</button>
+      <button id="ng-cancel" class="btn" data-i18n="ui.newGame.cancel">Cancel</button>
+      <button id="ng-start" class="btn primary" data-i18n="ui.newGame.startGame">Start Game</button>
     </div>
   </div>
 </div>
@@ -280,10 +280,10 @@
 <!-- ── Save / Load Panel ── -->
 <div id="save-load-modal" class="modal hidden">
   <div class="modal-box">
-    <h2 id="sl-title">Save Game</h2>
+    <h2 id="sl-title" data-i18n="ui.saveLoad.saveGame">Save Game</h2>
     <div id="sl-slots"></div>
     <div class="modal-actions">
-      <button id="sl-cancel" class="btn">Cancel</button>
+      <button id="sl-cancel" class="btn" data-i18n="common.cancel">Cancel</button>
     </div>
   </div>
 </div>
