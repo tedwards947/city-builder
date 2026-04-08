@@ -75,7 +75,7 @@ export const BALANCE = {
     riskC: 1.0,
     riskI: 1.5,
     // Risk added per pollution level (0-255).
-    pollutionRiskMult: 0.05,
+    pollutionRiskMult: 0.15,
     // Fire reduction multiplier if fireStation[i] === 1.
     fireStationEffectiveness: 0.05, // 95% reduction in fire risk/spread
     // Smoothing factor for fire risk.
@@ -128,14 +128,15 @@ export const BALANCE = {
     crisisCooldownTicks: 40,
   },
   landValue: {
-    base: 80,             // starting value before modifiers (0–255 scale)
+    base: 70,             // starting value before modifiers (0–255 scale)
     serviceBonus: 35,     // if services[i] === 1
     powerBonus: 10,       // if power[i] === 1
     waterBonus: 10,       // if water[i] === 1
-    pollutionPenalty: 0.35,  // multiplied by pollution byte value
+    pollutionPenalty: 0.50,  // multiplied by pollution byte value
     industryRadius: 2,    // tiles to scan for nearby I zones
-    industryPenalty: 18,  // per adjacent developed I zone tile
-    neighborBonus: 5,     // per adjacent developed non-I zone tile
+    industryPenalty: 24,  // per adjacent developed I zone tile
+    neighborBonus: 8,     // per adjacent developed non-I zone tile
+    abandonedPenalty: 15, // per adjacent abandoned tile
     smoothing: 0.25,      // blend rate toward target per LandValueSystem tick
   },
   demand: {
@@ -149,10 +150,10 @@ export const BALANCE = {
     max: 2.0,    // ceiling
   },
   pollution: {
-    industryOutput: 30,  // added per industrial dev level per tick
-    powerPlantOutput: 15,// added per power plant per tick
-    decayRate: 0.94,     // fraction remaining after decay each tick (0-1)
-    diffusionRate: 0.15, // fraction spreading to each of 4 neighbors per tick
+    industryOutput: 40,  // added per industrial dev level per tick
+    powerPlantOutput: 30,// added per power plant per tick
+    decayRate: 0.97,     // fraction remaining after decay each tick (0-1)
+    diffusionRate: 0.20, // fraction spreading to each of 4 neighbors per tick
     growthThreshold: 20, // 0-255: R/C zones above this can't grow
     // Vegetation pollution reduction — fraction of the current decay rate.
     // e.g. if decayRate is 0.94 and vegDecayMult is 0.9, the effective decay on that tile is 0.846.

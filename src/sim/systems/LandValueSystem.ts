@@ -32,6 +32,7 @@ export class LandValueSystem {
     const water = world.layers.water;
     const svc   = world.layers.services;
     const poll  = world.layers.pollution;
+    const abandoned = world.layers.abandoned;
 
     // ── Per-tile land value ────────────────────────────────────────────────────
     let lvSum = 0;
@@ -53,6 +54,12 @@ export class LandValueSystem {
             const nx = x + dx, ny = y + dy;
             if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
             const ni = ny * width + nx;
+
+            if (abandoned[ni]) {
+              target -= LV.abandonedPenalty;
+              continue;
+            }
+
             if (dev[ni] === 0) continue;
             if (zone[ni] === ZONE_I) {
               target -= LV.industryPenalty / (Math.abs(dx) + Math.abs(dy));
