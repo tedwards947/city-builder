@@ -28,9 +28,16 @@ export class Camera {
     return { sx: (wx - this.x) * this.zoom, sy: (wy - this.y) * this.zoom };
   }
 
+  // Primitive variants — no allocation, use in hot render loops.
+  worldToScreenX(wx: number): number { return (wx - this.x) * this.zoom; }
+  worldToScreenY(wy: number): number { return (wy - this.y) * this.zoom; }
+
   screenToWorld(sx: number, sy: number): { wx: number; wy: number } {
     return { wx: sx / this.zoom + this.x, wy: sy / this.zoom + this.y };
   }
+
+  screenToWorldX(sx: number): number { return sx / this.zoom + this.x; }
+  screenToWorldY(sy: number): number { return sy / this.zoom + this.y; }
 
   screenToTile(sx: number, sy: number): { tx: number; ty: number } {
     const { wx, wy } = this.screenToWorld(sx, sy);
@@ -49,24 +56,19 @@ export class Camera {
   }
 
   zoomAt(sx: number, sy: number, factor: number): void {
-    const before = this.screenToWorld(sx, sy);
+    const bwx = this.screenToWorldX(sx);
+    const bwy = this.screenToWorldY(sy);
     this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * factor));
-    const after = this.screenToWorld(sx, sy);
-    this.x += before.wx - after.wx;
-    this.y += before.wy - after.wy;
+    this.x += bwx - this.screenToWorldX(sx);
+    this.y += bwy - this.screenToWorldY(sy);
   }
 
   visibleTileBounds(grid: Grid): TileBounds {
-    const tl = Projection.worldToTile(this.x, this.y);
-    const br = Projection.worldToTile(
-      this.x + this.viewportW / this.zoom,
-      this.y + this.viewportH / this.zoom,
-    );
     return {
-      x0: Math.max(0, tl.tx - 1),
-      y0: Math.max(0, tl.ty - 1),
-      x1: Math.min(grid.width - 1, br.tx + 1),
-      y1: Math.min(grid.height - 1, br.ty + 1),
+      x0: Math.max(0, Projection.worldToTileX(this.x) - 1),
+      y0: Math.max(0, Projection.worldToTileY(this.y) - 1),
+      x1: Math.min(grid.width - 1, Projection.worldToTileX(this.x + this.viewportW / this.zoom) + 1),
+      y1: Math.min(grid.height - 1, Projection.worldToTileY(this.y + this.viewportH / this.zoom) + 1),
     };
   }
 }
