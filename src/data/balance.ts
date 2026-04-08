@@ -12,36 +12,36 @@ export const BALANCE = {
   // Placement cost and per-tick maintenance for every BUILDING_* kind.
   // Keyed by the numeric constant (1=power plant, 2=water tower, …, 8=park).
   buildings: {
-    1: { cost: 2000, maintenance: 5   }, // BUILDING_POWER_PLANT
-    2: { cost: 500,  maintenance: 2   }, // BUILDING_WATER_TOWER
-    3: { cost: 1500, maintenance: 3   }, // BUILDING_SEWAGE_PLANT
-    4: { cost: 1200, maintenance: 3   }, // BUILDING_POLICE
-    5: { cost: 800,  maintenance: 2   }, // BUILDING_FIRE
-    6: { cost: 1500, maintenance: 4   }, // BUILDING_SCHOOL
-    7: { cost: 3000, maintenance: 6   }, // BUILDING_HOSPITAL
-    8: { cost: 300,  maintenance: 0.5 }, // BUILDING_PARK
+    1: { cost: 2000, maintenance: 15  }, // BUILDING_POWER_PLANT
+    2: { cost: 500,  maintenance: 6   }, // BUILDING_WATER_TOWER
+    3: { cost: 1500, maintenance: 10  }, // BUILDING_SEWAGE_PLANT
+    4: { cost: 1200, maintenance: 12  }, // BUILDING_POLICE
+    5: { cost: 800,  maintenance: 10  }, // BUILDING_FIRE
+    6: { cost: 1500, maintenance: 15  }, // BUILDING_SCHOOL
+    7: { cost: 3000, maintenance: 25  }, // BUILDING_HOSPITAL
+    8: { cost: 300,  maintenance: 4   }, // BUILDING_PARK
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
-    zoneR: 0.8,
-    zoneC: 1.2,
-    zoneI: 1.5,
+    zoneR: 0.65,
+    zoneC: 1.0,
+    zoneI: 1.25,
   },
   maintenance: {
-    road: 0.01,
+    road: 0.04,
   },
   power: {
-    plantOutput: 500,    // supply per plant
+    plantOutput: 350,    // supply per plant
     perDevLevel: 2,      // demand per developed level
     propagationRange: 1, // tiles off road that receive power
   },
   water: {
-    towerOutput: 300,    // supply per tower (zones it can serve)
+    towerOutput: 250,    // supply per tower (zones it can serve)
     perDevLevel: 1,      // demand per developed level
     propagationRange: 1, // tiles off road that receive water
   },
   sewage: {
-    plantOutput: 400,    // capacity per plant (dev-level units)
+    plantOutput: 300,    // capacity per plant (dev-level units)
     perDevLevel: 2,      // demand per developed level (high-density zones produce more)
     propagationRange: 1, // tiles off road that receive sewage coverage
   },
@@ -51,9 +51,9 @@ export const BALANCE = {
   },
   crime: {
     // Base crime added per tick per developed level.
-    baseRateR: 1.2,
-    baseRateC: 2.0,
-    baseRateI: 0.8,
+    baseRateR: 0.7,
+    baseRateC: 1.4,
+    baseRateI: 0.5,
     // Crime reduction multiplier if police[i] === 1.
     policeEffectiveness: 0.15, // 85% reduction
     // Smoothing factor (blend rate toward target per tick).
@@ -69,13 +69,13 @@ export const BALANCE = {
   },
   fire: {
     // Probability of fire starting per tick per developed level.
-    baseProbability: 0.0003,
+    baseProbability: 0.00015,
     // Risk factors
     riskR: 0.8,
     riskC: 1.0,
     riskI: 1.5,
     // Risk added per pollution level (0-255).
-    pollutionRiskMult: 0.05,
+    pollutionRiskMult: 0.15,
     // Fire reduction multiplier if fireStation[i] === 1.
     fireStationEffectiveness: 0.05, // 95% reduction in fire risk/spread
     // Smoothing factor for fire risk.
@@ -128,19 +128,21 @@ export const BALANCE = {
     crisisCooldownTicks: 40,
   },
   landValue: {
-    base: 80,             // starting value before modifiers (0–255 scale)
+    base: 60,             // starting value before modifiers (0–255 scale)
     serviceBonus: 35,     // if services[i] === 1
     powerBonus: 10,       // if power[i] === 1
     waterBonus: 10,       // if water[i] === 1
-    pollutionPenalty: 0.35,  // multiplied by pollution byte value
+    pollutionPenalty: 0.85,  // multiplied by pollution byte value
+    congestionPenalty: 0.35, // multiplied by max nearby congestion byte value
     industryRadius: 2,    // tiles to scan for nearby I zones
-    industryPenalty: 18,  // per adjacent developed I zone tile
-    neighborBonus: 5,     // per adjacent developed non-I zone tile
+    industryPenalty: 24,  // per adjacent developed I zone tile
+    neighborBonus: 8,     // per adjacent developed non-I zone tile
+    abandonedPenalty: 20, // per adjacent abandoned tile
     smoothing: 0.25,      // blend rate toward target per LandValueSystem tick
   },
   demand: {
     // Neutral (demand=1.0) ratio of (C+I) dev levels per R dev level
-    jobsPerResident: 0.35,
+    jobsPerResident: 0.50,
     // Neutral ratio of R dev levels per C dev level
     residentsPerCommerce: 4,
     // Neutral ratio of (R+C) dev levels per I dev level
@@ -149,10 +151,10 @@ export const BALANCE = {
     max: 2.0,    // ceiling
   },
   pollution: {
-    industryOutput: 30,  // added per industrial dev level per tick
-    powerPlantOutput: 15,// added per power plant per tick
-    decayRate: 0.94,     // fraction remaining after decay each tick (0-1)
-    diffusionRate: 0.15, // fraction spreading to each of 4 neighbors per tick
+    industryOutput: 40,  // added per industrial dev level per tick
+    powerPlantOutput: 30,// added per power plant per tick
+    decayRate: 0.97,     // fraction remaining after decay each tick (0-1)
+    diffusionRate: 0.20, // fraction spreading to each of 4 neighbors per tick
     growthThreshold: 20, // 0-255: R/C zones above this can't grow
     // Vegetation pollution reduction — fraction of the current decay rate.
     // e.g. if decayRate is 0.94 and vegDecayMult is 0.9, the effective decay on that tile is 0.846.
@@ -168,9 +170,9 @@ export const BALANCE = {
   // Per road-class data — keyed by ROAD_STREET/AVENUE/HIGHWAY (1/2/3).
   // upgrade cost = roadClasses[target].cost − roadClasses[current].cost
   roadClasses: {
-    1: { cost: 10,  maintenance: 0.01, capacity: 20,  speedMult: 1.0 }, // Street
-    2: { cost: 50,  maintenance: 0.04, capacity: 80,  speedMult: 1.4 }, // Avenue
-    3: { cost: 150, maintenance: 0.12, capacity: 200, speedMult: 2.0 }, // Highway
+    1: { cost: 10,  maintenance: 0.04, capacity: 20,  speedMult: 1.0 }, // Street
+    2: { cost: 50,  maintenance: 0.12, capacity: 80,  speedMult: 1.4 }, // Avenue
+    3: { cost: 150, maintenance: 0.35, capacity: 200, speedMult: 2.0 }, // Highway
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
@@ -193,7 +195,7 @@ export const BALANCE = {
     accessNormFactor: 80,
     // Growth multiplier floor for zone tiles with zero accessibility.
     // 0.2 = isolated zones still get started, but connectivity is a real drag.
-    accessFloor: 0.2,
+    accessFloor: 0.05,
   },
   agents: {
     maxVehicles:   80,   // hard cap — sim is correct with zero
@@ -253,7 +255,7 @@ export const BALANCE = {
   // More contributors (crime, fire) can be added to AbandonmentSystem later.
   abandonment: {
     distressInterval: 4,    // ticks between distress checks (aligned with growth interval)
-    abandonThreshold: 12,   // distress checks without conditions before abandonment (~6 game-days)
+    abandonThreshold: 20,   // distress checks without conditions before abandonment (~10 game-days)
   },
 
   ticksPerDay: 8,

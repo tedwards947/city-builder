@@ -129,6 +129,17 @@ function analyzeZone(world: World, tx: number, ty: number): { level: number; max
   return { level: dev, maxLevel, reqs };
 }
 
+function isBuildingConnected(world: World, tx: number, ty: number): boolean {
+  const { width, height } = world.grid;
+  const roadClass = world.layers.roadClass;
+  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+    const nx = tx + dx, ny = ty + dy;
+    if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+    if (roadClass[ny * width + nx] !== ROAD_NONE) return true;
+  }
+  return false;
+}
+
 export class TileInfoPanel {
   private readonly el: HTMLElement;
   private visible = false;
@@ -187,6 +198,12 @@ export class TileInfoPanel {
       if (building === BUILDING_SEWAGE_PLANT) {
         html += `<div class="ti-detail">Capacity: ${BALANCE.sewage.plantOutput} units/tick</div>`;
       }
+
+      // Connectivity warning for utilities
+      if (building <= BUILDING_SEWAGE_PLANT && !isBuildingConnected(world, tx, ty)) {
+        html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">✗ NOT CONNECTED TO ROAD</div>`;
+      }
+
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">ON FIRE! (${fire} ticks left)</div>`;
       }

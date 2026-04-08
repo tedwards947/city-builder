@@ -23,13 +23,21 @@ export class WaterSystem {
     let totalSupply = 0;
     for (const b of world.buildings) {
       if (b.kind !== BUILDING_WATER_TOWER) continue;
-      totalSupply += BALANCE.water.towerOutput;
-      water[b.ty * width + b.tx] = 1;
+      
+      let connected = false;
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
         const nx = b.tx + dx, ny = b.ty + dy;
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         const ni = ny * width + nx;
-        if (roadClass[ni] !== ROAD_NONE) servicedNetworks.add(roadNet[ni]);
+        if (roadClass[ni] !== ROAD_NONE) {
+          servicedNetworks.add(roadNet[ni]);
+          connected = true;
+        }
+      }
+
+      if (connected) {
+        totalSupply += BALANCE.water.towerOutput;
+        water[b.ty * width + b.tx] = 1;
       }
     }
 

@@ -106,8 +106,10 @@ describe('PowerSystem', () => {
   it('powers the plant tile itself', () => {
     const w = makeWorld();
     forceBuildable(w, 5, 5);
+    forceBuildable(w, 5, 6);
     w.layers.building[w.grid.idx(5, 5)] = BUILDING_POWER_PLANT;
     w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_POWER_PLANT }];
+    w.setRoad(5, 6, ROAD_STREET);
     new NetworkSystem().update(w);
     new PowerSystem().update(w);
     expect(w.layers.power[w.grid.idx(5, 5)]).toBe(1);
@@ -173,9 +175,13 @@ describe('PowerSystem', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
     forceBuildable(w, 1, 0);
+    forceBuildable(w, 0, 1);
+    forceBuildable(w, 1, 1);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_POWER_PLANT;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_POWER_PLANT;
     w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_POWER_PLANT }, { tx: 1, ty: 0, kind: BUILDING_POWER_PLANT }];
+    w.setRoad(0, 1, ROAD_STREET);
+    w.setRoad(1, 1, ROAD_STREET);
     new NetworkSystem().update(w);
     new PowerSystem().update(w);
     expect(w.stats.powerSupply).toBe(BALANCE.power.plantOutput * 2);
@@ -421,9 +427,13 @@ describe('WaterSystem', () => {
   it('tracks waterSupply as towers × towerOutput', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0); forceBuildable(w, 1, 0);
+    forceBuildable(w, 0, 1); forceBuildable(w, 1, 1);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_WATER_TOWER;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_WATER_TOWER;
     w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_WATER_TOWER }, { tx: 1, ty: 0, kind: BUILDING_WATER_TOWER }];
+    w.setRoad(0, 1, ROAD_STREET);
+    w.setRoad(1, 1, ROAD_STREET);
+    new NetworkSystem().update(w);
     new WaterSystem().update(w);
     expect(w.stats.waterSupply).toBe(2 * BALANCE.water.towerOutput);
   });
@@ -558,9 +568,13 @@ describe('SewageSystem', () => {
   it('tracks sewageSupply as plants × plantOutput', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0); forceBuildable(w, 1, 0);
+    forceBuildable(w, 0, 1); forceBuildable(w, 1, 1);
     w.layers.building[w.grid.idx(0, 0)] = BUILDING_SEWAGE_PLANT;
     w.layers.building[w.grid.idx(1, 0)] = BUILDING_SEWAGE_PLANT;
     w.buildings = [{ tx: 0, ty: 0, kind: BUILDING_SEWAGE_PLANT }, { tx: 1, ty: 0, kind: BUILDING_SEWAGE_PLANT }];
+    w.setRoad(0, 1, ROAD_STREET);
+    w.setRoad(1, 1, ROAD_STREET);
+    new NetworkSystem().update(w);
     new SewageSystem().update(w);
     expect(w.stats.sewageSupply).toBe(2 * BALANCE.sewage.plantOutput);
   });
