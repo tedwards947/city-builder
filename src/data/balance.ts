@@ -286,6 +286,7 @@ export const BALANCE = {
     // Gating: if budget.politicalCapital < cost, the action is blocked.
     disruptionCosts: {
       bulldozePerPop: 3.5, // per displaced resident (level-3 R zone = 20 pop → 70 PC)
+      abandonedBuildingReward: 2.5, // per abandoned building level cleared (clearing blight is popular)
     },
   },
 } as const;

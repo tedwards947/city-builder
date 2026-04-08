@@ -28,23 +28,33 @@ export class PaintZoneCommand extends Command {
     if (world.budget.money < cost) return false;
 
     const i = world.grid.idx(this.tx, this.ty);
-    // Painting over a populated residential zone displaces residents — same
-    // PC cost as bulldozing, since the effect on citizens is identical.
+    const isAbandoned = world.layers.abandoned[i] !== 0;
+    const devLevel = world.layers.devLevel[i];
+
+    // Painting over a populated residential zone displaces residents.
+    // However, if the building is abandoned, there is no displacement cost.
     const displacedPopulation =
-      world.layers.zone[i] === ZONE_R && world.layers.zone[i] !== this.newZone
-        ? (BALANCE.growth.popPerLevel[world.layers.devLevel[i]] ?? 0)
+      !isAbandoned && world.layers.zone[i] === ZONE_R && world.layers.zone[i] !== this.newZone
+        ? (BALANCE.growth.popPerLevel[devLevel] ?? 0)
         : 0;
+
     const pcCost = displacedPopulation > 0
       ? displacedPopulation * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop
       : 0;
+
+    // Clearing an abandoned building rewards PC (clearing blight).
+    const pcReward = (isAbandoned && devLevel > 0)
+      ? devLevel * BALANCE.politicalCapital.disruptionCosts.abandonedBuildingReward
+      : 0;
+
     if (pcCost > 0 && world.budget.politicalCapital < pcCost) return false;
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
-    this.pcCost = pcCost;
+    this.pcCost = pcCost - pcReward; // Net change
 
     world.budget.money -= cost;
-    if (this.pcCost > 0) world.budget.politicalCapital -= this.pcCost;
+    world.budget.politicalCapital -= this.pcCost;
 
     if (world.layers.roadClass[i] !== ROAD_NONE) {
       world.layers.roadClass[i] = ROAD_NONE;
@@ -56,7 +66,8 @@ export class PaintZoneCommand extends Command {
       zone: this.newZone,
       cost,
       displacedPopulation,
-      pcCost: this.pcCost,
+      pcCost,
+      pcReward,
     });
     return ok;
   }
