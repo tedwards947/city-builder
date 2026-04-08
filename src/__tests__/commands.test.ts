@@ -245,6 +245,47 @@ describe('BulldozeCommand', () => {
     expect(w.getZone(tx, ty)).toBe(ZONE_R);
     expect(w.budget.money).toBe(before);
   });
+
+  it('charges PC when displacing residents', () => {
+    const level = 3;
+    const pop = BALANCE.growth.popPerLevel[level];
+    const expectedPcCost = pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
+    
+    w.setZone(tx, ty, ZONE_R);
+    w.layers.devLevel[w.grid.idx(tx, ty)] = level;
+    
+    const pcBefore = w.budget.politicalCapital;
+    new BulldozeCommand(tx, ty).execute(w);
+    
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore - expectedPcCost);
+  });
+
+  it('rewards PC when clearing an abandoned building', () => {
+    const level = 2;
+    const expectedPcReward = level * BALANCE.politicalCapital.disruptionCosts.abandonedBuildingReward;
+    
+    w.setZone(tx, ty, ZONE_R);
+    w.layers.devLevel[w.grid.idx(tx, ty)] = level;
+    w.layers.abandoned[w.grid.idx(tx, ty)] = 1;
+    
+    const pcBefore = w.budget.politicalCapital;
+    new BulldozeCommand(tx, ty).execute(w);
+    
+    // Reward should be added, net change is negative pcCost (which means positive addition to PC)
+    expect(w.budget.politicalCapital).toBeCloseTo(pcBefore + expectedPcReward);
+  });
+
+  it('does NOT charge PC when bulldozing an abandoned residential building', () => {
+    w.setZone(tx, ty, ZONE_R);
+    w.layers.devLevel[w.grid.idx(tx, ty)] = 2;
+    w.layers.abandoned[w.grid.idx(tx, ty)] = 1;
+    
+    const pcBefore = w.budget.politicalCapital;
+    new BulldozeCommand(tx, ty).execute(w);
+    
+    // Should be GREATER than pcBefore because of the reward, and definitely not LESS.
+    expect(w.budget.politicalCapital).toBeGreaterThan(pcBefore);
+  });
 });
 
 // ─── CommandHistory ──────────────────────────────────────────────────────────
