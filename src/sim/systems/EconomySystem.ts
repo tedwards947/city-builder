@@ -42,14 +42,11 @@ export class EconomySystem {
       }
       if (roadClass[i] !== ROAD_NONE) roadCount++;
     }
-    const serviceMaintenance = world.serviceBuildings.reduce(
-      (sum, b) => sum + (BALANCE.maintenance.service[b.kind] ?? 0), 0);
+    const buildingMaintenance = world.buildings.reduce(
+      (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0), 0);
     const expenses =
       roadCount * BALANCE.maintenance.road +
-      world.powerPlants.length * BALANCE.maintenance.powerPlant +
-      world.waterTowers.length * BALANCE.maintenance.waterTower +
-      world.sewagePlants.length * BALANCE.maintenance.sewagePlant +
-      serviceMaintenance;
+      buildingMaintenance;
     world.budget.money += income - expenses;
     world.budget.income = income;
     world.budget.expenses = expenses;

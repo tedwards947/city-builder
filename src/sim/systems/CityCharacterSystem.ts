@@ -13,6 +13,7 @@
 import type { World } from '../World';
 import {
   ZONE_R, ZONE_C, ZONE_I,
+  BUILDING_POWER_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -68,8 +69,8 @@ export class CityCharacterSystem {
       this._nudge(world, 'planned', n.planned.roadBuilt);
     });
 
-    // Service buildings — drive egalitarian and planned.
-    ev.on('serviceBuilt', (p) => {
+    // Any building placed — nudge character based on kind.
+    ev.on('buildingPlaced', (p) => {
       const kind = p.kind as number;
       if (kind === BUILDING_PARK) {
         this._nudge(world, 'egalitarian', n.egalitarian.parkBuilt);
@@ -78,12 +79,9 @@ export class CityCharacterSystem {
       } else if ([BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL].includes(kind)) {
         this._nudge(world, 'egalitarian', n.egalitarian.serviceBuilt);
         this._nudge(world, 'planned',     n.planned.serviceBuilt);
+      } else if (kind === BUILDING_POWER_PLANT) {
+        this._nudge(world, 'green', n.green.powerPlantBuilt);
       }
-    });
-
-    // Power plant — drives industrial/not-green.
-    ev.on('powerPlantBuilt', () => {
-      this._nudge(world, 'green', n.green.powerPlantBuilt);
     });
   }
 

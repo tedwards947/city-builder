@@ -5,6 +5,8 @@ import {
   ZONE_NONE, ZONE_R, ZONE_C,
   ROAD_NONE, ROAD_STREET,
   BUILDING_NONE, BUILDING_POWER_PLANT,
+  BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
@@ -137,12 +139,12 @@ describe('World.placeBuilding', () => {
     ({ tx, ty } = grassTile(w));
   });
 
-  it('places a power plant and adds it to the list', () => {
+  it('places a power plant and adds it to the buildings list', () => {
     const ok = w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
     expect(ok).toBe(true);
     expect(w.getBuilding(tx, ty)).toBe(BUILDING_POWER_PLANT);
-    expect(w.powerPlants).toHaveLength(1);
-    expect(w.powerPlants[0]).toEqual({ tx, ty });
+    expect(w.buildings).toHaveLength(1);
+    expect(w.buildings[0]).toEqual({ tx, ty, kind: BUILDING_POWER_PLANT });
   });
 
   it('clears zone and road on the tile', () => {
@@ -156,7 +158,7 @@ describe('World.placeBuilding', () => {
     w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
     const ok = w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
     expect(ok).toBe(false);
-    expect(w.powerPlants).toHaveLength(1);
+    expect(w.buildings).toHaveLength(1);
   });
 });
 
@@ -180,11 +182,11 @@ describe('World.clearTile', () => {
     expect(w.layers.devLevel[i]).toBe(0);
   });
 
-  it('removes power plant from list when cleared', () => {
+  it('removes power plant from buildings list when cleared', () => {
     w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
-    expect(w.powerPlants).toHaveLength(1);
+    expect(w.buildings).toHaveLength(1);
     w.clearTile(tx, ty);
-    expect(w.powerPlants).toHaveLength(0);
+    expect(w.buildings).toHaveLength(0);
   });
 
   it('marks roadNetDirty when a road is cleared', () => {
@@ -193,4 +195,31 @@ describe('World.clearTile', () => {
     w.clearTile(tx, ty);
     expect(w.roadNetDirty).toBe(true);
   });
+});
+
+// ─── BALANCE.buildings completeness ──────────────────────────────────────────
+// Every BUILDING_* constant must have a cost and maintenance entry in
+// BALANCE.buildings. A missing entry causes runtime crashes in UI and systems
+// (e.g. TileInfoPanel accessing .maintenance on undefined).
+
+describe('BALANCE.buildings completeness', () => {
+  const ALL_BUILDING_KINDS = [
+    BUILDING_POWER_PLANT,
+    BUILDING_WATER_TOWER,
+    BUILDING_SEWAGE_PLANT,
+    BUILDING_POLICE,
+    BUILDING_FIRE,
+    BUILDING_SCHOOL,
+    BUILDING_HOSPITAL,
+    BUILDING_PARK,
+  ];
+
+  for (const kind of ALL_BUILDING_KINDS) {
+    it(`BUILDING_KIND ${kind} has cost and maintenance in BALANCE.buildings`, () => {
+      const entry = BALANCE.buildings[kind];
+      expect(entry).toBeDefined();
+      expect(typeof entry.cost).toBe('number');
+      expect(typeof entry.maintenance).toBe('number');
+    });
+  }
 });

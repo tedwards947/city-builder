@@ -3,7 +3,7 @@ import { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { PlacePowerPlantCommand } from '../commands/PlacePowerPlantCommand';
+import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import {
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
@@ -142,9 +142,9 @@ describe('BuildRoadCommand', () => {
   });
 });
 
-// ─── PlacePowerPlantCommand ──────────────────────────────────────────────────
+// ─── PlaceBuildingCommand (power plant) ──────────────────────────────────────
 
-describe('PlacePowerPlantCommand', () => {
+describe('PlaceBuildingCommand (power plant)', () => {
   let w: World;
   let tx: number, ty: number;
 
@@ -154,35 +154,36 @@ describe('PlacePowerPlantCommand', () => {
   });
 
   it('places a power plant building', () => {
-    new PlacePowerPlantCommand(tx, ty).execute(w);
+    new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT).execute(w);
     expect(w.getBuilding(tx, ty)).toBe(BUILDING_POWER_PLANT);
   });
 
-  it('adds the plant to the powerPlants list', () => {
-    new PlacePowerPlantCommand(tx, ty).execute(w);
-    expect(w.powerPlants).toHaveLength(1);
+  it('adds the plant to the buildings list', () => {
+    new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT).execute(w);
+    expect(w.buildings).toHaveLength(1);
+    expect(w.buildings[0]).toEqual({ tx, ty, kind: BUILDING_POWER_PLANT });
   });
 
   it('charges the power plant cost', () => {
     const before = w.budget.money;
-    new PlacePowerPlantCommand(tx, ty).execute(w);
-    expect(w.budget.money).toBe(before - BALANCE.costs.powerPlant);
+    new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT).execute(w);
+    expect(w.budget.money).toBe(before - BALANCE.buildings[BUILDING_POWER_PLANT].cost);
   });
 
   it('returns false when broke', () => {
     w.budget.money = 0;
-    const ok = new PlacePowerPlantCommand(tx, ty).execute(w);
+    const ok = new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT).execute(w);
     expect(ok).toBe(false);
     expect(w.getBuilding(tx, ty)).toBe(BUILDING_NONE);
   });
 
   it('undo removes the plant and refunds money', () => {
     const before = w.budget.money;
-    const cmd = new PlacePowerPlantCommand(tx, ty);
+    const cmd = new PlaceBuildingCommand(tx, ty, BUILDING_POWER_PLANT);
     cmd.execute(w);
     cmd.undo(w);
     expect(w.getBuilding(tx, ty)).toBe(BUILDING_NONE);
-    expect(w.powerPlants).toHaveLength(0);
+    expect(w.buildings).toHaveLength(0);
     expect(w.budget.money).toBe(before);
   });
 });
@@ -212,11 +213,11 @@ describe('BulldozeCommand', () => {
     expect(w.getRoad(tx, ty)).toBe(ROAD_NONE);
   });
 
-  it('clears a building and removes from powerPlants list', () => {
+  it('clears a building and removes from buildings list', () => {
     w.placeBuilding(tx, ty, BUILDING_POWER_PLANT);
     new BulldozeCommand(tx, ty).execute(w);
     expect(w.getBuilding(tx, ty)).toBe(BUILDING_NONE);
-    expect(w.powerPlants).toHaveLength(0);
+    expect(w.buildings).toHaveLength(0);
   });
 
   it('returns false on bare terrain (nothing to clear)', () => {

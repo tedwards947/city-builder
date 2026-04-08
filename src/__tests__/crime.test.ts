@@ -95,7 +95,7 @@ describe('Crime integration with other systems', () => {
     const w = makeWorld();
     forceBuildable(w, 5, 5);
     w.layers.building[w.grid.idx(5, 5)] = BUILDING_POLICE;
-    w.serviceBuildings = [{ tx: 5, ty: 5, kind: BUILDING_POLICE }];
+    w.buildings = [{ tx: 5, ty: 5, kind: BUILDING_POLICE }];
     
     new ServiceSystem().update(w);
     expect(w.layers.police[w.grid.idx(5, 5)]).toBe(1);

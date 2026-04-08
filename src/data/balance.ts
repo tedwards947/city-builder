@@ -7,13 +7,20 @@ export const BALANCE = {
     zoneR: 20,
     zoneC: 25,
     zoneI: 25,
-    powerPlant: 2000,
-    waterTower: 500,
-    sewagePlant: 1500,
     bulldoze: 5,
-    // Service buildings — keyed by BUILDING_* constant (4–8)
-    service: { 4: 1200, 5: 800, 6: 1500, 7: 3000, 8: 300 } as Record<number, number>,
   },
+  // Placement cost and per-tick maintenance for every BUILDING_* kind.
+  // Keyed by the numeric constant (1=power plant, 2=water tower, …, 8=park).
+  buildings: {
+    1: { cost: 2000, maintenance: 5   }, // BUILDING_POWER_PLANT
+    2: { cost: 500,  maintenance: 2   }, // BUILDING_WATER_TOWER
+    3: { cost: 1500, maintenance: 3   }, // BUILDING_SEWAGE_PLANT
+    4: { cost: 1200, maintenance: 3   }, // BUILDING_POLICE
+    5: { cost: 800,  maintenance: 2   }, // BUILDING_FIRE
+    6: { cost: 1500, maintenance: 4   }, // BUILDING_SCHOOL
+    7: { cost: 3000, maintenance: 6   }, // BUILDING_HOSPITAL
+    8: { cost: 300,  maintenance: 0.5 }, // BUILDING_PARK
+  } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
     zoneR: 0.8,
@@ -22,11 +29,6 @@ export const BALANCE = {
   },
   maintenance: {
     road: 0.01,
-    powerPlant: 5,
-    waterTower: 2,
-    sewagePlant: 3,
-    // Service buildings — keyed by BUILDING_* constant (4–8)
-    service: { 4: 3, 5: 2, 6: 4, 7: 6, 8: 0.5 } as Record<number, number>,
   },
   power: {
     plantOutput: 500,    // supply per plant

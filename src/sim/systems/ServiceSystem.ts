@@ -6,7 +6,7 @@
 // ServiceSystem runs before ZoneGrowthSystem so it can gate level 2→3 growth.
 
 import type { World } from '../World';
-import { ROAD_NONE, ZONE_NONE } from '../constants';
+import { ROAD_NONE, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 /**
@@ -93,16 +93,18 @@ export class ServiceSystem {
     school.fill(0);
     hospital.fill(0);
 
-    for (const b of world.serviceBuildings) {
+    for (const b of world.buildings) {
+      const range = BALANCE.service.coverageRange[b.kind];
+      if (range === undefined) continue; // not a service building
       for (const idx of computeServiceCoverage(world, b.tx, b.ty, b.kind)) {
         services[idx] = 1;
-        if (b.kind === 4) { // BUILDING_POLICE
+        if (b.kind === BUILDING_POLICE) {
           police[idx] = 1;
-        } else if (b.kind === 5) { // BUILDING_FIRE
+        } else if (b.kind === BUILDING_FIRE) {
           fireStation[idx] = 1;
-        } else if (b.kind === 6) { // BUILDING_SCHOOL
+        } else if (b.kind === BUILDING_SCHOOL) {
           school[idx] = 1;
-        } else if (b.kind === 7) { // BUILDING_HOSPITAL
+        } else if (b.kind === BUILDING_HOSPITAL) {
           hospital[idx] = 1;
         }
       }
