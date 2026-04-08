@@ -47,7 +47,12 @@ export class FireSystem {
       }
 
       targetRisk = Math.min(255, Math.max(0, targetRisk));
-      fireRisk[i] = Math.floor(fireRisk[i] + (targetRisk - fireRisk[i]) * b.riskSmoothing);
+      const nextRisk = fireRisk[i] + (targetRisk - fireRisk[i]) * b.riskSmoothing;
+      let roundedRisk = Math.round(nextRisk);
+      if (roundedRisk === fireRisk[i] && Math.abs(targetRisk - fireRisk[i]) >= 0.5) {
+        roundedRisk += Math.sign(targetRisk - fireRisk[i]);
+      }
+      fireRisk[i] = Math.min(255, Math.max(0, roundedRisk));
 
       // 2. Handle Existing Fires
       if (fire[i] > 0) {

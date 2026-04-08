@@ -21,8 +21,8 @@ export class ZoneGrowthSystem {
     const roadClass = world.layers.roadClass;
     const congestion = world.layers.congestion;
     const abandoned = world.layers.abandoned;
-    const hasPowerSurplus = world.stats.powerSupply >= world.stats.powerDemand;
-    const hasWaterSurplus = world.stats.waterSupply >= world.stats.waterDemand;
+    const hasPowerSurplus  = world.stats.powerSupply >= world.stats.powerDemand;
+    const hasWaterSurplus  = world.stats.waterSupply >= world.stats.waterDemand;
     const hasSewageSurplus = world.stats.sewageSupply >= world.stats.sewageDemand;
 
     // Randomize scan order with a prime step to prevent top-left always growing first.
@@ -34,15 +34,23 @@ export class ZoneGrowthSystem {
       if (zone[i] === ZONE_NONE) continue;
       if (abandoned[i] !== 0) continue;
       if (dev[i] >= BALANCE.growth.maxLevel) continue;
+      
+      // Basic requirements for any growth (level 0 -> 1)
       if (power[i] === 0) continue;
-      if (!hasPowerSurplus && dev[i] > 0) continue;  // brownout: cap growth at level 1
-      if (water[i] === 0) continue;                   // no water coverage
-      if (!hasWaterSurplus && dev[i] > 0) continue;   // drought: cap growth at level 1
+      if (water[i] === 0) continue;
+
+      // Resource shortage penalties (soft caps)
+      let shortagePenalty = 1.0;
+      if (!hasPowerSurplus && dev[i] > 0)  shortagePenalty *= 0.1; // brownout
+      if (!hasWaterSurplus && dev[i] > 0)  shortagePenalty *= 0.1; // drought
+      if (!hasSewageSurplus && dev[i] >= 2) shortagePenalty *= 0.1; // sewage overload
+
+      // Service/Education/Healthcare requirements
       if (dev[i] >= 2 && sewage[i] === 0) continue;    // no sewage: cap at level 2
-      if (!hasSewageSurplus && dev[i] >= 2) continue;   // sewage overload: cap at level 2
       if (dev[i] >= 2 && services[i] === 0) continue;   // no service coverage: cap at level 2
       if (zone[i] === ZONE_R && dev[i] >= 2 && education[i] < BALANCE.education.growthThreshold) continue; // education too low
       if (zone[i] === ZONE_R && world.layers.sickness[i] > BALANCE.healthcare.growthThreshold) continue; // too sick to attract residents
+      
       // R and C zones don't grow in heavily polluted or high-crime areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
       if (zone[i] !== ZONE_I && crime[i] > BALANCE.crime.growthThreshold) continue;
@@ -71,7 +79,7 @@ export class ZoneGrowthSystem {
         const a = world.layers.accessibility[i] / 255;
         accessMult = BALANCE.transit.accessFloor + (1 - BALANCE.transit.accessFloor) * a;
       }
-      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult) {
+      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult * shortagePenalty) {
         dev[i]++;
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });

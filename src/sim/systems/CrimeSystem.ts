@@ -62,7 +62,12 @@ export class CrimeSystem {
       // Smooth current value toward target.
       const current = crime[i];
       const next = current + (targetCrime - current) * b.smoothing;
-      crime[i] = Math.floor(next);
+      let rounded = Math.round(next);
+      // Nudge if we are stuck but far from target.
+      if (rounded === current && Math.abs(targetCrime - current) >= 0.5) {
+        rounded += Math.sign(targetCrime - current);
+      }
+      crime[i] = Math.min(255, Math.max(0, rounded));
     }
 
     // Emit crimeSpike when city-wide average exceeds threshold (with cooldown).

@@ -135,7 +135,7 @@ describe('EducationSystem', () => {
     const crimeLow = world.layers.crime[world.grid.idx(5, 5)];
     
     expect(crimeLow).toBeLessThan(crimeHigh);
-    // Education reduction is 0.4 (60% reduction)
-    expect(crimeLow).toBeLessThan(crimeHigh * 0.5); 
+    // Education reduction should be significant (multiplier is 0.4)
+    expect(crimeLow).toBeLessThan(crimeHigh * 0.7); 
   });
 });

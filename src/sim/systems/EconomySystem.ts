@@ -13,7 +13,7 @@ export class EconomySystem {
     const { taxRates } = world.budget;
     let income = 0;
     let population = 0;
-    let roadCount = 0;
+    let roadMaintenance = 0;
     for (let i = 0; i < width * height; i++) {
       if (zone[i] !== ZONE_NONE && dev[i] > 0) {
         // Abandoned tiles have no residents and generate no income.
@@ -40,13 +40,13 @@ export class EconomySystem {
         }
         income += dev[i] * baseRate * lvMult * eduMult * sickMult;
       }
-      if (roadClass[i] !== ROAD_NONE) roadCount++;
+      if (roadClass[i] !== ROAD_NONE) {
+        roadMaintenance += BALANCE.roadClasses[roadClass[i]]?.maintenance ?? 0;
+      }
     }
     const buildingMaintenance = world.buildings.reduce(
       (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0), 0);
-    const expenses =
-      roadCount * BALANCE.maintenance.road +
-      buildingMaintenance;
+    const expenses = roadMaintenance + buildingMaintenance;
     world.budget.money += income - expenses;
     world.budget.income = income;
     world.budget.expenses = expenses;
