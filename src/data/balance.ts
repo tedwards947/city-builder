@@ -128,20 +128,21 @@ export const BALANCE = {
     crisisCooldownTicks: 40,
   },
   landValue: {
-    base: 70,             // starting value before modifiers (0–255 scale)
+    base: 60,             // starting value before modifiers (0–255 scale)
     serviceBonus: 35,     // if services[i] === 1
     powerBonus: 10,       // if power[i] === 1
     waterBonus: 10,       // if water[i] === 1
-    pollutionPenalty: 0.50,  // multiplied by pollution byte value
+    pollutionPenalty: 0.85,  // multiplied by pollution byte value
+    congestionPenalty: 0.35, // multiplied by max nearby congestion byte value
     industryRadius: 2,    // tiles to scan for nearby I zones
     industryPenalty: 24,  // per adjacent developed I zone tile
     neighborBonus: 8,     // per adjacent developed non-I zone tile
-    abandonedPenalty: 15, // per adjacent abandoned tile
+    abandonedPenalty: 20, // per adjacent abandoned tile
     smoothing: 0.25,      // blend rate toward target per LandValueSystem tick
   },
   demand: {
     // Neutral (demand=1.0) ratio of (C+I) dev levels per R dev level
-    jobsPerResident: 0.35,
+    jobsPerResident: 0.50,
     // Neutral ratio of R dev levels per C dev level
     residentsPerCommerce: 4,
     // Neutral ratio of (R+C) dev levels per I dev level
@@ -194,7 +195,7 @@ export const BALANCE = {
     accessNormFactor: 80,
     // Growth multiplier floor for zone tiles with zero accessibility.
     // 0.2 = isolated zones still get started, but connectivity is a real drag.
-    accessFloor: 0.2,
+    accessFloor: 0.05,
   },
   agents: {
     maxVehicles:   80,   // hard cap — sim is correct with zero

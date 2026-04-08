@@ -33,6 +33,8 @@ export class LandValueSystem {
     const svc   = world.layers.services;
     const poll  = world.layers.pollution;
     const abandoned = world.layers.abandoned;
+    const congestion = world.layers.congestion;
+    const roadClass = world.layers.roadClass;
 
     // ── Per-tile land value ────────────────────────────────────────────────────
     let lvSum = 0;
@@ -45,6 +47,20 @@ export class LandValueSystem {
         target += power[i] ? LV.powerBonus   : 0;
         target += water[i] ? LV.waterBonus   : 0;
         target -= poll[i] * LV.pollutionPenalty;
+
+        // Find max congestion on adjacent roads (within 2 tiles)
+        let maxNearbyCongestion = 0;
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const ni = ny * width + nx;
+            if (roadClass[ni] !== 0 && congestion[ni] > maxNearbyCongestion) {
+              maxNearbyCongestion = congestion[ni];
+            }
+          }
+        }
+        target -= maxNearbyCongestion * LV.congestionPenalty;
 
         // Scan neighbourhood for nearby industry (penalty) or developed zones (bonus).
         const r = LV.industryRadius;
