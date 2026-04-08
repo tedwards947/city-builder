@@ -16,6 +16,8 @@ import { BALANCE } from '../../data/balance';
  * when fully healthy, but sicken and die noticeably faster without healthcare.
  */
 export class HealthcareSystem {
+  private _lastCrisisAlertTick = -Infinity;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const n = width * height;
@@ -55,6 +57,27 @@ export class HealthcareSystem {
       const deathChance = b.baseDeathChance + (sickness[i] / 255) * b.deathChanceMax;
       if (world.rng() < deathChance) {
         recentDeath[i] = b.deathVisualDuration;
+        world.events.emit('deathEvent', { tx: i % width, ty: (i / width) | 0 });
+      }
+    }
+
+    // Emit healthcareCrisis when city-wide average sickness exceeds threshold (with cooldown).
+    const cooldown = world.tick - this._lastCrisisAlertTick >= b.crisisCooldownTicks;
+    if (cooldown) {
+      let sicknessSum = 0;
+      let sicknessCount = 0;
+      let affectedTiles = 0;
+      for (let i = 0; i < n; i++) {
+        if (zone[i] === ZONE_R && dev[i] > 0 && abandoned[i] === 0) {
+          sicknessSum += sickness[i];
+          sicknessCount++;
+          if (sickness[i] > b.crisisThreshold) affectedTiles++;
+        }
+      }
+      const avgSickness = sicknessCount > 0 ? sicknessSum / sicknessCount : 0;
+      if (avgSickness > b.crisisThreshold) {
+        world.events.emit('healthcareCrisis', { avgSickness, threshold: b.crisisThreshold, affectedTiles });
+        this._lastCrisisAlertTick = world.tick;
       }
     }
   }

@@ -9,6 +9,8 @@ import { BALANCE } from '../../data/balance';
  * Crime values are smoothed over time to prevent flickering and represent steady-state.
  */
 export class CrimeSystem {
+  private _lastAlertTick = -Infinity;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const n = width * height;
@@ -61,6 +63,26 @@ export class CrimeSystem {
       const current = crime[i];
       const next = current + (targetCrime - current) * b.smoothing;
       crime[i] = Math.floor(next);
+    }
+
+    // Emit crimeSpike when city-wide average exceeds threshold (with cooldown).
+    const cooldown = world.tick - this._lastAlertTick >= b.alertCooldownTicks;
+    if (cooldown) {
+      let crimeSum = 0;
+      let crimeCount = 0;
+      let affectedTiles = 0;
+      for (let i = 0; i < n; i++) {
+        if (zone[i] !== ZONE_NONE && dev[i] > 0) {
+          crimeSum += crime[i];
+          crimeCount++;
+          if (crime[i] > b.alertThreshold) affectedTiles++;
+        }
+      }
+      const avgCrime = crimeCount > 0 ? crimeSum / crimeCount : 0;
+      if (avgCrime > b.alertThreshold) {
+        world.events.emit('crimeSpike', { avgCrime, threshold: b.alertThreshold, affectedTiles });
+        this._lastAlertTick = world.tick;
+      }
     }
   }
 }

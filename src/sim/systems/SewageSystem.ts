@@ -8,6 +8,8 @@ import { ROAD_NONE, ZONE_NONE, BUILDING_SEWAGE_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class SewageSystem {
+  private _inShortage = false;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const sewage = world.layers.sewage;
@@ -71,6 +73,15 @@ export class SewageSystem {
     }
     world.stats.sewageSupply = totalSupply;
     world.stats.sewageDemand = totalDemand;
+
+    const shortage = totalDemand > totalSupply;
+    if (shortage && !this._inShortage) {
+      world.events.emit('sewageShortage', { supply: totalSupply, demand: totalDemand, deficit: totalDemand - totalSupply });
+    } else if (!shortage && this._inShortage) {
+      world.events.emit('sewageRestored', { supply: totalSupply, demand: totalDemand });
+    }
+    this._inShortage = shortage;
+
     world.grid.markAllDirty();
   }
 }

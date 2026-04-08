@@ -9,6 +9,8 @@ import { ROAD_NONE, ZONE_NONE, BUILDING_WATER_TOWER } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class WaterSystem {
+  private _inShortage = false;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const water = world.layers.water;
@@ -72,6 +74,15 @@ export class WaterSystem {
     }
     world.stats.waterSupply = totalSupply;
     world.stats.waterDemand = totalDemand;
+
+    const shortage = totalDemand > totalSupply;
+    if (shortage && !this._inShortage) {
+      world.events.emit('waterShortage', { supply: totalSupply, demand: totalDemand, deficit: totalDemand - totalSupply });
+    } else if (!shortage && this._inShortage) {
+      world.events.emit('waterRestored', { supply: totalSupply, demand: totalDemand });
+    }
+    this._inShortage = shortage;
+
     world.grid.markAllDirty();
   }
 }
