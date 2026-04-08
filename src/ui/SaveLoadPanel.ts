@@ -1,6 +1,7 @@
 import type { SaveManager } from '../persistence/SaveManager';
 import type { World } from '../sim/World';
 import type { SlotInfo } from '../persistence/SaveFormat';
+import { t } from '../i18n';
 
 const TOTAL_SLOTS = 5;
 
@@ -39,14 +40,14 @@ export class SaveLoadPanel {
 
   showSave(): void {
     this.mode = 'save';
-    this.titleEl.textContent = 'Save Game';
+    this.titleEl.textContent = t('ui.saveLoad.saveGame');
     this.hide(); // ensure fresh render
     this._render().then(() => this.el.classList.remove('hidden'));
   }
 
   showLoad(): void {
     this.mode = 'load';
-    this.titleEl.textContent = 'Load Game';
+    this.titleEl.textContent = t('ui.saveLoad.loadGame');
     this._render().then(() => this.el.classList.remove('hidden'));
   }
 
@@ -69,24 +70,24 @@ export class SaveLoadPanel {
 
     if (info) {
       const ms = info.meta.mapSettings;
-      const mapDesc = ms ? `${ms.width}×${ms.height} · ${ms.waterAmount} water` : '';
+      const mapDesc = ms ? `${ms.width}×${ms.height} · ${ms.waterAmount} ${t('ui.saveLoad.water')}` : '';
       div.innerHTML = `
         <div class="sl-slot-main">
           <span class="sl-name">${info.meta.name}</span>
           <span class="sl-detail">${formatDate(info.meta.savedAt)}</span>
-          <span class="sl-detail">${info.meta.population.toLocaleString()} pop · ${formatMoney(info.meta.money)}</span>
+          <span class="sl-detail">${info.meta.population.toLocaleString()} ${t('ui.saveLoad.pop')} · ${formatMoney(info.meta.money)}</span>
           ${mapDesc ? `<span class="sl-detail sl-map">${mapDesc}</span>` : ''}
         </div>
-        <button class="sl-delete" title="Delete" data-slot="${slot}">✕</button>
+        <button class="sl-delete" title="${t('common.delete')}" data-slot="${slot}">✕</button>
       `;
       div.querySelector('.sl-delete')!.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm(`Delete "${info.meta.name}"?`)) {
+        if (confirm(t('ui.saveLoad.deleteConfirm', { name: info.meta.name }))) {
           this.manager.deleteSlot(slot).then(() => this._render());
         }
       });
     } else {
-      div.innerHTML = `<span class="sl-name sl-empty-label">— Empty —</span>`;
+      div.innerHTML = `<span class="sl-name sl-empty-label">${t('common.empty')}</span>`;
     }
 
     div.addEventListener('click', () => this._onSlotClick(slot, info));
@@ -102,7 +103,7 @@ export class SaveLoadPanel {
     } else {
       // Save mode: prompt for name (pre-fill existing name or default).
       const defaultName = info?.meta.name ?? `City ${slot}`;
-      const name = prompt('Save name:', defaultName);
+      const name = prompt(t('ui.saveLoad.saveNamePrompt'), defaultName);
       if (name === null) return; // cancelled
       this.manager.saveGame(this.getWorld(), slot, name || defaultName)
         .then(() => this.hide());
