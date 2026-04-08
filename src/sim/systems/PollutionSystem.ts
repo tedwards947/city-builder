@@ -10,8 +10,9 @@ import { ZONE_I, BUILDING_POWER_PLANT, VEG_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class PollutionSystem {
-  // Reuse a Float32Array buffer to avoid per-tick GC pressure.
+  // Reuse buffers to avoid per-tick GC pressure.
   private diffBuf: Float32Array = new Float32Array(0);
+  private prevPol: Uint8Array = new Uint8Array(0);
 
   update(world: World): void {
     const { width, height } = world.grid;
@@ -23,6 +24,10 @@ export class PollutionSystem {
     const veg      = world.layers.vegetation;
 
     const { decayRate, diffusionRate, industryOutput, powerPlantOutput, vegDecayMult, vegDecayMultForest } = BALANCE.pollution;
+
+    // Snapshot current values so we can do targeted dirty marking later.
+    if (this.prevPol.length !== n) this.prevPol = new Uint8Array(n);
+    this.prevPol.set(pol);
 
     // 1. Decay — multiply every tile by decayRate.
     for (let i = 0; i < n; i++) {
@@ -70,6 +75,12 @@ export class PollutionSystem {
       pol[i] = Math.min(255, Math.max(0, pol[i] + Math.round(this.diffBuf[i])));
     }
 
-    world.grid.markAllDirty();
+    // Only mark chunks that actually changed rather than forcing a full redraw.
+    const prevPol = this.prevPol;
+    for (let i = 0; i < n; i++) {
+      if (pol[i] !== prevPol[i]) {
+        world.grid.markDirty(i % width, (i / width) | 0);
+      }
+    }
   }
 }

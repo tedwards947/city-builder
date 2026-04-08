@@ -11,13 +11,13 @@ Investigate and resolve high memory usage (reported up to 5GB) and optimize CPU 
 
 ## Proposed Solution
 
-### 1. Chunked Rendering (The Biggest Win)
+### 1. Chunked Rendering (The Biggest Win) ** DONE **
 The current renderer redraws every visible tile every frame. For a 256x256 grid, this is 65,536 tiles, each with multiple `ctx.fillRect` and `ctx.arc` calls, totaling hundreds of thousands of draw calls per frame.
 - **Implementation:** Introduce a `ChunkRenderer` (or update `CanvasRenderer`) that caches static tile data (terrain, roads, buildings, zones) into offscreen canvases for each 16x16 chunk.
 - **Mechanism:** Only redraw a chunk when `grid.dirtyChunks` contains its ID.
 - **Result:** Reduces draw calls from ~100k+ to ~256 `drawImage` calls per frame.
 
-### 2. Allocation Storm Reduction
+### 2. Allocation Storm Reduction ** DONE **
 The render loop currently allocates millions of small objects (e.g., `{sx, sy}`, `{wx, wy}`, `rgba(...)` strings) per second.
 - **Implementation:**
   - Pass coordinates as primitives (`x, y`) instead of objects.
@@ -25,7 +25,7 @@ The render loop currently allocates millions of small objects (e.g., `{sx, sy}`,
   - Cache dynamic color strings (e.g., traffic congestion colors, pollution alpha) instead of generating them every frame for every tile.
   - Limit `ctx.setTransform` and `ctx.globalAlpha` calls.
 
-### 3. Simulation System Optimizations
+### 3. Simulation System Optimizations ** DONE ** 
 - **TransitSystem:**
   - The BFS from every zone tile is extremely expensive. I will investigate grouping tiles or spreading the update load across multiple ticks.
   - Cache connectivity results to avoid redundant BFS runs for zones in the same road network component.
