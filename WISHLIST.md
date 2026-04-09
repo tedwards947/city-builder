@@ -15,7 +15,7 @@
 
 ## Priority 2:
 - [x] bulldozing abandoned buildings should increase political capital, not decrease
-- [ ] highways cannot be "built" on -- zones/services _can_ propagate over/thru highways but they cannot be "activated" by being adjacent to them. they need to be placed on streets/avenues. if a street or avenue is upgraded to a highway, a service building should become inactive and a zone should abandon.
+- [x] highways cannot be "built" on -- zones/services _can_ propagate over/thru highways but they cannot be "activated" by being adjacent to them. they need to be placed on streets/avenues. if a street or avenue is upgraded to a highway, a service building should become inactive and a zone should abandon.
 - [ ] inspect view for roads should tell the player what kind of road it is
 - [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
 

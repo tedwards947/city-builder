@@ -24,6 +24,7 @@ function forceBuildable(world: World, tx: number, ty: number) {
 }
 
 // Set up a developed zone tile at (tx, ty) with no power or water by default.
+// Also provides a street or avenue directly adjacent to the zone to satisfy the road access requirement.
 function setupDevelopedZone(world: World, tx: number, ty: number, zone = ZONE_R, dev = 1) {
   forceBuildable(world, tx, ty);
   const i = world.grid.idx(tx, ty);
@@ -31,6 +32,13 @@ function setupDevelopedZone(world: World, tx: number, ty: number, zone = ZONE_R,
   world.layers.devLevel[i] = dev;
   world.layers.power[i]    = 0;
   world.layers.water[i]    = 0;
+  
+  // Provide direct road access (STREET) at (tx, ty+1)
+  if (ty + 1 < world.grid.height) {
+    world.layers.roadClass[world.grid.idx(tx, ty + 1)] = ROAD_STREET;
+  } else {
+    world.layers.roadClass[world.grid.idx(tx, ty - 1)] = ROAD_STREET;
+  }
 }
 
 // Run AbandonmentSystem for N full distress intervals (tick advances by distressInterval each call).

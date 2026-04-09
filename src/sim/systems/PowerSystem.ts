@@ -4,7 +4,7 @@
 // powered road — so zones adjacent to a powered road receive power.
 
 import { World } from '../World';
-import { ROAD_NONE, ZONE_NONE, BUILDING_POWER_PLANT } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_POWER_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class PowerSystem {
@@ -18,6 +18,7 @@ export class PowerSystem {
     power.fill(0);
 
     // 1. Determine which road networks have at least one power plant.
+    // Plants must be adjacent to a STREET or AVENUE to connect.
     const poweredNetworks = new Set<number>();
     let totalSupply = 0;
     for (const b of world.buildings) {
@@ -28,7 +29,8 @@ export class PowerSystem {
         const nx = b.tx + dx, ny = b.ty + dy;
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         const ni = ny * width + nx;
-        if (roadClass[ni] !== ROAD_NONE) {
+        const rc = roadClass[ni];
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) {
           poweredNetworks.add(roadNet[ni]);
           connected = true;
         }

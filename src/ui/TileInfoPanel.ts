@@ -6,7 +6,7 @@ import type { World } from '../sim/World';
 import {
   TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
-  ROAD_NONE,
+  ROAD_NONE, ROAD_HIGHWAY,
   VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
 
@@ -54,15 +54,14 @@ const TREE_SPECIES: Record<number, string> = {
 
 function hasRoadAccess(world: World, tx: number, ty: number): boolean {
   const { width, height } = world.grid;
-  const i = world.grid.idx(tx, ty);
-  const x = i % width;
-  const y = (i - x) / width;
   const roadClass = world.layers.roadClass;
-  for (let r = 1; r <= 3; r++) {
-    if (x - r >= 0     && roadClass[i - r] !== ROAD_NONE) return true;
-    if (x + r < width  && roadClass[i + r] !== ROAD_NONE) return true;
-    if (y - r >= 0     && roadClass[i - r * width] !== ROAD_NONE) return true;
-    if (y + r < height && roadClass[i + r * width] !== ROAD_NONE) return true;
+  const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+  for (const [dx, dy] of neighbors) {
+    const nx = tx + dx, ny = ty + dy;
+    if (world.grid.inBounds(nx, ny)) {
+      const rc = roadClass[ny * width + nx];
+      if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) return true;
+    }
   }
   return false;
 }
@@ -136,7 +135,8 @@ function isBuildingConnected(world: World, tx: number, ty: number): boolean {
   for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
     const nx = tx + dx, ny = ty + dy;
     if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-    if (roadClass[ny * width + nx] !== ROAD_NONE) return true;
+    const rc = roadClass[ny * width + nx];
+    if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) return true;
   }
   return false;
 }

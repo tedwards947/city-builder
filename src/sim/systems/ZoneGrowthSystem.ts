@@ -2,7 +2,7 @@
 // gradually at a low random probability per tick.
 
 import { World } from '../World';
-import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
+import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class ZoneGrowthSystem {
@@ -54,16 +54,23 @@ export class ZoneGrowthSystem {
       // R and C zones don't grow in heavily polluted or high-crime areas.
       if (zone[i] !== ZONE_I && pollution[i] > BALANCE.pollution.growthThreshold) continue;
       if (zone[i] !== ZONE_I && crime[i] > BALANCE.crime.growthThreshold) continue;
-      // Road access: straight-line search in 4 directions, up to 3 tiles.
+      // Road access: direct adjacency check (1-tile radius).
+      // Highways do NOT provide access for growth.
       // Also track max nearby road congestion for the growth penalty.
       const x = i % width, y = (i - x) / width;
       let hasRoad = false;
       let maxCongestion = 0;
-      for (let r = 1; r <= 3; r++) {
-        if (x - r >= 0     && roadClass[i - r]         !== 0) { hasRoad = true; if (congestion[i - r]         > maxCongestion) maxCongestion = congestion[i - r]; }
-        if (x + r < width  && roadClass[i + r]         !== 0) { hasRoad = true; if (congestion[i + r]         > maxCongestion) maxCongestion = congestion[i + r]; }
-        if (y - r >= 0     && roadClass[i - r * width] !== 0) { hasRoad = true; if (congestion[i - r * width] > maxCongestion) maxCongestion = congestion[i - r * width]; }
-        if (y + r < height && roadClass[i + r * width] !== 0) { hasRoad = true; if (congestion[i + r * width] > maxCongestion) maxCongestion = congestion[i + r * width]; }
+      const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+      for (const [dx, dy] of neighbors) {
+        const nx = x + dx, ny = y + dy;
+        if (world.grid.inBounds(nx, ny)) {
+          const ni = ny * width + nx;
+          const rc = roadClass[ni];
+          if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) {
+            hasRoad = true;
+            if (congestion[ni] > maxCongestion) maxCongestion = congestion[ni];
+          }
+        }
       }
       if (!hasRoad) continue;
       const demandMult = zone[i] === ZONE_R ? world.stats.rDemand

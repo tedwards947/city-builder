@@ -45,7 +45,7 @@ export const en: TranslationSchema = {
       network: 'Network #{id}',
       congestion: 'Congestion: {label} ({pct}%)',
       growthPenalty: 'Growth penalty to nearby zones: −{penalty}%',
-      roadAccess: 'Road access (within 3 tiles)',
+      roadAccess: 'Direct road access (street or avenue)',
       powerCoverage: 'Power coverage',
       waterCoverage: 'Water coverage',
       powerSurplus: 'Power surplus city-wide',
