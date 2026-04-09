@@ -14,13 +14,15 @@ import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, type ColorPalette } from './CharacterPalette';
 import { BALANCE } from '../data/balance';
 import {
-  TERRAIN_GRASS, TERRAIN_WATER,
+  TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
   ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
   VEG_NONE,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
+import { SPRITE_REGISTRY, SpriteRenderer } from './sprites/index';
+import './sprites/index'; // Side-effect import to register fallback sprites
 
 // Pre-computed color string caches indexed by Uint8 value (0–255).
 // Eliminates template-string allocations in the hot render loop.
@@ -67,9 +69,13 @@ export class CanvasRenderer {
   private _lastChunkCount = 0;
   private _lastZoom = -1;
 
+  // Sprite renderer
+  private _spriteRenderer: SpriteRenderer;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    this._spriteRenderer = new SpriteRenderer();
   }
 
   render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
@@ -331,6 +337,88 @@ export class CanvasRenderer {
     return ctx;
   }
 
+  /** Draw a single tile using the sprite registry system. */
+  private _drawTile(
+    ctx: CanvasRenderingContext2D,
+    world: World,
+    i: number,
+    tx: number,
+    ty: number,
+    x: number,
+    y: number,
+    ts: number,
+    palette: ColorPalette,
+    now: number,
+  ): void {
+    const veg = world.layers.vegetation[i];
+    const road = world.layers.roadClass[i];
+    const building = world.layers.building[i];
+    const zone = world.layers.zone[i];
+    const seed = tx + ty * world.grid.width;
+    const variant = seed % 4;
+    const tileKey = `${tx},${ty}`;
+
+    // 1. Draw terrain base (always)
+    const terrain = world.layers.terrain[i];
+    const terrainTags = new Set<string>();
+    if (terrain === TERRAIN_WATER) terrainTags.add('terrain:water');
+    else if (terrain === TERRAIN_SAND) terrainTags.add('terrain:sand');
+    else terrainTags.add('terrain:grass');
+
+    const terrainSprite = SPRITE_REGISTRY.pick(terrainTags, seed);
+    if (terrainSprite) {
+      this._spriteRenderer.drawSprite(ctx, terrainSprite, x, y, ts, palette, variant, tileKey, now);
+    }
+
+    // 2. Draw vegetation (if present and no road/building/zone)
+    if (veg !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
+      const vegTags = new Set<string>(['vegetation:tree', `vegetation:species${veg}`]);
+      const vegSprite = SPRITE_REGISTRY.pick(vegTags, seed);
+      if (vegSprite) {
+        this._spriteRenderer.drawSprite(ctx, vegSprite, x, y, ts, palette, variant, tileKey, now);
+      }
+    }
+
+    // 3. Draw zone building (if zone and no road/building)
+    if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
+      const zoneTags = new Set<string>();
+      if (zone === ZONE_R) zoneTags.add('zone:R');
+      else if (zone === ZONE_C) zoneTags.add('zone:C');
+      else if (zone === ZONE_I) zoneTags.add('zone:I');
+
+      const dev = world.layers.devLevel[i];
+      zoneTags.add(`dev:${dev}`);
+      zoneTags.add('vibe:any');
+
+      if (world.layers.abandoned[i] > 0) {
+        zoneTags.add('state:abandoned');
+      }
+
+      const zoneSprite = SPRITE_REGISTRY.pick(zoneTags, seed);
+      if (zoneSprite) {
+        this._spriteRenderer.drawSprite(ctx, zoneSprite, x, y, ts, palette, variant, tileKey, now);
+      }
+    }
+
+    // 4. Draw building (if present)
+    if (building !== BUILDING_NONE) {
+      const buildingTags = new Set<string>();
+      if (building === BUILDING_POWER_PLANT) buildingTags.add('building:powerPlant');
+      else if (building === BUILDING_WATER_TOWER) buildingTags.add('building:waterTower');
+      else if (building === BUILDING_SEWAGE_PLANT) buildingTags.add('building:sewagePlant');
+      else if (building === BUILDING_POLICE) buildingTags.add('building:police');
+      else if (building === BUILDING_FIRE) buildingTags.add('building:fire');
+      else if (building === BUILDING_SCHOOL) buildingTags.add('building:school');
+      else if (building === BUILDING_HOSPITAL) buildingTags.add('building:hospital');
+      else if (building === BUILDING_PARK) buildingTags.add('building:park');
+
+      const buildingSprite = SPRITE_REGISTRY.pick(buildingTags, seed);
+      if (buildingSprite) {
+        this._spriteRenderer.drawSprite(ctx, buildingSprite, x, y, ts, palette, variant, tileKey, now);
+      }
+    }
+  }
+
   /** Draw the static tile content of a 16×16 chunk into its offscreen canvas. */
   private _renderChunk(
     chunkCtx: CanvasRenderingContext2D,
@@ -372,58 +460,13 @@ export class CanvasRenderer {
 
         const sxi = Math.floor((tx - tileX0) * ts);
         const syi = Math.floor((ty - tileY0) * ts);
-        const variant = (tx + ty * 31) % 4;
 
-        // Terrain base
-        chunkCtx.fillStyle = terrain === TERRAIN_GRASS ? p.grass : terrain === TERRAIN_WATER ? p.water : p.sand;
-        chunkCtx.fillRect(sxi, syi, tsi, tsi);
+        // Draw base tile using sprite system (terrain, vegetation, zones, roads, buildings)
+        this._drawTile(chunkCtx, world, i, tx, ty, sxi, syi, ts, p, 0);
 
-        // Vegetation
-        if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
-          this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, p);
-        }
-
-        // Zone buildings
-        if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          this._drawZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, p, isAbandoned, variant);
-        }
-
-        // Roads (base only — vehicles are per-frame)
+        // Roads are drawn separately using the old system for now (TODO: migrate to sprite system)
         if (road !== ROAD_NONE) {
           this._drawRoad(chunkCtx, world, tx, ty, sxi, syi, tsi, ts, p);
-        }
-
-        // Power plant
-        if (building === BUILDING_POWER_PLANT) {
-          chunkCtx.fillStyle = '#3a3a3a';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.powerPlant;
-          const pad = Math.max(1, Math.floor(ts * 0.15));
-          chunkCtx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
-          chunkCtx.fillStyle = p.powerPlantRoof;
-          chunkCtx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, Math.max(1, Math.floor(ts * 0.25)));
-          chunkCtx.fillStyle = '#ffe680';
-          const ppCx = sxi + Math.floor(tsi / 2) - 1;
-          const ppCy = syi + Math.floor(tsi / 2);
-          chunkCtx.fillRect(ppCx, ppCy, 2, 2);
-        }
-
-        // Water tower
-        if (building === BUILDING_WATER_TOWER) {
-          chunkCtx.fillStyle = '#2a3a3a';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.waterTower;
-          const wpad = Math.max(1, Math.floor(ts * 0.2));
-          const tankH = Math.max(2, Math.floor(ts * 0.5));
-          chunkCtx.fillRect(sxi + wpad, syi + Math.floor(ts * 0.35), tsi - wpad * 2, tankH);
-          chunkCtx.fillStyle = p.waterTowerTop;
-          chunkCtx.fillRect(sxi + wpad, syi + Math.floor(ts * 0.35), tsi - wpad * 2, Math.max(1, Math.floor(ts * 0.12)));
-          const legX1 = sxi + Math.floor(ts * 0.3);
-          const legX2 = sxi + Math.floor(ts * 0.6);
-          const legTop = syi + Math.floor(ts * 0.35) + tankH;
-          chunkCtx.fillStyle = '#4a6a7a';
-          chunkCtx.fillRect(legX1, legTop, 1, tsi - legTop + syi);
-          chunkCtx.fillRect(legX2, legTop, 1, tsi - legTop + syi);
         }
 
         // No-power tint
@@ -438,90 +481,10 @@ export class CanvasRenderer {
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
         }
 
-        // Sewage plant
-        if (building === BUILDING_SEWAGE_PLANT) {
-          chunkCtx.fillStyle = '#2a2a1a';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.sewagePlant;
-          const sp = Math.max(1, Math.floor(ts * 0.12));
-          chunkCtx.fillRect(sxi + sp, syi + sp, tsi - sp * 2, tsi - sp * 2);
-          chunkCtx.fillStyle = p.sewagePlantRoof;
-          chunkCtx.fillRect(sxi + sp, syi + sp, tsi - sp * 2, Math.max(1, Math.floor(ts * 0.2)));
-          chunkCtx.fillStyle = '#6a5010';
-          const sewCr = Math.max(1, Math.floor(ts * 0.15));
-          const sewCx = sxi + Math.floor(tsi / 2);
-          const sewCy = syi + Math.floor(tsi * 0.62);
-          chunkCtx.beginPath();
-          chunkCtx.arc(sewCx, sewCy, sewCr, 0, Math.PI * 2);
-          chunkCtx.fill();
-        }
-
         // No-sewage tint
         if (!isAbandoned && !sewaged && dev >= 2 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
           chunkCtx.fillStyle = p.noSewageTint;
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
-        }
-
-        // Police station
-        if (building === BUILDING_POLICE) {
-          chunkCtx.fillStyle = '#1a2a4a';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.police;
-          const pp = Math.max(1, Math.floor(ts * 0.12));
-          chunkCtx.fillRect(sxi + pp, syi + pp, tsi - pp * 2, tsi - pp * 2);
-          chunkCtx.fillStyle = p.policeBadge;
-          const bw = Math.max(2, Math.floor(ts * 0.3));
-          const bh = Math.max(2, Math.floor(ts * 0.35));
-          chunkCtx.fillRect(sxi + Math.floor((tsi - bw) / 2), syi + Math.floor((tsi - bh) / 2), bw, bh);
-        }
-
-        // Fire station
-        if (building === BUILDING_FIRE) {
-          chunkCtx.fillStyle = '#3a1010';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.fire;
-          const fp = Math.max(1, Math.floor(ts * 0.12));
-          chunkCtx.fillRect(sxi + fp, syi + fp, tsi - fp * 2, tsi - fp * 2);
-          chunkCtx.fillStyle = p.fireAccent;
-          const fw = Math.max(2, Math.floor(ts * 0.25));
-          const fireCx = sxi + Math.floor(tsi / 2);
-          chunkCtx.fillRect(fireCx - Math.floor(fw / 2), syi + Math.floor(ts * 0.2), fw, Math.floor(ts * 0.5));
-          chunkCtx.fillStyle = '#ffcc00';
-          chunkCtx.fillRect(fireCx - Math.max(1, Math.floor(fw * 0.4)), syi + Math.floor(ts * 0.35), Math.max(1, Math.floor(fw * 0.8)), Math.floor(ts * 0.3));
-        }
-
-        // School
-        if (building === BUILDING_SCHOOL) {
-          chunkCtx.fillStyle = '#2a2000';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.school;
-          const sp2 = Math.max(1, Math.floor(ts * 0.12));
-          chunkCtx.fillRect(sxi + sp2, syi + sp2, tsi - sp2 * 2, tsi - sp2 * 2);
-          chunkCtx.fillStyle = p.schoolAccent;
-          const bw2 = Math.max(2, Math.floor(ts * 0.3));
-          chunkCtx.fillRect(sxi + Math.floor((tsi - bw2) / 2), syi + Math.floor(ts * 0.1), bw2, Math.max(2, Math.floor(ts * 0.35)));
-        }
-
-        // Hospital
-        if (building === BUILDING_HOSPITAL) {
-          chunkCtx.fillStyle = '#303030';
-          chunkCtx.fillRect(sxi, syi, tsi, tsi);
-          chunkCtx.fillStyle = p.hospital;
-          const hp = Math.max(1, Math.floor(ts * 0.12));
-          chunkCtx.fillRect(sxi + hp, syi + hp, tsi - hp * 2, tsi - hp * 2);
-          chunkCtx.fillStyle = p.hospitalCross;
-          const arm = Math.max(1, Math.floor(ts * 0.12));
-          const hospCx = sxi + Math.floor(tsi / 2);
-          const hospCy = syi + Math.floor(tsi / 2);
-          const clen = Math.max(2, Math.floor(ts * 0.35));
-          chunkCtx.fillRect(hospCx - arm, hospCy - Math.floor(clen / 2), arm * 2, clen);
-          chunkCtx.fillRect(hospCx - Math.floor(clen / 2), hospCy - arm, clen, arm * 2);
-        }
-
-        // Park
-        if (building === BUILDING_PARK) {
-          const parkVariant = (tx + ty * 37) % 5;
-          this._drawPark(chunkCtx, sxi, syi, tsi, ts, p, parkVariant);
         }
 
         // No-services tint

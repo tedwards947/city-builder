@@ -2,6 +2,7 @@ import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
 import { localizeHTML, tArray } from './i18n';
+import { loadSpritesFromManifest, ASSET_MANAGER } from './render/sprites/index';
 
 localizeHTML();
 
@@ -131,8 +132,25 @@ const newGameDialog = new NewGameDialog((opts) => {
   startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
 });
 
-// Start with the default world.
-startGame(new World(256, 256, 42, { vegAmount: 'low' }));
+// Initialize sprite system and start the game
+async function init(): Promise<void> {
+  try {
+    // Load sprite manifest (will use procedural fallbacks if manifest fails)
+    await loadSpritesFromManifest('/assets/sprites/manifest.json');
+    // Optionally preload all sheets (comment out if you want lazy loading)
+    // await ASSET_MANAGER.preloadAll();
+  } catch (error) {
+    console.warn('Failed to load sprite manifest, using procedural fallbacks:', error);
+  }
+
+  // Start with the default world.
+  startGame(new World(256, 256, 42, { vegAmount: 'low' }));
+
+  // Start the render loop after initialization is complete
+  requestAnimationFrame(frame);
+}
+
+init();
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -357,7 +375,6 @@ function frame(now: number): void {
   statDate.textContent       = formatDate(state.world.tick);
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 
