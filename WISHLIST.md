@@ -4,20 +4,9 @@
 
 - [ ]
 
-## Priority 1:
-
-- [x] Standardize building/utility types: In the code, some buildings are "servivces" where as others are more first class (like power plant, water tower, etc.). We should standardize/make more extensible zones vs special buildings/service buildings/utilities
-- [x] restoreTile automation or tests: Add a unit test that asserts every BUILDING\_\* constant is handled in restoreTile. Cheap now; a silent undo bug later.
-- [x] 1 pass of balancing before introducing more features
-- [x] EventBus audit for alerts: Before building the toast UI, enumerate every alert-worth event (crime spike, power shortage, fire ignition, abandonment, healthcare crisis) and confirm each system emits it with the right payload. Prevents the "event doesn't carry enough context" bugs mid-feature.
-- [x] Alerts/toast system: for certain very important things, ie high crime and a building is about to abandon, or low power, or high sewage, etc, we should make a notification display at the top of the screen to tell teh player this. it should pop up as a toast, hold for like 10 seconds, then dissapear. I believe we have an event system for this?
-- [x] Localization via t() lookup
 
 ## Priority 2:
 
-- [x] bulldozing abandoned buildings should increase political capital, not decrease
-- [x] highways cannot be "built" on -- zones/services _can_ propagate over/thru highways but they cannot be "activated" by being adjacent to them. they need to be placed on streets/avenues. if a street or avenue is upgraded to a highway, a service building should become inactive and a zone should abandon.
-- [x] inspect view for roads should tell the player what kind of road it is
 - [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
 
 ## Priority 3:
