@@ -7,7 +7,7 @@
 
 ## Priority 2:
 
-- [ ] make bad traffic have other deleterious effects besides just hurting growth (distress? idk)
+- [ ] make bad traffic have other deleterious effects besides just hurting growth (pollution? idk)
 
 ## Priority 3:
 
