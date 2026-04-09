@@ -8,8 +8,9 @@
 //   5 — added fireRisk, fire, fireStation layers (Phase 7.5 fire)
 //   6 — added missing derived layers (crime, education, sickness, etc.) and missing stats
 //   7 — unified powerPlants/waterTowers/sewagePlants/serviceBuildings into buildings[]
+//   8 — added visualVariant layer (Lot ID for persistent graphics)
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -92,11 +93,12 @@ export interface WorldSnapshot {
     hospital:   Uint8Array;
     sickness:   Uint8Array;
     recentDeath: Uint8Array;
+    visualVariant: Uint8Array;
   };
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -132,8 +134,25 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 4) rec = upgradeV4toV5(rec);
   if ((rec as { version: number }).version === 5) rec = upgradeV5toV6(rec);
   if ((rec as { version: number }).version === 6) rec = upgradeV6toV7(rec);
-  if ((rec as { version: number }).version === 7) return rec;
+  if ((rec as { version: number }).version === 7) rec = upgradeV7toV8(rec);
+  if ((rec as { version: number }).version === 8) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
+}
+
+function upgradeV7toV8(v7: SaveRecord): SaveRecord {
+  const snap = v7.snapshot;
+  const n = snap.width * snap.height;
+  return {
+    ...v7,
+    version: 8,
+    snapshot: {
+      ...snap,
+      layers: {
+        ...snap.layers,
+        visualVariant: new Uint8Array(n),
+      },
+    },
+  };
 }
 
 function upgradeV6toV7(v6: SaveRecord): SaveRecord {
