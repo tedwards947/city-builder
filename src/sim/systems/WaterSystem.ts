@@ -5,7 +5,7 @@
 // Mirrors PowerSystem exactly, using waterTowers instead of powerPlants.
 
 import { World } from '../World';
-import { ROAD_NONE, ZONE_NONE, BUILDING_WATER_TOWER } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_WATER_TOWER } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class WaterSystem {
@@ -19,6 +19,7 @@ export class WaterSystem {
     water.fill(0);
 
     // 1. Determine which road networks have at least one water tower.
+    // Towers must be adjacent to a STREET or AVENUE to connect.
     const servicedNetworks = new Set<number>();
     let totalSupply = 0;
     for (const b of world.buildings) {
@@ -29,7 +30,8 @@ export class WaterSystem {
         const nx = b.tx + dx, ny = b.ty + dy;
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         const ni = ny * width + nx;
-        if (roadClass[ni] !== ROAD_NONE) {
+        const rc = roadClass[ni];
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) {
           servicedNetworks.add(roadNet[ni]);
           connected = true;
         }

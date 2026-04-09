@@ -6,7 +6,7 @@
 // ServiceSystem runs before ZoneGrowthSystem so it can gate level 2→3 growth.
 
 import type { World } from '../World';
-import { ROAD_NONE, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 /**
@@ -29,13 +29,15 @@ export function computeServiceCoverage(
   covered.add(ty * width + tx);
 
   // Seed BFS from road tiles at or adjacent to the building.
+  // Seeding only happens from STREET or AVENUE. HIGHWAY does not activate a building.
   const visited = new Set<number>();
   const queue: Array<{ idx: number; dist: number }> = [];
 
   const seed = (stx: number, sty: number) => {
     if (stx < 0 || sty < 0 || stx >= width || sty >= height) return;
     const i = sty * width + stx;
-    if (roadClass[i] === ROAD_NONE) return;
+    const rc = roadClass[i];
+    if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) return;
     if (visited.has(i)) return;
     visited.add(i);
     queue.push({ idx: i, dist: 0 });
