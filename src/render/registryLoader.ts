@@ -1,8 +1,6 @@
 import { SpriteRegistry } from './SpriteRegistry';
 import { TestHouse } from './entities/TestHouse';
 import { IndustrialHouse } from './entities/IndustrialHouse';
-import * as ResL2Good from './entities/res-low/ResidentialL2Good';
-import * as ResL3Good from './entities/res-low/ResidentialL3Good';
 import * as CottageL1 from './entities/res-low/CottageL1';
 import * as ModernBoxL1 from './entities/res-low/ModernBoxL1';
 import * as AFrameCabinL1 from './entities/res-low/AFrameCabinL1';
@@ -10,6 +8,28 @@ import * as AdobeHomeL1 from './entities/res-low/AdobeHomeL1';
 import * as SuburbanBlueL1 from './entities/res-low/SuburbanBlueL1';
 import * as ZenPagodaL1 from './entities/res-low/ZenPagodaL1';
 import * as GeodesicDomeL1 from './entities/res-low/GeodesicDomeL1';
+import * as BrickManorL2 from './entities/res-low/BrickManorL2';
+import * as SuburbanLargeL2 from './entities/res-low/SuburbanLargeL2';
+import * as AdobeVillaL2 from './entities/res-low/AdobeVillaL2';
+import * as ContemporaryGlassL2 from './entities/res-low/ContemporaryGlassL2';
+import * as ModernBlackStackedL2 from './entities/res-low/ModernBlackStackedL2';
+import * as ColonialEstateL2 from './entities/res-low/ColonialEstateL2';
+import * as ModernWhiteEstateL2 from './entities/res-low/ModernWhiteEstateL2';
+import * as SteelDuplexL2 from './entities/res-low/SteelDuplexL2';
+import * as GeodesicComplexL2 from './entities/res-low/GeodesicComplexL2';
+import * as BrickTownhomeL2 from './entities/res-low/BrickTownhomeL2';
+import * as LuxuryCabinL2 from './entities/res-low/LuxuryCabinL2';
+import * as AsianModernTowerL2 from './entities/res-low/AsianModernTowerL2';
+import * as EcoDomeStackL2 from './entities/res-low/EcoDomeStackL2';
+import * as MediterraneanMansionL2 from './entities/res-low/MediterraneanMansionL2';
+import * as IndustrialLoftL2 from './entities/res-low/IndustrialLoftL2';
+import * as ModernResearchTowerL3 from './entities/res-low/ModernResearchTowerL3';
+import * as EcoRetreatL3 from './entities/res-low/EcoRetreatL3';
+import * as IndustrialMegaLoftL3 from './entities/res-low/IndustrialMegaLoftL3';
+import * as GlassMansardEstateL3 from './entities/res-low/GlassMansardEstateL3';
+import * as CorporateGlassMonolithL3 from './entities/res-low/CorporateGlassMonolithL3';
+import * as GrandAdobePalaceL3 from './entities/res-low/GrandAdobePalaceL3';
+import * as GrandSuburbanEstateL3 from './entities/res-low/GrandSuburbanEstateL3';
 import * as CommL1Batch1 from './entities/comm-low/CommercialL1Batch1';
 import * as CommL1Batch2 from './entities/comm-low/CommercialL1Batch2';
 import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
@@ -65,11 +85,31 @@ export function initSpriteRegistry(): void {
   Object.values(ZenPagodaL1).forEach(entity => reg.register(entity as any));
   Object.values(GeodesicDomeL1).forEach(entity => reg.register(entity as any));
 
-  // Residential Level 2 (Good ones)
-  Object.values(ResL2Good).forEach(entity => reg.register(entity as any));
+  // Residential Level 2 (Individual assets)
+  Object.values(BrickManorL2).forEach(entity => reg.register(entity as any));
+  Object.values(SuburbanLargeL2).forEach(entity => reg.register(entity as any));
+  Object.values(AdobeVillaL2).forEach(entity => reg.register(entity as any));
+  Object.values(ContemporaryGlassL2).forEach(entity => reg.register(entity as any));
+  Object.values(ModernBlackStackedL2).forEach(entity => reg.register(entity as any));
+  Object.values(ColonialEstateL2).forEach(entity => reg.register(entity as any));
+  Object.values(ModernWhiteEstateL2).forEach(entity => reg.register(entity as any));
+  Object.values(SteelDuplexL2).forEach(entity => reg.register(entity as any));
+  Object.values(GeodesicComplexL2).forEach(entity => reg.register(entity as any));
+  Object.values(BrickTownhomeL2).forEach(entity => reg.register(entity as any));
+  Object.values(LuxuryCabinL2).forEach(entity => reg.register(entity as any));
+  Object.values(AsianModernTowerL2).forEach(entity => reg.register(entity as any));
+  Object.values(EcoDomeStackL2).forEach(entity => reg.register(entity as any));
+  Object.values(MediterraneanMansionL2).forEach(entity => reg.register(entity as any));
+  Object.values(IndustrialLoftL2).forEach(entity => reg.register(entity as any));
 
-  // Residential Level 3 (Good ones)
-  Object.values(ResL3Good).forEach(entity => reg.register(entity as any));
+  // Residential Level 3 (Individual assets)
+  Object.values(ModernResearchTowerL3).forEach(entity => reg.register(entity as any));
+  Object.values(EcoRetreatL3).forEach(entity => reg.register(entity as any));
+  Object.values(IndustrialMegaLoftL3).forEach(entity => reg.register(entity as any));
+  Object.values(GlassMansardEstateL3).forEach(entity => reg.register(entity as any));
+  Object.values(CorporateGlassMonolithL3).forEach(entity => reg.register(entity as any));
+  Object.values(GrandAdobePalaceL3).forEach(entity => reg.register(entity as any));
+  Object.values(GrandSuburbanEstateL3).forEach(entity => reg.register(entity as any));
 
   // Commercial Level 1 Batches
   Object.values(CommL1Batch1).forEach(entity => reg.register(entity as any));

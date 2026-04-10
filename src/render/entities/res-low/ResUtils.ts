@@ -245,10 +245,6 @@ export function drawL3House(
   const totalBh = storyH * stories;
   const by = ts - inset - totalBh;
 
-  // Foundations/Grand Entrance
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.fillRect(bx - 2, ts - inset - 2, bw + 4, 4);
-
   // Vegetation Background
   if (opts.hasVegetation && opts.vegType === 'tree') {
     drawVeg(ctx, bx + bw * 0.1, ts - inset, ts, t, 'tree');
@@ -278,12 +274,6 @@ export function drawL3House(
       const spacing = bw * 0.25;
       for (let x = 0; x < 3; x++) {
         ctx.fillRect(bx + s + x * spacing, sy + storyH * 0.2, winW, winH);
-      }
-      
-      // Balconies on every 2nd story
-      if (i > 0 && i % 2 === 0) {
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(bx - 3, sy + storyH - 3, bw + 6, 3);
       }
     }
   }
