@@ -30,26 +30,29 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t
 }
 
 export function drawVeg(ctx: CanvasRenderingContext2D, x: number, y: number, ts: number, t: number, type: 'bush'|'tree'|'flowers'): void {
-  const treeSway = Math.sin(t * 1.5) * 0.5; // Toned down tree sway
+  const s = ts * 0.1;
+  const treeSway = Math.sin(t * 1.5) * (ts * 0.01);
   if (type === 'bush') {
     ctx.fillStyle = '#2e7d32';
     ctx.beginPath();
-    ctx.arc(x, y, ts * 0.15, 0, Math.PI * 2); // No animation for bushes
+    ctx.arc(x, y, ts * 0.12, 0, Math.PI * 2);
     ctx.fill();
   } else if (type === 'tree') {
     ctx.fillStyle = '#5d4037';
-    ctx.fillRect(x - 1, y - ts * 0.2, 2, ts * 0.2);
+    ctx.fillRect(x - Math.max(1, ts * 0.02), y - ts * 0.2, Math.max(2, ts * 0.04), ts * 0.2);
     ctx.fillStyle = '#1b5e20';
     ctx.beginPath();
-    ctx.arc(x + treeSway, y - ts * 0.2, ts * 0.2, 0, Math.PI * 2);
+    ctx.arc(x + treeSway, y - ts * 0.2, ts * 0.18, 0, Math.PI * 2);
     ctx.fill();
   } else {
+    // Flowers (Now scaling with ts)
     ctx.fillStyle = '#e91e63';
     ctx.beginPath();
-    ctx.arc(x, y, 2, 0, Math.PI * 2); // No animation for flowers
+    ctx.arc(x, y, Math.max(1, ts * 0.04), 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#ffeb3b';
-    ctx.fillRect(x - 0.5, y - 0.5, 1, 1);
+    const centerS = Math.max(0.5, ts * 0.02);
+    ctx.fillRect(x - centerS/2, y - centerS/2, centerS, centerS);
   }
 }
 

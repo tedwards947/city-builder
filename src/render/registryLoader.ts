@@ -1,9 +1,15 @@
 import { SpriteRegistry } from './SpriteRegistry';
 import { TestHouse } from './entities/TestHouse';
 import { IndustrialHouse } from './entities/IndustrialHouse';
-import * as ResL1Good from './entities/res-low/ResidentialL1Good';
 import * as ResL2Good from './entities/res-low/ResidentialL2Good';
 import * as ResL3Good from './entities/res-low/ResidentialL3Good';
+import * as CottageL1 from './entities/res-low/CottageL1';
+import * as ModernBoxL1 from './entities/res-low/ModernBoxL1';
+import * as AFrameCabinL1 from './entities/res-low/AFrameCabinL1';
+import * as AdobeHomeL1 from './entities/res-low/AdobeHomeL1';
+import * as SuburbanBlueL1 from './entities/res-low/SuburbanBlueL1';
+import * as ZenPagodaL1 from './entities/res-low/ZenPagodaL1';
+import * as GeodesicDomeL1 from './entities/res-low/GeodesicDomeL1';
 import * as CommL1Batch1 from './entities/comm-low/CommercialL1Batch1';
 import * as CommL1Batch2 from './entities/comm-low/CommercialL1Batch2';
 import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
@@ -50,8 +56,14 @@ export function initSpriteRegistry(): void {
   reg.register(TestHouse);
   reg.register(IndustrialHouse);
 
-  // Residential Level 1 (Good ones)
-  Object.values(ResL1Good).forEach(entity => reg.register(entity as any));
+  // Residential Level 1 (Individual assets)
+  Object.values(CottageL1).forEach(entity => reg.register(entity as any));
+  Object.values(ModernBoxL1).forEach(entity => reg.register(entity as any));
+  Object.values(AFrameCabinL1).forEach(entity => reg.register(entity as any));
+  Object.values(AdobeHomeL1).forEach(entity => reg.register(entity as any));
+  Object.values(SuburbanBlueL1).forEach(entity => reg.register(entity as any));
+  Object.values(ZenPagodaL1).forEach(entity => reg.register(entity as any));
+  Object.values(GeodesicDomeL1).forEach(entity => reg.register(entity as any));
 
   // Residential Level 2 (Good ones)
   Object.values(ResL2Good).forEach(entity => reg.register(entity as any));
