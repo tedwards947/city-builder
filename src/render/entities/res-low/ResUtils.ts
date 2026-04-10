@@ -10,7 +10,7 @@ export interface HouseOptions {
   windowColor?: string;
   hasVegetation?: boolean;
   vegType?: 'bush'|'tree'|'flowers';
-  roofStyle?: 'pitched'|'flat'|'pagoda'|'gambrel'|'mansard';
+  roofStyle?: 'pitched'|'flat'|'pagoda'|'gambrel'|'mansard'|'a-frame'|'slanted';
   accentColor?: string;
 }
 
