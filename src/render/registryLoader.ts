@@ -10,6 +10,7 @@ import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
 import * as CommL1Batch4 from './entities/comm-low/CommercialL1Batch4';
 import * as IndL1Good from './entities/ind-low/IndustrialL1Good';
 import * as ArtDecoFactory from './entities/ind-low/ArtDecoFactory';
+import * as OilRefinery from './entities/ind-low/OilRefinery';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -41,4 +42,7 @@ export function initSpriteRegistry(): void {
 
   // Industrial Level 2 (Art Deco)
   Object.values(ArtDecoFactory).forEach(entity => reg.register(entity as any));
+
+  // Industrial Level 2 (Oil Refinery)
+  Object.values(OilRefinery).forEach(entity => reg.register(entity as any));
 }
