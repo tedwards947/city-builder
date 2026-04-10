@@ -38,7 +38,7 @@ import * as TechRetailL1 from './entities/comm-low/TechRetailL1';
 import * as StripMallL2 from './entities/comm-mid/StripMallL2';
 import * as BigBoxStoreL2 from './entities/comm-mid/BigBoxStoreL2';
 import * as MixedUseL2 from './entities/comm-mid/MixedUseL2';
-import * as DinerDriveThruL2 from './entities/comm-mid/DinerDriveThruL2';
+import * as ModernSupermarketL2 from './entities/comm-mid/ModernSupermarketL2';
 import * as ShowroomL2 from './entities/comm-mid/ShowroomL2';
 import * as SawtoothMillL1 from './entities/ind-low/SawtoothMillL1';
 import * as PeakedWorkshopL1 from './entities/ind-low/PeakedWorkshopL1';
@@ -128,7 +128,7 @@ export function initSpriteRegistry(): void {
   Object.values(StripMallL2).forEach(entity => reg.register(entity as any));
   Object.values(BigBoxStoreL2).forEach(entity => reg.register(entity as any));
   Object.values(MixedUseL2).forEach(entity => reg.register(entity as any));
-  Object.values(DinerDriveThruL2).forEach(entity => reg.register(entity as any));
+  Object.values(ModernSupermarketL2).forEach(entity => reg.register(entity as any));
   Object.values(ShowroomL2).forEach(entity => reg.register(entity as any));
 
   // Industrial Level 1 (Individual assets)
