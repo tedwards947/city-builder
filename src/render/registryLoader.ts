@@ -9,6 +9,7 @@ import * as CommL1Batch2 from './entities/comm-low/CommercialL1Batch2';
 import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
 import * as CommL1Batch4 from './entities/comm-low/CommercialL1Batch4';
 import * as IndL1Good from './entities/ind-low/IndustrialL1Good';
+import * as ArtDecoFactory from './entities/ind-low/ArtDecoFactory';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -37,4 +38,7 @@ export function initSpriteRegistry(): void {
 
   // Industrial Level 1 (Good ones)
   Object.values(IndL1Good).forEach(entity => reg.register(entity as any));
+
+  // Industrial Level 2 (Art Deco)
+  Object.values(ArtDecoFactory).forEach(entity => reg.register(entity as any));
 }
