@@ -14,6 +14,7 @@ import * as OilRefinery from './entities/ind-low/OilRefinery';
 import * as OldBrickFactory from './entities/ind-low/OldBrickFactory';
 import * as SteelShed from './entities/ind-low/SteelShed';
 import * as BrickSawtoothFactory from './entities/ind-low/BrickSawtoothFactory';
+import * as GenericWarehouse from './entities/ind-low/GenericWarehouse';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -57,4 +58,7 @@ export function initSpriteRegistry(): void {
 
   // Industrial Level 2 (Brick Sawtooth)
   Object.values(BrickSawtoothFactory).forEach(entity => reg.register(entity as any));
+
+  // Industrial Level 2 (Generic Warehouse)
+  Object.values(GenericWarehouse).forEach(entity => reg.register(entity as any));
 }
