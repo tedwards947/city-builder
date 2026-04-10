@@ -8,10 +8,7 @@ import * as CommL1Batch1 from './entities/comm-low/CommercialL1Batch1';
 import * as CommL1Batch2 from './entities/comm-low/CommercialL1Batch2';
 import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
 import * as CommL1Batch4 from './entities/comm-low/CommercialL1Batch4';
-import * as IndL1Batch1 from './entities/ind-low/IndustrialL1Batch1';
-import * as IndL1Batch2 from './entities/ind-low/IndustrialL1Batch2';
-import * as IndL1Batch3 from './entities/ind-low/IndustrialL1Batch3';
-import * as IndL1Batch4 from './entities/ind-low/IndustrialL1Batch4';
+import * as IndL1Good from './entities/ind-low/IndustrialL1Good';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -38,9 +35,6 @@ export function initSpriteRegistry(): void {
   Object.values(CommL1Batch3).forEach(entity => reg.register(entity as any));
   Object.values(CommL1Batch4).forEach(entity => reg.register(entity as any));
 
-  // Industrial Level 1 Batches
-  Object.values(IndL1Batch1).forEach(entity => reg.register(entity as any));
-  Object.values(IndL1Batch2).forEach(entity => reg.register(entity as any));
-  Object.values(IndL1Batch3).forEach(entity => reg.register(entity as any));
-  Object.values(IndL1Batch4).forEach(entity => reg.register(entity as any));
+  // Industrial Level 1 (Good ones)
+  Object.values(IndL1Good).forEach(entity => reg.register(entity as any));
 }
