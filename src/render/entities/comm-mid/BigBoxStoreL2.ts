@@ -33,9 +33,9 @@ export const BigBoxStoreL2: VectorEntity = {
         ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by + bh); ctx.stroke();
     }
 
-    // 3. Central Entrance Block (Taller)
-    const ew = Math.floor(bw * 0.4);
-    const eh = Math.floor(bh * 1.2);
+    // 3. Central Entrance Block (Wider and prominent)
+    const ew = Math.floor(bw * 0.6); // Increased from 0.4
+    const eh = Math.floor(bh * 1.1);
     const ex = Math.floor(ts * 0.5 - ew / 2);
     const ey = Math.floor(ts * 0.8 - eh);
 
@@ -44,33 +44,32 @@ export const BigBoxStoreL2: VectorEntity = {
 
     // Glass Entrance Doors
     ctx.fillStyle = 'rgba(129, 212, 250, 0.7)';
-    ctx.fillRect(ex + Math.floor(ew * 0.2), ey + Math.floor(eh * 0.6), Math.floor(ew * 0.6), Math.floor(eh * 0.4));
+    ctx.fillRect(ex + Math.floor(ew * 0.3), ey + Math.floor(eh * 0.6), Math.floor(ew * 0.4), Math.floor(eh * 0.4));
 
     // 4. Brand Sign (On blue block)
     ctx.fillStyle = '#ffffff';
-    const sw = Math.floor(ew * 0.85);
-    const sh = Math.floor(eh * 0.25); // Proportional to entrance block height
+    const sw = Math.floor(ew * 0.8);
+    const sh = Math.floor(eh * 0.3); // Clear horizontal rectangle
     const sx = Math.floor(ts * 0.5 - sw / 2);
-    const sy = Math.floor(ey + eh * 0.1); // Position near top
+    const sy = Math.floor(ey + eh * 0.15);
     
     ctx.fillRect(sx, sy, sw, sh);
-    ctx.strokeStyle = '#222';
+    ctx.strokeStyle = '#1a202c';
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, sw, sh);
     
-    // Text with robust scaling
+    // Text with robust scaling (50% rule)
     const text = 'MEGA';
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    let fontSize = Math.floor(sh * 0.7); // Start relative to sign height
-    const maxWidth = Math.floor(sw * 0.8);
+    let fontSize = Math.floor(sh * 0.6); // Start relative to sign height
+    const maxWidth = Math.floor(sw * 0.5); // Strict 50% width rule
     
     ctx.font = `bold ${fontSize}px sans-serif`;
     let metrics = ctx.measureText(text);
     
-    // Scale down until it fits
     while (metrics.width > maxWidth && fontSize > 4) {
         fontSize--;
         ctx.font = `bold ${fontSize}px sans-serif`;
