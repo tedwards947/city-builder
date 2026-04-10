@@ -96,6 +96,18 @@ export function drawBaseHouse(
     ctx.fill();
   } else if (opts.roofStyle === 'flat') {
     ctx.fillRect(bx - 1, by - 2, bw + 2, 3);
+  } else if (opts.roofStyle === 'a-frame') {
+    ctx.beginPath();
+    ctx.moveTo(bx, ts - inset);
+    ctx.lineTo(ts / 2, inset);
+    ctx.lineTo(bx + bw, ts - inset);
+    ctx.fill();
+  } else if (opts.roofStyle === 'slanted') {
+    ctx.beginPath();
+    ctx.moveTo(bx - 1, by);
+    ctx.lineTo(bx + bw + 1, by - s * 2);
+    ctx.lineTo(bx + bw + 1, by);
+    ctx.fill();
   } else {
     ctx.beginPath();
     ctx.moveTo(bx - 2, by);
@@ -207,5 +219,108 @@ export function drawL2House(
   if (opts.hasVegetation && opts.vegType !== 'tree') {
     drawVeg(ctx, bx - s * 0.5, ts - inset, ts, t, opts.vegType || 'bush');
     drawVeg(ctx, bx + bw + s * 0.5, ts - inset, ts, t, 'flowers');
+  }
+}
+
+export function drawL3House(
+  ctx: CanvasRenderingContext2D,
+  ts: number,
+  t: number,
+  _p: ColorPalette,
+  _vibe: VibeState,
+  bodyColor: string,
+  roofColor: string,
+  opts: HouseOptions = {}
+): void {
+  const s = ts * 0.1;
+  const stories = (opts as any).stories || 4;
+  const isWider = (opts as any).isWider || true;
+  const inset = Math.max(1, Math.floor(ts * 0.05));
+  const bw = isWider ? ts - inset * 2 : ts - inset * 4;
+  const bx = (ts - bw) / 2;
+  const storyH = (ts - inset * 2) / (stories + 1);
+  const totalBh = storyH * stories;
+  const by = ts - inset - totalBh;
+
+  // Foundations/Grand Entrance
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.fillRect(bx - 2, ts - inset - 2, bw + 4, 4);
+
+  // Vegetation Background
+  if (opts.hasVegetation && opts.vegType === 'tree') {
+    drawVeg(ctx, bx + bw * 0.1, ts - inset, ts, t, 'tree');
+    drawVeg(ctx, bx + bw * 0.9, ts - inset, ts, t, 'tree');
+  }
+
+  // Double Chimneys for grander look
+  if (opts.hasChimney) {
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(bx + s, inset, s * 1.2, by - inset + s);
+    ctx.fillRect(bx + bw - s * 2.2, inset, s * 1.2, by - inset + s);
+    drawSmoke(ctx, bx + s + s * 0.6, inset, t);
+    drawSmoke(ctx, bx + bw - s * 2.2 + s * 0.6, inset, t + 0.5);
+  }
+
+  // Body (Stories)
+  for (let i = 0; i < stories; i++) {
+    const sy = by + i * storyH;
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(bx, sy, bw, storyH + 1);
+    
+    // Grid of windows (High density)
+    if (ts > 8) {
+      ctx.fillStyle = opts.windowColor || '#add8e6';
+      const winW = bw * 0.2;
+      const winH = storyH * 0.5;
+      const spacing = bw * 0.25;
+      for (let x = 0; x < 3; x++) {
+        ctx.fillRect(bx + s + x * spacing, sy + storyH * 0.2, winW, winH);
+      }
+      
+      // Balconies on every 2nd story
+      if (i > 0 && i % 2 === 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(bx - 3, sy + storyH - 3, bw + 6, 3);
+      }
+    }
+  }
+
+  // Grand Entrance (Bottom story)
+  if (ts > 8) {
+    ctx.fillStyle = '#2c3e50';
+    const dx = bx + (bw - s * 4) / 2;
+    ctx.fillRect(dx, ts - inset - storyH * 0.8, s * 4, storyH * 0.8);
+    ctx.fillStyle = '#ffeb3b'; // Golden door handle/light
+    ctx.fillRect(dx + s * 3, ts - inset - storyH * 0.4, 1, 1);
+  }
+
+  // Elaborate Roof
+  ctx.fillStyle = roofColor;
+  if (opts.roofStyle === 'flat') {
+    ctx.fillRect(bx - 4, by - 3, bw + 8, 5);
+    // Helipad or roof garden detail
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(bx + bw * 0.2, by - 3, bw * 0.6, 1);
+  } else if (opts.roofStyle === 'mansard') {
+    ctx.beginPath();
+    ctx.moveTo(bx - 4, by);
+    ctx.lineTo(bx + s * 2, by - s * 3);
+    ctx.lineTo(bx + bw - s * 2, by - s * 3);
+    ctx.lineTo(bx + bw + 4, by);
+    ctx.fill();
+  } else {
+    // Grand pitched roof with trim
+    ctx.beginPath();
+    ctx.moveTo(bx - 6, by);
+    ctx.lineTo(bx + bw / 2, by - storyH);
+    ctx.lineTo(bx + bw + 6, by);
+    ctx.fill();
+  }
+
+  // Lush Vegetation Foreground
+  if (opts.hasVegetation && opts.vegType !== 'tree') {
+    for (let x = 0; x < 3; x++) {
+      drawVeg(ctx, bx + (x * bw * 0.4), ts - inset, ts, t, opts.vegType || 'bush');
+    }
   }
 }
