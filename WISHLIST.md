@@ -74,27 +74,7 @@ Each area (geographic proximity) can have a vibe. This is an area of effect type
 
 ### Vibes/neighborhood list
 
-The vibes of neighborhoods can shift over time, but it takes a while for a neighborhood's vibe to shift.
-┌──────────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────┐
-│ Vibe │ Requirements (Logic) │ Visual Treatment (Sprites/Lighting) │
-├──────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────┤
-│ Shantytown │ Low Land Value + High Crime + Low │ Rusty corrugated metal, dirt patches, "dim/sepia" ambient │
-│ │ Dev Level │ tint. │
-│ Suburb │ High Land Value + Low Crime + Low │ Manicured lawns, white fences, "warm/golden hour" │
-│ │ Dev Level (R) │ lighting. │
-│ Downtown │ High Land Value + High Dev Level │ Glass/Chrome towers, "cool/blue" corporate lighting, │
-│ │ (C/R) │ high-density sprites. │
-│ Arts │ High Culture Score + Med Land Value │ Murals on walls, sculptures, "saturated/vibrant" │
-│ District │ │ lighting. │
-│ Bar District │ High Commerce + Med Crime + Med Land │ Neon signs, darker "night-life" ambient tint even in │
-│ │ Value │ day-sim. │
-│ Industrial │ High Pollution + I-Zones │ Smokestacks, grime-stained concrete, "smog/yellow" haze │
-│ │ │ filter. │
-│ Rural │ High Vegetation + Isolated (Low Road │ Barns, dirt roads, "natural/clear" lighting. │
-│ │ Density) │ │
-│ Tech Hub │ High Education + High Land Value + │ Modern minimalist architecture, clean whites, │
-│ │ Low Pollution │ "sterile/bright" lighting. │
-└──────────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────┘
+* TODO: define vibes list
 
 ### Additional Dimensions to consider
 
