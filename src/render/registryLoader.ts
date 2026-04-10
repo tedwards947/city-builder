@@ -30,10 +30,16 @@ import * as GlassMansardEstateL3 from './entities/res-low/GlassMansardEstateL3';
 import * as CorporateGlassMonolithL3 from './entities/res-low/CorporateGlassMonolithL3';
 import * as GrandAdobePalaceL3 from './entities/res-low/GrandAdobePalaceL3';
 import * as GrandSuburbanEstateL3 from './entities/res-low/GrandSuburbanEstateL3';
-import * as CommL1Batch1 from './entities/comm-low/CommercialL1Batch1';
-import * as CommL1Batch2 from './entities/comm-low/CommercialL1Batch2';
-import * as CommL1Batch3 from './entities/comm-low/CommercialL1Batch3';
-import * as CommL1Batch4 from './entities/comm-low/CommercialL1Batch4';
+import * as SmallShopL1 from './entities/comm-low/SmallShopL1';
+import * as GasStationL1 from './entities/comm-low/GasStationL1';
+import * as BoutiqueL1 from './entities/comm-low/BoutiqueL1';
+import * as HardwareStoreL1 from './entities/comm-low/HardwareStoreL1';
+import * as TechRetailL1 from './entities/comm-low/TechRetailL1';
+import * as StripMallL2 from './entities/comm-mid/StripMallL2';
+import * as BigBoxStoreL2 from './entities/comm-mid/BigBoxStoreL2';
+import * as MixedUseL2 from './entities/comm-mid/MixedUseL2';
+import * as DinerDriveThruL2 from './entities/comm-mid/DinerDriveThruL2';
+import * as ShowroomL2 from './entities/comm-mid/ShowroomL2';
 import * as SawtoothMillL1 from './entities/ind-low/SawtoothMillL1';
 import * as PeakedWorkshopL1 from './entities/ind-low/PeakedWorkshopL1';
 import * as FlatTopFactoryL1 from './entities/ind-low/FlatTopFactoryL1';
@@ -111,11 +117,19 @@ export function initSpriteRegistry(): void {
   Object.values(GrandAdobePalaceL3).forEach(entity => reg.register(entity as any));
   Object.values(GrandSuburbanEstateL3).forEach(entity => reg.register(entity as any));
 
-  // Commercial Level 1 Batches
-  Object.values(CommL1Batch1).forEach(entity => reg.register(entity as any));
-  Object.values(CommL1Batch2).forEach(entity => reg.register(entity as any));
-  Object.values(CommL1Batch3).forEach(entity => reg.register(entity as any));
-  Object.values(CommL1Batch4).forEach(entity => reg.register(entity as any));
+  // Commercial Level 1 (Individual assets)
+  Object.values(SmallShopL1).forEach(entity => reg.register(entity as any));
+  Object.values(GasStationL1).forEach(entity => reg.register(entity as any));
+  Object.values(BoutiqueL1).forEach(entity => reg.register(entity as any));
+  Object.values(HardwareStoreL1).forEach(entity => reg.register(entity as any));
+  Object.values(TechRetailL1).forEach(entity => reg.register(entity as any));
+
+  // Commercial Level 2 (Individual assets)
+  Object.values(StripMallL2).forEach(entity => reg.register(entity as any));
+  Object.values(BigBoxStoreL2).forEach(entity => reg.register(entity as any));
+  Object.values(MixedUseL2).forEach(entity => reg.register(entity as any));
+  Object.values(DinerDriveThruL2).forEach(entity => reg.register(entity as any));
+  Object.values(ShowroomL2).forEach(entity => reg.register(entity as any));
 
   // Industrial Level 1 (Individual assets)
   Object.values(SawtoothMillL1).forEach(entity => reg.register(entity as any));
