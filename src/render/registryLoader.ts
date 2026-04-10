@@ -18,6 +18,7 @@ import * as GenericWarehouse from './entities/ind-low/GenericWarehouse';
 import * as PharmaCompany from './entities/ind-low/PharmaCompany';
 import * as SemiconductorFab from './entities/ind-low/SemiconductorFab';
 import * as GrainElevator from './entities/ind-low/GrainElevator';
+import * as TextileMill from './entities/ind-low/TextileMill';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -73,4 +74,7 @@ export function initSpriteRegistry(): void {
 
   // Industrial Level 2 (Grain Elevator)
   Object.values(GrainElevator).forEach(entity => reg.register(entity as any));
+
+  // Industrial Level 2 (Textile Mill)
+  Object.values(TextileMill).forEach(entity => reg.register(entity as any));
 }
