@@ -19,6 +19,16 @@ import * as PharmaCompany from './entities/ind-low/PharmaCompany';
 import * as SemiconductorFab from './entities/ind-low/SemiconductorFab';
 import * as GrainElevator from './entities/ind-low/GrainElevator';
 import * as TextileMill from './entities/ind-low/TextileMill';
+import * as ArtDecoL3 from './entities/ind-high/ArtDecoL3';
+import * as RefineryL3 from './entities/ind-high/RefineryL3';
+import * as MegaBrickL3 from './entities/ind-high/MegaBrickL3';
+import * as SteelDepotL3 from './entities/ind-high/SteelDepotL3';
+import * as GrandSawtoothL3 from './entities/ind-high/GrandSawtoothL3';
+import * as LogisticsHubL3 from './entities/ind-high/LogisticsHubL3';
+import * as PharmaCampusL3 from './entities/ind-high/PharmaCampusL3';
+import * as MegaFabL3 from './entities/ind-high/MegaFabL3';
+import * as TerminalElevatorL3 from './entities/ind-high/TerminalElevatorL3';
+import * as TextileComplexL3 from './entities/ind-high/TextileComplexL3';
 
 /**
  * Initializes the sprite registry with all available entities.
@@ -48,33 +58,27 @@ export function initSpriteRegistry(): void {
   // Industrial Level 1 (Good ones)
   Object.values(IndL1Good).forEach(entity => reg.register(entity as any));
 
-  // Industrial Level 2 (Art Deco)
+  // Industrial Level 2 (Good ones)
   Object.values(ArtDecoFactory).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Oil Refinery)
   Object.values(OilRefinery).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Old Brick)
   Object.values(OldBrickFactory).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Steel Shed)
   Object.values(SteelShed).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Brick Sawtooth)
   Object.values(BrickSawtoothFactory).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Generic Warehouse)
   Object.values(GenericWarehouse).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Pharma Company)
   Object.values(PharmaCompany).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Semiconductor Fab)
   Object.values(SemiconductorFab).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Grain Elevator)
   Object.values(GrainElevator).forEach(entity => reg.register(entity as any));
-
-  // Industrial Level 2 (Textile Mill)
   Object.values(TextileMill).forEach(entity => reg.register(entity as any));
+
+  // Industrial Level 3 (Grand versions)
+  Object.values(ArtDecoL3).forEach(entity => reg.register(entity as any));
+  Object.values(RefineryL3).forEach(entity => reg.register(entity as any));
+  Object.values(MegaBrickL3).forEach(entity => reg.register(entity as any));
+  Object.values(SteelDepotL3).forEach(entity => reg.register(entity as any));
+  Object.values(GrandSawtoothL3).forEach(entity => reg.register(entity as any));
+  Object.values(LogisticsHubL3).forEach(entity => reg.register(entity as any));
+  Object.values(PharmaCampusL3).forEach(entity => reg.register(entity as any));
+  Object.values(MegaFabL3).forEach(entity => reg.register(entity as any));
+  Object.values(TerminalElevatorL3).forEach(entity => reg.register(entity as any));
+  Object.values(TextileComplexL3).forEach(entity => reg.register(entity as any));
 }
