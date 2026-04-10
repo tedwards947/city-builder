@@ -14,6 +14,11 @@ import * as FlatTopFactoryL1 from './entities/ind-low/FlatTopFactoryL1';
 import * as BasicWarehouseL1 from './entities/ind-low/BasicWarehouseL1';
 import * as SmallChemicalPlantL1 from './entities/ind-low/SmallChemicalPlantL1';
 import * as MultiTankDepotL1 from './entities/ind-low/MultiTankDepotL1';
+import * as ArtDecoWorkshopL1 from './entities/ind-low/ArtDecoWorkshopL1';
+import * as MiniFlareL1 from './entities/ind-low/MiniFlareL1';
+import * as TechStartUpL1 from './entities/ind-low/TechStartUpL1';
+import * as RuralSiloL1 from './entities/ind-low/RuralSiloL1';
+import * as OldMillL1 from './entities/ind-low/OldMillL1';
 import * as ArtDecoFactory from './entities/ind-low/ArtDecoFactory';
 import * as OilRefinery from './entities/ind-low/OilRefinery';
 import * as OldBrickFactory from './entities/ind-low/OldBrickFactory';
@@ -67,6 +72,11 @@ export function initSpriteRegistry(): void {
   Object.values(BasicWarehouseL1).forEach(entity => reg.register(entity as any));
   Object.values(SmallChemicalPlantL1).forEach(entity => reg.register(entity as any));
   Object.values(MultiTankDepotL1).forEach(entity => reg.register(entity as any));
+  Object.values(ArtDecoWorkshopL1).forEach(entity => reg.register(entity as any));
+  Object.values(MiniFlareL1).forEach(entity => reg.register(entity as any));
+  Object.values(TechStartUpL1).forEach(entity => reg.register(entity as any));
+  Object.values(RuralSiloL1).forEach(entity => reg.register(entity as any));
+  Object.values(OldMillL1).forEach(entity => reg.register(entity as any));
 
   // Industrial Level 2 (Good ones)
 
