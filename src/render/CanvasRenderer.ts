@@ -52,7 +52,7 @@ export class CanvasRenderer {
   private readonly canvas: HTMLCanvasElement;
 
   private _chunkCanvases: (HTMLCanvasElement | null)[] = [];
-  private _chunkCtxs: (CanvasRenderingContext2D | null | undefined)[] = [];
+  private _chunkCtxs: (CanvasRenderingContext2D | null)[] = [];
   private _lastTick = -1;
   private _lastChunkCount = 0;
   private _lastZoom = -1;
@@ -99,10 +99,10 @@ export class CanvasRenderer {
         this._chunkCanvases.length = totalChunks;
         this._chunkCtxs.length = totalChunks;
       } else {
-        const previousLength = this._chunkCanvases.length;
-        this._chunkCanvases.length = totalChunks;
-        this._chunkCanvases.fill(null, previousLength, totalChunks);
-        this._chunkCtxs.length = totalChunks;
+        let limit = 0;
+          this._chunkCanvases.push(null);
+          this._chunkCtxs.push(null);
+        }
       }
       this._lastChunkCount = totalChunks;
       world.grid.markAllDirty();
@@ -128,7 +128,7 @@ export class CanvasRenderer {
       for (let cx = cxMin; cx <= cxMax; cx++) {
         const chunkId = cy * world.grid.chunkCols + cx;
         const chunkCanvas = this._chunkCanvases[chunkId];
-        if (chunkCanvas === null) continue;
+        if (!chunkCanvas) continue;
         const dstX = Math.floor(camera.worldToScreenX(cx * CHUNK_PX));
         const dstY = Math.floor(camera.worldToScreenY(cy * CHUNK_PX));
         ctx.globalAlpha = 1.0;

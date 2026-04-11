@@ -92,6 +92,9 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.recentDeath.set(snapshot.layers.recentDeath);
   l.visualVariant.set(snapshot.layers.visualVariant);
 
+  // Sync fire counter after bulk load
+  world.recomputeFireCount();
+
   // Force a full network + render rebuild on next tick.
   world.roadNetDirty = true;
   world.grid.markAllDirty();
