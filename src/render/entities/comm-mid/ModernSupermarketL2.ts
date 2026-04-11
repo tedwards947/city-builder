@@ -43,7 +43,7 @@ export const ModernSupermarketL2: VectorEntity = {
     ctx.fillRect(bx - 4, by + Math.floor(s * 1.5), bw + 8, 2);
 
     // 5. Brand Sign (On overhanging roof)
-    if (ts > 40) {
+    if (ts > 20) {
         ctx.fillStyle = '#ffffff';
         const signW = Math.floor(bw * 0.6);
         const signH = Math.floor(s * 1.5);

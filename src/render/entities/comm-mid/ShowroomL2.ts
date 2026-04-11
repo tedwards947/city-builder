@@ -40,7 +40,7 @@ export const ShowroomL2: VectorEntity = {
         }
 
         // 4. Interior Display (Guard for zoom)
-        if (ts > 40) {
+        if (ts > 20) {
             const displayColors = ['#e53e3e', '#3182ce', '#38a169'];
             for (let i = 0; i < 3; i++) {
                 const dx = Math.floor(bx + 10 + i * (fw / 3.5));

@@ -47,7 +47,7 @@ export const BigBoxStoreL2: VectorEntity = {
     ctx.fillRect(ex + Math.floor(ew * 0.3), ey + Math.floor(eh * 0.6), Math.floor(ew * 0.4), Math.floor(eh * 0.4));
 
     // 4. Brand Sign (On blue block)
-    if (ts > 40) {
+    if (ts > 20) {
         ctx.fillStyle = '#ffffff';
         const sw = Math.floor(ew * 0.8);
         const sh = Math.floor(eh * 0.3); // Clear horizontal rectangle

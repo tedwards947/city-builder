@@ -29,7 +29,7 @@ export const GrandDepartmentStoreL3: VectorEntity = {
     ctx.fillRect(bx, by, bw, bh);
 
     // 3. Upper Floor Window Grid (Performance Guard)
-    if (ts > 30) {
+    if (ts > 20) {
         ctx.fillStyle = 'rgba(40, 50, 60, 0.9)';
         const gridCols = 3;
         const winW = Math.floor(facadeW / (gridCols + 1));
@@ -51,7 +51,7 @@ export const GrandDepartmentStoreL3: VectorEntity = {
             const ay = Math.floor(ts * 0.9 - archH);
             ctx.fillRect(ax, ay + Math.floor(archH * 0.3), winW, Math.floor(archH * 0.7));
             
-            if (ts > 40) {
+            if (ts > 20) {
                 ctx.beginPath();
                 ctx.arc(ax + winW / 2, ay + Math.floor(archH * 0.3), winW / 2, Math.PI, 0);
                 ctx.fill();
@@ -67,7 +67,7 @@ export const GrandDepartmentStoreL3: VectorEntity = {
     ctx.fillStyle = '#8b4513';
     ctx.fillRect(tx, ty, tw, th);
     
-    if (ts > 40) {
+    if (ts > 20) {
         // Clock Face
         ctx.fillStyle = '#fff';
         ctx.beginPath();

@@ -30,7 +30,7 @@ export const CorporateTowerL3: VectorEntity = {
     ctx.fillRect(bx + 2, by + 2, bw - 4, bh - 2);
 
     // Facade Grid (Performance Guard)
-    if (ts > 40) {
+    if (ts > 20) {
         ctx.strokeStyle = 'rgba(255,255,255,0.1)';
         ctx.lineWidth = 0.5;
         for (let x = bx + 4; x < bx + bw; x += Math.floor(bw / 4)) {
@@ -49,7 +49,7 @@ export const CorporateTowerL3: VectorEntity = {
     ctx.fillRect(sx, sy, 2, spireH + 2);
     
     // Spire Glow (Performance Guard)
-    if (ts > 40 && Math.sin(t * 5) > 0) {
+    if (ts > 20 && Math.sin(t * 5) > 0) {
         ctx.fillStyle = '#f56565';
         ctx.beginPath();
         ctx.arc(ts * 0.5, sy, 1.5, 0, Math.PI * 2);
@@ -57,7 +57,7 @@ export const CorporateTowerL3: VectorEntity = {
     }
 
     // 4. Status Lights (Blue glow - Optimized)
-    if (ts > 30) {
+    if (ts > 20) {
         ctx.fillStyle = '#63b3ed';
         for (let i = 0; i < 3; i++) {
             const ly = by + Math.floor(bh * (0.2 + i * 0.3));

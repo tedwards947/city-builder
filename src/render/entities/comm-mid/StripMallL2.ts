@@ -39,7 +39,7 @@ export const StripMallL2: VectorEntity = {
         const sx = Math.floor(bx + i * sectionW);
         
         // Store windows (Guard for small zoom)
-        if (ts > 30) {
+        if (ts > 20) {
             ctx.fillStyle = 'rgba(129, 212, 250, 0.5)';
             ctx.fillRect(sx + 4, by + Math.floor(bh * 0.3), sectionW - 8, Math.floor(bh * 0.4));
         }
@@ -54,7 +54,7 @@ export const StripMallL2: VectorEntity = {
     ctx.fillRect(bx - 2, by - 2, bw + 4, Math.floor(s * 1.5));
     
     // 5. Multiple Small Brand Signs (Aggressive Guard)
-    if (ts > 40) {
+    if (ts > 20) {
         const brands = ['B-Mart', 'Pizza', 'Byte'];
         for (let i = 0; i < 3; i++) {
             const sx = Math.floor(bx + i * sectionW + sectionW * 0.1);

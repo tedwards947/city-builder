@@ -47,7 +47,7 @@ export const LuxuryHotelL3: VectorEntity = {
     ctx.fillRect(bx + Math.floor(s * 2) + 4, by3 + 4, bw - Math.floor(s * 4) - 8, Math.floor(bh3 * 0.6));
 
     // 4. Rooftop Helipad (Performance Guard)
-    if (ts > 40) {
+    if (ts > 20) {
         const hx = Math.floor(ts * 0.5);
         const hy = Math.floor(ts * 0.05);
         ctx.fillStyle = '#4a5568';

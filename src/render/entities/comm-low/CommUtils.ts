@@ -108,7 +108,7 @@ export function drawStorefront(
   }
 
   // 6. Signage
-  if (opts.hasSign && opts.signKey && ts > 40) {
+  if (opts.hasSign && opts.signKey && ts > 20) {
     const signW = bw * 0.95;
     const signH = s * 2.5;
     const sx = bx + bw * 0.025;
@@ -198,7 +198,7 @@ function drawGasStation(
   ctx.stroke();
 
   // 5. Price Sign on Pole (Fixed text scaling)
-  if (ts > 40) {
+  if (ts > 20) {
     ctx.fillStyle = '#222';
     ctx.fillRect(ts - s * 2, s * 1, s * 0.4, s * 8);
     ctx.fillStyle = accent;
