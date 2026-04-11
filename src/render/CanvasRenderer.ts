@@ -143,11 +143,11 @@ export class CanvasRenderer {
         const zone       = world.layers.zone[i];
         const building   = world.layers.building[i];
         const fireV      = world.layers.fire[i];
-
-        // Skip entirely empty tiles to save CPU
-        if (zone === ZONE_NONE && building === BUILDING_NONE && fireV === 0 && !hasOverlay) continue;
-
         const road       = world.layers.roadClass[i];
+        
+        // Skip entirely empty tiles to save CPU (But include roads!)
+        if (zone === ZONE_NONE && building === BUILDING_NONE && fireV === 0 && road === ROAD_NONE && !hasOverlay) continue;
+
         const fireRiskV  = world.layers.fireRisk[i];
         const crimeV     = world.layers.crime[i];
         const congestion = world.layers.congestion[i];
@@ -198,7 +198,12 @@ export class CanvasRenderer {
         if (fireV > 0) {
           this._drawFire(ctx, sxi, syi, tsi, ts, now);
         }
+
+        if (!trafficOverlay && ts > 20 && road !== ROAD_NONE && congestion > 15) {
+          this._drawRoadVehicles(ctx, world, tx, ty, sxi, syi, ts, congestion, now);
+        }
       }
+
       if (iterations > 100000) break;
     }
 

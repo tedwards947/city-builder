@@ -10,10 +10,6 @@ export class SpriteRegistry {
   private _entities: Map<string, VectorEntity> = new Map();
   private _byType: Map<string, string[]> = new Map();
   
-  // Cache for pre-rendered sprites: Map<"entityId:ts:paletteKey", HTMLCanvasElement>
-  private _renderCache: Map<string, HTMLCanvasElement> = new Map();
-  private readonly MAX_CACHE_SIZE = 1200;
-
   // Cache for findBest results: Map<"type:vibeHash:lotId", VectorEntity>
   private _bestCache: Map<string, VectorEntity> = new Map();
 
@@ -36,51 +32,10 @@ export class SpriteRegistry {
   }
 
   /**
-   * Clears the render cache (call on window resize or zoom change if needed, 
-   * though ts is part of the key).
+   * Clears the findBest cache.
    */
   clearCache(): void {
-    this._renderCache.clear();
     this._bestCache.clear();
-  }
-
-  /**
-   * Draws a sprite, using a cached off-screen canvas if available.
-   */
-  drawCached(
-    entity: VectorEntity,
-    ctx: CanvasRenderingContext2D,
-    ts: number,
-    t: number,
-    p: ColorPalette,
-    vibe: VibeState
-  ): void {
-    // Only cache static or semi-static sprites. 
-    // If it has complex animations (t-dependence), we might skip caching or accept stutter.
-    // For now, let's cache based on discrete TS and a simplified t (e.g. rounded to 0.1s for some animation).
-    
-    const cacheKey = `${entity.id}:${Math.floor(ts)}:${p.grass}`; // Simplified key
-    let cachedCanvas = this._renderCache.get(cacheKey);
-
-    if (!cachedCanvas) {
-      if (typeof document === 'undefined') return;
-      cachedCanvas = document.createElement('canvas');
-      cachedCanvas.width = Math.ceil(ts) + 2;
-      cachedCanvas.height = Math.ceil(ts) + 2;
-      const cctx = cachedCanvas.getContext('2d')!;
-      
-      // Draw into the off-screen canvas
-      entity.draw(cctx, ts, t, p, vibe);
-
-      if (this._renderCache.size >= this.MAX_CACHE_SIZE) {
-        // Enforce LRU-ish behavior: clear the oldest entry
-        const firstKey = this._renderCache.keys().next().value;
-        if (firstKey !== undefined) this._renderCache.delete(firstKey);
-      }
-      this._renderCache.set(cacheKey, cachedCanvas);
-    }
-
-    ctx.drawImage(cachedCanvas, 0, 0);
   }
 
   /**
@@ -114,7 +69,6 @@ export class SpriteRegistry {
     if (!type) return undefined;
 
     // Use a hash for vibe to avoid excessive scoring runs.
-    // egalitarian, green, planned are roughly [-1, 1], so round to one decimal for stability.
     const vibeHash = `${vibe.egalitarian.toFixed(1)}:${vibe.green.toFixed(1)}:${vibe.planned.toFixed(1)}:${vibe.isNight ? 'N' : 'D'}`;
     const cacheKey = `${type}:${vibeHash}:${lotId}`;
     const cached = this._bestCache.get(cacheKey);
