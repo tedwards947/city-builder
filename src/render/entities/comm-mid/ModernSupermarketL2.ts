@@ -16,17 +16,6 @@ export const ModernSupermarketL2: VectorEntity = {
     // 1. Foundation / Large Parking Area
     ctx.fillStyle = '#3a3a3a';
     ctx.fillRect(0, Math.floor(ts * 0.75), ts, Math.floor(ts * 0.25));
-    
-    // Shopping Cart Corral (Parking lot detail)
-    ctx.strokeStyle = '#cbd5e0';
-    ctx.lineWidth = 1;
-    const cx = Math.floor(ts * 0.15);
-    const cy = Math.floor(ts * 0.82);
-    ctx.strokeRect(cx, cy, Math.floor(s * 2.5), Math.floor(s * 1.2));
-    ctx.fillStyle = '#718096';
-    for (let i = 0; i < 3; i++) {
-        ctx.fillRect(cx + 2 + i * 6, cy + 2, 4, Math.floor(s * 0.8));
-    }
 
     // 2. Main Market Structure
     const bw = ts - inset * 2;
@@ -54,29 +43,31 @@ export const ModernSupermarketL2: VectorEntity = {
     ctx.fillRect(bx - 4, by + Math.floor(s * 1.5), bw + 8, 2);
 
     // 5. Brand Sign (On overhanging roof)
-    ctx.fillStyle = '#ffffff';
-    const signW = Math.floor(bw * 0.6);
-    const signH = Math.floor(s * 1.5);
-    const sx = Math.floor(ts * 0.5 - signW / 2);
-    const sy = Math.floor(by + 1);
-    
-    // Auto-scaling text (50% rule)
-    const text = 'FRESH';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    let fontSize = Math.floor(s * 1.2);
-    const maxWidth = Math.floor(signW * 0.5);
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    let metrics = ctx.measureText(text);
-    
-    while (metrics.width > maxWidth && fontSize > 4) {
-        fontSize--;
+    if (ts > 20) {
+        ctx.fillStyle = '#ffffff';
+        const signW = Math.floor(bw * 0.6);
+        const signH = Math.floor(s * 1.5);
+        const sy = Math.floor(by + 1);
+        
+        // Auto-scaling text (50% rule)
+        const text = 'FRESH';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let fontSize = Math.floor(s * 1.2);
+        const maxWidth = Math.floor(signW * 0.5);
         ctx.font = `bold ${fontSize}px sans-serif`;
-        metrics = ctx.measureText(text);
+        let metrics = ctx.measureText(text);
+        
+        let limit = 0;
+        while (metrics.width > maxWidth && fontSize > 4 && limit++ < 100) {
+            fontSize--;
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            metrics = ctx.measureText(text);
+        }
+        
+        ctx.fillText(text, Math.floor(ts * 0.5), Math.floor(sy + signH / 2 + 1));
     }
-    
-    ctx.fillText(text, Math.floor(ts * 0.5), Math.floor(sy + signH / 2 + 1));
 
     // 6. Roof HVAC
     ctx.fillStyle = '#a0aec0';

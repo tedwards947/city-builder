@@ -86,9 +86,9 @@ export class TransitSystem {
       this._lastRoadSum    = rdSum;
     }
 
-    const rLoad      = this._rLoad;
-    const cLoad      = this._cLoad;
-    const iLoad      = this._iLoad;
+    const rLoad      = this._rLoad!;
+    const cLoad      = this._cLoad!;
+    const iLoad      = this._iLoad!;
     const visitedGen = this._visitedGen!;
     const queue      = this._queue!;
     const qdepth     = this._qdepth!;
@@ -143,7 +143,10 @@ export class TransitSystem {
         if (tail === 0) continue; // zone has no adjacent road → contributes nothing
 
         // BFS expansion
-        while (head < tail) {
+        let limit = 0;
+        const maxLimit = 1000000;
+        while (head < tail && limit < maxLimit) {
+          limit++;
           const cur = queue[head];
           const d   = qdepth[head];
           head++;
@@ -155,19 +158,28 @@ export class TransitSystem {
           const nd  = d + 1;
           const nw  = 1 - nd / Rp1;
 
-          const nb0 = cx > 0        ? cur - 1      : -1;
-          const nb1 = cx < width-1  ? cur + 1      : -1;
-          const nb2 = cy > 0        ? cur - width  : -1;
-          const nb3 = cy < height-1 ? cur + width  : -1;
+          const checkAndEnqueue = (ni: number) => {
+            if (ni >= 0 && roadClass[ni] !== ROAD_NONE && visitedGen[ni] !== gen) {
+              if (tail < queue.length) {
+                visitedGen[ni] = gen;
+                queue[tail]    = ni;
+                qdepth[tail]   = nd;
+                tail++;
+                totalWeight   += nw;
+              } else {
+                console.error('TransitSystem queue overflow at', ni);
+              }
+            }
+          };
 
-          for (const nb of [nb0, nb1, nb2, nb3]) {
-            if (nb < 0 || roadClass[nb] === ROAD_NONE || visitedGen[nb] === gen) continue;
-            visitedGen[nb] = gen;
-            queue[tail]    = nb;
-            qdepth[tail]   = nd;
-            tail++;
-            totalWeight   += nw;
-          }
+          if (cx > 0)        checkAndEnqueue(cur - 1);
+          if (cx < width-1)  checkAndEnqueue(cur + 1);
+          if (cy > 0)        checkAndEnqueue(cur - width);
+          if (cy < height-1) checkAndEnqueue(cur + width);
+        }
+
+        if (limit >= maxLimit) {
+          console.warn(`TransitSystem BFS limit reached for zone at ${zx},${zy}. Access calculations may be incomplete.`);
         }
 
         if (totalWeight === 0) continue;

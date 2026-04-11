@@ -47,36 +47,39 @@ export const BigBoxStoreL2: VectorEntity = {
     ctx.fillRect(ex + Math.floor(ew * 0.3), ey + Math.floor(eh * 0.6), Math.floor(ew * 0.4), Math.floor(eh * 0.4));
 
     // 4. Brand Sign (On blue block)
-    ctx.fillStyle = '#ffffff';
-    const sw = Math.floor(ew * 0.8);
-    const sh = Math.floor(eh * 0.3); // Clear horizontal rectangle
-    const sx = Math.floor(ts * 0.5 - sw / 2);
-    const sy = Math.floor(ey + eh * 0.15);
-    
-    ctx.fillRect(sx, sy, sw, sh);
-    ctx.strokeStyle = '#1a202c';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx, sy, sw, sh);
-    
-    // Text with robust scaling (50% rule)
-    const text = 'MEGA';
-    ctx.fillStyle = '#000';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    let fontSize = Math.floor(sh * 0.6); // Start relative to sign height
-    const maxWidth = Math.floor(sw * 0.5); // Strict 50% width rule
-    
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    let metrics = ctx.measureText(text);
-    
-    while (metrics.width > maxWidth && fontSize > 4) {
-        fontSize--;
+    if (ts > 20) {
+        ctx.fillStyle = '#ffffff';
+        const sw = Math.floor(ew * 0.8);
+        const sh = Math.floor(eh * 0.3); // Clear horizontal rectangle
+        const sx = Math.floor(ts * 0.5 - sw / 2);
+        const sy = Math.floor(ey + eh * 0.15);
+        
+        ctx.fillRect(sx, sy, sw, sh);
+        ctx.strokeStyle = '#1a202c';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx, sy, sw, sh);
+        
+        // Text with robust scaling (50% rule)
+        const text = 'MEGA';
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        let fontSize = Math.floor(sh * 0.6); // Start relative to sign height
+        const maxWidth = Math.floor(sw * 0.5); // Strict 50% width rule
+        
         ctx.font = `bold ${fontSize}px sans-serif`;
-        metrics = ctx.measureText(text);
+        let metrics = ctx.measureText(text);
+        
+        let limit = 0;
+        while (metrics.width > maxWidth && fontSize > 4 && limit++ < 100) {
+            fontSize--;
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            metrics = ctx.measureText(text);
+        }
+        
+        ctx.fillText(text, Math.floor(ts * 0.5), Math.floor(sy + sh / 2 + 1));
     }
-    
-    ctx.fillText(text, Math.floor(ts * 0.5), Math.floor(sy + sh / 2 + 1));
 
     // 5. Roof HVAC Units
     ctx.fillStyle = '#718096';

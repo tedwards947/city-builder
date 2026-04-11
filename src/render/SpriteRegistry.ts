@@ -9,6 +9,9 @@ export class SpriteRegistry {
   private static _instance: SpriteRegistry;
   private _entities: Map<string, VectorEntity> = new Map();
   private _byType: Map<string, string[]> = new Map();
+  
+  // Cache for findBest results: Map<"type:vibeHash", VectorEntity[]>
+  private _bestCache: Map<string, VectorEntity[]> = new Map();
 
   static get instance(): SpriteRegistry {
     if (!this._instance) this._instance = new SpriteRegistry();
@@ -25,6 +28,14 @@ export class SpriteRegistry {
       this._byType.set(entity.type, []);
     }
     this._byType.get(entity.type)!.push(entity.id);
+    this._bestCache.clear();
+  }
+
+  /**
+   * Clears the findBest cache.
+   */
+  clearCache(): void {
+    this._bestCache.clear();
   }
 
   /**
@@ -55,39 +66,51 @@ export class SpriteRegistry {
    * Uses the Lot ID (visualVariant) as a deterministic tie-breaker.
    */
   findBest(type: string, vibe: VibeState, lotId: number): VectorEntity | undefined {
-    const options = this.getEntitiesByType(type);
-    if (options.length === 0) return undefined;
+    if (!type) return undefined;
 
-    // Score each option based on vibe matching
-    const scored = options.map(entity => {
-      let score = 0;
-      
-      // Match Green vs Industrial
-      if (vibe.green > 0.3 && entity.tags.includes('green')) score += 10;
-      if (vibe.green < -0.3 && entity.tags.includes('industrial')) score += 10;
-      
-      // Match Egalitarian vs Laissez-faire
-      if (vibe.egalitarian > 0.3 && entity.tags.includes('egalitarian')) score += 10;
-      if (vibe.egalitarian < -0.3 && entity.tags.includes('corporate')) score += 10;
-      
-      // Match Planned vs Organic
-      if (vibe.planned > 0.3 && entity.tags.includes('planned')) score += 10;
-      if (vibe.planned < -0.3 && entity.tags.includes('organic')) score += 10;
+    // Use a hash for vibe to avoid excessive scoring runs.
+    const vibeHash = `${vibe.egalitarian.toFixed(1)}:${vibe.green.toFixed(1)}:${vibe.planned.toFixed(1)}:${vibe.isNight ? 'N' : 'D'}`;
+    const cacheKey = `${type}:${vibeHash}`;
+    
+    let bestOptions = this._bestCache.get(cacheKey);
 
-      // Handle "Neutral" or generic sprites
-      if (entity.tags.includes('neutral')) score += 1;
+    if (!bestOptions) {
+      const options = this.getEntitiesByType(type);
+      if (options.length === 0) return undefined;
 
-      return { entity, score };
-    });
+      // Score each option based on vibe matching
+      const scored = options.map(entity => {
+        let score = 0;
+        
+        // Match Green vs Industrial
+        if (vibe.green > 0.3 && entity.tags.includes('green')) score += 10;
+        if (vibe.green < -0.3 && entity.tags.includes('industrial')) score += 10;
+        
+        // Match Egalitarian vs Laissez-faire
+        if (vibe.egalitarian > 0.3 && entity.tags.includes('egalitarian')) score += 10;
+        if (vibe.egalitarian < -0.3 && entity.tags.includes('corporate')) score += 10;
+        
+        // Match Planned vs Organic
+        if (vibe.planned > 0.3 && entity.tags.includes('planned')) score += 10;
+        if (vibe.planned < -0.3 && entity.tags.includes('organic')) score += 10;
 
-    // Find highest score
-    let maxScore = -Infinity;
-    scored.forEach(s => { if (s.score > maxScore) maxScore = s.score; });
+        // Handle "Neutral" or generic sprites
+        if (entity.tags.includes('neutral')) score += 1;
 
-    // Collect all entities with the max score
-    const bestOptions = scored
-      .filter(s => s.score === maxScore)
-      .map(s => s.entity);
+        return { entity, score };
+      });
+
+      // Find highest score
+      let maxScore = -Infinity;
+      scored.forEach(s => { if (s.score > maxScore) maxScore = s.score; });
+
+      // Collect all entities with the max score
+      bestOptions = scored
+        .filter(s => s.score === maxScore)
+        .map(s => s.entity);
+
+      this._bestCache.set(cacheKey, bestOptions);
+    }
 
     // Use Lot ID to pick deterministically from the best matches
     return bestOptions[lotId % bestOptions.length];

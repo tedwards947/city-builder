@@ -23,8 +23,8 @@ export interface VectorEntity {
   
   /** Searchable/filterable tags for vibe matching */
   readonly tags: string[];
-  
-  /** 
+
+  /**
    * Main drawing function.
    * @param ctx - The canvas context to draw into.
    * @param ts - Current tile size in pixels (scaled by zoom).

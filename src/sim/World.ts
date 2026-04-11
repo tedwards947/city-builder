@@ -111,6 +111,7 @@ export class World {
   buildings: BuildingEntity[];
   readonly events: EventBus;
   roadNetDirty: boolean;
+  private _fireCount = 0;
 
   constructor(width: number, height: number, seed = 1, terrainOptions: TerrainOptions = {}) {
     this.grid = new Grid(width, height);
@@ -306,6 +307,22 @@ export class World {
   getDevLevel(tx: number, ty: number): number { return this.layers.devLevel[this.grid.idx(tx, ty)]; }
   isPowered(tx: number, ty: number):   boolean { return this.layers.power[this.grid.idx(tx, ty)] !== 0; }
 
+  get fireCount(): number { return this._fireCount; }
+  get hasFires(): boolean { return this._fireCount > 0; }
+
+  /**
+   * Recomputes the fireCount by scanning the entire fire layer.
+   * Call this after bulk loading or deserialization.
+   */
+  recomputeFireCount(): void {
+    let count = 0;
+    const fire = this.layers.fire;
+    for (let i = 0; i < fire.length; i++) {
+      if (fire[i] > 0) count++;
+    }
+    this._fireCount = count;
+  }
+
   isBuildable(tx: number, ty: number): boolean {
     if (!this.grid.inBounds(tx, ty)) return false;
     if (this.getTerrain(tx, ty) === TERRAIN_WATER) return false;
@@ -362,6 +379,22 @@ export class World {
     this.buildings.push({ tx, ty, kind: b });
     this.grid.markDirty(tx, ty);
     return true;
+  }
+
+  setFire(tx: number, ty: number, v: number): void {
+    if (!this.grid.inBounds(tx, ty)) return;
+    const i = this.grid.idx(tx, ty);
+    const prev = this.layers.fire[i];
+    const next = Math.max(0, Math.min(255, Math.floor(v)));
+    this.layers.fire[i] = next;
+    
+    if (prev === 0 && next > 0) {
+      this._fireCount++;
+    } else if (prev > 0 && next === 0) {
+      this._fireCount--;
+    }
+    
+    this.grid.markDirty(tx, ty);
   }
 
   clearTile(tx: number, ty: number): boolean {

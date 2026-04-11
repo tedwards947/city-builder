@@ -91,14 +91,16 @@ export function drawBaseHouse(
   // Roof
   ctx.fillStyle = roofColor;
   if (opts.roofStyle === 'pagoda') {
+    const rh = Math.max(1, s * 1.5);
     ctx.beginPath();
-    ctx.moveTo(bx - 3, by);
-    ctx.quadraticCurveTo(bx + bw / 2, inset - 5, bx + bw + 3, by);
-    ctx.lineTo(bx + bw + 1, by - 2);
-    ctx.quadraticCurveTo(bx + bw / 2, inset, bx - 1, by - 2);
+    ctx.moveTo(bx - s * 0.3, by);
+    ctx.quadraticCurveTo(bx + bw / 2, by - rh * 1.5, bx + bw + s * 0.3, by);
+    ctx.lineTo(bx + bw + s * 0.1, by - s * 0.2);
+    ctx.quadraticCurveTo(bx + bw / 2, by - rh, bx - s * 0.1, by - s * 0.2);
     ctx.fill();
   } else if (opts.roofStyle === 'flat') {
-    ctx.fillRect(bx - 1, by - 2, bw + 2, 3);
+    const rh = Math.max(1, s * 0.3);
+    ctx.fillRect(bx - s * 0.1, by - rh, bw + s * 0.2, rh + 1);
   } else if (opts.roofStyle === 'a-frame') {
     ctx.beginPath();
     ctx.moveTo(bx, ts - inset);
@@ -107,15 +109,16 @@ export function drawBaseHouse(
     ctx.fill();
   } else if (opts.roofStyle === 'slanted') {
     ctx.beginPath();
-    ctx.moveTo(bx - 1, by);
-    ctx.lineTo(bx + bw + 1, by - s * 2);
-    ctx.lineTo(bx + bw + 1, by);
+    ctx.moveTo(bx - s * 0.1, by);
+    ctx.lineTo(bx + bw + s * 0.1, by - s * 2);
+    ctx.lineTo(bx + bw + s * 0.1, by);
     ctx.fill();
   } else {
+    // Pitched
     ctx.beginPath();
-    ctx.moveTo(bx - 2, by);
+    ctx.moveTo(bx - s * 0.2, by);
     ctx.lineTo(bx + bw / 2, inset);
-    ctx.lineTo(bx + bw + 2, by);
+    ctx.lineTo(bx + bw + s * 0.2, by);
     ctx.fill();
   }
 
@@ -202,19 +205,20 @@ export function drawL2House(
   // Roof
   ctx.fillStyle = roofColor;
   if (opts.roofStyle === 'flat') {
-    ctx.fillRect(bx - 2, by - 2, bw + 4, 4);
+    const rh = Math.max(1, s * 0.4);
+    ctx.fillRect(bx - s * 0.2, by - rh, bw + s * 0.4, rh + 1);
   } else if (opts.roofStyle === 'mansard') {
     ctx.beginPath();
-    ctx.moveTo(bx - 2, by);
+    ctx.moveTo(bx - s * 0.2, by);
     ctx.lineTo(bx + s, by - s * 2);
     ctx.lineTo(bx + bw - s, by - s * 2);
-    ctx.lineTo(bx + bw + 2, by);
+    ctx.lineTo(bx + bw + s * 0.2, by);
     ctx.fill();
   } else {
     ctx.beginPath();
-    ctx.moveTo(bx - 4, by);
+    ctx.moveTo(bx - s * 0.4, by);
     ctx.lineTo(bx + bw / 2, by - storyH * 0.6);
-    ctx.lineTo(bx + bw + 4, by);
+    ctx.lineTo(bx + bw + s * 0.4, by);
     ctx.fill();
   }
 
@@ -290,23 +294,26 @@ export function drawL3House(
   // Elaborate Roof
   ctx.fillStyle = roofColor;
   if (opts.roofStyle === 'flat') {
-    ctx.fillRect(bx - 4, by - 3, bw + 8, 5);
+    const rh = Math.max(1, s * 0.5);
+    ctx.fillRect(bx - s * 0.4, by - rh, bw + s * 0.8, rh + 1);
     // Helipad or roof garden detail
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.fillRect(bx + bw * 0.2, by - 3, bw * 0.6, 1);
+    if (ts > 20) {
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(bx + bw * 0.2, by - rh, bw * 0.6, 1);
+    }
   } else if (opts.roofStyle === 'mansard') {
     ctx.beginPath();
-    ctx.moveTo(bx - 4, by);
+    ctx.moveTo(bx - s * 0.4, by);
     ctx.lineTo(bx + s * 2, by - s * 3);
     ctx.lineTo(bx + bw - s * 2, by - s * 3);
-    ctx.lineTo(bx + bw + 4, by);
+    ctx.lineTo(bx + bw + s * 0.4, by);
     ctx.fill();
   } else {
     // Grand pitched roof with trim
     ctx.beginPath();
-    ctx.moveTo(bx - 6, by);
+    ctx.moveTo(bx - s * 0.6, by);
     ctx.lineTo(bx + bw / 2, by - storyH);
-    ctx.lineTo(bx + bw + 6, by);
+    ctx.lineTo(bx + bw + s * 0.6, by);
     ctx.fill();
   }
 

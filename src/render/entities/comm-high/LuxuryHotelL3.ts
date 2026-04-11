@@ -46,24 +46,26 @@ export const LuxuryHotelL3: VectorEntity = {
     ctx.fillRect(bx + Math.floor(s) + 4, by2 + 4, bw - Math.floor(s * 2) - 8, Math.floor(bh2 * 0.6));
     ctx.fillRect(bx + Math.floor(s * 2) + 4, by3 + 4, bw - Math.floor(s * 4) - 8, Math.floor(bh3 * 0.6));
 
-    // 4. Rooftop Helipad
-    const hx = ts * 0.5;
-    const hy = ts * 0.05;
-    ctx.fillStyle = '#4a5568';
-    ctx.beginPath();
-    ctx.arc(hx, hy, s * 1.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(hx, hy, s * 1.2, 0, Math.PI * 2);
-    ctx.stroke();
-    // "H" letter
-    ctx.font = `bold ${Math.floor(s)}px sans-serif`;
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('H', hx, hy);
+    // 4. Rooftop Helipad (Performance Guard)
+    if (ts > 20) {
+        const hx = Math.floor(ts * 0.5);
+        const hy = Math.floor(ts * 0.05);
+        ctx.fillStyle = '#4a5568';
+        ctx.beginPath();
+        ctx.arc(hx, hy, s * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(hx, hy, s * 1.2, 0, Math.PI * 2);
+        ctx.stroke();
+        // "H" letter
+        ctx.font = `bold ${Math.floor(s)}px sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('H', hx, hy);
+    }
 
     // 5. Grand Entrance (Lit, Centered, Touches base)
     const ew = Math.floor(bw * 0.4); // Lit marquee/canopy
@@ -78,7 +80,7 @@ export const LuxuryHotelL3: VectorEntity = {
     const dw = Math.floor(ew * 0.35);
     const dh = Math.floor(eh * 0.7);
     const dx = Math.floor(ts * 0.5 - dw / 2);
-    const dy = Math.floor(ts * 0.85 - dh); // Aligned to foundation at 0.85ts
+    const dy = Math.floor(ts * 0.85 - dh);
     
     ctx.fillStyle = '#2d3748';
     ctx.fillRect(dx, dy, dw, dh);

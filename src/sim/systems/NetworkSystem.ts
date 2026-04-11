@@ -25,26 +25,32 @@ export class NetworkSystem {
         let head = 0, tail = 0;
         queue[tail++] = start;
         roadNet[start] = id;
-        while (head < tail) {
+        let limit = 0;
+        const maxLimit = 1000000;
+        while (head < tail && limit < maxLimit) {
+          limit++;
           const cur = queue[head++];
           const cx = cur % width;
           const cy = (cur - cx) / width;
-          if (cx > 0) {
-            const n = cur - 1;
-            if (roadClass[n] !== ROAD_NONE && roadNet[n] === 0) { roadNet[n] = id; queue[tail++] = n; }
-          }
-          if (cx < width - 1) {
-            const n = cur + 1;
-            if (roadClass[n] !== ROAD_NONE && roadNet[n] === 0) { roadNet[n] = id; queue[tail++] = n; }
-          }
-          if (cy > 0) {
-            const n = cur - width;
-            if (roadClass[n] !== ROAD_NONE && roadNet[n] === 0) { roadNet[n] = id; queue[tail++] = n; }
-          }
-          if (cy < height - 1) {
-            const n = cur + width;
-            if (roadClass[n] !== ROAD_NONE && roadNet[n] === 0) { roadNet[n] = id; queue[tail++] = n; }
-          }
+          
+          const checkAndEnqueue = (ni: number) => {
+            if (roadClass[ni] !== ROAD_NONE && roadNet[ni] === 0) {
+              if (tail < queue.length) {
+                roadNet[ni] = id;
+                queue[tail++] = ni;
+              } else {
+                console.error('NetworkSystem queue overflow at', ni);
+              }
+            }
+          };
+
+          if (cx > 0) checkAndEnqueue(cur - 1);
+          if (cx < width - 1) checkAndEnqueue(cur + 1);
+          if (cy > 0) checkAndEnqueue(cur - width);
+          if (cy < height - 1) checkAndEnqueue(cur + width);
+        }
+        if (limit >= maxLimit) {
+          console.warn(`NetworkSystem BFS limit reached for network ${id} starting at ${start}. Network may be incomplete.`);
         }
       }
     }
