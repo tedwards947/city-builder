@@ -108,7 +108,7 @@ export function drawStorefront(
   }
 
   // 6. Signage
-  if (opts.hasSign && opts.signKey) {
+  if (opts.hasSign && opts.signKey && ts > 40) {
     const signW = bw * 0.95;
     const signH = s * 2.5;
     const sx = bx + bw * 0.025;
@@ -121,28 +121,27 @@ export function drawStorefront(
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, signW, signH);
 
-    if (ts > 12) {
-      const text = t(opts.signKey);
-      ctx.fillStyle = '#000';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Maximum-fit Text Scaling (Force smaller overall look)
-      let fontSize = Math.floor(s * 1.1); // Reduced starting size from 1.8s
-      const maxWidth = signW * 0.5; // Strictly limit to 50% width for generous padding
-      
+    const text = t(opts.signKey);
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Maximum-fit Text Scaling (Force smaller overall look)
+    let fontSize = Math.floor(s * 1.1); // Reduced starting size from 1.8s
+    const maxWidth = signW * 0.5; // Strictly limit to 50% width for generous padding
+    
+    ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
+    let metrics = ctx.measureText(text);
+    
+    // Scale down until it fits the very restrictive maxWidth
+    let limit = 0;
+    while (metrics.width > maxWidth && fontSize > 4 && limit++ < 100) {
+      fontSize--;
       ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
-      let metrics = ctx.measureText(text);
-      
-      // Scale down until it fits the very restrictive maxWidth
-      while (metrics.width > maxWidth && fontSize > 4) {
-        fontSize--;
-        ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
-        metrics = ctx.measureText(text);
-      }
-      
-      ctx.fillText(text, bx + bw / 2, sy + signH / 2 + 1);
+      metrics = ctx.measureText(text);
     }
+    
+    ctx.fillText(text, bx + bw / 2, sy + signH / 2 + 1);
   }
 
   // 7. Door with Frame
@@ -199,38 +198,41 @@ function drawGasStation(
   ctx.stroke();
 
   // 5. Price Sign on Pole (Fixed text scaling)
-  ctx.fillStyle = '#222';
-  ctx.fillRect(ts - s * 2, s * 1, s * 0.4, s * 8);
-  ctx.fillStyle = accent;
-  const signW = Math.floor(s * 5.5); // Increased from s * 4
-  const signH = Math.floor(s * 3.5);
-  const sx = ts - signW - 2;
-  const sy = Math.floor(s * 1);
-  ctx.fillRect(sx, sy, signW, signH);
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(sx, sy, signW, signH);
-  
-  if (ts > 15 && opts.signKey) {
-    const text = t(opts.signKey);
-    ctx.fillStyle = '#000';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    // Dynamic scaling for gas station sign
-    let fontSize = Math.floor(s * 1.0); // Reduced starting size
-    const maxWidth = signW * 0.5; // Force 50% max width for small, centered look
-    
-    ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
-    let metrics = ctx.measureText(text);
-    
-    while (metrics.width > maxWidth && fontSize > 4) {
-        fontSize--;
-        ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
-        metrics = ctx.measureText(text);
-    }
-    
-    ctx.fillText(text, sx + signW / 2, sy + signH / 2 + 1);
+  if (ts > 40) {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(ts - s * 2, s * 1, s * 0.4, s * 8);
+    ctx.fillStyle = accent;
+    const signW = Math.floor(s * 5.5); // Increased from s * 4
+    const signH = Math.floor(s * 3.5);
+    const sx = ts - signW - 2;
+    const sy = Math.floor(s * 1);
+    ctx.fillRect(sx, sy, signW, signH);
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx, sy, signW, signH);
 
+    if (opts.signKey) {
+        const text = t(opts.signKey);
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Dynamic scaling for gas station sign
+        let fontSize = Math.floor(s * 1.0); // Reduced starting size
+        const maxWidth = signW * 0.5; // Force 50% max width for small, centered look
+
+        ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
+        let metrics = ctx.measureText(text);
+
+        let limit = 0;
+        while (metrics.width > maxWidth && fontSize > 4 && limit++ < 100) {
+            fontSize--;
+            ctx.font = getFontWithStyle(fontSize, opts.fontStyle);
+            metrics = ctx.measureText(text);
+        }
+
+        ctx.fillText(text, sx + signW / 2, sy + signH / 2 + 1);
+    }
   }
 }
+

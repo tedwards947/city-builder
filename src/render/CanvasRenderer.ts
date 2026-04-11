@@ -63,6 +63,8 @@ export class CanvasRenderer {
   }
 
   render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+    if (camera.zoom < 0.1) return;
+
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
     ctx.fillStyle = '#0d1b2a';
@@ -76,23 +78,27 @@ export class CanvasRenderer {
       isNight: false,
     };
     const bounds = camera.visibleTileBounds(world.grid);
+
     const ts = TILE_SIZE * camera.zoom;
     const tsi = Math.ceil(ts) + 1;
 
-    if (world.tick !== this._lastTick) {
-      this._lastTick = world.tick;
-      world.grid.markAllDirty();
-    }
-    if (camera.zoom !== this._lastZoom) {
+    // Only invalidate all chunks if zoom changes significantly (> 1%)
+    if (Math.abs(camera.zoom - this._lastZoom) > 0.01) {
       this._lastZoom = camera.zoom;
-      this._chunkCtxs.fill(undefined);
-      this._chunkCanvases.fill(null);
       world.grid.markAllDirty();
     }
     const totalChunks = world.grid.chunkCols * world.grid.chunkRows;
     if (totalChunks !== this._lastChunkCount) {
-      this._chunkCanvases = new Array(totalChunks).fill(null);
-      this._chunkCtxs = new Array(totalChunks).fill(undefined);
+      if (this._chunkCanvases.length > totalChunks) {
+        this._chunkCanvases.length = totalChunks;
+        this._chunkCtxs.length = totalChunks;
+      } else {
+        let limit = 0;
+        while (this._chunkCanvases.length < totalChunks && limit++ < 10000) {
+          this._chunkCanvases.push(null);
+          this._chunkCtxs.push(undefined);
+        }
+      }
       this._lastChunkCount = totalChunks;
       world.grid.markAllDirty();
     }
@@ -120,34 +126,42 @@ export class CanvasRenderer {
         if (chunkCanvas === null) continue;
         const dstX = Math.floor(camera.worldToScreenX(cx * CHUNK_PX));
         const dstY = Math.floor(camera.worldToScreenY(cy * CHUNK_PX));
+        ctx.globalAlpha = 1.0;
+        ctx.imageSmoothingEnabled = false;
         ctx.drawImage(chunkCanvas, dstX, dstY);
       }
     }
 
-    const hasPerFrameWork = trafficOverlay || crimeOverlay || fireOverlay;
+    const hasOverlay = trafficOverlay || crimeOverlay || fireOverlay;
+    let iterations = 0;
+
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
       for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
+        iterations++;
         const i = world.grid.idx(tx, ty);
-        const road       = world.layers.roadClass[i];
+
+        const zone       = world.layers.zone[i];
+        const building   = world.layers.building[i];
         const fireV      = world.layers.fire[i];
+
+        // Skip entirely empty tiles to save CPU
+        if (zone === ZONE_NONE && building === BUILDING_NONE && fireV === 0 && !hasOverlay) continue;
+
+        const road       = world.layers.roadClass[i];
         const fireRiskV  = world.layers.fireRisk[i];
         const crimeV     = world.layers.crime[i];
-        const terrain    = world.layers.terrain[i];
         const congestion = world.layers.congestion[i];
-        const zone       = world.layers.zone[i];
         const dev        = world.layers.devLevel[i];
-        const building   = world.layers.building[i];
         const visualVariant = world.layers.visualVariant[i];
-
-        const spriteKey = this._getSpriteKey(zone, building, dev);
-        const sprite = SpriteRegistry.instance.findBest(spriteKey, vibe, visualVariant);
-
-        if (!hasPerFrameWork && fireV === 0 && (road === ROAD_NONE || congestion <= 15 || ts <= 10) && !sprite) continue;
 
         const sx  = camera.worldToScreenX(Projection.tileToWorldX(tx));
         const sy  = camera.worldToScreenY(Projection.tileToWorldY(ty));
         const sxi = Math.floor(sx);
         const syi = Math.floor(sy);
+
+        // 1. Draw Sprite (Buildings/Houses)
+        const spriteKey = this._getSpriteKey(zone, building, dev);
+        const sprite = SpriteRegistry.instance.findBest(spriteKey, vibe, visualVariant);
 
         if (sprite) {
           ctx.save();
@@ -156,6 +170,7 @@ export class CanvasRenderer {
           ctx.restore();
         }
 
+        // 2. Draw Overlays
         if (trafficOverlay && road !== ROAD_NONE) {
           const t = congestion / 255;
           let r: number, g: number;
@@ -183,11 +198,8 @@ export class CanvasRenderer {
         if (fireV > 0) {
           this._drawFire(ctx, sxi, syi, tsi, ts, now);
         }
-
-        if (!trafficOverlay && ts > 10 && road !== ROAD_NONE && congestion > 15) {
-          this._drawRoadVehicles(ctx, world, tx, ty, sxi, syi, ts, congestion, now);
-        }
       }
+      if (iterations > 100000) break;
     }
 
     if (camera.zoom >= 1.2) {
@@ -303,20 +315,27 @@ export class CanvasRenderer {
   }
 
   private _getOrCreateChunkCtx(chunkId: number, ts: number): CanvasRenderingContext2D | null {
-    const existing = this._chunkCtxs[chunkId];
-    if (existing !== undefined) return existing;
-    if (typeof document === 'undefined') {
-      this._chunkCtxs[chunkId] = null;
-      return null;
+    let canvas = this._chunkCanvases[chunkId];
+    let ctx = this._chunkCtxs[chunkId];
+
+    if (!canvas) {
+      if (typeof document === 'undefined') return null;
+      canvas = document.createElement('canvas');
+      this._chunkCanvases[chunkId] = canvas;
+      ctx = canvas.getContext('2d');
+      this._chunkCtxs[chunkId] = ctx;
     }
-    const canvas = document.createElement('canvas');
-    const chunkSizePx = Math.ceil(CHUNK_SIZE * ts) + 1;
-    canvas.width = chunkSizePx;
-    canvas.height = chunkSizePx;
-    const ctx = canvas.getContext('2d');
-    this._chunkCanvases[chunkId] = ctx !== null ? canvas : null;
-    this._chunkCtxs[chunkId] = ctx;
-    return ctx;
+
+    let chunkSizePx = Math.ceil(CHUNK_SIZE * ts) + 1;
+    if (ts < 2.0) {
+      chunkSizePx = Math.max(chunkSizePx, CHUNK_SIZE * 2);
+    }
+    if (canvas.width !== chunkSizePx || canvas.height !== chunkSizePx) {
+      canvas.width = chunkSizePx;
+      canvas.height = chunkSizePx;
+    }
+
+    return ctx || null;
   }
 
   private _renderChunk(
@@ -327,11 +346,34 @@ export class CanvasRenderer {
     ts: number,
     vibe: VibeState,
   ): void {
-    const chunkSizePx = Math.ceil(CHUNK_SIZE * ts) + 1;
-    chunkCtx.clearRect(0, 0, chunkSizePx, chunkSizePx);
-    const tsi = Math.ceil(ts) + 1;
+    const drawnSize = Math.ceil(CHUNK_SIZE * ts) + 1;
+    chunkCtx.clearRect(0, 0, chunkCtx.canvas.width, chunkCtx.canvas.height);
+    chunkCtx.globalAlpha = 1.0;
+    chunkCtx.imageSmoothingEnabled = false;
+
+    // Fill background with a base color to avoid gaps between tiles
+    chunkCtx.fillStyle = p.grass;
+    chunkCtx.fillRect(0, 0, drawnSize, drawnSize);
+
     const tileX0 = cx * CHUNK_SIZE;
     const tileY0 = cy * CHUNK_SIZE;
+
+    for (let ty = tileY0; ty < tileY0 + CHUNK_SIZE && ty < world.grid.height; ty++) {
+      for (let tx = tileX0; tx < tileX0 + CHUNK_SIZE && tx < world.grid.width; tx++) {
+        const i = world.grid.idx(tx, ty);
+        const terrain    = world.layers.terrain[i];
+        
+        // Only draw non-grass terrain since we already filled with grass
+        if (terrain !== TERRAIN_GRASS) {
+          const sxi = Math.floor((tx - tileX0) * ts);
+          const syi = Math.floor((ty - tileY0) * ts);
+          const exi = Math.floor((tx + 1 - tileX0) * ts);
+          const eyi = Math.floor((ty + 1 - tileY0) * ts);
+          chunkCtx.fillStyle = terrain === TERRAIN_WATER ? p.water : p.sand;
+          chunkCtx.fillRect(sxi, syi, exi - sxi, eyi - syi);
+        }
+      }
+    }
 
     for (let ty = tileY0; ty < tileY0 + CHUNK_SIZE && ty < world.grid.height; ty++) {
       for (let tx = tileX0; tx < tileX0 + CHUNK_SIZE && tx < world.grid.width; tx++) {
@@ -355,14 +397,13 @@ export class CanvasRenderer {
 
         const sxi = Math.floor((tx - tileX0) * ts);
         const syi = Math.floor((ty - tileY0) * ts);
-
-        chunkCtx.fillStyle = terrain === TERRAIN_GRASS ? p.grass : terrain === TERRAIN_WATER ? p.water : p.sand;
-        chunkCtx.fillRect(sxi, syi, tsi, tsi);
+        const tsi = Math.ceil(ts) + 1;
 
         const spriteKey = this._getSpriteKey(zone, building, dev);
         const sprite = SpriteRegistry.instance.findBest(spriteKey, vibe, visualVariant);
 
         if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
+
           this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, p);
         }
 
@@ -522,10 +563,10 @@ export class CanvasRenderer {
 
   private _drawFire(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, now: number): void {
     const flicker = Math.sin(now * 0.015) * 0.3 + 0.7;
-    ctx.fillStyle = `rgba(255, 60, 0, ${flicker.toFixed(3)})`;
+    ctx.fillStyle = `rgba(255, 60, 0, ${flicker})`;
     ctx.fillRect(sxi, syi, tsi, tsi);
     if (ts > 8) {
-      ctx.fillStyle = `rgba(255, 200, 0, ${(flicker * 0.8).toFixed(3)})`;
+      ctx.fillStyle = `rgba(255, 200, 0, ${flicker * 0.8})`;
       const pad = ts * 0.2;
       ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
     }

@@ -56,22 +56,23 @@ export class FireSystem {
 
       // 2. Handle Existing Fires
       if (fire[i] > 0) {
+        const tx = i % width;
+        const ty = (i / width) | 0;
+
         // Fire station protection puts out fires faster
         if (fireStation[i] === 1) {
-          fire[i] = Math.max(0, fire[i] - 5);
+          world.setFire(tx, ty, Math.max(0, fire[i] - 5));
         } else {
-          fire[i]--;
+          world.setFire(tx, ty, fire[i] - 1);
         }
 
         if (fire[i] === 0) {
-          world.grid.markDirty(i % width, (i / width) | 0);
+          world.grid.markDirty(tx, ty);
         }
 
         // 3. Fire Spreading
         if (fire[i] > 0 && world.rng() < b.spreadProbability) {
           // Spread to a random neighbor (no array allocation).
-          const tx = i % width;
-          const ty = (i / width) | 0;
           const dir = Math.floor(world.rng() * 4);
           const ntx = dir === 0 ? tx - 1 : dir === 1 ? tx + 1 : tx;
           const nty = dir === 2 ? ty - 1 : dir === 3 ? ty + 1 : ty;
@@ -81,7 +82,7 @@ export class FireSystem {
             if (fire[ni] === 0 && (zone[ni] !== ZONE_NONE || building[ni] !== BUILDING_NONE)) {
               // If fire station covers it, spread is much less likely
               if (fireStation[ni] === 0 || world.rng() < b.fireStationEffectiveness) {
-                fire[ni] = b.burnDuration;
+                world.setFire(ntx, nty, b.burnDuration);
                 world.grid.markDirty(ntx, nty);
                 world.events.emit('fireSpreading', { tx: ntx, ty: nty });
               }
@@ -95,9 +96,9 @@ export class FireSystem {
       if (z !== ZONE_NONE && level > 0) {
         const ignitionProb = b.baseProbability * (fireRisk[i] / 20);
         if (world.rng() < ignitionProb) {
-          fire[i] = b.burnDuration;
           const itx = i % width;
           const ity = (i / width) | 0;
+          world.setFire(itx, ity, b.burnDuration);
           world.grid.markDirty(itx, ity);
           world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level });
         }

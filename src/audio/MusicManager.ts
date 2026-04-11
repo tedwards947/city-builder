@@ -65,11 +65,11 @@ export class MusicManager {
     if (!this.ctx) {
       const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioContextClass();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.connect(this.ctx.destination);
+      this.masterGain = this.ctx!.createGain();
+      this.masterGain.connect(this.ctx!.destination);
       this.masterGain.gain.value = 0.12; 
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx!.state === 'suspended') this.ctx!.resume();
   }
 
   public start() {
@@ -103,7 +103,8 @@ export class MusicManager {
 
   private scheduler() {
     // 0.5s lookahead: large enough that background tab throttling (setTimeout → ~1s) won't cause gaps
-    while (this.isPlaying && this.nextNoteTime < this.ctx!.currentTime + 0.5) {
+    let loopLimit = 0;
+    while (this.isPlaying && this.nextNoteTime < this.ctx!.currentTime + 0.5 && loopLimit++ < 50) {
       this.playPatternStep();
     }
     if (this.isPlaying) this.timerId = setTimeout(() => this.scheduler(), 25) as unknown as number;

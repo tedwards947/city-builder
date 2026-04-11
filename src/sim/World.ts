@@ -364,6 +364,21 @@ export class World {
     return true;
   }
 
+  setFire(tx: number, ty: number, v: number): void {
+    if (!this.grid.inBounds(tx, ty)) return;
+    const i = this.grid.idx(tx, ty);
+    const prev = this.layers.fire[i];
+    this.layers.fire[i] = v;
+    
+    if (prev === 0 && v > 0) {
+      this.grid.fireCount++;
+    } else if (prev > 0 && v === 0) {
+      this.grid.fireCount--;
+    }
+    
+    this.grid.markDirty(tx, ty);
+  }
+
   clearTile(tx: number, ty: number): boolean {
     if (!this.grid.inBounds(tx, ty)) return false;
     const i = this.grid.idx(tx, ty);

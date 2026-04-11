@@ -86,9 +86,9 @@ export class TransitSystem {
       this._lastRoadSum    = rdSum;
     }
 
-    const rLoad      = this._rLoad;
-    const cLoad      = this._cLoad;
-    const iLoad      = this._iLoad;
+    const rLoad      = this._rLoad!;
+    const cLoad      = this._cLoad!;
+    const iLoad      = this._iLoad!;
     const visitedGen = this._visitedGen!;
     const queue      = this._queue!;
     const qdepth     = this._qdepth!;
@@ -143,7 +143,8 @@ export class TransitSystem {
         if (tail === 0) continue; // zone has no adjacent road → contributes nothing
 
         // BFS expansion
-        while (head < tail) {
+        let limit = 0;
+        while (head < tail && limit++ < 1000000) {
           const cur = queue[head];
           const d   = qdepth[head];
           head++;

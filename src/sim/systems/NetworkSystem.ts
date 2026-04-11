@@ -25,7 +25,8 @@ export class NetworkSystem {
         let head = 0, tail = 0;
         queue[tail++] = start;
         roadNet[start] = id;
-        while (head < tail) {
+        let limit = 0;
+        while (head < tail && limit++ < 1000000) {
           const cur = queue[head++];
           const cx = cur % width;
           const cy = (cur - cx) / width;

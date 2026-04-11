@@ -17,17 +17,42 @@ export interface IndOptions {
 
 export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
   const smokeCount = 4;
-  ctx.fillStyle = 'rgba(80, 80, 80, 0.5)';
   for (let i = 0; i < smokeCount; i++) {
     const pt = (t * 0.3 + i / smokeCount) % 1.0;
     const alpha = 0.5 - pt * 0.5;
     const drift = Math.sin(t * 1.5 + i) * 4;
     ctx.beginPath();
     ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(100, 100, 100, 1.0)';
     ctx.arc(x + drift, y - pt * 20, 2 + pt * 5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1.0;
+}
+
+/**
+ * Draws a flickering flame for industrial flare stacks.
+ */
+export function drawRefineryFlame(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
+  const pulse = Math.sin(t * 10) * 2;
+  const flicker = Math.sin(t * 20) * 0.2 + 0.8;
+  
+  // Outer Glow
+  const grad = ctx.createRadialGradient(x, y, 1, x, y, 8 + pulse);
+  grad.addColorStop(0, 'rgba(255, 150, 0, 0.6)');
+  grad.addColorStop(1, 'rgba(255, 50, 0, 0)');
+  
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, 8 + pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Core Flame
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath();
+  ctx.moveTo(x - 2, y);
+  ctx.quadraticCurveTo(x, y - 10 - pulse, x + 2, y);
+  ctx.fill();
 }
 
 export function drawIndustrialBuilding(

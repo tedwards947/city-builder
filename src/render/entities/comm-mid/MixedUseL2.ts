@@ -37,14 +37,24 @@ export const MixedUseL2: VectorEntity = {
     // 4. Second Floor Office (Regular windows)
     const winW = Math.floor(bw / 4);
     const winH = Math.floor(bh * 0.25);
+    const winY = Math.floor(by + s);
+    
+    // Glass Pass
+    ctx.fillStyle = 'rgba(129, 212, 250, 0.4)';
     for (let i = 0; i < 3; i++) {
-        const wx = bx + Math.floor(s * 0.5) + i * (winW + Math.floor(s * 0.5));
-        ctx.fillStyle = 'rgba(129, 212, 250, 0.4)';
-        ctx.fillRect(wx, by + Math.floor(s), winW, winH);
-        // Window frames
-        ctx.strokeStyle = '#cbd5e0';
-        ctx.strokeRect(wx, by + Math.floor(s), winW, winH);
+        const wx = Math.floor(bx + s * 0.5 + i * (winW + s * 0.5));
+        ctx.fillRect(wx, winY, winW, winH);
     }
+    
+    // Single Path for Window Frames (High performance)
+    ctx.strokeStyle = '#cbd5e0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+        const wx = Math.floor(bx + s * 0.5 + i * (winW + s * 0.5));
+        ctx.rect(wx, winY, winW, winH);
+    }
+    ctx.stroke();
 
     // 5. Architectural Details
     ctx.fillStyle = '#3182ce'; // Blue accent band

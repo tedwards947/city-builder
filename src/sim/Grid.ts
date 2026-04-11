@@ -10,6 +10,8 @@ export class Grid {
   readonly chunkCols: number;
   readonly chunkRows: number;
   readonly dirtyChunks: Set<number>;
+  public fireCount: number = 0;
+  public get hasFires(): boolean { return this.fireCount > 0; }
 
   constructor(width: number, height: number) {
     this.width = width;
