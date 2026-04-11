@@ -77,6 +77,12 @@ export class CanvasRenderer {
       planned: world.character.planned,
       isNight: false,
     };
+
+    if (world.tick !== this._lastTick) {
+      this._lastTick = world.tick;
+      world.grid.markAllDirty();
+    }
+    
     const bounds = camera.visibleTileBounds(world.grid);
 
     const ts = TILE_SIZE * camera.zoom;
