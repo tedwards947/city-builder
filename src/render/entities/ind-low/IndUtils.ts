@@ -24,7 +24,7 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t
     ctx.beginPath();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(100, 100, 100, 1.0)';
-    ctx.arc(x + drift, y - pt * 20, 2 + pt * 5, 0, Math.PI * 2);
+    ctx.arc(x + drift, y - pt * 20, Math.max(0.1, 2 + pt * 5), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1.0;
@@ -295,7 +295,7 @@ function drawStorage(
     // Tank top
     ctx.fillStyle = roofColor;
     ctx.beginPath();
-    ctx.ellipse(tx + tankW / 2, ty, tankW / 2, s * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + tankW / 2, ty, Math.max(0.1, tankW / 2), Math.max(0.1, s * 0.8), 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Tank details

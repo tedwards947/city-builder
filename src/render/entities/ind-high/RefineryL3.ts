@@ -95,7 +95,7 @@ function drawRefineryFlameL3(ctx: CanvasRenderingContext2D, x: number, y: number
   
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, 10 + pulse, 0, Math.PI * 2);
+  ctx.arc(x, y, Math.max(0.1, 10 + pulse), 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = '#ffcc00';

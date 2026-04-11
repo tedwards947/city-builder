@@ -89,8 +89,8 @@ export const GenericWarehouse_01: VectorEntity = {
     // Tiny fan details on AC units
     ctx.fillStyle = '#444';
     ctx.beginPath();
-    ctx.arc(bx + s + acSize / 2, by - acSize / 2, acSize / 4, 0, Math.PI * 2);
-    ctx.arc(bx + bw - acSize / 2 - s, by - acSize / 2, acSize / 4, 0, Math.PI * 2);
+    ctx.arc(bx + s + acSize / 2, by - acSize / 2, Math.max(0.1, acSize / 4), 0, Math.PI * 2);
+    ctx.arc(bx + bw - acSize / 2 - s, by - acSize / 2, Math.max(0.1, acSize / 4), 0, Math.PI * 2);
     ctx.fill();
 
     // 6. Small Personnel Door

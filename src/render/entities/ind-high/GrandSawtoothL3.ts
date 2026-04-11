@@ -47,7 +47,7 @@ export const GrandSawtoothL3_01: VectorEntity = {
     for (let i = 0; i < 3; i++) {
         const ax = ts * (0.22 + i * 0.28);
         ctx.beginPath();
-        ctx.arc(ax, ts * 0.6, archRadius, Math.PI, 0);
+        ctx.arc(ax, ts * 0.6, Math.max(0.1, archRadius), Math.PI, 0);
         ctx.lineTo(ax + archRadius, ts * 0.8);
         ctx.lineTo(ax - archRadius, ts * 0.8);
         ctx.fill();

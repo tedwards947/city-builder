@@ -23,18 +23,19 @@ export const TerminalElevatorL3_01: VectorEntity = {
     ctx.fillRect(0, ts * 0.85, ts, ts * 0.15);
 
     // 2. Large Silo Row (Simplified to 8 silos)
-    const siloW = (ts - inset * 2) / 9;
+    const siloW = Math.max(0.1, (ts - inset * 2) / 9);
     const siloH = ts * 0.6;
     const siloY = ts * 0.85 - siloH;
-    
+
     ctx.fillStyle = concreteColor;
     for (let i = 0; i < 8; i++) {
         const x = inset + i * (siloW + 0.5);
         ctx.fillRect(x, siloY, siloW, siloH);
         // Rounded tops
         ctx.beginPath();
-        ctx.ellipse(x + siloW/2, siloY, siloW/2, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + siloW/2, siloY, Math.max(0.1, siloW/2), Math.max(0.1, 2), 0, 0, Math.PI * 2);
         ctx.fill();
+
         // Subtle shading
         ctx.fillStyle = 'rgba(0,0,0,0.05)';
         ctx.fillRect(x + siloW * 0.6, siloY, siloW * 0.4, siloH);

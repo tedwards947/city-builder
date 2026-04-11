@@ -2,7 +2,7 @@ import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
 import { CHUNK_SIZE } from '../sim/Grid';
-import { resolvePalette, type ColorPalette } from './CharacterPalette';
+import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import { SpriteRegistry } from './SpriteRegistry';
 import type { VibeState } from './SpriteTypes';
 import { BALANCE } from '../data/balance';
@@ -62,7 +62,7 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     if (camera.zoom < 0.1) return;
 
     const ctx = this.ctx;
@@ -148,7 +148,7 @@ export class CanvasRenderer {
       }
     }
 
-    const hasOverlay = trafficOverlay || crimeOverlay || fireOverlay;
+    const hasOverlay = trafficOverlay || crimeOverlay || fireOverlay || vibeOverlay;
     let iterations = 0;
 
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
@@ -160,7 +160,7 @@ export class CanvasRenderer {
         const building   = world.layers.building[i];
         const fireV      = world.layers.fire[i];
         const road       = world.layers.roadClass[i];
-        
+
         // Skip entirely empty tiles to save CPU (But include roads!)
         if (zone === ZONE_NONE && building === BUILDING_NONE && fireV === 0 && road === ROAD_NONE && !hasOverlay) continue;
 
@@ -177,17 +177,40 @@ export class CanvasRenderer {
 
         // 1. Draw Sprite (Buildings/Houses)
         const spriteKey = this._getSpriteKey(zone, building, dev);
-        const sprite = SpriteRegistry.instance.findBest(spriteKey, vibe, visualVariant);
+
+        // Localized Vibe for sprite selection
+        const localVibe: VibeState = {
+            egalitarian: (world.layers.vibeEgalitarian[i] - 128) / 128,
+            green:       (world.layers.vibeGreen[i] - 128) / 128,
+            planned:     (world.layers.vibePlanned[i] - 128) / 128,
+            isNight:     false
+        };
+
+        const sprite = SpriteRegistry.instance.findBest(spriteKey, localVibe, visualVariant);
 
         if (sprite) {
           ctx.save();
           ctx.translate(sxi, syi);
-          sprite.draw(ctx, ts, now * 0.001, p, vibe);
+          sprite.draw(ctx, ts, now * 0.001, p, localVibe);
           ctx.restore();
         }
 
         // 2. Draw Overlays
+        if (vibeOverlay) {
+            const vg = world.layers.vibeGreen[i];
+            const ve = world.layers.vibeEgalitarian[i];
+            // Green vibe -> Green color
+            // Industrial vibe -> Orange/Brown
+            // Egalitarian -> Blue tint
+            const r = vg < 128 ? 200 : 0;
+            const g = vg > 128 ? 200 : 100;
+            const b = ve > 128 ? 200 : 0;
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+            ctx.fillRect(sxi, syi, tsi, tsi);
+        }
+
         if (trafficOverlay && road !== ROAD_NONE) {
+
           const t = congestion / 255;
           let r: number, g: number;
           if (t <= 0.5) {
@@ -243,8 +266,9 @@ export class CanvasRenderer {
       ctx.stroke();
     }
 
-    if (trafficOverlay || crimeOverlay || fireOverlay) {
-      const lx = 12, ly = ch - 70;
+    if (trafficOverlay || crimeOverlay || fireOverlay || vibeOverlay) {
+      const lx = 12, ly = camera.viewportH - 30;
+      ctx.globalAlpha = 1.0;
       ctx.font = '11px sans-serif';
       ctx.textBaseline = 'middle';
 
@@ -278,9 +302,23 @@ export class CanvasRenderer {
         }
       } else if (fireOverlay) {
         const stops: [string, string][] = [
-          ['rgba(255,128,0,0.1)', 'Low'],
-          ['rgba(255,128,0,0.4)', 'Moderate'],
+          ['#333', 'None'],
+          ['rgba(255,64,0,0.4)', 'Moderate'],
           ['rgba(255,128,0,0.8)', 'High'],
+        ];
+        let lxOff = lx;
+        for (const [color, label] of stops) {
+          ctx.fillStyle = color;
+          ctx.fillRect(lxOff, ly, 10, 10);
+          ctx.fillStyle = '#ccc';
+          ctx.fillText(label, lxOff + 14, ly + 5);
+          lxOff += 14 + ctx.measureText(label).width + 14;
+        }
+      } else if (vibeOverlay) {
+        const stops: [string, string][] = [
+          ['rgba(0,200,0,0.4)', 'Green'],
+          ['rgba(200,100,0,0.4)', 'Industrial'],
+          ['rgba(0,100,200,0.4)', 'Social'],
         ];
         let lxOff = lx;
         for (const [color, label] of stops) {
@@ -292,6 +330,7 @@ export class CanvasRenderer {
         }
       }
     }
+
 
     if (serviceCoveragePreview !== null) {
       for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
@@ -363,38 +402,64 @@ export class CanvasRenderer {
     ts: number,
     vibe: VibeState,
   ): void {
-    const drawnSize = Math.ceil(CHUNK_SIZE * ts) + 1;
-    chunkCtx.clearRect(0, 0, chunkCtx.canvas.width, chunkCtx.canvas.height);
-    chunkCtx.globalAlpha = 1.0;
-    chunkCtx.imageSmoothingEnabled = false;
-
-    // Fill background with a base color to avoid gaps between tiles
-    chunkCtx.fillStyle = p.grass;
-    chunkCtx.fillRect(0, 0, drawnSize, drawnSize);
-
     const tileX0 = cx * CHUNK_SIZE;
     const tileY0 = cy * CHUNK_SIZE;
+
+    // Fill background with a localized grass color to avoid gaps between tiles/chunks
+    const basePalette = resolveTilePalette(
+        world.layers.vibeEgalitarian[world.grid.idx(tileX0, tileY0)],
+        world.layers.vibeGreen[world.grid.idx(tileX0, tileY0)],
+        world.layers.vibePlanned[world.grid.idx(tileX0, tileY0)],
+        BALANCE.character.axisMax
+    );
+    chunkCtx.fillStyle = basePalette.grass;
+    chunkCtx.fillRect(0, 0, chunkCtx.canvas.width, chunkCtx.canvas.height);
+
+    chunkCtx.globalAlpha = 1.0;
+    chunkCtx.imageSmoothingEnabled = false;
 
     for (let ty = tileY0; ty < tileY0 + CHUNK_SIZE && ty < world.grid.height; ty++) {
       for (let tx = tileX0; tx < tileX0 + CHUNK_SIZE && tx < world.grid.width; tx++) {
         const i = world.grid.idx(tx, ty);
-        const terrain    = world.layers.terrain[i];
+        const terrain = world.layers.terrain[i];
         
-        // Only draw non-grass terrain since we already filled with grass
-        if (terrain !== TERRAIN_GRASS) {
-          const sxi = Math.floor((tx - tileX0) * ts);
-          const syi = Math.floor((ty - tileY0) * ts);
-          const exi = Math.floor((tx + 1 - tileX0) * ts);
-          const eyi = Math.floor((ty + 1 - tileY0) * ts);
-          chunkCtx.fillStyle = terrain === TERRAIN_WATER ? p.water : p.sand;
-          chunkCtx.fillRect(sxi, syi, exi - sxi, eyi - syi);
+        // Resolve localized palette for this tile
+        const localP = resolveTilePalette(
+            world.layers.vibeEgalitarian[i],
+            world.layers.vibeGreen[i],
+            world.layers.vibePlanned[i],
+            BALANCE.character.axisMax
+        );
+
+        const sxi = Math.floor((tx - tileX0) * ts);
+        const syi = Math.floor((ty - tileY0) * ts);
+        const exi = Math.floor((tx + 1 - tileX0) * ts);
+        const eyi = Math.floor((ty + 1 - tileY0) * ts);
+        
+        // Draw localized terrain
+        if (terrain === TERRAIN_WATER) {
+            chunkCtx.fillStyle = localP.water;
+        } else if (terrain === TERRAIN_GRASS) {
+            chunkCtx.fillStyle = localP.grass;
+        } else {
+            chunkCtx.fillStyle = localP.sand;
         }
+        chunkCtx.fillRect(sxi, syi, exi - sxi, eyi - syi);
       }
     }
 
     for (let ty = tileY0; ty < tileY0 + CHUNK_SIZE && ty < world.grid.height; ty++) {
       for (let tx = tileX0; tx < tileX0 + CHUNK_SIZE && tx < world.grid.width; tx++) {
         const i = world.grid.idx(tx, ty);
+        
+        // Resolve localized palette again for building pass
+        const localP = resolveTilePalette(
+            world.layers.vibeEgalitarian[i],
+            world.layers.vibeGreen[i],
+            world.layers.vibePlanned[i],
+            BALANCE.character.axisMax
+        );
+
         const terrain    = world.layers.terrain[i];
         const zone       = world.layers.zone[i];
         const road       = world.layers.roadClass[i];
@@ -421,25 +486,25 @@ export class CanvasRenderer {
 
         if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
 
-          this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, p);
+          this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, localP);
         }
 
         if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE && !sprite) {
-          this._drawZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, p, isAbandoned, visualVariant % 4);
+          this._drawZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, localP, isAbandoned, visualVariant % 4);
         }
 
         if (road !== ROAD_NONE) {
-          this._drawRoad(chunkCtx, world, tx, ty, sxi, syi, tsi, ts, p);
+          this._drawRoad(chunkCtx, world, tx, ty, sxi, syi, tsi, ts, localP);
         }
 
         if (building !== BUILDING_NONE && !sprite) {
           if (building === BUILDING_POWER_PLANT) {
             chunkCtx.fillStyle = '#3a3a3a';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.powerPlant;
+            chunkCtx.fillStyle = localP.powerPlant;
             const pad = Math.max(1, Math.floor(ts * 0.15));
             chunkCtx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
-            chunkCtx.fillStyle = p.powerPlantRoof;
+            chunkCtx.fillStyle = localP.powerPlantRoof;
             chunkCtx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, Math.max(1, Math.floor(ts * 0.25)));
             chunkCtx.fillStyle = '#ffe680';
             const ppCx = sxi + Math.floor(tsi / 2) - 1;
@@ -448,11 +513,11 @@ export class CanvasRenderer {
           } else if (building === BUILDING_WATER_TOWER) {
             chunkCtx.fillStyle = '#2a3a3a';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.waterTower;
+            chunkCtx.fillStyle = localP.waterTower;
             const wpad = Math.max(1, Math.floor(ts * 0.2));
             const tankH = Math.max(2, Math.floor(ts * 0.5));
             chunkCtx.fillRect(sxi + wpad, syi + Math.floor(ts * 0.35), tsi - wpad * 2, tankH);
-            chunkCtx.fillStyle = p.waterTowerTop;
+            chunkCtx.fillStyle = localP.waterTowerTop;
             chunkCtx.fillRect(sxi + wpad, syi + Math.floor(ts * 0.35), tsi - wpad * 2, Math.max(1, Math.floor(ts * 0.12)));
             const legX1 = sxi + Math.floor(ts * 0.3);
             const legX2 = sxi + Math.floor(ts * 0.6);
@@ -463,35 +528,35 @@ export class CanvasRenderer {
           } else if (building === BUILDING_SEWAGE_PLANT) {
             chunkCtx.fillStyle = '#2a2a1a';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.sewagePlant;
+            chunkCtx.fillStyle = localP.sewagePlant;
             const sp = Math.max(1, Math.floor(ts * 0.12));
             chunkCtx.fillRect(sxi + sp, syi + sp, tsi - sp * 2, tsi - sp * 2);
-            chunkCtx.fillStyle = p.sewagePlantRoof;
+            chunkCtx.fillStyle = localP.sewagePlantRoof;
             chunkCtx.fillRect(sxi + sp, syi + sp, tsi - sp * 2, Math.max(1, Math.floor(ts * 0.2)));
             chunkCtx.fillStyle = '#6a5010';
             const sewCr = Math.max(1, Math.floor(ts * 0.15));
             const sewCx = sxi + Math.floor(tsi / 2);
             const sewCy = syi + Math.floor(tsi * 0.62);
             chunkCtx.beginPath();
-            chunkCtx.arc(sewCx, sewCy, sewCr, 0, Math.PI * 2);
+            chunkCtx.arc(sewCx, sewCy, Math.max(0.1, sewCr), 0, Math.PI * 2);
             chunkCtx.fill();
           } else if (building === BUILDING_POLICE) {
             chunkCtx.fillStyle = '#1a2a4a';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.police;
+            chunkCtx.fillStyle = localP.police;
             const pp = Math.max(1, Math.floor(ts * 0.12));
             chunkCtx.fillRect(sxi + pp, syi + pp, tsi - pp * 2, tsi - pp * 2);
-            chunkCtx.fillStyle = p.policeBadge;
-            const bw = Math.max(2, Math.floor(ts * 0.3));
-            const bh = Math.max(2, Math.floor(ts * 0.35));
-            chunkCtx.fillRect(sxi + Math.floor((tsi - bw) / 2), syi + Math.floor((tsi - bh) / 2), bw, bh);
+            chunkCtx.fillStyle = localP.policeBadge;
+            const bBadgeW = Math.max(2, Math.floor(ts * 0.3));
+            const bBadgeH = Math.max(2, Math.floor(ts * 0.35));
+            chunkCtx.fillRect(sxi + Math.floor((tsi - bBadgeW) / 2), syi + Math.floor((tsi - bBadgeH) / 2), bBadgeW, bBadgeH);
           } else if (building === BUILDING_FIRE) {
             chunkCtx.fillStyle = '#3a1010';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.fire;
+            chunkCtx.fillStyle = localP.fire;
             const fp = Math.max(1, Math.floor(ts * 0.12));
             chunkCtx.fillRect(sxi + fp, syi + fp, tsi - fp * 2, tsi - fp * 2);
-            chunkCtx.fillStyle = p.fireAccent;
+            chunkCtx.fillStyle = localP.fireAccent;
             const fw = Math.max(2, Math.floor(ts * 0.25));
             const fireCx = sxi + Math.floor(tsi / 2);
             chunkCtx.fillRect(fireCx - Math.floor(fw / 2), syi + Math.floor(ts * 0.2), fw, Math.floor(ts * 0.5));
@@ -500,19 +565,19 @@ export class CanvasRenderer {
           } else if (building === BUILDING_SCHOOL) {
             chunkCtx.fillStyle = '#2a2000';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.school;
+            chunkCtx.fillStyle = localP.school;
             const sp2 = Math.max(1, Math.floor(ts * 0.12));
             chunkCtx.fillRect(sxi + sp2, syi + sp2, tsi - sp2 * 2, tsi - sp2 * 2);
-            chunkCtx.fillStyle = p.schoolAccent;
+            chunkCtx.fillStyle = localP.schoolAccent;
             const bw2 = Math.max(2, Math.floor(ts * 0.3));
             chunkCtx.fillRect(sxi + Math.floor((tsi - bw2) / 2), syi + Math.floor(ts * 0.1), bw2, Math.max(2, Math.floor(ts * 0.35)));
           } else if (building === BUILDING_HOSPITAL) {
             chunkCtx.fillStyle = '#303030';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);
-            chunkCtx.fillStyle = p.hospital;
+            chunkCtx.fillStyle = localP.hospital;
             const hp = Math.max(1, Math.floor(ts * 0.12));
             chunkCtx.fillRect(sxi + hp, syi + hp, tsi - hp * 2, tsi - hp * 2);
-            chunkCtx.fillStyle = p.hospitalCross;
+            chunkCtx.fillStyle = localP.hospitalCross;
             const arm = Math.max(1, Math.floor(ts * 0.12));
             const hospCx = sxi + Math.floor(tsi / 2);
             const hospCy = syi + Math.floor(tsi / 2);
@@ -520,24 +585,24 @@ export class CanvasRenderer {
             chunkCtx.fillRect(hospCx - arm, hospCy - Math.floor(clen / 2), arm * 2, clen);
             chunkCtx.fillRect(hospCx - Math.floor(clen / 2), hospCy - arm, clen, arm * 2);
           } else if (building === BUILDING_PARK) {
-            this._drawPark(chunkCtx, sxi, syi, tsi, ts, p, visualVariant % 5);
+            this._drawPark(chunkCtx, sxi, syi, tsi, ts, localP, visualVariant % 5);
           }
         }
 
         if (!isAbandoned && !powered && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          chunkCtx.fillStyle = p.noPowerTint;
+          chunkCtx.fillStyle = localP.noPowerTint;
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
         }
         if (!isAbandoned && !watered && dev >= 1 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          chunkCtx.fillStyle = p.noWaterTint;
+          chunkCtx.fillStyle = localP.noWaterTint;
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
         }
         if (!isAbandoned && !sewaged && dev >= 2 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          chunkCtx.fillStyle = p.noSewageTint;
+          chunkCtx.fillStyle = localP.noSewageTint;
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
         }
         if (!isAbandoned && !serviced && dev >= 2 && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-          chunkCtx.fillStyle = p.noServicesTint;
+          chunkCtx.fillStyle = localP.noServicesTint;
           chunkCtx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2);
         }
 
@@ -631,13 +696,13 @@ export class CanvasRenderer {
     const mid = ts / 2;
     if (vegetation <= 2) {
       const r = ts * 0.35;
-      ctx.beginPath(); ctx.arc(sxi + mid, syi + mid, r, 0, Math.PI * 2); ctx.arc(sxi + mid * 0.7, syi + mid * 0.8, r * 0.8, 0, Math.PI * 2); ctx.arc(sxi + mid * 1.3, syi + mid * 1.2, r * 0.7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sxi + mid, syi + mid, Math.max(0.1, r), 0, Math.PI * 2); ctx.arc(sxi + mid * 0.7, syi + mid * 0.8, Math.max(0.1, r * 0.8), 0, Math.PI * 2); ctx.arc(sxi + mid * 1.3, syi + mid * 1.2, Math.max(0.1, r * 0.7), 0, Math.PI * 2); ctx.fill();
     } else if (vegetation <= 4) {
       const bw = ts * 0.7; const bh = ts * 0.8;
       ctx.beginPath(); ctx.moveTo(sxi + mid, syi + ts * 0.1); ctx.lineTo(sxi + mid - bw / 2, syi + ts * 0.1 + bh); ctx.lineTo(sxi + mid + bw / 2, syi + ts * 0.1 + bh); ctx.closePath(); ctx.fill();
     } else {
       const r = ts * 0.25; const h = ts * 0.7;
-      ctx.beginPath(); ctx.ellipse(sxi + mid, syi + mid, r, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(sxi + mid, syi + mid, Math.max(0.1, r), Math.max(0.1, h / 2), 0, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -766,7 +831,7 @@ export class CanvasRenderer {
     } else if (variant === 1) {
       ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1; ctx.strokeRect(sxi + 2, syi + 2, tsi - 4, tsi - 4);
       const pkCx = sxi + tsi / 2, pkCy = syi + tsi / 2; ctx.fillStyle = '#8aa'; ctx.fillRect(pkCx - 2, pkCy - 2, 4, 4);
-      if (ts > 10) { ctx.fillStyle = '#aaf'; ctx.beginPath(); ctx.arc(pkCx, pkCy, 1.5, 0, Math.PI * 2); ctx.fill(); }
+      if (ts > 10) { ctx.fillStyle = '#aaf'; ctx.beginPath(); ctx.arc(pkCx, pkCy, Math.max(0.1, 1.5), 0, Math.PI * 2); ctx.fill(); }
     } else if (variant === 2) {
       ctx.fillStyle = '#0a3a0a'; ctx.fillRect(sxi + 2, syi + 2, tsi - 4, 2); ctx.fillRect(sxi + 2, syi + tsi - 4, tsi - 4, 2);
       const flowers = ['#f66', '#f6f', '#ff6']; const fSize = Math.max(1, ts * 0.08);
@@ -775,10 +840,10 @@ export class CanvasRenderer {
       ctx.fillStyle = '#d2b48c'; const pad = tsi * 0.2; ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
       if (ts > 8) { ctx.fillStyle = '#e55'; ctx.fillRect(sxi + tsi * 0.3, syi + tsi * 0.3, tsi * 0.1, tsi * 0.3); ctx.fillStyle = '#55e'; ctx.fillRect(sxi + tsi * 0.6, syi + tsi * 0.4, 2, tsi * 0.2); }
     } else {
-      ctx.fillStyle = '#3d2b1f'; ctx.beginPath(); ctx.arc(sxi + tsi / 2, syi + tsi / 2, tsi * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3d2b1f'; ctx.beginPath(); ctx.arc(sxi + tsi / 2, syi + tsi / 2, Math.max(0.1, tsi * 0.3), 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = p.parkTree; const tr = Math.max(2, Math.floor(ts * 0.18));
       const pos = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]];
-      for (const [px, py] of pos) { ctx.beginPath(); ctx.arc(sxi + tsi * px, syi + tsi * py, tr, 0, Math.PI * 2); ctx.fill(); }
+      for (const [px, py] of pos) { ctx.beginPath(); ctx.arc(sxi + tsi * px, syi + tsi * py, Math.max(0.1, tr), 0, Math.PI * 2); ctx.fill(); }
     }
   }
 
@@ -792,7 +857,7 @@ export class CanvasRenderer {
       const offset = (variant % 2 === 0) ? 0.2 : 0.1; const chX = bx + bw * (offset + ci * 0.3);
       if (chX + bw * 0.15 > bx + bw) break;
       ctx.fillRect(chX, by - bh * 0.15, bw * 0.15, bh * 0.3);
-      if (!isAbandoned && ts >= TILE_SIZE) { ctx.fillStyle = 'rgba(200,200,200,0.4)'; ctx.beginPath(); ctx.arc(chX + bw * 0.07, by - bh * 0.25, bw * 0.1, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#3a3a3a'; }
+      if (!isAbandoned && ts >= TILE_SIZE) { ctx.fillStyle = 'rgba(200,200,200,0.4)'; ctx.beginPath(); ctx.arc(chX + bw * 0.07, by - bh * 0.25, Math.max(0.1, bw * 0.1), 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#3a3a3a'; }
     }
     ctx.fillStyle = isAbandoned ? '#1a1a1a' : '#4a4a4a';
     const doorW = bw * 0.6; ctx.fillRect(bx + (bw - doorW) / 2, by + bh * 0.5, doorW, bh * 0.4);

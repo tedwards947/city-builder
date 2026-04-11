@@ -86,7 +86,7 @@ export const PharmaCompany_01: VectorEntity = {
     const lx = bx + bw * 0.7;
     const ly = by + s * 2.5;
     ctx.beginPath();
-    ctx.arc(lx, ly, 2, 0, Math.PI * 2);
+    ctx.arc(lx, ly, Math.max(0.1, 2), 0, Math.PI * 2);
     ctx.fill();
     ctx.fillRect(lx + 3, ly - 1, 6, 2);
   }

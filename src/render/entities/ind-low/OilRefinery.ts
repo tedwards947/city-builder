@@ -27,7 +27,7 @@ export const OilRefinery_01: VectorEntity = {
     // 2. Storage Tanks
     // Two cylindrical tanks on the left
     ctx.fillStyle = tankColor;
-    const tankR = s * 1.5;
+    const tankR = Math.max(0.1, s * 1.5);
     for (let i = 0; i < 2; i++) {
       const tx = inset + tankR + i * (tankR * 2.5);
       const ty = ts * 0.65;
@@ -37,7 +37,7 @@ export const OilRefinery_01: VectorEntity = {
       
       // Tank Top (slightly rounded)
       ctx.beginPath();
-      ctx.ellipse(tx, ty - tankR, tankR, s * 0.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(tx, ty - tankR, tankR, Math.max(0.1, s * 0.5), 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Tank detail lines
@@ -107,20 +107,20 @@ function drawRefineryFlame(ctx: CanvasRenderingContext2D, x: number, y: number, 
   const pulse = Math.sin(t * 8) * 2;
   
   // Outer Glow
-  const grad = ctx.createRadialGradient(x, y, 1, x, y, 10 + pulse);
+  const grad = ctx.createRadialGradient(x, y, 1, x, y, Math.max(0.1, 10 + pulse));
   grad.addColorStop(0, 'rgba(255, 150, 0, 0.6)');
   grad.addColorStop(1, 'rgba(255, 50, 0, 0)');
   
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, 8 + pulse, 0, Math.PI * 2);
+  ctx.arc(x, y, Math.max(0.1, 8 + pulse), 0, Math.PI * 2);
   ctx.fill();
 
   // Core Flame
   ctx.fillStyle = '#ffcc00';
   ctx.beginPath();
   ctx.moveTo(x - 2, y);
-  ctx.quadraticCurveTo(x, y - 8 - pulse * 2, x + 2, y);
+  ctx.quadraticCurveTo(x, y - Math.max(0.1, 8 + pulse * 2), x + 2, y);
   ctx.fill();
 
   // Flicker sparks/bits
@@ -129,7 +129,7 @@ function drawRefineryFlame(ctx: CanvasRenderingContext2D, x: number, y: number, 
   const sparkX = x + Math.sin(t * 10) * 3;
   ctx.globalAlpha = 0.6;
   ctx.beginPath();
-  ctx.arc(sparkX, sparkY, 1.5, 0, Math.PI * 2);
+  ctx.arc(sparkX, sparkY, Math.max(0.1, 1.5), 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1.0;
 }

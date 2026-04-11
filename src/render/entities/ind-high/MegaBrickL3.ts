@@ -41,7 +41,7 @@ export const MegaBrickL3_01: VectorEntity = {
     const archX = bx + bw * 0.5 - archW / 2;
     ctx.beginPath();
     ctx.moveTo(archX, ts * 0.5);
-    ctx.arc(archX + archW / 2, ts * 0.5, archW / 2, Math.PI, 0);
+    ctx.arc(archX + archW / 2, ts * 0.5, Math.max(0.1, archW / 2), Math.PI, 0);
     ctx.lineTo(archX + archW, ts * 0.7);
     ctx.lineTo(archX, ts * 0.7);
     ctx.fill();

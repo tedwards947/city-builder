@@ -60,7 +60,7 @@ export const BrickSawtoothFactory_01: VectorEntity = {
     // 4. Circular Window (Clerestory style)
     // Only one window on the left side to avoid collision with the arch
     ctx.fillStyle = glassColor;
-    const circleR = Math.floor(s * 0.8);
+    const circleR = Math.max(0.1, Math.floor(s * 0.8));
     const cx = Math.floor(bx + bw * 0.25);
     const cy = Math.floor(by + bh * 0.3);
     ctx.beginPath();
@@ -72,11 +72,11 @@ export const BrickSawtoothFactory_01: VectorEntity = {
     ctx.stroke();
 
     // 5. Arched Entryway / Loading Bay
-    const bayW = Math.floor(bw * 0.45);
-    const bayH = Math.floor(bh * 0.55);
+    const bayW = Math.max(0.1, Math.floor(bw * 0.45));
+    const bayH = Math.max(0.1, Math.floor(bh * 0.55));
     const bayX = Math.floor(bx + bw * 0.5);
     const bayY = Math.floor(by + bh - bayH);
-    const radius = Math.floor(bayW / 2);
+    const radius = Math.max(0.1, Math.floor(bayW / 2));
     const centerX = bayX + radius;
 
     // Entryway Path

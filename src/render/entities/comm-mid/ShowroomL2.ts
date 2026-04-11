@@ -60,7 +60,7 @@ export const ShowroomL2: VectorEntity = {
         ctx.fillStyle = '#ecc94b';
         for (let x = bx; x < bx + bw; x += Math.floor(bw / 4)) {
             ctx.beginPath();
-            ctx.arc(x + Math.floor(bw / 8), by + 2, 1, 0, Math.PI * 2);
+            ctx.arc(x + Math.floor(bw / 8), by + 2, Math.max(0.1, 1), 0, Math.PI * 2);
             ctx.fill();
         }
     }

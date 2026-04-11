@@ -65,7 +65,7 @@ export const ZenPagodaL1: VectorEntity = {
     ctx.fillRect(Math.floor(ts * 0.5 - 1), uby - s * 2.5, 2, s * 1.5);
     ctx.fillStyle = '#ffd700'; // Gold tip
     ctx.beginPath();
-    ctx.arc(ts * 0.5, uby - s * 2.5, 1.5, 0, Math.PI * 2);
+    ctx.arc(ts * 0.5, uby - s * 2.5, Math.max(0.1, 1.5), 0, Math.PI * 2);
     ctx.fill();
 
     // 7. Garden Elements

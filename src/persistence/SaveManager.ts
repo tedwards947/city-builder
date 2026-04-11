@@ -11,7 +11,7 @@
 
 import type { IStore, SlotInfo } from './SaveFormat';
 import { migrate } from './SaveFormat';
-import { serialize, deserialize } from './Serializer';
+import { serialize, deserialize, type VibeBootstrapper } from './Serializer';
 import type { World } from '../sim/World';
 
 export const DEFAULT_USER_ID = 'local';
@@ -19,10 +19,12 @@ export const DEFAULT_USER_ID = 'local';
 export class SaveManager {
   private readonly store: IStore;
   readonly userId: string;
+  private readonly bootstrapper?: VibeBootstrapper;
 
-  constructor(store: IStore, userId: string = DEFAULT_USER_ID) {
+  constructor(store: IStore, userId: string = DEFAULT_USER_ID, bootstrapper?: VibeBootstrapper) {
     this.store = store;
     this.userId = userId;
+    this.bootstrapper = bootstrapper;
   }
 
   async saveGame(world: World, slot: number, name?: string): Promise<void> {
@@ -46,7 +48,7 @@ export class SaveManager {
     const raw = await this.store.load(this.userId, slot);
     if (!raw) return null;
     const record = migrate(raw);
-    return deserialize(record.snapshot);
+    return deserialize(record.snapshot, this.bootstrapper);
   }
 
   async listSlots(): Promise<SlotInfo[]> {

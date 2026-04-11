@@ -43,6 +43,9 @@ export interface Layers {
   sickness:   Uint8Array; // 0–255 persistent sickness level (only R zones; rises without healthcare)
   recentDeath: Uint8Array; // 0–255 countdown after a death event (visual indicator while > 0)
   visualVariant: Uint8Array; // 0–255 stable visual lot ID (Lot ID)
+  vibeEgalitarian: Uint8Array; // 0–255 (128 = neutral)
+  vibeGreen:       Uint8Array; // 0–255
+  vibePlanned:     Uint8Array; // 0–255
 }
 
 export interface Budget {
@@ -149,7 +152,13 @@ export class World {
       sickness:   new Uint8Array(n),
       recentDeath: new Uint8Array(n),
       visualVariant: new Uint8Array(n),
+      vibeEgalitarian: new Uint8Array(n),
+      vibeGreen:       new Uint8Array(n),
+      vibePlanned:     new Uint8Array(n),
     };
+    this.layers.vibeEgalitarian.fill(128);
+    this.layers.vibeGreen.fill(128);
+    this.layers.vibePlanned.fill(128);
     this.budget = {
       money: BALANCE.startingMoney,
       politicalCapital: BALANCE.startingPoliticalCapital,
