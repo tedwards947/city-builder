@@ -68,6 +68,8 @@ export class VibeSystem {
       const tx = p.tx as number;
       const ty = p.ty as number;
       const zone = p.zone as number;
+      const displaced = (p.displacedPopulation as number) || 0;
+
       if (zone === ZONE_R) {
         this._spatialNudge(world, tx, ty, 'vibeEgalitarian', n.egalitarian.residentialZone * 10);
         this._spatialNudge(world, tx, ty, 'vibeGreen',       n.green.residentialZone * 10);
@@ -77,6 +79,21 @@ export class VibeSystem {
       } else if (zone === ZONE_I) {
         this._spatialNudge(world, tx, ty, 'vibeEgalitarian', n.egalitarian.industrialZone * 10);
         this._spatialNudge(world, tx, ty, 'vibeGreen',       n.green.industrialZone * 10);
+      }
+
+      if (displaced > 0) {
+        this._spatialNudge(world, tx, ty, 'vibeEgalitarian', n.egalitarian.populationDisplaced * displaced);
+        this._spatialNudge(world, tx, ty, 'vibePlanned',     n.planned.populationDisplaced * displaced);
+      }
+    });
+
+    ev.on('tileCleared', (p) => {
+      const tx = p.tx as number;
+      const ty = p.ty as number;
+      const displaced = (p.displacedPopulation as number) || 0;
+      if (displaced > 0) {
+        this._spatialNudge(world, tx, ty, 'vibeEgalitarian', n.egalitarian.populationDisplaced * displaced);
+        this._spatialNudge(world, tx, ty, 'vibePlanned',     n.planned.populationDisplaced * displaced);
       }
     });
 
