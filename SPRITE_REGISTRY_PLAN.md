@@ -1,3 +1,5 @@
+**DEPRECATED - DO NOT USE**
+
 # Sprite Registry & Metadata System — Implementation Plan
 
 ## Goal

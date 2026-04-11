@@ -241,4 +241,7 @@ export interface TranslationSchema {
     severe: string;
     noHospital: string;
   };
+  commercialBrands: {
+    [key: string]: string;
+  };
 }

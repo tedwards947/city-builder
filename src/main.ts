@@ -36,11 +36,16 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
+import { SpriteSandbox } from './ui/SpriteSandbox';
+import { initSpriteRegistry } from './render/registryLoader';
 import { VehicleLayer } from './render/VehicleLayer';
 import { BALANCE } from './data/balance';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from './sim/constants';
+
+// Initialize the sprite registry
+initSpriteRegistry();
 
 const SERVICE_TOOL_KIND: Partial<Record<Tool, number>> = {
   police: BUILDING_POLICE,
@@ -107,6 +112,7 @@ const tileInfoPanel = new TileInfoPanel();
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const demandChart = new DemandChart();
+const spriteSandbox = new SpriteSandbox();
 
 const store   = new LocalStore();
 const manager = new SaveManager(store); // userId defaults to 'local'
@@ -252,6 +258,7 @@ document.querySelectorAll<HTMLButtonElement>('.speed').forEach(btn => {
 
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); state.history.undo(); }
+  if (e.shiftKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); spriteSandbox.toggle(); }
   if (e.key === '1') setTool('none');
   if (e.key === '2') setTool('road');
   if (e.key === 'a' || e.key === 'A') setTool('avenue');

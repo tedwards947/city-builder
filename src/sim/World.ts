@@ -42,6 +42,7 @@ export interface Layers {
   hospital:   Uint8Array; // 0=no hospital coverage, 1=covered this tick
   sickness:   Uint8Array; // 0–255 persistent sickness level (only R zones; rises without healthcare)
   recentDeath: Uint8Array; // 0–255 countdown after a death event (visual indicator while > 0)
+  visualVariant: Uint8Array; // 0–255 stable visual lot ID (Lot ID)
 }
 
 export interface Budget {
@@ -146,6 +147,7 @@ export class World {
       hospital:   new Uint8Array(n),
       sickness:   new Uint8Array(n),
       recentDeath: new Uint8Array(n),
+      visualVariant: new Uint8Array(n),
     };
     this.budget = {
       money: BALANCE.startingMoney,
@@ -321,6 +323,7 @@ export class World {
       this.layers.abandoned[i] = 0;
       this.layers.distress[i] = 0;
       this.layers.vegetation[i] = VEG_NONE;
+      this.layers.visualVariant[i] = z !== ZONE_NONE ? Math.floor(this.rng() * 256) : 0;
     }
     this.layers.zone[i] = z;
     this.grid.markDirty(tx, ty);
@@ -338,6 +341,9 @@ export class World {
       this.layers.zone[i] = ZONE_NONE;
       this.layers.devLevel[i] = 0;
       this.layers.vegetation[i] = VEG_NONE;
+      this.layers.visualVariant[i] = Math.floor(this.rng() * 256);
+    } else if (prev !== ROAD_NONE) {
+      this.layers.visualVariant[i] = 0;
     }
     if (prev !== r) this.roadNetDirty = true;
     this.grid.markDirty(tx, ty);
@@ -352,6 +358,7 @@ export class World {
     this.layers.roadClass[i] = ROAD_NONE;
     this.layers.vegetation[i] = VEG_NONE;
     this.layers.devLevel[i] = 0;
+    this.layers.visualVariant[i] = Math.floor(this.rng() * 256);
     this.buildings.push({ tx, ty, kind: b });
     this.grid.markDirty(tx, ty);
     return true;
@@ -369,6 +376,7 @@ export class World {
     this.layers.devLevel[i] = 0;
     this.layers.abandoned[i] = 0;
     this.layers.distress[i] = 0;
+    this.layers.visualVariant[i] = 0;
     if (hadBuilding !== BUILDING_NONE) {
       this.buildings = this.buildings.filter(b => !(b.tx === tx && b.ty === ty));
     }

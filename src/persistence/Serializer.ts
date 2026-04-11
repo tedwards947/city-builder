@@ -43,6 +43,7 @@ export function serialize(world: World): WorldSnapshot {
       hospital:   new Uint8Array(l.hospital),
       sickness:   new Uint8Array(l.sickness),
       recentDeath: new Uint8Array(l.recentDeath),
+      visualVariant: new Uint8Array(l.visualVariant),
     },
   };
 }
@@ -89,6 +90,7 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.hospital.set(snapshot.layers.hospital);
   l.sickness.set(snapshot.layers.sickness);
   l.recentDeath.set(snapshot.layers.recentDeath);
+  l.visualVariant.set(snapshot.layers.visualVariant);
 
   // Force a full network + render rebuild on next tick.
   world.roadNetDirty = true;

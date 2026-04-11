@@ -86,7 +86,8 @@ describe('Serializer round-trip', () => {
       'terrain', 'zone', 'roadClass', 'building', 'devLevel', 'pollution',
       'crime', 'sickness', 'education', 'congestion', 'vegetation',
       'abandoned', 'distress', 'fireRisk', 'fire', 'fireStation',
-      'police', 'school', 'hospital', 'recentDeath', 'accessibility'
+      'police', 'school', 'hospital', 'recentDeath', 'accessibility',
+      'visualVariant'
     ] as const;
     for (const layer of layers) {
       expect(Array.from(restored.layers[layer])).toEqual(Array.from(w.layers[layer]));
@@ -266,7 +267,7 @@ describe('Migration', () => {
     };
 
     const migrated = migrate(v5);
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect(migrated.snapshot.stats.avgCongestion).toBe(0);
     expect(migrated.snapshot.stats.satisfaction).toBe(1);
     expect(migrated.snapshot.layers.crime).toBeDefined();
@@ -274,7 +275,61 @@ describe('Migration', () => {
     expect(migrated.snapshot.layers.education).toBeDefined();
     expect(migrated.snapshot.layers.sickness).toBeDefined();
     expect(migrated.snapshot.layers.vegetation).toBeDefined();
+    expect(migrated.snapshot.layers.visualVariant).toBeDefined();
+    expect(migrated.snapshot.layers.visualVariant.length).toBe(100);
     expect(migrated.snapshot.buildings).toBeDefined();
     expect(Array.isArray(migrated.snapshot.buildings)).toBe(true);
+  });
+
+  it('upgrades v7 to v8 adding visualVariant layer', () => {
+    const v7: any = {
+      version: 7,
+      userId: 'test',
+      slot: 1,
+      meta: { name: 'Test', savedAt: 0, tick: 10, population: 0, money: 0 },
+      snapshot: {
+        width: 10,
+        height: 10,
+        seed: 1,
+        tick: 10,
+        budget: { money: 0, politicalCapital: 100, income: 0, expenses: 0, taxRates: { R: 0.8, C: 1.2, I: 1.5 } },
+        stats: { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: 80, avgCongestion: 0, satisfaction: 1 },
+        character: { egalitarian: 0, green: 0, planned: 0 },
+        buildings: [],
+        layers: {
+          terrain: new Uint8Array(100),
+          zone: new Uint8Array(100),
+          roadClass: new Uint8Array(100),
+          building: new Uint8Array(100),
+          devLevel: new Uint8Array(100),
+          power: new Uint8Array(100),
+          water: new Uint8Array(100),
+          sewage: new Uint8Array(100),
+          services: new Uint8Array(100),
+          landValue: new Uint8Array(100),
+          roadNet: new Uint16Array(100),
+          pollution: new Uint8Array(100),
+          crime: new Uint8Array(100),
+          police: new Uint8Array(100),
+          congestion: new Uint8Array(100),
+          accessibility: new Uint8Array(100),
+          abandoned: new Uint8Array(100),
+          distress: new Uint8Array(100),
+          fireRisk: new Uint8Array(100),
+          fire: new Uint8Array(100),
+          fireStation: new Uint8Array(100),
+          school: new Uint8Array(100),
+          education: new Uint8Array(100),
+          hospital: new Uint8Array(100),
+          sickness: new Uint8Array(100),
+          recentDeath: new Uint8Array(100),
+        }
+      }
+    };
+
+    const migrated = migrate(v7);
+    expect(migrated.version).toBe(8);
+    expect(migrated.snapshot.layers.visualVariant).toBeDefined();
+    expect(migrated.snapshot.layers.visualVariant.length).toBe(100);
   });
 });
