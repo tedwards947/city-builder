@@ -10,8 +10,8 @@ export class SpriteRegistry {
   private _entities: Map<string, VectorEntity> = new Map();
   private _byType: Map<string, string[]> = new Map();
   
-  // Cache for findBest results: Map<"type:vibeHash:lotId", VectorEntity>
-  private _bestCache: Map<string, VectorEntity> = new Map();
+  // Cache for findBest results: Map<"type:vibeHash", VectorEntity[]>
+  private _bestCache: Map<string, VectorEntity[]> = new Map();
 
   static get instance(): SpriteRegistry {
     if (!this._instance) this._instance = new SpriteRegistry();
@@ -70,49 +70,49 @@ export class SpriteRegistry {
 
     // Use a hash for vibe to avoid excessive scoring runs.
     const vibeHash = `${vibe.egalitarian.toFixed(1)}:${vibe.green.toFixed(1)}:${vibe.planned.toFixed(1)}:${vibe.isNight ? 'N' : 'D'}`;
-    const cacheKey = `${type}:${vibeHash}:${lotId}`;
-    const cached = this._bestCache.get(cacheKey);
-    if (cached) return cached;
+    const cacheKey = `${type}:${vibeHash}`;
+    
+    let bestOptions = this._bestCache.get(cacheKey);
 
-    const options = this.getEntitiesByType(type);
-    if (options.length === 0) return undefined;
+    if (!bestOptions) {
+      const options = this.getEntitiesByType(type);
+      if (options.length === 0) return undefined;
 
-    // Score each option based on vibe matching
-    const scored = options.map(entity => {
-      let score = 0;
-      
-      // Match Green vs Industrial
-      if (vibe.green > 0.3 && entity.tags.includes('green')) score += 10;
-      if (vibe.green < -0.3 && entity.tags.includes('industrial')) score += 10;
-      
-      // Match Egalitarian vs Laissez-faire
-      if (vibe.egalitarian > 0.3 && entity.tags.includes('egalitarian')) score += 10;
-      if (vibe.egalitarian < -0.3 && entity.tags.includes('corporate')) score += 10;
-      
-      // Match Planned vs Organic
-      if (vibe.planned > 0.3 && entity.tags.includes('planned')) score += 10;
-      if (vibe.planned < -0.3 && entity.tags.includes('organic')) score += 10;
+      // Score each option based on vibe matching
+      const scored = options.map(entity => {
+        let score = 0;
+        
+        // Match Green vs Industrial
+        if (vibe.green > 0.3 && entity.tags.includes('green')) score += 10;
+        if (vibe.green < -0.3 && entity.tags.includes('industrial')) score += 10;
+        
+        // Match Egalitarian vs Laissez-faire
+        if (vibe.egalitarian > 0.3 && entity.tags.includes('egalitarian')) score += 10;
+        if (vibe.egalitarian < -0.3 && entity.tags.includes('corporate')) score += 10;
+        
+        // Match Planned vs Organic
+        if (vibe.planned > 0.3 && entity.tags.includes('planned')) score += 10;
+        if (vibe.planned < -0.3 && entity.tags.includes('organic')) score += 10;
 
-      // Handle "Neutral" or generic sprites
-      if (entity.tags.includes('neutral')) score += 1;
+        // Handle "Neutral" or generic sprites
+        if (entity.tags.includes('neutral')) score += 1;
 
-      return { entity, score };
-    });
+        return { entity, score };
+      });
 
-    // Find highest score
-    let maxScore = -Infinity;
-    scored.forEach(s => { if (s.score > maxScore) maxScore = s.score; });
+      // Find highest score
+      let maxScore = -Infinity;
+      scored.forEach(s => { if (s.score > maxScore) maxScore = s.score; });
 
-    // Collect all entities with the max score
-    const bestOptions = scored
-      .filter(s => s.score === maxScore)
-      .map(s => s.entity);
+      // Collect all entities with the max score
+      bestOptions = scored
+        .filter(s => s.score === maxScore)
+        .map(s => s.entity);
+
+      this._bestCache.set(cacheKey, bestOptions);
+    }
 
     // Use Lot ID to pick deterministically from the best matches
-    const result = bestOptions[lotId % bestOptions.length];
-    if (result) {
-      this._bestCache.set(cacheKey, result);
-    }
-    return result;
+    return bestOptions[lotId % bestOptions.length];
   }
 }

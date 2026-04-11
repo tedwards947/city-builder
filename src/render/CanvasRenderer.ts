@@ -95,15 +95,19 @@ export class CanvasRenderer {
     }
     const totalChunks = world.grid.chunkCols * world.grid.chunkRows;
     if (totalChunks !== this._lastChunkCount) {
-      if (this._chunkCanvases.length > totalChunks) {
-        this._chunkCanvases.length = totalChunks;
-        this._chunkCtxs.length = totalChunks;
-      } else {
-        let limit = 0;
-          this._chunkCanvases.push(null);
-          this._chunkCtxs.push(null);
-        }
+      // Create new arrays of the correct size
+      const newCanvases = new Array(totalChunks).fill(null);
+      const newCtxs = new Array(totalChunks).fill(null);
+
+      // Preserve existing valid instances into the new arrays
+      const countToCopy = Math.min(this._chunkCanvases.length, totalChunks);
+      for (let i = 0; i < countToCopy; i++) {
+        newCanvases[i] = this._chunkCanvases[i];
+        newCtxs[i] = this._chunkCtxs[i];
       }
+
+      this._chunkCanvases = newCanvases;
+      this._chunkCtxs = newCtxs;
       this._lastChunkCount = totalChunks;
       world.grid.markAllDirty();
     }
@@ -129,11 +133,18 @@ export class CanvasRenderer {
         const chunkId = cy * world.grid.chunkCols + cx;
         const chunkCanvas = this._chunkCanvases[chunkId];
         if (!chunkCanvas) continue;
+        
         const dstX = Math.floor(camera.worldToScreenX(cx * CHUNK_PX));
         const dstY = Math.floor(camera.worldToScreenY(cy * CHUNK_PX));
+        
+        // Calculate the actual current width/height the chunk should occupy on screen
+        const dstW = Math.ceil((cx + 1) * CHUNK_PX * camera.zoom + camera.x * camera.zoom) - Math.floor(cx * CHUNK_PX * camera.zoom + camera.x * camera.zoom);
+        const dstH = Math.ceil((cy + 1) * CHUNK_PX * camera.zoom + camera.y * camera.zoom) - Math.floor(cy * CHUNK_PX * camera.zoom + camera.y * camera.zoom);
+
         ctx.globalAlpha = 1.0;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(chunkCanvas, dstX, dstY);
+        // Scale the chunk to exactly match the current zoom/tile scale
+        ctx.drawImage(chunkCanvas, dstX, dstY, dstW, dstH);
       }
     }
 
@@ -335,10 +346,7 @@ export class CanvasRenderer {
       this._chunkCtxs[chunkId] = ctx;
     }
 
-    let chunkSizePx = Math.ceil(CHUNK_SIZE * ts) + 1;
-    if (ts < 2.0) {
-      chunkSizePx = Math.max(chunkSizePx, CHUNK_SIZE * 2);
-    }
+    const chunkSizePx = Math.ceil(CHUNK_SIZE * ts) + 1;
     if (canvas.width !== chunkSizePx || canvas.height !== chunkSizePx) {
       canvas.width = chunkSizePx;
       canvas.height = chunkSizePx;
