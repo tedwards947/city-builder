@@ -176,7 +176,8 @@ describe('Crime integration with other systems', () => {
     
     // Verify it doesn't throw when crimeOverlay is true
     expect(() => {
-      renderer.render(w, camera, null, false, true, false, null, 0);
+      // world, camera, hoverTile, traffic, crime, fire, vibe, coveragePreview, now
+      renderer.render(w, camera, null, false, true, false, false, null, 0);
     }).not.toThrow();
   });
 });

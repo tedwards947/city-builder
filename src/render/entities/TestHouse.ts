@@ -45,7 +45,7 @@ export const TestHouse: VectorEntity = {
         const drift = Math.sin(t * 10 + i) * 2;
         ctx.fillStyle = `rgba(150, 150, 150, ${alpha * 0.5})`;
         ctx.beginPath();
-        ctx.arc(chimneyX + drift, chimneyY - pt * 10, 2 + pt * 3, 0, Math.PI * 2);
+        ctx.arc(chimneyX + drift, chimneyY - pt * 10, Math.max(0.1, 2 + pt * 3), 0, Math.PI * 2);
         ctx.fill();
       }
     }

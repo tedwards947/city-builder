@@ -55,7 +55,7 @@ export const SmallChemicalPlantL1: VectorEntity = {
         
         // Tank Body
         ctx.beginPath();
-        ctx.arc(tx, ty, tankR, 0, Math.PI * 2);
+        ctx.arc(tx, ty, Math.max(0.1, tankR), 0, Math.PI * 2);
         ctx.fill();
         
         // Tank Detail (Horizontal band)

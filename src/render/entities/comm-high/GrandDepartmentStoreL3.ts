@@ -71,7 +71,7 @@ export const GrandDepartmentStoreL3: VectorEntity = {
         // Clock Face
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(tx + tw / 2, ty + Math.floor(s * 2.5), Math.floor(s * 0.9), 0, Math.PI * 2);
+        ctx.arc(tx + tw / 2, ty + Math.floor(s * 2.5), Math.max(0.1, Math.floor(s * 0.9)), 0, Math.PI * 2);
         ctx.fill();
         
         // Tower Roof

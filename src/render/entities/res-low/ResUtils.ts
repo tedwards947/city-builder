@@ -35,14 +35,14 @@ export function drawVeg(ctx: CanvasRenderingContext2D, x: number, y: number, ts:
   if (type === 'bush') {
     ctx.fillStyle = '#2e7d32';
     ctx.beginPath();
-    ctx.arc(x, y, ts * 0.12, 0, Math.PI * 2);
+    ctx.arc(x, y, Math.max(0.1, ts * 0.12), 0, Math.PI * 2);
     ctx.fill();
   } else if (type === 'tree') {
     ctx.fillStyle = '#5d4037';
     ctx.fillRect(x - Math.max(1, ts * 0.02), y - ts * 0.2, Math.max(2, ts * 0.04), ts * 0.2);
     ctx.fillStyle = '#1b5e20';
     ctx.beginPath();
-    ctx.arc(x + treeSway, y - ts * 0.2, ts * 0.18, 0, Math.PI * 2);
+    ctx.arc(x + treeSway, y - ts * 0.2, Math.max(0.1, ts * 0.18), 0, Math.PI * 2);
     ctx.fill();
   } else {
     // Flowers (Now scaling with ts)

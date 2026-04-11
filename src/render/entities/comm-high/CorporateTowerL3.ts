@@ -52,7 +52,7 @@ export const CorporateTowerL3: VectorEntity = {
     if (ts > 20 && Math.sin(t * 5) > 0) {
         ctx.fillStyle = '#f56565';
         ctx.beginPath();
-        ctx.arc(ts * 0.5, sy, 1.5, 0, Math.PI * 2);
+        ctx.arc(ts * 0.5, sy, Math.max(0.1, 1.5), 0, Math.PI * 2);
         ctx.fill();
     }
 

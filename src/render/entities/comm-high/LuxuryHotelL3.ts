@@ -52,12 +52,12 @@ export const LuxuryHotelL3: VectorEntity = {
         const hy = Math.floor(ts * 0.05);
         ctx.fillStyle = '#4a5568';
         ctx.beginPath();
-        ctx.arc(hx, hy, s * 1.5, 0, Math.PI * 2);
+        ctx.arc(hx, hy, Math.max(0.1, s * 1.5), 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(hx, hy, s * 1.2, 0, Math.PI * 2);
+        ctx.arc(hx, hy, Math.max(0.1, s * 1.2), 0, Math.PI * 2);
         ctx.stroke();
         // "H" letter
         ctx.font = `bold ${Math.floor(s)}px sans-serif`;

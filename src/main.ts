@@ -21,7 +21,7 @@ import { EducationSystem } from './sim/systems/EducationSystem';
 import { ZoneGrowthSystem } from './sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from './sim/systems/EconomySystem';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
-import { CityCharacterSystem } from './sim/systems/CityCharacterSystem';
+import { VibeSystem } from './sim/systems/VibeSystem';
 import { AbandonmentSystem } from './sim/systems/AbandonmentSystem';
 import { HealthcareSystem } from './sim/systems/HealthcareSystem';
 import { InputController } from './input/InputController';
@@ -79,7 +79,7 @@ resize();
 // Single object so closures always see the current world/history/scheduler.
 
 const politicsSystem    = new PoliticsSystem();
-const characterSystem   = new CityCharacterSystem();
+export const vibeSystem = new VibeSystem();
 
 const systems = [
   new NetworkSystem(),
@@ -97,9 +97,10 @@ const systems = [
   new HealthcareSystem(),
   new ZoneGrowthSystem(),
   new EconomySystem(),
-  characterSystem,  // event-driven nudges + decay; no layer dependencies
-  politicsSystem,   // runs last: reads coverage layers updated above
+  vibeSystem,  // spatial vibe simulation
+  politicsSystem,
 ];
+
 
 const state = {
   world:     null as unknown as World,
@@ -115,7 +116,7 @@ const demandChart = new DemandChart();
 const spriteSandbox = new SpriteSandbox();
 
 const store   = new LocalStore();
-const manager = new SaveManager(store); // userId defaults to 'local'
+const manager = new SaveManager(store, 'local', vibeSystem); 
 
 function startGame(world: World): void {
   state.world     = world;
@@ -147,6 +148,7 @@ let hoverTile: { tx: number; ty: number } | null = null;
 let trafficOverlay = false;
 let crimeOverlay   = false;
 let fireOverlay    = false;
+let vibeOverlay    = false;
 
 new InputController(
   canvas,
@@ -198,6 +200,18 @@ function toggleFireOverlay(): void {
   btnFire.classList.toggle('active', fireOverlay);
 }
 btnFire.addEventListener('click', toggleFireOverlay);
+
+function toggleVibeOverlay(): void {
+  vibeOverlay = !vibeOverlay;
+  if (vibeOverlay) {
+    trafficOverlay = false;
+    crimeOverlay   = false;
+    fireOverlay    = false;
+    btnTraffic.classList.remove('active');
+    btnCrime.classList.remove('active');
+    btnFire.classList.remove('active');
+  }
+}
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 
@@ -279,6 +293,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 't' || e.key === 'T') toggleTrafficOverlay();
   if (e.key === 'c' || e.key === 'C') toggleCrimeOverlay();
   if (e.key === 'f' || e.key === 'F') toggleFireOverlay();
+  if (e.key === 'v' || e.key === 'V') toggleVibeOverlay();
   if (e.key === ' ') {
     e.preventDefault();
     const newSpeed = state.scheduler.speed === 0 ? 1 : 0;
@@ -336,7 +351,7 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, trafficOverlay, crimeOverlay, fireOverlay, coveragePreview, now);
+  renderer.render(state.world, camera, hoverTile, trafficOverlay, crimeOverlay, fireOverlay, vibeOverlay, coveragePreview, now);
   vehicleLayer.update(dt, state.world);
   vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);

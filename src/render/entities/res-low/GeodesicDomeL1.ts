@@ -13,7 +13,7 @@ export const GeodesicDomeL1: VectorEntity = {
     const s = ts * 0.1;
     ctx.fillStyle = 'rgba(129, 212, 250, 0.4)';
     ctx.beginPath();
-    ctx.arc(ts / 2, ts * 0.7, s * 4, Math.PI, 0);
+    ctx.arc(ts / 2, ts * 0.7, Math.max(0.1, s * 4), Math.PI, 0);
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 0.5;
