@@ -204,7 +204,6 @@ export class CanvasRenderer {
         }
       }
 
-      if (iterations > 100000) break;
     }
 
     if (camera.zoom >= 1.2) {
