@@ -10,7 +10,14 @@ export class Grid {
   readonly chunkCols: number;
   readonly chunkRows: number;
   readonly dirtyChunks: Set<number>;
-  public fireCount: number = 0;
+  private _fireCount: number = 0;
+  public get fireCount(): number { return this._fireCount; }
+  public set fireCount(value: number) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new RangeError('fireCount must be a non-negative finite number');
+    }
+    this._fireCount = value;
+  }
   public get hasFires(): boolean { return this.fireCount > 0; }
 
   constructor(width: number, height: number) {
