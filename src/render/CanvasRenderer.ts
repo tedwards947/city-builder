@@ -99,11 +99,10 @@ export class CanvasRenderer {
         this._chunkCanvases.length = totalChunks;
         this._chunkCtxs.length = totalChunks;
       } else {
-        let limit = 0;
-        while (this._chunkCanvases.length < totalChunks && limit++ < 10000) {
-          this._chunkCanvases.push(null);
-          this._chunkCtxs.push(undefined);
-        }
+        const previousLength = this._chunkCanvases.length;
+        this._chunkCanvases.length = totalChunks;
+        this._chunkCanvases.fill(null, previousLength, totalChunks);
+        this._chunkCtxs.length = totalChunks;
       }
       this._lastChunkCount = totalChunks;
       world.grid.markAllDirty();
