@@ -40,6 +40,11 @@ import * as BigBoxStoreL2 from './entities/comm-mid/BigBoxStoreL2';
 import * as MixedUseL2 from './entities/comm-mid/MixedUseL2';
 import * as ModernSupermarketL2 from './entities/comm-mid/ModernSupermarketL2';
 import * as ShowroomL2 from './entities/comm-mid/ShowroomL2';
+import * as LuxuryHotelL3 from './entities/comm-high/LuxuryHotelL3';
+import * as CorporateTowerL3 from './entities/comm-high/CorporateTowerL3';
+import * as GrandDepartmentStoreL3 from './entities/comm-high/GrandDepartmentStoreL3';
+import * as FinancialCenterL3 from './entities/comm-high/FinancialCenterL3';
+import * as MegaMallL3 from './entities/comm-high/MegaMallL3';
 import * as SawtoothMillL1 from './entities/ind-low/SawtoothMillL1';
 import * as PeakedWorkshopL1 from './entities/ind-low/PeakedWorkshopL1';
 import * as FlatTopFactoryL1 from './entities/ind-low/FlatTopFactoryL1';
@@ -130,6 +135,13 @@ export function initSpriteRegistry(): void {
   Object.values(MixedUseL2).forEach(entity => reg.register(entity as any));
   Object.values(ModernSupermarketL2).forEach(entity => reg.register(entity as any));
   Object.values(ShowroomL2).forEach(entity => reg.register(entity as any));
+
+  // Commercial Level 3 (Individual assets)
+  Object.values(LuxuryHotelL3).forEach(entity => reg.register(entity as any));
+  Object.values(CorporateTowerL3).forEach(entity => reg.register(entity as any));
+  Object.values(GrandDepartmentStoreL3).forEach(entity => reg.register(entity as any));
+  Object.values(FinancialCenterL3).forEach(entity => reg.register(entity as any));
+  Object.values(MegaMallL3).forEach(entity => reg.register(entity as any));
 
   // Industrial Level 1 (Individual assets)
   Object.values(SawtoothMillL1).forEach(entity => reg.register(entity as any));
