@@ -368,11 +368,12 @@ export class World {
     if (!this.grid.inBounds(tx, ty)) return;
     const i = this.grid.idx(tx, ty);
     const prev = this.layers.fire[i];
-    this.layers.fire[i] = v;
+    const next = Math.max(0, Math.min(255, Math.floor(v)));
+    this.layers.fire[i] = next;
     
-    if (prev === 0 && v > 0) {
+    if (prev === 0 && next > 0) {
       this.grid.fireCount++;
-    } else if (prev > 0 && v === 0) {
+    } else if (prev > 0 && next === 0) {
       this.grid.fireCount--;
     }
     
