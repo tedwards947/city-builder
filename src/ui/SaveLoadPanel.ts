@@ -25,11 +25,18 @@ export class SaveLoadPanel {
   private readonly titleEl: HTMLElement;
   private mode: 'save' | 'load' = 'save';
 
+  private readonly manager: SaveManager;
+  private readonly getWorld: () => World;
+  private readonly onLoad: (world: World) => void;
+
   constructor(
-    private readonly manager: SaveManager,
-    private readonly getWorld: () => World,
-    private readonly onLoad: (world: World) => void,
+    manager: SaveManager,
+    getWorld: () => World,
+    onLoad: (world: World) => void,
   ) {
+    this.manager = manager;
+    this.getWorld = getWorld;
+    this.onLoad = onLoad;
     this.el       = document.getElementById('save-load-modal')!;
     this.slotsEl  = document.getElementById('sl-slots')!;
     this.titleEl  = document.getElementById('sl-title')!;
@@ -73,13 +80,14 @@ export class SaveLoadPanel {
       const mapDesc = ms ? `${ms.width}×${ms.height} · ${ms.waterAmount} ${t('ui.saveLoad.water')}` : '';
       div.innerHTML = `
         <div class="sl-slot-main">
-          <span class="sl-name">${info.meta.name}</span>
+          <span class="sl-name"></span>
           <span class="sl-detail">${formatDate(info.meta.savedAt)}</span>
           <span class="sl-detail">${info.meta.population.toLocaleString()} ${t('ui.saveLoad.pop')} · ${formatMoney(info.meta.money)}</span>
           ${mapDesc ? `<span class="sl-detail sl-map">${mapDesc}</span>` : ''}
         </div>
         <button class="sl-delete" title="${t('common.delete')}" data-slot="${slot}">✕</button>
       `;
+      div.querySelector('.sl-name')!.textContent = info.meta.name;
       div.querySelector('.sl-delete')!.addEventListener('click', (e) => {
         e.stopPropagation();
         if (confirm(t('ui.saveLoad.deleteConfirm', { name: info.meta.name }))) {

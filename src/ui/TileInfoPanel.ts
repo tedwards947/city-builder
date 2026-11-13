@@ -22,7 +22,6 @@ import {
   VEG_TREE_4,
   VEG_TREE_5,
   VEG_TREE_6,
-  BUILDING_NONE,
   BUILDING_POWER_PLANT,
   BUILDING_WATER_TOWER,
   BUILDING_SEWAGE_PLANT,
@@ -218,7 +217,6 @@ export class TileInfoPanel {
     const crime = world.layers.crime[i];
     const fireRisk = world.layers.fireRisk[i];
     const fire = world.layers.fire[i];
-    const distress = world.layers.distress[i];
 
     let html = `<div class="ti-coord">${t("ui.tileInfo.coords", {tx, ty})}</div>`;
 

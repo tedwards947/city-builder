@@ -30,7 +30,6 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t
 }
 
 export function drawVeg(ctx: CanvasRenderingContext2D, x: number, y: number, ts: number, t: number, type: 'bush'|'tree'|'flowers'): void {
-  const s = ts * 0.1;
   const treeSway = Math.sin(t * 1.5) * (ts * 0.01);
   if (type === 'bush') {
     ctx.fillStyle = '#2e7d32';

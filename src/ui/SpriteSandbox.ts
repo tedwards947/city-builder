@@ -1,7 +1,6 @@
 import { SpriteRegistry } from '../render/SpriteRegistry';
 import { resolvePalette } from '../render/CharacterPalette';
 import { BALANCE } from '../data/balance';
-import type { World } from '../sim/World';
 
 /**
  * A UI component for reviewing all registered vector sprites.

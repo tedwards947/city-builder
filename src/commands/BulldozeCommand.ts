@@ -1,8 +1,8 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTile, restoreTile } from './Command';
+import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
-import { ZONE_NONE, ZONE_R, ROAD_NONE, BUILDING_NONE } from '../sim/constants';
+import { ZONE_NONE, ROAD_NONE, BUILDING_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
 export class BulldozeCommand extends Command {
@@ -10,7 +10,8 @@ export class BulldozeCommand extends Command {
   private readonly ty: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  private pcCost = 0;
+  // Net political-capital change applied at execute (positive = cost, negative = reward).
+  private pcDelta = 0;
 
   constructor(tx: number, ty: number) {
     super();
@@ -26,35 +27,20 @@ export class BulldozeCommand extends Command {
         world.layers.building[i] === BUILDING_NONE) return false;
     if (world.budget.money < BALANCE.costs.bulldoze) return false;
 
-    const isAbandoned = world.layers.abandoned[i] !== 0;
-    const devLevel = world.layers.devLevel[i];
-
-    // Displacing residents from an active zone costs PC.
-    // However, if the building is abandoned, there is no displacement cost.
-    const displacedPopulation =
-      !isAbandoned && world.layers.zone[i] === ZONE_R
-        ? (BALANCE.growth.popPerLevel[devLevel] ?? 0)
-        : 0;
-
-    const pcCost = displacedPopulation > 0
-      ? displacedPopulation * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop
-      : 0;
-
-    // Clearing an abandoned building rewards PC (clearing blight).
-    const pcReward = (isAbandoned && devLevel > 0)
-      ? devLevel * BALANCE.politicalCapital.disruptionCosts.abandonedBuildingReward
-      : 0;
+    // Displacing residents from an active zone costs PC; clearing an abandoned
+    // building rewards it (clearing blight is popular).
+    const { displacedPopulation, pcCost, pcReward } = tileDisruption(world, this.tx, this.ty);
 
     // Check if we can afford the PC cost (if any).
     if (pcCost > 0 && world.budget.politicalCapital < pcCost) return false;
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = BALANCE.costs.bulldoze;
-    this.pcCost = pcCost - pcReward; // Net change (positive = cost, negative = reward)
+    this.pcDelta = pcCost - pcReward;
 
     world.budget.money -= this.cost;
-    // Apply net political capital change (capped by PoliticsSystem max in its tick, but here we just mutate).
-    world.budget.politicalCapital -= this.pcCost;
+    // The cap is enforced by PoliticsSystem on its next tick.
+    world.budget.politicalCapital -= this.pcDelta;
 
     const ok = world.clearTile(this.tx, this.ty);
     if (ok) world.events.emit('tileCleared', {
@@ -72,6 +58,7 @@ export class BulldozeCommand extends Command {
   undo(world: World): void {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
-    if (this.pcCost > 0) world.budget.politicalCapital += this.pcCost;
+    // Reverses both costs and rewards.
+    world.budget.politicalCapital += this.pcDelta;
   }
 }

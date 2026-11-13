@@ -9,7 +9,7 @@ export const MegaMallL3: VectorEntity = {
   id: 'MegaMallL3',
   type: 'ZONE_2_3',
   tags: ['corporate', 'planned', 'retail', 'entertainment'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.05);
     

@@ -17,7 +17,6 @@ export const ArtDecoL3_01: VectorEntity = {
     
     // Palette Colors
     const bodyColor = p.buildingI[2]; // Level 3 color
-    const darkAccent = '#4a251a';
     const brassColor = '#ffcc66';
     const windowColor = 'rgba(20, 30, 40, 0.9)';
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { World } from '../sim/World';
 import { NetworkSystem } from '../sim/systems/NetworkSystem';
 import { PowerSystem } from '../sim/systems/PowerSystem';
@@ -29,7 +29,7 @@ import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { resolvePalette } from '../render/CharacterPalette';
 import { HealthcareSystem } from '../sim/systems/HealthcareSystem';
-import { BUILDING_HOSPITAL, BUILDING_SCHOOL } from '../sim/constants';
+import { BUILDING_HOSPITAL } from '../sim/constants';
 
 // Use a tiny world so tests are fast and grid positions are predictable.
 // Seed 0 — we manually set up all the tile state we need.
@@ -302,7 +302,6 @@ describe('EconomySystem', () => {
     forceBuildable(w, 0, 0);
     w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
     // devLevel stays 0
-    const before = w.budget.money;
     new EconomySystem().update(w);
     // only maintenance costs apply — no road or plant, so net should be ~0
     expect(w.budget.income).toBe(0);

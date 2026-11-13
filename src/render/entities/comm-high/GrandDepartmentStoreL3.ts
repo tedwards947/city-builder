@@ -8,7 +8,7 @@ export const GrandDepartmentStoreL3: VectorEntity = {
   id: 'GrandDepartmentStoreL3',
   type: 'ZONE_2_3',
   tags: ['organic', 'planned', 'retail', 'historic'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.05);
     

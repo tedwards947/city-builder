@@ -9,16 +9,13 @@ export const OilRefineryL3_01: VectorEntity = {
   id: 'OilRefineryL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'organic', 'utilitarian', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
     // Palette Colors
-    const metalColor = '#707070';
     const darkMetal = '#3a3a3a';
     const pipeColor = '#909090';
-    const flareColor = '#ff6600';
-    const tankColor = p.buildingI[2];
 
     // 1. Foundation (Massive concrete pad)
     ctx.fillStyle = '#2a2a2a';
@@ -86,7 +83,6 @@ export const OilRefineryL3_01: VectorEntity = {
 };
 
 function drawRefineryFlameL3(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
-  const flicker = Math.sin(t * 20) * 0.3 + 0.7;
   const pulse = Math.sin(t * 10) * 3;
   
   const grad = ctx.createRadialGradient(x, y, 1, x, y, 12 + pulse);

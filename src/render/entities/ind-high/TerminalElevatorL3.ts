@@ -9,13 +9,12 @@ export const TerminalElevatorL3_01: VectorEntity = {
   id: 'TerminalElevatorL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'agricultural', 'organic', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
     // Colors
     const concreteColor = '#dcdcdc';
-    const darkerConcrete = '#b0b0b0';
     const metalColor = '#5a5a5a';
 
     // 1. Foundation

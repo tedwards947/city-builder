@@ -1,5 +1,4 @@
 import type { VectorEntity, VibeState } from './SpriteTypes';
-import type { ColorPalette } from './CharacterPalette';
 
 /**
  * Registry of all vector-based entities in the game.

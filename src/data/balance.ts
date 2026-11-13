@@ -4,6 +4,7 @@
 export const BALANCE = {
   costs: {
     road: 10,
+    bridgeMultiplier: 3,
     zoneR: 20,
     zoneC: 25,
     zoneI: 25,
@@ -26,6 +27,10 @@ export const BALANCE = {
     zoneR: 0.65,
     zoneC: 1.0,
     zoneI: 1.25,
+    // Industry does not care about desirability: its tax uses this fixed
+    // multiplier instead of landValue/128. (Industrial tiles pollute themselves
+    // down to ~0 land value, which made them pay almost no tax.)
+    industryLandValueMult: 0.6,
   },
   maintenance: {
     road: 0.04,
@@ -246,6 +251,23 @@ export const BALANCE = {
         residentialZone:       0.05,
       },
     },
+  },
+
+  // ── Localized vibes (VibeSystem) ─────────────────────────────────────────────
+  // Vibe layers are bytes: 128 = neutral, 0 / 255 = the two extremes of an axis.
+  vibe: {
+    // Diffusion + decay run every simInterval ticks.
+    simInterval: 4,
+    // Byte units a tile moves per nudge point. The character.nudges values above
+    // are in points: e.g. parkBuilt green 5.0 → +40 (capped), industrialZone
+    // green −3.0 → −30, residentialZone egalitarian 0.3 → +3.
+    nudgeByteScale: 10,
+    // Cap on a single nudge so one action never saturates a tile.
+    nudgeMaxBytes: 40,
+    // Chance per sim step that a non-neutral tile steps 1 toward 128.
+    // Integer steps gated by a roll — a fractional decay is lost to byte rounding.
+    // 0.25 → a fully saturated, isolated region fades in ~2000 ticks (~250 game-days).
+    decayProbability: 0.25,
   },
 
   // ── Abandonment ──────────────────────────────────────────────────────────────

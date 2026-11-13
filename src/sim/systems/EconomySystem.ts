@@ -1,5 +1,5 @@
 import { World } from '../World';
-import { ZONE_NONE, ZONE_R, ZONE_C, ROAD_NONE } from '../constants';
+import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class EconomySystem {
@@ -25,7 +25,8 @@ export class EconomySystem {
                        : zone[i] === ZONE_C ? taxRates.C
                        : taxRates.I;
         // Land value multiplies income: lv 128 = neutral, 0 = half, 255 = ~2×
-        const lvMult = lv[i] / 128;
+        // Industry uses a fixed multiplier (see BALANCE.tax.industryLandValueMult).
+        const lvMult = zone[i] === ZONE_I ? BALANCE.tax.industryLandValueMult : lv[i] / 128;
         // Education multiplies income for R zones: 0 = 1x, 255 = taxMultiplier
         let eduMult = 1.0;
         if (zone[i] === ZONE_R) {

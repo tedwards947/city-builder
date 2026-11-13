@@ -103,7 +103,6 @@ export const OilRefinery_01: VectorEntity = {
  * Draws a flickering, pulsing flame for the refinery flare stack.
  */
 function drawRefineryFlame(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
-  const flicker = Math.sin(t * 15) * 0.2 + 0.8;
   const pulse = Math.sin(t * 8) * 2;
   
   // Outer Glow

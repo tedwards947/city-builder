@@ -10,7 +10,7 @@ export const ZenPagodaL1: VectorEntity = {
   id: 'ZenPagodaL1',
   type: 'ZONE_1_1', // Residential Level 1
   tags: ['green', 'organic', 'zen', 'traditional'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.15);
     
@@ -18,7 +18,6 @@ export const ZenPagodaL1: VectorEntity = {
     const woodColor = '#8d6e63'; // Warm wood
     const roofColor = '#2e7d32'; // Forest green tiles
     const paperColor = '#fff9c4'; // Cream/Paper walls
-    const accentColor = '#d32f2f'; // Traditional red
 
     // 1. Foundation / Stone Plinth
     ctx.fillStyle = '#757575';

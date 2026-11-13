@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import { VibeSystem } from '../sim/systems/VibeSystem';
+import { BALANCE } from '../data/balance';
 import {
   ZONE_R, ZONE_I,
   BUILDING_PARK,
@@ -79,6 +80,55 @@ describe('Localized Vibe System', () => {
       
       expect(world.layers.vibeGreen[i]).toBeLessThan(200);
       expect(world.layers.vibeGreen[i]).toBeGreaterThanOrEqual(128);
+    });
+  });
+
+  describe('Nudge scaling', () => {
+    it('a single zone paint moves the tile modestly instead of saturating it', () => {
+      vibeSystem.update(world);
+      const i = world.grid.idx(4, 4);
+      world.events.emit('zonePainted', { tx: 4, ty: 4, zone: ZONE_R });
+      for (const layer of [world.layers.vibeEgalitarian, world.layers.vibeGreen, world.layers.vibePlanned]) {
+        expect(layer[i]).toBeGreaterThan(128);
+        expect(layer[i]).toBeLessThanOrEqual(128 + BALANCE.vibe.nudgeMaxBytes);
+      }
+      world.events.emit('zonePainted', { tx: 6, ty: 6, zone: ZONE_I });
+      const j = world.grid.idx(6, 6);
+      expect(world.layers.vibeGreen[j]).toBeLessThan(128);
+      expect(world.layers.vibeGreen[j]).toBeGreaterThanOrEqual(128 - BALANCE.vibe.nudgeMaxBytes);
+    });
+
+    it('caps even a very large nudge at nudgeMaxBytes', () => {
+      vibeSystem.update(world);
+      world.events.emit('tileCleared', { tx: 3, ty: 3, displacedPopulation: 20 });
+      const i = world.grid.idx(3, 3);
+      expect(world.layers.vibeEgalitarian[i]).toBe(128 - BALANCE.vibe.nudgeMaxBytes);
+    });
+  });
+
+  describe('Decay of uniform regions', () => {
+    it('a uniformly non-neutral map decays all the way back to 128', () => {
+      world.layers.vibeGreen.fill(200);
+      world.layers.vibePlanned.fill(60);
+      // Expected (200-128) / decayProbability steps; run 3× that for margin.
+      const steps = Math.ceil((72 / BALANCE.vibe.decayProbability) * 3);
+      for (let s = 1; s <= steps; s++) {
+        world.tick = s * BALANCE.vibe.simInterval;
+        vibeSystem.update(world);
+      }
+      const n = world.grid.width * world.grid.height;
+      for (let i = 0; i < n; i++) {
+        expect(world.layers.vibeGreen[i]).toBe(128);
+        expect(world.layers.vibePlanned[i]).toBe(128);
+      }
+    });
+
+    it('a neutral map stays neutral and consumes no rng', () => {
+      const before = world.rng();
+      const w2 = new World(16, 16, 42);
+      for (let t = 0; t < 40; t++) { w2.tick = t; vibeSystem.update(w2); }
+      expect(w2.rng()).toBe(before);
+      expect(w2.layers.vibeGreen.every(v => v === 128)).toBe(true);
     });
   });
 

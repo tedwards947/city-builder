@@ -131,6 +131,7 @@ export interface TranslationSchema {
       traffic: string;
       crime: string;
       fire: string;
+      vibe: string;
       view: string;
       inspect: string;
       street: string;
@@ -149,6 +150,7 @@ export interface TranslationSchema {
       park: string;
       clear: string;
       undo: string;
+      redo: string;
     };
     toolbarDesc: {
       new: string;
@@ -158,6 +160,7 @@ export interface TranslationSchema {
       traffic: string;
       crime: string;
       fire: string;
+      vibe: string;
       view: string;
       inspect: string;
       street: string;
@@ -176,6 +179,7 @@ export interface TranslationSchema {
       park: string;
       clear: string;
       undo: string;
+      redo: string;
     };
   };
   zones: {

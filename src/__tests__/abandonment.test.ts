@@ -7,7 +7,7 @@ import { SewageSystem } from '../sim/systems/SewageSystem';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { NetworkSystem } from '../sim/systems/NetworkSystem';
-import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT } from '../sim/constants';
+import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, BUILDING_POWER_PLANT } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
 function makeWorld(w = 16, h = 16) { return new World(w, h, 0); }
@@ -42,12 +42,6 @@ function setupDevelopedZone(world: World, tx: number, ty: number, zone = ZONE_R,
 }
 
 // Run AbandonmentSystem for N full distress intervals (tick advances by distressInterval each call).
-function runNChecks(world: World, sys: AbandonmentSystem, n: number) {
-  for (let k = 0; k < n; k++) {
-    world.tick = k * BALANCE.abandonment.distressInterval;
-    sys.update(world);
-  }
-}
 
 // ─── AbandonmentSystem core ───────────────────────────────────────────────────
 

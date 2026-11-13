@@ -9,7 +9,7 @@ export const ModernSupermarketL2: VectorEntity = {
   id: 'ModernSupermarketL2',
   type: 'ZONE_2_2', // Commercial Level 2
   tags: ['corporate', 'planned', 'retail', 'supermarket'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.05);
     

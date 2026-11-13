@@ -11,7 +11,7 @@ export const TextileComplexL3_01: VectorEntity = {
   id: 'TextileComplexL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'organic', 'brick', 'historic', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     

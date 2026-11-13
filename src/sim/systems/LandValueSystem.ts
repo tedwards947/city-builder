@@ -42,7 +42,7 @@ export class LandValueSystem {
       for (let x = 0; x < width; x++) {
         const i = y * width + x;
 
-        let target = LV.base;
+        let target: number = LV.base;
         target += svc[i]   ? LV.serviceBonus : 0;
         target += power[i] ? LV.powerBonus   : 0;
         target += water[i] ? LV.waterBonus   : 0;

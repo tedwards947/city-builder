@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import {
-  TERRAIN_WATER, TERRAIN_GRASS,
-  ZONE_R, ZONE_NONE,
-  ROAD_STREET, ROAD_NONE,
-  BUILDING_POWER_PLANT, BUILDING_NONE,
-  VEG_NONE, VEG_TREE_1,
+  TERRAIN_WATER,
+  ZONE_R,
+  ROAD_STREET,
+  BUILDING_POWER_PLANT,
+  VEG_NONE,
 } from '../sim/constants';
 
 describe('Vegetation generation', () => {

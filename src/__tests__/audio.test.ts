@@ -33,8 +33,8 @@ const MockAudioContext = vi.fn(function() {
   return mockAudioContext;
 });
 
-(global as any).AudioContext = MockAudioContext;
-(global as any).window = {
+(globalThis as any).AudioContext = MockAudioContext;
+(globalThis as any).window = {
   AudioContext: MockAudioContext,
   setTimeout: setTimeout,
   clearTimeout: clearTimeout,

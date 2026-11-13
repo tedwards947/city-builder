@@ -9,7 +9,7 @@ export const BigBoxStoreL2: VectorEntity = {
   id: 'BigBoxStoreL2',
   type: 'ZONE_2_2',
   tags: ['corporate', 'planned', 'retail'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.05);
     

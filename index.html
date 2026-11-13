@@ -206,6 +206,7 @@
 
   <div id="toolbar-tip"><div class="tip-desc"></div><div class="tip-cost"></div><div class="tip-upkeep"></div></div>
 
+  <!-- Tool cost / upkeep tooltips are filled in from BALANCE by main.ts. -->
   <div id="toolbar">
     <button class="tool action" id="btn-new" data-i18n="ui.toolbar.new" data-i18n-desc="ui.toolbarDesc.new">New</button>
     <button class="tool action" id="btn-save" data-i18n="ui.toolbar.save" data-i18n-desc="ui.toolbarDesc.save">Save</button>
@@ -214,27 +215,29 @@
     <button class="tool action" id="btn-traffic" data-i18n="ui.toolbar.traffic" data-i18n-desc="ui.toolbarDesc.traffic">Traffic</button>
     <button class="tool action" id="btn-crime" data-i18n="ui.toolbar.crime" data-i18n-desc="ui.toolbarDesc.crime">Crime</button>
     <button class="tool action" id="btn-fire" data-i18n="ui.toolbar.fire" data-i18n-desc="ui.toolbarDesc.fire">Fire</button>
+    <button class="tool action" id="btn-vibe" data-i18n="ui.toolbar.vibe" data-i18n-desc="ui.toolbarDesc.vibe">Vibe</button>
     <div class="tool-sep"></div>
     <button class="tool active" data-tool="none" data-i18n="ui.toolbar.view" data-i18n-desc="ui.toolbarDesc.view">View</button>
     <button class="tool" data-tool="inspect" data-i18n="ui.toolbar.inspect" data-i18n-desc="ui.toolbarDesc.inspect">Inspect</button>
-    <button class="tool" data-tool="road" data-i18n="ui.toolbar.street" data-i18n-desc="ui.toolbarDesc.street" data-cost="$10" data-upkeep="$0.01/tile/tick">Street</button>
-    <button class="tool" data-tool="avenue" data-i18n="ui.toolbar.avenue" data-i18n-desc="ui.toolbarDesc.avenue" data-cost="$50" data-upkeep="$0.04/tile/tick">Avenue</button>
-    <button class="tool" data-tool="highway" data-i18n="ui.toolbar.highway" data-i18n-desc="ui.toolbarDesc.highway" data-cost="$150" data-upkeep="$0.12/tile/tick">Highway</button>
-    <button class="tool" data-tool="zoneR" data-i18n="ui.toolbar.res" data-i18n-desc="ui.toolbarDesc.res" data-cost="$20">Res</button>
-    <button class="tool" data-tool="zoneC" data-i18n="ui.toolbar.com" data-i18n-desc="ui.toolbarDesc.com" data-cost="$25">Com</button>
-    <button class="tool" data-tool="zoneI" data-i18n="ui.toolbar.ind" data-i18n-desc="ui.toolbarDesc.ind" data-cost="$25">Ind</button>
-    <button class="tool" data-tool="power" data-i18n="ui.toolbar.plant" data-i18n-desc="ui.toolbarDesc.plant" data-cost="$2,000" data-upkeep="$5/tick">Plant</button>
-    <button class="tool" data-tool="water" data-i18n="ui.toolbar.water" data-i18n-desc="ui.toolbarDesc.water" data-cost="$500" data-upkeep="$2/tick">Water</button>
-    <button class="tool" data-tool="sewage" data-i18n="ui.toolbar.sewage" data-i18n-desc="ui.toolbarDesc.sewage" data-cost="$1,500" data-upkeep="$3/tick">Sewage</button>
+    <button class="tool" data-tool="road" data-i18n="ui.toolbar.street" data-i18n-desc="ui.toolbarDesc.street">Street</button>
+    <button class="tool" data-tool="avenue" data-i18n="ui.toolbar.avenue" data-i18n-desc="ui.toolbarDesc.avenue">Avenue</button>
+    <button class="tool" data-tool="highway" data-i18n="ui.toolbar.highway" data-i18n-desc="ui.toolbarDesc.highway">Highway</button>
+    <button class="tool" data-tool="zoneR" data-i18n="ui.toolbar.res" data-i18n-desc="ui.toolbarDesc.res">Res</button>
+    <button class="tool" data-tool="zoneC" data-i18n="ui.toolbar.com" data-i18n-desc="ui.toolbarDesc.com">Com</button>
+    <button class="tool" data-tool="zoneI" data-i18n="ui.toolbar.ind" data-i18n-desc="ui.toolbarDesc.ind">Ind</button>
+    <button class="tool" data-tool="power" data-i18n="ui.toolbar.plant" data-i18n-desc="ui.toolbarDesc.plant">Plant</button>
+    <button class="tool" data-tool="water" data-i18n="ui.toolbar.water" data-i18n-desc="ui.toolbarDesc.water">Water</button>
+    <button class="tool" data-tool="sewage" data-i18n="ui.toolbar.sewage" data-i18n-desc="ui.toolbarDesc.sewage">Sewage</button>
     <div class="tool-sep"></div>
-    <button class="tool" data-tool="police" data-i18n="ui.toolbar.police" data-i18n-desc="ui.toolbarDesc.police" data-cost="$1,200" data-upkeep="$3/tick">Police</button>
-    <button class="tool" data-tool="fire" data-i18n="ui.toolbar.fireStation" data-i18n-desc="ui.toolbarDesc.fireStation" data-cost="$800" data-upkeep="$2/tick">Fire</button>
-    <button class="tool" data-tool="school" data-i18n="ui.toolbar.school" data-i18n-desc="ui.toolbarDesc.school" data-cost="$1,500" data-upkeep="$4/tick">School</button>
-    <button class="tool" data-tool="hospital" data-i18n="ui.toolbar.hospital" data-i18n-desc="ui.toolbarDesc.hospital" data-cost="$3,000" data-upkeep="$6/tick">Hospital</button>
-    <button class="tool" data-tool="park" data-i18n="ui.toolbar.park" data-i18n-desc="ui.toolbarDesc.park" data-cost="$300" data-upkeep="$0.50/tick">Park</button>
+    <button class="tool" data-tool="police" data-i18n="ui.toolbar.police" data-i18n-desc="ui.toolbarDesc.police">Police</button>
+    <button class="tool" data-tool="fire" data-i18n="ui.toolbar.fireStation" data-i18n-desc="ui.toolbarDesc.fireStation">Fire</button>
+    <button class="tool" data-tool="school" data-i18n="ui.toolbar.school" data-i18n-desc="ui.toolbarDesc.school">School</button>
+    <button class="tool" data-tool="hospital" data-i18n="ui.toolbar.hospital" data-i18n-desc="ui.toolbarDesc.hospital">Hospital</button>
+    <button class="tool" data-tool="park" data-i18n="ui.toolbar.park" data-i18n-desc="ui.toolbarDesc.park">Park</button>
     <div class="tool-sep"></div>
-    <button class="tool" data-tool="bulldoze" data-i18n="ui.toolbar.clear" data-i18n-desc="ui.toolbarDesc.clear" data-cost="$5">Clear</button>
+    <button class="tool" data-tool="bulldoze" data-i18n="ui.toolbar.clear" data-i18n-desc="ui.toolbarDesc.clear">Clear</button>
     <button class="tool" data-tool="undo" data-i18n="ui.toolbar.undo" data-i18n-desc="ui.toolbarDesc.undo">Undo</button>
+    <button class="tool" data-tool="redo" data-i18n="ui.toolbar.redo" data-i18n-desc="ui.toolbarDesc.redo">Redo</button>
   </div>
 </div>
 

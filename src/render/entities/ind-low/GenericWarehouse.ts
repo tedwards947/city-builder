@@ -9,7 +9,7 @@ export const GenericWarehouse_01: VectorEntity = {
   id: 'GenericWarehouse_01',
   type: 'ZONE_3_2', // Industrial Level 2
   tags: ['industrial', 'utilitarian', 'corporate'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     

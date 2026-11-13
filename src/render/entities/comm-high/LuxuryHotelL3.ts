@@ -9,7 +9,7 @@ export const LuxuryHotelL3: VectorEntity = {
   id: 'LuxuryHotelL3',
   type: 'ZONE_2_3', // Commercial Level 3
   tags: ['corporate', 'planned', 'luxury', 'tourism'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.05);
     

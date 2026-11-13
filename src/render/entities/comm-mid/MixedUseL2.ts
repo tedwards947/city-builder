@@ -9,7 +9,7 @@ export const MixedUseL2: VectorEntity = {
   id: 'MixedUseL2',
   type: 'ZONE_2_2',
   tags: ['neutral', 'planned', 'urban'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.1);
     

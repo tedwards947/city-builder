@@ -9,9 +9,7 @@ export const RuralSiloL1: VectorEntity = {
   id: 'RuralSiloL1',
   type: 'ZONE_3_1', // Industrial Level 1
   tags: ['industrial', 'agricultural', 'organic'],
-  draw: (ctx, ts, t, p, _vibe) => {
-    const s = ts * 0.1;
-    const inset = Math.floor(ts * 0.08);
+  draw: (ctx, ts, _t, _p, _vibe) => {
     
     // 1. Foundation
     ctx.fillStyle = '#5a4a3a';

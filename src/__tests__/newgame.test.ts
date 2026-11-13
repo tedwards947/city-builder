@@ -60,14 +60,10 @@ describe('World terrain options', () => {
 
 describe('Serializer preserves terrain options through save/load', () => {
   it('waterAmount survives a round-trip via Serializer', async () => {
-    const { serialize, deserialize } = await import('../persistence/Serializer');
     const { SaveManager }            = await import('../persistence/SaveManager');
     const { SAVE_VERSION }           = await import('../persistence/SaveFormat');
     type IStore    = import('../persistence/SaveFormat').IStore;
-    type SaveMeta  = import('../persistence/SaveFormat').SaveMeta;
     type SaveRecord = import('../persistence/SaveFormat').SaveRecord;
-    type SlotInfo  = import('../persistence/SaveFormat').SlotInfo;
-    type WorldSnapshot = import('../persistence/SaveFormat').WorldSnapshot;
 
     // Mini in-memory store
     const records = new Map<string, SaveRecord>();

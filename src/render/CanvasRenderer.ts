@@ -62,7 +62,7 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, trafficOverlay = false, crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', trafficOverlay = false, crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     if (camera.zoom < 0.1) return;
 
     const ctx = this.ctx;
@@ -351,7 +351,11 @@ export class CanvasRenderer {
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
       const sx = camera.worldToScreenX(Projection.tileToWorldX(hoverTile.tx));
       const sy = camera.worldToScreenY(Projection.tileToWorldY(hoverTile.ty));
-      ctx.strokeStyle = world.isBuildable(hoverTile.tx, hoverTile.ty) ? '#fff' : '#f66';
+      
+      const isRoadTool = ['road', 'avenue', 'highway'].includes(currentTool);
+      const isBuildable = world.isBuildable(hoverTile.tx, hoverTile.ty, isRoadTool);
+      
+      ctx.strokeStyle = isBuildable ? '#fff' : '#f66';
       ctx.lineWidth = 2;
       ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
     }
@@ -398,7 +402,7 @@ export class CanvasRenderer {
     chunkCtx: CanvasRenderingContext2D,
     world: World,
     cx: number, cy: number,
-    p: ColorPalette,
+    _p: ColorPalette,
     ts: number,
     vibe: VibeState,
   ): void {
@@ -721,6 +725,22 @@ export class CanvasRenderer {
     const roadWidth = Math.floor(ts * 0.75);
     const off = (ts - roadWidth) / 2;
     const mid = ts / 2;
+
+    // Draw Bridge Underlay if on water
+    if (world.layers.terrain[i] === TERRAIN_WATER) {
+      ctx.fillStyle = '#5d4037'; // Dark wood
+      ctx.fillRect(sxi, syi, tsi, tsi);
+      // Plank detail
+      ctx.strokeStyle = '#3e2723';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x < tsi; x += Math.max(2, ts * 0.2)) {
+        ctx.moveTo(sxi + x, syi);
+        ctx.lineTo(sxi + x, syi + tsi);
+      }
+      ctx.stroke();
+    }
+
     ctx.fillStyle = baseColor;
     ctx.fillRect(sxi + Math.floor(off), syi + Math.floor(off), roadWidth, roadWidth);
     if (mask & 1) ctx.fillRect(sxi + Math.floor(off), syi, roadWidth, Math.ceil(off) + 1);

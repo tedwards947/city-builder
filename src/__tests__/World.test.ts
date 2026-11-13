@@ -223,3 +223,42 @@ describe('BALANCE.buildings completeness', () => {
     });
   }
 });
+
+describe('World mutators reset abandonment state', () => {
+  function ruin(w: World, tx: number, ty: number): number {
+    const i = w.grid.idx(tx, ty);
+    w.setZone(tx, ty, ZONE_R);
+    w.layers.devLevel[i] = 2;
+    w.layers.abandoned[i] = 1;
+    w.layers.distress[i] = 20;
+    return i;
+  }
+
+  it('setRoad clears abandoned and distress when a road is placed', () => {
+    const w = makeWorld();
+    const { tx, ty } = grassTile(w);
+    const i = ruin(w, tx, ty);
+    w.setRoad(tx, ty, ROAD_STREET);
+    expect(w.layers.abandoned[i]).toBe(0);
+    expect(w.layers.distress[i]).toBe(0);
+  });
+
+  it('placeBuilding clears abandoned and distress', () => {
+    const w = makeWorld();
+    const { tx, ty } = grassTile(w);
+    const i = ruin(w, tx, ty);
+    w.placeBuilding(tx, ty, BUILDING_PARK);
+    expect(w.layers.abandoned[i]).toBe(0);
+    expect(w.layers.distress[i]).toBe(0);
+  });
+
+  it('placeBuilding over a road marks the road network dirty', () => {
+    const w = makeWorld();
+    const { tx, ty } = grassTile(w);
+    w.setRoad(tx, ty, ROAD_STREET);
+    w.roadNetDirty = false;
+    w.placeBuilding(tx, ty, BUILDING_PARK);
+    expect(w.roadNetDirty).toBe(true);
+  });
+
+});
