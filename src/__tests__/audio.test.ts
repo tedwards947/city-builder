@@ -111,6 +111,14 @@ describe('MusicManager', () => {
     expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 
+  it('reports each track with its style for the picker', () => {
+    const list = musicManager.getTrackList();
+    expect(list).toHaveLength(TRACK_COUNT);
+    expect(list.find(t => t.name === 'Glass Towers')?.genre).toBe('edm');
+    expect(list.find(t => t.name === 'Dusty Roads · Prairie Waltz')?.genre).toBe('country');
+    expect(new Set(list.map(t => t.genre))).toEqual(new Set(['ambient', 'country', 'edm']));
+  });
+
   it('lists every track and jumps to a picked one, starting playback', () => {
     const names = musicManager.getTrackNames();
     expect(names).toHaveLength(TRACK_COUNT);
