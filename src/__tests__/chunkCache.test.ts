@@ -33,7 +33,7 @@ function setup() {
 
   const frame = () => {
     redraws.length = 0;
-    renderer.render(world, camera, null, 'none', false, false, false, false, null, 0);
+    renderer.render(world, camera, null, 'none', false, false, false, null, 0);
     return [...redraws];
   };
   return { world, camera, view, frame };

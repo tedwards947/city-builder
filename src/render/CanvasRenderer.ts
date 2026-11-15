@@ -79,7 +79,7 @@ export class CanvasRenderer {
     loadClaySprites();
   }
 
-  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', trafficOverlay = false, crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
+  render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
     if (camera.zoom < 0.1) return;
 
     const ctx = this.ctx;
@@ -182,7 +182,7 @@ export class CanvasRenderer {
       }
     }
 
-    const hasOverlay = trafficOverlay || crimeOverlay || fireOverlay || vibeOverlay;
+    const hasOverlay = crimeOverlay || fireOverlay || vibeOverlay;
     let iterations = 0;
     const clayTile = Math.ceil(ts);
     const clayEffects = this._clayEffects;
@@ -267,21 +267,6 @@ export class CanvasRenderer {
             ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
-        if (trafficOverlay && road !== ROAD_NONE) {
-
-          const t = congestion / 255;
-          let r: number, g: number;
-          if (t <= 0.5) {
-            r = Math.round(t * 2 * 220);
-            g = 180 + Math.round(t * 2 * 20);
-          } else {
-            r = 220;
-            g = Math.round(200 * (1 - (t - 0.5) * 2));
-          }
-          ctx.fillStyle = `rgb(${r},${g},0)`;
-          ctx.fillRect(sxi, syi, tsi, tsi);
-        }
-
         if (crimeOverlay && crimeV > 10) {
           ctx.fillStyle = _crimeOverlayColors[crimeV];
           ctx.fillRect(sxi, syi, tsi, tsi);
@@ -302,7 +287,7 @@ export class CanvasRenderer {
           else fireQueue.push(i, sxi, syi);
         }
 
-        if (!trafficOverlay && ts > 20 && road !== ROAD_NONE && congestion > 15) {
+        if (ts > 20 && road !== ROAD_NONE && congestion > 15) {
           this._drawRoadVehicles(ctx, world, tx, ty, sxi, syi, ts, congestion, now);
         }
       }
@@ -347,27 +332,13 @@ export class CanvasRenderer {
       ctx.stroke();
     }
 
-    if (trafficOverlay || crimeOverlay || fireOverlay || vibeOverlay) {
+    if (crimeOverlay || fireOverlay || vibeOverlay) {
       const lx = 12, ly = camera.viewportH - 30;
       ctx.globalAlpha = 1.0;
       ctx.font = '11px sans-serif';
       ctx.textBaseline = 'middle';
 
-      if (trafficOverlay) {
-        const stops: [string, string][] = [
-          ['rgb(0,180,0)',   'Free'],
-          ['rgb(220,200,0)', 'Moderate'],
-          ['rgb(220,0,0)',   'Gridlock'],
-        ];
-        let lxOff = lx;
-        for (const [color, label] of stops) {
-          ctx.fillStyle = color;
-          ctx.fillRect(lxOff, ly, 10, 10);
-          ctx.fillStyle = '#ccc';
-          ctx.fillText(label, lxOff + 14, ly + 5);
-          lxOff += 14 + ctx.measureText(label).width + 14;
-        }
-      } else if (crimeOverlay) {
+      if (crimeOverlay) {
         const stops: [string, string][] = [
           ['rgba(255,0,0,0.1)', 'Low'],
           ['rgba(255,0,0,0.4)', 'Moderate'],

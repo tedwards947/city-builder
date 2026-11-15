@@ -6,6 +6,10 @@ import type { World } from '../sim/World';
 export const AUTOSAVE_SLOT = 0;
 export const AUTOSAVE_NAME = 'Autosave';
 export const AUTOSAVE_INTERVAL_MS = 60_000;
+// Longest gap between frames that counts as play time. Frames stop while the
+// tab is hidden (and the game is saved as it hides), so without this the
+// first frame back would count the whole absence and save again at once.
+export const AUTOSAVE_MAX_FRAME_GAP_MS = 2_000;
 
 /** The slice of SaveManager that Autosave needs. */
 export interface AutosaveTarget {
@@ -39,7 +43,7 @@ export class Autosave {
    * accumulated since the last save. Time spent paused does not count.
    */
   tick(now: number, paused: boolean): void {
-    const dt = this.lastTickAt === null ? 0 : Math.max(0, now - this.lastTickAt);
+    const dt = this.lastTickAt === null ? 0 : Math.min(AUTOSAVE_MAX_FRAME_GAP_MS, Math.max(0, now - this.lastTickAt));
     this.lastTickAt = now;
     if (paused) return;
     this.elapsedMs += dt;

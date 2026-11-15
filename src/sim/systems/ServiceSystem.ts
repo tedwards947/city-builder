@@ -82,6 +82,13 @@ export function computeServiceCoverage(
 }
 
 export class ServiceSystem {
+  // Coverage only depends on where the roads and buildings are, so the
+  // per-building road walks are redone only when one of those changes; every
+  // other tick the layers are refilled from the remembered tiles.
+  private _world: World | null = null;
+  private _key = NaN;
+  private _coverage: { kind: number; tiles: Int32Array }[] = [];
+
   update(world: World): void {
     const services = world.layers.services;
     const police = world.layers.police;
@@ -94,20 +101,39 @@ export class ServiceSystem {
     school.fill(0);
     hospital.fill(0);
 
+    // A fingerprint of everything coverage depends on: each road tile and its
+    // class, each building and its kind, and the coverage ranges.
+    const roadClass = world.layers.roadClass;
+    const { roads, roadCount } = world.index;
+    let key = 0x811c9dc5 | 0;
+    const mix = (v: number) => { key = Math.imul(key ^ v, 0x9e3779b1); key ^= key >>> 15; };
+    for (let k = 0; k < roadCount; k++) { mix(roads[k]); mix(roadClass[roads[k]]); }
+    mix(roadCount);
     for (const b of world.buildings) {
-      const range = BALANCE.service.coverageRange[b.kind];
-      if (range === undefined) continue; // not a service building
-      for (const idx of computeServiceCoverage(world, b.tx, b.ty, b.kind)) {
-        services[idx] = 1;
-        if (b.kind === BUILDING_POLICE) {
-          police[idx] = 1;
-        } else if (b.kind === BUILDING_FIRE) {
-          fireStation[idx] = 1;
-        } else if (b.kind === BUILDING_SCHOOL) {
-          school[idx] = 1;
-        } else if (b.kind === BUILDING_HOSPITAL) {
-          hospital[idx] = 1;
-        }
+      mix(b.ty * world.grid.width + b.tx); mix(b.kind);
+      mix(BALANCE.service.coverageRange[b.kind] ?? -1);
+    }
+    mix(world.buildings.length);
+
+    if (world !== this._world || key !== this._key) {
+      this._world = world;
+      this._key = key;
+      this._coverage = [];
+      for (const b of world.buildings) {
+        if (BALANCE.service.coverageRange[b.kind] === undefined) continue; // not a service building
+        this._coverage.push({ kind: b.kind, tiles: Int32Array.from(computeServiceCoverage(world, b.tx, b.ty, b.kind)) });
+      }
+    }
+
+    for (const { kind, tiles } of this._coverage) {
+      const own = kind === BUILDING_POLICE ? police
+                : kind === BUILDING_FIRE ? fireStation
+                : kind === BUILDING_SCHOOL ? school
+                : kind === BUILDING_HOSPITAL ? hospital
+                : null;
+      for (let k = 0; k < tiles.length; k++) {
+        services[tiles[k]] = 1;
+        if (own) own[tiles[k]] = 1;
       }
     }
 
