@@ -85,13 +85,12 @@ for (const { g, file, sketches } of sketchGroups) {
   });
 }
 
-// The game's playlist, in the order MusicManager plays it
-const { playlistOrder } = await import(pathToFileURL(join(audio, 'MusicManager.ts')).href);
+// The game's tracks (MusicManager shuffles them, so list them alphabetically)
 const gameTracks = [];
 for (const file of readdirSync(join(audio, 'tracks')).filter(f => f.endsWith('.ts'))) {
   gameTracks.push((await import(pathToFileURL(join(audio, 'tracks', file)).href)).track);
 }
-const playlist = playlistOrder(gameTracks).map(t => t.name);
+const playlist = gameTracks.map(t => t.name).sort((a, b) => a.localeCompare(b));
 
 const template = readFileSync(join(here, 'music-review.template.html'), 'utf8');
 const json = JSON.stringify(songs).replace(/</g, '\\u003c');
