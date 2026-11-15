@@ -19,6 +19,7 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
+import { wheelZoomFactor } from './wheelZoom';
 
 export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
 
@@ -238,8 +239,7 @@ export class InputController {
     const rect = this.canvas.getBoundingClientRect();
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
-    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    this.camera.zoomAt(sx, sy, factor);
+    this.camera.zoomAt(sx, sy, wheelZoomFactor(e.deltaY, e.deltaMode, e.ctrlKey));
   }
 
   // ── Drag-paint strokes ──────────────────────────────────────────────────────
