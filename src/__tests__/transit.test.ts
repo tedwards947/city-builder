@@ -6,6 +6,9 @@ import { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { BALANCE } from '../data/balance';
+import { bestAccessRoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { loadColor, markUpstream, routeFrom } from '../render/TrafficOverlay';
+import { trafficTotals } from '../ui/trafficDebug';
 import {
   TERRAIN_GRASS, VEG_NONE,
   ZONE_R, ZONE_C, ZONE_I,
@@ -326,5 +329,155 @@ describe('TransitSystem — accessibility', () => {
     w.rng = () => 0.05;
     new ZoneGrowthSystem().update(w);
     expect(w.layers.devLevel[w.grid.idx(2, 2)]).toBe(1);
+  });
+});
+
+describe('TransitSystem — published traffic data', () => {
+  it('world.traffic is null until the first pass, then holds per-flow volumes', () => {
+    const w = makeWorld(24, 24);
+    expect(w.traffic).toBeNull();
+    // Homes at x=2, industry at x=6, commerce at x=10 on one street.
+    roadRow(w, 2, 10, 5);
+    zoneAt(w, 2, 4, ZONE_R, 2);
+    zoneAt(w, 6, 4, ZONE_I, 1);
+    zoneAt(w, 10, 4, ZONE_C, 1);
+    run(w);
+    const d = w.traffic!;
+    const at = (x: number) => w.grid.idx(x, 5);
+    // Homes → industry stops at the factory; homes → commerce carries on.
+    expect(d.volRI[at(4)]).toBeCloseTo(2 * T.tripsRtoI);
+    expect(d.volRI[at(8)]).toBe(0);
+    expect(d.volRC[at(4)]).toBeCloseTo(2 * T.tripsRtoC);
+    expect(d.volRC[at(8)]).toBeCloseTo(2 * T.tripsRtoC);
+    // Industry → commerce only exists east of the factory.
+    expect(d.volIC[at(4)]).toBe(0);
+    expect(d.volIC[at(8)]).toBeCloseTo(1 * T.tripsItoC);
+    // The byte layer is the sum over capacity.
+    expect(cong(w, 8, 5)).toBe(Math.round(trafficVolume(d, at(8)) / STREET_CAP * 255));
+    expect(d.toC.dist[at(10)]).toBe(0);
+    expect(d.toC.dist[at(2)]).toBe(8);
+  });
+
+  it('volumes are not capped at capacity', () => {
+    const w = makeWorld(40, 8);
+    roadRow(w, 2, 36, 3);
+    for (let x = 2; x <= 30; x++) { zoneAt(w, x, 2, ZONE_R, 3); zoneAt(w, x, 4, ZONE_R, 3); }
+    zoneAt(w, 36, 2, ZONE_C, 1);
+    run(w);
+    const i = w.grid.idx(34, 3);
+    expect(cong(w, 34, 3)).toBe(255);
+    expect(trafficVolume(w.traffic!, i) / roadCapacity(ROAD_STREET)).toBeGreaterThan(1.5);
+  });
+
+  it('version only advances when the pass actually reruns', () => {
+    const w = simpleTown();
+    const sys = run(w);
+    const v = w.traffic!.version;
+    run(w, sys, interval * 2);                 // nothing changed
+    expect(w.traffic!.version).toBe(v);
+    w.layers.devLevel[w.grid.idx(2, 4)] = 1;
+    run(w, sys, interval * 3);
+    expect(w.traffic!.version).toBe(v + 1);
+  });
+
+  it('recompute() runs off-tick and picks up changed balance values', () => {
+    const w = simpleTown();
+    const sys = run(w);
+    const before = cong(w, 6, 5);
+    const transit = BALANCE.transit as unknown as Record<string, number>;
+    const saved = transit.tripsRtoC;
+    try {
+      transit.tripsRtoC = saved * 2;
+      w.tick = interval + 3;                   // not a traffic tick
+      sys.recompute(w);
+      expect(cong(w, 6, 5)).toBe(Math.round(3 * saved * 2 / STREET_CAP * 255));
+      expect(cong(w, 6, 5)).toBeGreaterThan(before);
+    } finally {
+      transit.tripsRtoC = saved;
+    }
+  });
+
+  it('a changed balance value alone triggers a rerun on the next traffic tick', () => {
+    const w = simpleTown();
+    const sys = run(w);
+    const v = w.traffic!.version;
+    const cls = BALANCE.roadClasses[ROAD_STREET];
+    const saved = cls.capacity;
+    try {
+      cls.capacity = saved * 2;
+      run(w, sys, interval * 2);
+      expect(w.traffic!.version).toBe(v + 1);
+      expect(cong(w, 6, 5)).toBe(Math.round(3 * T.tripsRtoC / (saved * 2) * 255));
+    } finally {
+      cls.capacity = saved;
+    }
+  });
+});
+
+describe('traffic overlay helpers', () => {
+  // A T-junction: west arm and north arm both feed the east arm to commerce.
+  function junction() {
+    const w = makeWorld(20, 16);
+    roadRow(w, 2, 14, 8);
+    roadCol(w, 8, 2, 7);
+    zoneAt(w, 2, 9, ZONE_R, 1);    // west home
+    zoneAt(w, 7, 2, ZONE_R, 1);    // north home
+    zoneAt(w, 14, 9, ZONE_C, 1);
+    run(w);
+    return w;
+  }
+
+  it('routeFrom follows the road from a building to its destination', () => {
+    const w = junction();
+    const d = w.traffic!;
+    const start = bestAccessRoad(w, w.grid.idx(7, 2), d.toC);
+    expect(start).toBe(w.grid.idx(8, 2));
+    const path = routeFrom(d.toC, start);
+    expect(path[0]).toBe(w.grid.idx(8, 2));
+    expect(path).toContain(w.grid.idx(8, 8));           // through the junction
+    expect(path[path.length - 1]).toBe(w.grid.idx(14, 8)); // the shop's door
+    expect(path.length).toBe(6 + 6 + 1);
+  });
+
+  it('routeFrom is empty when there is no way there', () => {
+    const w = junction();
+    expect(routeFrom(w.traffic!.toI, w.grid.idx(8, 2))).toEqual([]);   // no industry
+    expect(routeFrom(w.traffic!.toC, -1)).toEqual([]);
+  });
+
+  it('markUpstream marks exactly the roads whose traffic passes a tile', () => {
+    const w = junction();
+    const d = w.traffic!;
+    const up = new Uint8Array(w.grid.width * w.grid.height);
+
+    markUpstream(d.toC, w.grid.idx(11, 8), up);          // east arm: everything west and north
+    expect(up[w.grid.idx(11, 8)]).toBe(1);
+    expect(up[w.grid.idx(2, 8)]).toBe(1);
+    expect(up[w.grid.idx(8, 2)]).toBe(1);
+    expect(up[w.grid.idx(13, 8)]).toBe(0);               // downstream
+
+    markUpstream(d.toC, w.grid.idx(8, 4), up);           // north arm: only the north arm above it
+    expect(up[w.grid.idx(8, 2)]).toBe(1);
+    expect(up[w.grid.idx(2, 8)]).toBe(0);
+    expect(up[w.grid.idx(11, 8)]).toBe(0);
+  });
+
+  it('loadColor distinguishes empty, full and overloaded roads', () => {
+    const colors = [0, 0.05, 0.5, 1, 2, 4].map(loadColor);
+    expect(new Set(colors).size).toBe(colors.length);
+    expect(loadColor(10)).toBe(loadColor(4));            // scale tops out
+  });
+
+  it('trafficTotals summarises the last pass', () => {
+    const w = junction();
+    expect(trafficTotals(makeWorld())).toBeNull();
+    const tot = trafficTotals(w)!;
+    expect(tot.homes).toBe(2);
+    expect(tot.trips).toBeCloseTo(2 * T.tripsRtoC);
+    expect(tot.cutOffPct).toBe(0);
+    expect(tot.avgCommute).toBeCloseTo((12 + 12) / 2);
+    expect(tot.overPct).toBe(0);
+    expect(tot.roads).toBe(13 + 6);
+    expect(tot.usedPct).toBe(100);                       // every tile is on a route here
   });
 });

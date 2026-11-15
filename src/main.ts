@@ -42,6 +42,9 @@ import { DemandChart } from './ui/DemandChart';
 import { SpriteSandbox } from './ui/SpriteSandbox';
 import { initSpriteRegistry } from './render/registryLoader';
 import { VehicleLayer } from './render/VehicleLayer';
+import { TrafficOverlay } from './render/TrafficOverlay';
+import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
+import { DEBUG } from './debug';
 import { BALANCE } from './data/balance';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
@@ -67,6 +70,7 @@ const canvas       = document.getElementById('canvas') as HTMLCanvasElement;
 const camera       = new Camera(window.innerWidth, window.innerHeight);
 const renderer     = new CanvasRenderer(canvas);
 const vehicleLayer = new VehicleLayer();
+const trafficOverlay = new TrafficOverlay();
 
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -86,6 +90,7 @@ resize();
 // Systems carry per-game state (alert cooldowns, shortage flags, caches), so
 // every new or loaded world gets a fresh set — see startGame().
 function createSystems(): System[] {
+  state.transit = new TransitSystem();
   return [
     new NetworkSystem(),
     new PowerSystem(),
@@ -96,7 +101,7 @@ function createSystems(): System[] {
     new PollutionSystem(),
     new CrimeSystem(),
     new FireSystem(),
-    new TransitSystem(),
+    state.transit,
     new AbandonmentSystem(),
     new EducationSystem(),
     new HealthcareSystem(),
@@ -111,7 +116,13 @@ const state = {
   world:     null as unknown as World,
   history:   null as unknown as CommandHistory,
   scheduler: null as unknown as Scheduler,
+  transit:   null as unknown as TransitSystem,
 };
+
+// Developer tools, only with ?debug=true.
+const trafficTuning = DEBUG
+  ? new TrafficTuningPanel(() => state.world, () => state.transit.recompute(state.world))
+  : null;
 
 // UI Panels (must be initialized before first startGame call)
 const tileInfoPanel = new TileInfoPanel();
@@ -428,7 +439,11 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, currentTool, overlay === 'traffic', overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
+  // The traffic overlay is its own layer (TrafficOverlay), so the renderer's
+  // built-in one stays off.
+  renderer.render(state.world, camera, hoverTile, currentTool, false, overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
+  if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
+  trafficTuning?.update();
   vehicleLayer.update(dt, state.world);
   vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);

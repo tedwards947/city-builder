@@ -33,6 +33,8 @@ import {
 } from "../sim/constants";
 import {BALANCE} from "../data/balance";
 import {t} from "../i18n";
+import {DEBUG} from "../debug";
+import {trafficDebugHtml} from "./trafficDebug";
 
 interface Req {
   label: string;
@@ -474,6 +476,8 @@ export class TileInfoPanel {
         html += `<div class="ti-note">${t("ui.tileInfo.noZone")}</div>`;
       }
     }
+
+    if (DEBUG) html += trafficDebugHtml(world, i);
 
     this.el.innerHTML = html;
   }
