@@ -103,8 +103,24 @@ export function wildTreesReady(): boolean { return atlas !== null; }
 
 // A tree can lean out of its tile; the baked canvas has room on every side.
 const PAD_X = 0.35, PAD_TOP = 0.75, PAD_BOTTOM = 0.15;
-let bakedFor = 0;
-const baked = new Map<number, HTMLCanvasElement>();
+// One baked clump per (species, variant, density), remembered with the tile
+// size it was baked at.
+const baked = new Map<number, { canvas: HTMLCanvasElement; tile: number }>();
+
+// Zoom smoothing, as for the building sprites (see ClaySprites.beginClayFrame):
+// while the tile size is changing, a clump baked at another size is drawn
+// stretched; once the size has held still it is re-baked, a few per frame.
+const SETTLE_MS = 120;
+const REBAKES_PER_FRAME = 24;
+let frameTile = -1;      // tile size of the frame in progress; -1 = no frames in use
+let tileSince = 0;
+let rebakeBudget = 0;
+
+/** Call once per frame before drawing trees, with the tile size and the frame's time in ms. */
+export function beginWildTreeFrame(tile: number, now: number): void {
+  if (tile !== frameTile) { frameTile = tile; tileSince = now; }
+  rebakeBudget = now - tileSince >= SETTLE_MS ? REBAKES_PER_FRAME : 0;
+}
 
 function bake(vegetation: number, variant: number, density: number, tile: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -135,9 +151,27 @@ function bake(vegetation: number, variant: number, density: number, tile: number
  */
 export function drawWildTrees(ctx: CanvasRenderingContext2D, vegetation: number, variant: number, density: number, sx: number, sy: number, tile: number): void {
   if (!atlas) return;
-  if (bakedFor !== tile) { baked.clear(); bakedFor = tile; }
   const key = (vegetation * WILD_VARIANTS + variant) * 4 + density;
-  let canvas = baked.get(key);
-  if (!canvas) { canvas = bake(vegetation, variant, density, tile); baked.set(key, canvas); }
-  ctx.drawImage(canvas, sx - Math.round(tile * PAD_X), sy - Math.round(tile * PAD_TOP));
+  let entry = baked.get(key);
+  if (!entry) {
+    // First sight of this clump: there is nothing to stretch, so bake it.
+    entry = { canvas: bake(vegetation, variant, density, tile), tile };
+    baked.set(key, entry);
+  } else if (entry.tile !== tile) {
+    // A caller that does not use beginWildTreeFrame (or draws at another
+    // size) gets a crisp clump at once; inside a frame, wait for the size to
+    // settle and for budget.
+    const inFrame = tile === frameTile;
+    if (!inFrame || rebakeBudget > 0) {
+      if (inFrame) rebakeBudget--;
+      entry.canvas = bake(vegetation, variant, density, tile);
+      entry.tile = tile;
+    }
+  }
+  if (entry.tile === tile) {
+    ctx.drawImage(entry.canvas, sx - Math.round(tile * PAD_X), sy - Math.round(tile * PAD_TOP));
+    return;
+  }
+  if (!ctx.imageSmoothingEnabled) ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(entry.canvas, sx - tile * PAD_X, sy - tile * PAD_TOP, tile * (1 + PAD_X * 2), tile * (1 + PAD_TOP + PAD_BOTTOM));
 }

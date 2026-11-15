@@ -4,8 +4,8 @@ import { Projection, TILE_SIZE } from './Projection';
 import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
-import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
-import { loadWildTrees, wildTreesReady, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
+import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
+import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -47,6 +47,10 @@ const _deathAccentColors: string[] = Array.from({ length: 256 }, (_, v) => {
 });
 
 const CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
+// Zoom smoothing (see render()).
+const ZOOM_SETTLE_MS = 120;               // zoom must hold still this long before chunks are redrawn at the new size
+const CHUNK_RESIZES_PER_FRAME = 6;        // chunks redrawn per frame only to change size
+const CHUNK_FIRST_DRAWS_PER_FRAME = 24;   // chunks drawn for the first time per frame
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
 const SMOULDER_MS = 20000;
 /** Tile size (px) from which trees are clay sprites; below it they are flat marks in the chunk layer. */
@@ -66,7 +70,9 @@ export class CanvasRenderer {
   private _chunkSig = new Int32Array(0);
   private _chunkTs = new Float64Array(0);     // tile size the canvas was drawn at; 0 = never
   private _chunkStale = new Uint8Array(0);    // 1 = marked dirty since last checked
-  private _chunkRenderTs = 0;                 // tile size chunks are currently drawn at
+  private _chunkRenderTs = 0;                 // tile size chunks are being brought to (see _chunkTs for each chunk's own)
+  private _zoomSeen = -1;                     // camera zoom on the previous frame
+  private _zoomChangedAt = 0;                 // when it last changed (ms)
   private _lastGrid: World['grid'] | null = null;
   private _clayEffects: ClayEffect[] = [];
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
@@ -98,9 +104,16 @@ export class CanvasRenderer {
     const ts = TILE_SIZE * camera.zoom;
     const tsi = Math.ceil(ts) + 1;
 
-    // Chunks are redrawn at a new tile size only when zoom changes
-    // significantly (> 1%); in between, the cached canvases are scaled.
-    if (Math.abs(camera.zoom - this._lastZoom) > 0.01) {
+    // Chunks are redrawn at a new tile size only when zoom has changed
+    // significantly (> 1%) AND has then held still for a moment; until then
+    // the cached canvases are drawn scaled. Redrawing every visible chunk on
+    // every wheel step is what made zooming stutter.
+    if (camera.zoom !== this._zoomSeen) {
+      this._zoomSeen = camera.zoom;
+      this._zoomChangedAt = now;
+    }
+    const zoomSettled = now - this._zoomChangedAt >= ZOOM_SETTLE_MS || this._chunkRenderTs === 0;
+    if (zoomSettled && Math.abs(camera.zoom - this._lastZoom) > 0.01) {
       this._lastZoom = camera.zoom;
       this._chunkRenderTs = ts;
     }
@@ -144,23 +157,42 @@ export class CanvasRenderer {
     const cxMax = Math.min(world.grid.chunkCols - 1, (bounds.x1 / CHUNK_SIZE) | 0);
     const cyMax = Math.min(world.grid.chunkRows - 1, (bounds.y1 / CHUNK_SIZE) | 0);
 
+    // Per frame: a few chunks may be redrawn just to change size, and a few
+    // more drawn for the first time; the rest wait for the next frame (an
+    // undrawn chunk shows the background until its turn). A chunk whose
+    // CONTENT changed is always redrawn at once.
+    let resizeBudget = zoomSettled ? CHUNK_RESIZES_PER_FRAME : 0;
+    let firstDrawBudget = CHUNK_FIRST_DRAWS_PER_FRAME;
+    // Mid-zoom, draw new chunks at the size on screen now rather than the
+    // stale target: zooming out reveals many, and the old size is far too big.
+    const drawTs = zoomSettled ? renderTs : ts;
+
     for (let cy = cyMin; cy <= cyMax; cy++) {
       for (let cx = cxMin; cx <= cxMax; cx++) {
         const chunkId = cy * world.grid.chunkCols + cx;
-        const sized = this._chunkTs[chunkId] === renderTs;
+        const drawnAt = this._chunkTs[chunkId];
+        const have = drawnAt > 0;
+        const sized = have && Math.abs(drawnAt / renderTs - 1) <= 0.01;
         if (sized && stale[chunkId] === 0) continue;
+        if (!have && firstDrawBudget <= 0) continue;
         // Systems mark every chunk dirty on most ticks, so "dirty" only means
         // "check": redraw only if what the chunk draws actually changed.
         const sig = this._chunkSignature(world, cx, cy);
-        if (sized && sig === this._chunkSig[chunkId]) {
+        const sameContent = have && sig === this._chunkSig[chunkId];
+        if (sameContent) {
           stale[chunkId] = 0;
-          continue;
+          if (sized) continue;
+          // Only the size is off: redraw it when there is budget, else keep scaling it.
+          if (resizeBudget <= 0) continue;
+          resizeBudget--;
+        } else if (!have) {
+          firstDrawBudget--;
         }
-        const chunkCtx = this._getOrCreateChunkCtx(chunkId, renderTs);
+        const chunkCtx = this._getOrCreateChunkCtx(chunkId, drawTs);
         if (chunkCtx !== null) {
-          this._renderChunk(chunkCtx, world, cx, cy, p, renderTs);
+          this._renderChunk(chunkCtx, world, cx, cy, p, drawTs);
           this._chunkSig[chunkId] = sig;
-          this._chunkTs[chunkId] = renderTs;
+          this._chunkTs[chunkId] = drawTs;
           stale[chunkId] = 0;
         }
       }
@@ -189,6 +221,8 @@ export class CanvasRenderer {
     const hasOverlay = crimeOverlay || fireOverlay || vibeOverlay;
     let iterations = 0;
     const clayTile = Math.ceil(ts);
+    beginClayFrame(clayTile, now);
+    beginWildTreeFrame(clayTile, now);
     const clayEffects = this._clayEffects;
     clayEffects.length = 0;
     const markerQueue = this._markerQueue;
@@ -197,9 +231,11 @@ export class CanvasRenderer {
     fireQueue.length = 0;
     if (this._lastBurnWorld !== world) { this._lastBurnWorld = world; this._lastBurn.clear(); }
 
-    // Clay trees replace the chunk layer's flat ones at the same tile size the
-    // chunks were drawn for, so the two never show together.
-    const clayTrees = renderTs >= CLAY_TREE_MIN_TILE && wildTreesReady();
+    // Clay trees replace the chunk layer's flat ones. Each chunk draws flat
+    // trees only below CLAY_TREE_MIN_TILE, and chunks can briefly be at
+    // different sizes around a zoom, so the choice is made per tile from the
+    // size ITS chunk was drawn at: the two never show together.
+    const clayTrees = wildTreesReady();
     if (clayTrees) this._drawForestFloor(ctx, world, camera, bounds);
 
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
@@ -212,7 +248,7 @@ export class CanvasRenderer {
         const fireV      = world.layers.fire[i];
         const road       = world.layers.roadClass[i];
 
-        if (clayTrees && this._hasTree(world, i)) {
+        if (clayTrees && this._clayTreesAt(world, tx, ty) && this._hasTree(world, i)) {
           let around = 0;
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
             if ((dx !== 0 || dy !== 0) && world.grid.inBounds(tx + dx, ty + dy) && this._hasTree(world, world.grid.idx(tx + dx, ty + dy))) around++;
@@ -440,6 +476,11 @@ export class CanvasRenderer {
   }
 
   /** True if the tile shows a wild tree (vegetation on otherwise untouched land). */
+  /** Whether the chunk holding this tile was drawn large enough that its trees are clay sprites, not flat ones. */
+  private _clayTreesAt(world: World, tx: number, ty: number): boolean {
+    return this._chunkTs[((ty / CHUNK_SIZE) | 0) * world.grid.chunkCols + ((tx / CHUNK_SIZE) | 0)] >= CLAY_TREE_MIN_TILE;
+  }
+
   private _hasTree(world: World, i: number): boolean {
     const L = world.layers;
     return L.vegetation[i] !== VEG_NONE && L.roadClass[i] === ROAD_NONE && L.building[i] === BUILDING_NONE && L.zone[i] === ZONE_NONE;
@@ -451,7 +492,7 @@ export class CanvasRenderer {
    */
   private _drawForestFloor(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: { x0: number; y0: number; x1: number; y1: number }): void {
     const { width, height } = world.grid;
-    const tree = (tx: number, ty: number): boolean => tx >= 0 && ty >= 0 && tx < width && ty < height && this._hasTree(world, ty * width + tx);
+    const tree = (tx: number, ty: number): boolean => tx >= 0 && ty >= 0 && tx < width && ty < height && this._clayTreesAt(world, tx, ty) && this._hasTree(world, ty * width + tx);
     const radius = TILE_SIZE * camera.zoom * 0.45;
     ctx.beginPath();
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
