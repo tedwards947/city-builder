@@ -102,6 +102,14 @@ export class TransitSystem {
   private _lastRoadHash = NaN;
   private _lastTuning = '';
   private _iter = 0;                // iterations since the inputs last changed
+  // Index lists rebuilt at the start of each pass. Everything after that
+  // loops over these, so a pass costs in proportion to the built-up area,
+  // not to the size of the map.
+  private _roads!: Int32Array;      // road tiles
+  private _roadCount = 0;
+  private _lots!: Int32Array;       // developed, non-abandoned zone tiles
+  private _lotCount = 0;
+  private _zoned!: Int32Array;      // every zoned tile (only used within _run)
   private _fresh = true;            // no pass has run yet
 
   update(world: World): void {
@@ -154,6 +162,9 @@ export class TransitSystem {
       this._bfsFrom = new Int32Array(n);
       this._bfsSeen = new Uint32Array(n);
       this._bfsSteps = new Uint8Array(n);
+      this._roads = new Int32Array(n);
+      this._lots = new Int32Array(n);
+      this._zoned = new Int32Array(n);
       this._prev = this._data.markets.map(() => new Float32Array(n));
       this._unstable = this._data.markets.map(() => new Uint8Array(n));
       this._firstIteration = true;
@@ -171,12 +182,24 @@ export class TransitSystem {
     // Has anything the pass reads changed? The hash is position-dependent: a
     // plain sum misses changes that cancel out (a road moved, one zone growing
     // as another shrinks).
-    let h = 0x811c9dc5 | 0;
+    // The same scan of the map builds the index lists and the road-only hash.
+    const roads = this._roads, lots = this._lots, zoned = this._zoned;
+    let roadCount = 0, lotCount = 0, zonedCount = 0;
+    let h = 0x811c9dc5 | 0, roadHash = 0x811c9dc5 | 0;
     for (let i = 0; i < n; i++) {
-      const v = zone[i] | (dev[i] << 8) | (roadClass[i] << 16) | (abandoned[i] !== 0 ? 1 << 24 : 0);
+      const z = zone[i], rc = roadClass[i];
+      const v = z | (dev[i] << 8) | (rc << 16) | (abandoned[i] !== 0 ? 1 << 24 : 0);
       h = Math.imul(h ^ v, 0x9e3779b1);
       h ^= h >>> 15;
+      roadHash = Math.imul(roadHash ^ rc, 0x9e3779b1);
+      roadHash ^= roadHash >>> 15;
+      if (rc !== ROAD_NONE) roads[roadCount++] = i;
+      if (z !== ZONE_NONE) {
+        zoned[zonedCount++] = i;
+        if (dev[i] > 0 && abandoned[i] === 0) lots[lotCount++] = i;
+      }
     }
+    this._roadCount = roadCount; this._lotCount = lotCount;
     let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
     for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)}`;
     for (const k of [1, 2, 3]) {
@@ -189,7 +212,10 @@ export class TransitSystem {
     if (changed) {
       this._lastInputHash = h;
       this._lastTuning = tuning;
-      this._lastRoadHash = this._roadHash(world);
+      // Roads added or removed: wipe what the list-based loops below would
+      // otherwise leave behind on tiles that are no longer roads.
+      if (roadHash !== this._lastRoadHash) this._clearOffRoad(world);
+      this._lastRoadHash = roadHash;
       this._iter = 0;
       data.settled = false;
     }
@@ -209,14 +235,13 @@ export class TransitSystem {
 
     // ── Congestion ────────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
-    let totalCong = 0, roadCount = 0;
-    for (let i = 0; i < n; i++) {
-      const rc = roadClass[i];
-      if (rc === ROAD_NONE) { congestion[i] = 0; continue; }
-      const c = Math.min(255, Math.round(trafficVolume(data, i) / roadCapacity(rc) * 255));
+    let totalCong = 0;
+    congestion.fill(0);
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
+      const c = Math.min(255, Math.round(trafficVolume(data, i) / roadCapacity(roadClass[i]) * 255));
       congestion[i] = c;
       totalCong += c;
-      roadCount++;
     }
     world.stats.avgCongestion = roadCount > 0 ? Math.round(totalCong / roadCount) : 0;
 
@@ -228,9 +253,10 @@ export class TransitSystem {
     const toShops = data.shopping.field, toJobs = data.jobs.field, toHomes = data.toR;
     const commuteMax = T.commuteMax;
 
-    for (let zi = 0; zi < n; zi++) {
+    accessibility.fill(0);
+    for (let q = 0; q < zonedCount; q++) {
+      const zi = zoned[q];
       const zoneType = zone[zi];
-      if (zoneType === ZONE_NONE) { accessibility[zi] = 0; continue; }
 
       let best = Infinity;
       for (let k = 0; k < 4; k++) {
@@ -251,17 +277,46 @@ export class TransitSystem {
     world.traffic = data;
   }
 
+  /**
+   * The road layer changed. The loops in a pass only visit current road
+   * tiles, so anything stored on a tile that has stopped being a road has to
+   * be wiped here. The one whole-map loop in the system besides the input scan.
+   */
+  private _clearOffRoad(world: World): void {
+    const n = this._n;
+    const roadClass = world.layers.roadClass;
+    const data = this._data;
+    for (const field of [data.toR, ...data.markets.map(m => m.field)]) {
+      field.dist.fill(Infinity);
+      field.doorCap.fill(0);
+      field.doorLoad.fill(0);
+    }
+    this._flow.fill(0);
+    this._raw.fill(0);
+    const cost = this._cost;
+    const markets = data.markets;
+    for (let i = 0; i < n; i++) {
+      if (roadClass[i] !== ROAD_NONE) continue;
+      cost[i] = 0;
+      for (let k = 0; k < markets.length; k++) {
+        markets[k].volume[i] = 0;
+        this._prev[k][i] = 0;
+        this._unstable[k][i] = 0;
+      }
+    }
+  }
+
   /** Travel cost per road tile from the current volumes: slower when loaded past free flow. */
   private _updateCosts(world: World): void {
-    const n = this._n;
     const T = BALANCE.transit;
     const roadClass = world.layers.roadClass;
     const data = this._data;
     const cost = this._cost;
     const classCost = this._classCost;
-    for (let i = 0; i < n; i++) {
+    const roads = this._roads, roadCount = this._roadCount;
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
       const rc = roadClass[i];
-      if (rc === ROAD_NONE) continue;
       const ratio = trafficVolume(data, i) / roadCapacity(rc);
       const over = Math.min(ratio, CONGESTION_CAP) - T.freeFlow;
       const target = classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1);
@@ -301,20 +356,20 @@ export class TransitSystem {
    */
   private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number): void {
     const { width, height } = world.grid;
-    const n = width * height;
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
     const dev       = world.layers.devLevel;
-    const abandoned = world.layers.abandoned;
     const cost = this._cost;
     const { dist, parent, order, doorCap } = field;
+    const roads = this._roads, roadCount = this._roadCount;
+    const lots = this._lots, lotCount = this._lotCount;
 
-    dist.fill(Infinity);
-    doorCap.fill(0);
+    for (let k = 0; k < roadCount; k++) { const ri = roads[k]; dist[ri] = Infinity; doorCap[ri] = 0; }
     this._heapSize = 0;
 
-    for (let i = 0; i < n; i++) {
-      if (zone[i] !== zoneType || dev[i] === 0 || abandoned[i] !== 0) continue;
+    for (let q = 0; q < lotCount; q++) {
+      const i = lots[q];
+      if (zone[i] !== zoneType) continue;
       let doors = 0;
       for (let k = 0; k < 4; k++) {
         const ri = neighbourIndex(i, k, width, height);
@@ -332,7 +387,8 @@ export class TransitSystem {
       }
     }
 
-    for (let ri = 0; ri < n; ri++) {
+    for (let k = 0; k < roadCount; k++) {
+      const ri = roads[k];
       if (doorCap[ri] === 0) continue;
       dist[ri] = 0;
       parent[ri] = -1;
@@ -365,15 +421,16 @@ export class TransitSystem {
 
   /** Put each origin zone's trips on its best adjacent road. Returns the total. */
   private _inject(world: World, field: TrafficField, originZone: number, rate: number, flow: Float32Array): number {
-    const n = this._n;
-    const zone      = world.layers.zone;
-    const dev       = world.layers.devLevel;
-    const abandoned = world.layers.abandoned;
-    flow.fill(0);
+    const zone = world.layers.zone;
+    const dev  = world.layers.devLevel;
+    const roads = this._roads, roadCount = this._roadCount;
+    const lots = this._lots, lotCount = this._lotCount;
+    for (let k = 0; k < roadCount; k++) flow[roads[k]] = 0;
     if (field.count === 0 || rate === 0) return 0; // no destination of this type anywhere
     let total = 0;
-    for (let i = 0; i < n; i++) {
-      if (zone[i] !== originZone || dev[i] === 0 || abandoned[i] !== 0) continue;
+    for (let q = 0; q < lotCount; q++) {
+      const i = lots[q];
+      if (zone[i] !== originZone) continue;
       const road = bestAccessRoad(world, i, field);
       if (road < 0 || !(field.dist[road] < Infinity)) continue;
       const trips = dev[i] * rate;
@@ -413,7 +470,8 @@ export class TransitSystem {
     const room = this._room;
     const raw = this._raw;
     const cost = this._cost;
-    raw.fill(0);
+    const roads = this._roads, roadCount = this._roadCount;
+    for (let k = 0; k < roadCount; k++) raw[roads[k]] = 0;
 
     // Farthest first: every tile a stream is handed to is nearer, so it is
     // handled later.
@@ -514,19 +572,18 @@ export class TransitSystem {
    * largest change in volume / capacity.
    */
   private _merge(world: World, out: Float32Array, prev: Float32Array, unstable: Uint8Array): number {
-    const n = this._n;
     const roadClass = world.layers.roadClass;
     const raw = this._raw;
     const first = this._firstIteration;
+    const roads = this._roads, roadCount = this._roadCount;
 
     let moved = 0;
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
       const r = raw[i], o = out[i], before = prev[i];
       if (r === 0 && o === 0 && before === 0) continue;
       prev[i] = r;
-      const rc = roadClass[i];
-      if (rc === ROAD_NONE) { out[i] = 0; unstable[i] = 0; continue; }
-      const cap = roadCapacity(rc);
+      const cap = roadCapacity(roadClass[i]);
       let next: number;
       if (first) {
         next = r;
