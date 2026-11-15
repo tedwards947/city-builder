@@ -33,7 +33,7 @@ export interface Layers {
   crime:      Uint8Array; // 0–255 crime level (ZoneGrowthSystem and PoliticsSystem read this)
   police:     Uint8Array; // 0=no police coverage, 1=covered this tick
   congestion:   Uint8Array; // 0–255 road traffic congestion (computed by TransitSystem)
-  accessibility: Uint8Array; // 0–255 reachable complementary zone capacity via roads (TransitSystem)
+  accessibility: Uint8Array; // 0–255 from travel time to the nearest complementary zone: 255 = next door (TransitSystem)
   abandoned:  Uint8Array; // 0=normal, 1=abandoned (zone devLevel preserved but no income)
   distress:   Uint8Array; // 0–255 distress counter (accumulates when conditions unmet)
   fireRisk:   Uint8Array; // 0–255 fire risk level

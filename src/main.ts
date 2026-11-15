@@ -436,9 +436,7 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  // The traffic overlay is its own layer (TrafficOverlay), so the renderer's
-  // built-in one stays off.
-  renderer.render(state.world, camera, hoverTile, currentTool, false, overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
+  renderer.render(state.world, camera, hoverTile, currentTool, overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
   vehicleLayer.update(dt, state.world);

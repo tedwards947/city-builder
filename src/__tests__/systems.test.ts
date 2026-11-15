@@ -795,6 +795,40 @@ describe('ServiceSystem', () => {
     expect(w.layers.services.every(v => v === 0)).toBe(true);
   });
 
+it('coverage follows road and building changes when one system is reused', () => {
+    const w = makeWorld();
+    const sys = new ServiceSystem();
+    forceBuildable(w, 2, 8);
+    w.layers.building[w.grid.idx(2, 8)] = BUILDING_POLICE;
+    w.buildings = [{ tx: 2, ty: 8, kind: BUILDING_POLICE }];
+    for (let x = 3; x <= 5; x++) { forceBuildable(w, x, 8); w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET; }
+    sys.update(w);
+    expect(w.layers.police[w.grid.idx(5, 8)]).toBe(1);
+    expect(w.layers.police[w.grid.idx(7, 8)]).toBe(0);
+
+    // Nothing changed: same answer, even though the layers were wiped.
+    w.layers.police.fill(0); w.layers.services.fill(0);
+    sys.update(w);
+    expect(w.layers.police[w.grid.idx(5, 8)]).toBe(1);
+
+    // Extend the road: coverage extends with it.
+    for (let x = 6; x <= 7; x++) { forceBuildable(w, x, 8); w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET; }
+    sys.update(w);
+    expect(w.layers.police[w.grid.idx(7, 8)]).toBe(1);
+
+    // Cut the road next to the station: nothing beyond the cut is covered.
+    w.layers.roadClass[w.grid.idx(3, 8)] = 0;
+    sys.update(w);
+    expect(w.layers.police[w.grid.idx(5, 8)]).toBe(0);
+
+    // Remove the station: no coverage at all.
+    w.layers.building[w.grid.idx(2, 8)] = 0;
+    w.buildings = [];
+    sys.update(w);
+    expect(w.layers.police.every(v => v === 0)).toBe(true);
+    expect(w.layers.services.every(v => v === 0)).toBe(true);
+  });
+
   it('police station covers its own tile', () => {
     const w = makeWorld();
     forceBuildable(w, 5, 5);

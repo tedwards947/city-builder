@@ -53,6 +53,22 @@ describe('Autosave', () => {
     expect(saves.length).toBe(1);
   });
 
+it('does not count time away in a hidden tab (no second save on coming back)', async () => {
+    // The game saves as the tab hides; frames then stop until it is shown again.
+    const { auto, saves } = setup(60_000);
+    auto.tick(0, false);
+    auto.tick(16, false);
+    await auto.saveNow();                     // tab hidden
+    expect(saves.length).toBe(1);
+    auto.tick(10 * 60_000, false);            // first frame back, ten minutes later
+    await flush();
+    expect(saves.length).toBe(1);
+    // Ordinary play still reaches the interval.
+    for (let t = 10 * 60_000 + 1000; t <= 11 * 60_000 + 1000; t += 1000) auto.tick(t, false);
+    await flush();
+    expect(saves.length).toBe(2);
+  });
+
   it('skips while a save is already in flight', async () => {
     const { auto, target, saves, releaseSave } = setup(1000);
     target.hold = true;
