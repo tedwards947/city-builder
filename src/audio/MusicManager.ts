@@ -134,6 +134,11 @@ export class MusicManager {
     return this.tracks.map(t => t.name);
   }
 
+  /** Every loaded track's name and style, in playlist order. */
+  public getTrackList(): { name: string; genre: Track['genre'] }[] {
+    return this.tracks.map(t => ({ name: t.name, genre: t.genre }));
+  }
+
   /**
    * Jump to a track by name and play it from the top (starting playback if paused).
    * The playlist then carries on in its usual order from that track. Returns false for an unknown name.
