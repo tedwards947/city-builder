@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MusicManager } from '../audio/MusicManager';
 
+const TRACK_COUNT = Object.keys(import.meta.glob('../audio/tracks/*.ts')).length;
+
 // Mock AudioContext
 const mockOscillator = {
   connect: vi.fn(),
@@ -87,13 +89,23 @@ describe('MusicManager', () => {
     expect(lastTrackName).toBe('Dusty Roads');
   });
 
+  it('plays the originals first, then rotates songs so none repeats back to back', () => {
+    const names = [musicManager.getTrackName()];
+    for (let i = 1; i < TRACK_COUNT; i++) { musicManager.next(); names.push(musicManager.getTrackName()); }
+    expect(names.slice(0, 8)).toEqual([
+      'Cloudy Sky', 'Dusty Roads', 'Glass Towers', 'Neon Metropolis · Skyline Trance',
+      'Night Shift', 'Rainy Day', 'Rush Hour', 'Sunrise',
+    ]);
+    expect(new Set(names).size).toBe(TRACK_COUNT);
+    const song = (n: string) => n.split(' · ')[0];
+    for (let i = 1; i < names.length; i++) {
+      // the only allowed repeat is when one song has more takes than all the others
+      if (song(names[i]) === song(names[i - 1])) expect(names.slice(i).every(n => song(n) === song(names[i]))).toBe(true);
+    }
+  });
+
   it('loops back to first track after the last one', () => {
-    // 5 tracks total
-    musicManager.next(); // 2: Dusty Roads
-    musicManager.next(); // 3: Neon Metropolis
-    musicManager.next(); // 4: Rainy Day
-    musicManager.next(); // 5: Sunrise
-    musicManager.next(); // 1: Cloudy Sky
+    for (let i = 0; i < TRACK_COUNT; i++) musicManager.next();
     expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 

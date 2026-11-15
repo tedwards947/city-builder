@@ -1,12 +1,37 @@
 import type { Track } from './types';
 
-const NOTES: Record<string, number> = {
-  'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
-  'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
-  'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
-  'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'B5': 987.77,
-  'C6': 1046.50,
-};
+const SEMITONES: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/** Frequency for a note name like "C4", "F#3" or "Bb2" (equal temperament, A4 = 440 Hz). */
+export function noteFrequency(pitch: string): number {
+  const m = /^([A-G])([#b]?)(-?\d)$/.exec(pitch);
+  if (!m) return 440;
+  const semis = SEMITONES[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  const midi = (Number(m[3]) + 1) * 12 + semis;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+/**
+ * Playlist order: songs rotate so the same song never plays twice in a row.
+ * Takes of a song are named "Song · Take"; round 1 plays each song's original
+ * (alphabetical by song), later rounds play one take of each song in turn.
+ */
+export function playlistOrder(tracks: Track[]): Track[] {
+  const families = new Map<string, Track[]>();
+  for (const t of tracks) {
+    const song = t.name.split(' · ')[0];
+    if (!families.has(song)) families.set(song, []);
+    families.get(song)!.push(t);
+  }
+  const groups = [...families.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, ts]) => ts.sort((a, b) => a.name.localeCompare(b.name)));
+  const out: Track[] = [];
+  for (let round = 0; out.length < tracks.length; round++) {
+    for (const g of groups) if (round < g.length) out.push(g[round]);
+  }
+  return out;
+}
 
 export class MusicManager {
   private ctx: AudioContext | null = null;
@@ -44,8 +69,7 @@ export class MusicManager {
         }
       }
       
-      // Sort tracks by name for consistent order
-      this.tracks = loadedTracks.sort((a, b) => a.name.localeCompare(b.name));
+      this.tracks = playlistOrder(loadedTracks);
       
       if (this.tracks.length === 0) {
         console.warn("No tracks were successfully loaded.");
@@ -121,7 +145,7 @@ export class MusicManager {
     pattern.forEach((voice, i) => {
       const note = voice[this.noteIndex % voice.length];
       if (note.pitch !== 'rest') {
-        this.playNote(note.pitch, this.nextNoteTime, note.length * secondsPerBeat, track.genre, i);
+        this.playNote(note.pitch, this.nextNoteTime, (note.hold ?? note.length) * secondsPerBeat, track.genre, i, note.vel ?? 1);
       }
     });
 
@@ -141,21 +165,22 @@ export class MusicManager {
     }
   }
 
-  private playNote(pitch: string, time: number, duration: number, genre: string, voiceIndex: number) {
+  private playNote(pitch: string, time: number, duration: number, genre: string, voiceIndex: number, vel = 1) {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain); gain.connect(this.masterGain);
-    osc.frequency.setValueAtTime(NOTES[pitch] || 440, time);
+    osc.frequency.setValueAtTime(noteFrequency(pitch), time);
     
     if (genre === 'edm') osc.type = voiceIndex === 0 ? 'sawtooth' : 'square';
     else if (genre === 'country') osc.type = voiceIndex === 0 ? 'triangle' : 'sine';
     else osc.type = 'sine';
 
-    const attack = 0.05;
+    // 50 ms fade-in, shortened for fast notes so 16ths start on time
+    const attack = Math.min(0.05, duration * 0.2);
     const release = duration * 0.8;
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(genre === 'ambient' ? 0.6 : 0.8, time + attack);
+    gain.gain.linearRampToValueAtTime((genre === 'ambient' ? 0.6 : 0.8) * vel, time + attack);
     gain.gain.exponentialRampToValueAtTime(0.001, time + duration + release);
     osc.start(time); osc.stop(time + duration + release);
   }
