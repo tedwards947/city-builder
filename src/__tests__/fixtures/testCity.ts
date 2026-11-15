@@ -4,7 +4,11 @@
 // Only the layers traffic reads are filled in (roads, zones, levels).
 
 import { World } from '../../sim/World';
-import { ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY } from '../../sim/constants';
+import {
+  ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
+  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
+} from '../../sim/constants';
 import { BALANCE } from '../../data/balance';
 
 export interface TestCity {
@@ -75,6 +79,61 @@ export function buildCity(): TestCity {
 
   g.markAllDirty();
   return { world: w, districts: { downtown: D, industry: I, suburbNW: A, suburbS: B } };
+}
+
+/**
+ * The same city with everything else a running city needs: enough power,
+ * water and sewage for its size, and police, fire, school and hospital in each
+ * district. For tests and benchmarks that run the whole simulation.
+ */
+export function buildLivingCity(): TestCity {
+  const city = buildCity();
+  const w = city.world;
+  const L = w.layers, g = w.grid;
+
+  // A utility yard on a street north of the downtown–industry avenue.
+  for (let y = 40; y <= 64; y++) L.roadClass[g.idx(88, y)] = ROAD_STREET;
+  const slots: [number, number][] = [];
+  for (let y = 40; y <= 62; y++) slots.push([87, y], [89, y]);
+  for (let x = 82; x <= 94; x++) { if (Math.abs(x - 88) > 1) slots.push([x, 64]); slots.push([x, 66]); }
+
+  let levels = 0;
+  for (let i = 0; i < L.devLevel.length; i++) levels += L.devLevel[i];
+  const need = (perLevel: number, output: number) => Math.ceil(levels * perLevel * 1.25 / output);
+  const utilities: [number, number][] = [
+    [BUILDING_POWER_PLANT, need(BALANCE.power.perDevLevel, BALANCE.power.plantOutput)],
+    [BUILDING_WATER_TOWER, need(BALANCE.water.perDevLevel, BALANCE.water.towerOutput)],
+    [BUILDING_SEWAGE_PLANT, need(BALANCE.sewage.perDevLevel, BALANCE.sewage.plantOutput)],
+  ];
+  let slot = 0;
+  for (const [kind, count] of utilities) {
+    for (let k = 0; k < count; k++) {
+      if (slot >= slots.length) throw new Error('testCity: the utility yard is too small for this city');
+      const [x, y] = slots[slot++];
+      w.placeBuilding(x, y, kind);
+    }
+  }
+
+  // Services: one of each at the middle of every district, on the nearest lots.
+  for (const d of Object.values(city.districts)) {
+    const cx = (d.x0 + d.x1) >> 1, cy = (d.y0 + d.y1) >> 1;
+    const lots: [number, number][] = [];
+    for (let r = 0; r <= 4; r++) {
+      for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+        if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r) continue;
+        const i = g.idx(x, y);
+        if (L.roadClass[i] === 0 && L.building[i] === 0) lots.push([x, y]);
+      }
+    }
+    [BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL].forEach((kind, k) => {
+      if (lots[k]) w.placeBuilding(lots[k][0], lots[k][1], kind);
+    });
+  }
+
+  w.budget.money = 50_000;
+  w.roadNetDirty = true;
+  g.markAllDirty();
+  return city;
 }
 
 export function population(w: World): number {

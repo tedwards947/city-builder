@@ -503,6 +503,29 @@ npx tsc --noEmit    # typecheck; `npm run build` = tsc && vite build
 
 The typecheck has `noUnusedLocals` / `noUnusedParameters` on, so an unused import or variable breaks the build even though tests pass.
 
+The same three checks (typecheck, tests, production build) run on GitHub for every pull request and for `main` (`.github/workflows/ci.yml`). Don't merge a PR whose check is red.
+
+### The "nothing changed" test
+
+`goldenCity.test.ts` runs the whole simulation (every system, via `createSystems()`) on the test city for 400 ticks and compares a fingerprint — a hash of every tile layer and of the traffic volumes, plus stats and budget — with the stored one in `__snapshots__/goldenCity.test.ts.snap`.
+
+- A speed-up or refactor of the simulation must leave it passing untouched. That is the proof it behaves the same.
+- If you changed behaviour on purpose (a balance value, a new rule, a new layer, a different system order), it will fail and show which layers moved. Check that matches what you meant, then run `npx vitest run goldenCity -u` and commit the new snapshot with the change. Say in the PR that the simulation result changed.
+- Rendering, UI and audio changes cannot affect it.
+
+### Measuring speed
+
+```
+npm run bench                                  # built-in test city
+npm run bench -- path/to/city.citysave.json    # a city exported from the game (Save/Load → Export)
+```
+
+Prints the time of a sim tick (in Node and in Chrome, with the cost of each system) and of drawing a frame in headless Chrome (standing still, panning, zooming, at three zoom levels). Options: `--json`, `--no-browser`; Chrome is found automatically or taken from `$CHROME`.
+
+- Run it before and after any change meant to affect speed, or that adds per-tick or per-frame work, and put both sets of numbers in the PR. Compare runs on the same machine only.
+- The frame times are drawn on the CPU so that they repeat from run to run (within about 10%); they are not what a player's GPU does, so compare them with each other, not with 16.7 ms.
+- A big exported city tells you more than the built-in one. The code is in `src/bench/` and `scripts/bench.mjs`; it is not part of the game build.
+
 Test files:
 - `systems.test.ts` — per-system behavior (large; add new system tests here or in a new file)
 - `abandonment`, `crime`, `fire`, `education`, `vibes` — one file per system
@@ -513,6 +536,7 @@ Test files:
 - `dragPath.test.ts`, `input-drag.test.ts` — drag-to-paint paths and synthetic pointer events
 - `saveFile.test.ts` — export / import of save files, bad-file rejection
 - `transit.test.ts`, `trafficCity.test.ts` — traffic model on small hand-built maps, and stability on a 6,500-person test city (`fixtures/testCity.ts`)
+- `goldenCity.test.ts` — the whole simulation on the test city against a stored fingerprint (see below)
 - `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game
 - `World`, `Grid`, `rng`, `Vegetation`, `graphics`, `i18n`, `audio`, `ToastPanel`
 

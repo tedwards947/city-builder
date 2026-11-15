@@ -37,6 +37,13 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 Ranked by how much it changes play, then by cost. "Unmeasured" means a suspected cost nobody has timed yet: measure first, then decide.
 
+0. **Split `CanvasRenderer.ts`** (with GRAPHICS; needs a quiet moment and their agreement). At about 1,000 lines it is the one file both sessions edit, and where the only merge conflict so far happened. `render()` is about 420 lines and takes nine positional arguments.
+   - Chunk cache (engine): which chunks are stale, the content signature, zoom smoothing, the per-frame budgets.
+   - Tile drawing (graphics): what a tile looks like.
+   - `render()` takes one options object.
+   - One shared helper for "draw stretched while the zoom moves, sharpen a few per frame once it stops", replacing the three copies (building sprites, wild trees, traffic cars).
+   - While there: declare "changing this layer changes how a tile is drawn" once, where layers are defined, instead of the hand-kept list in `_chunkSignature`; and check whether the pre-clay drawing (`_drawResidential` and friends) is still reachable.
+   - Measure before and after with `npm run bench`.
 1. **Traffic balance pass** (with the owner, by play-testing; use `?debug=true`). Known issues:
    - A jammed road hurts growth twice: the old congestion penalty (`congestionGrowthPenalty` 0.75) and, since roads slow down under load, longer commutes. In the owner's exported city, with only 6.8% of roads over capacity, homes average ×0.54 growth from the congestion penalty alone. Probably lower it to about 0.3.
    - A destination that stays over capacity (a small shop strip serving a whole suburb) has no effect beyond the debug inspector. Should it slow that zone, or its customers?
@@ -46,8 +53,8 @@ Ranked by how much it changes play, then by cost. "Unmeasured" means a suspected
 3. **Shops need industry (supply matters).** Goods already flow (each shop fetches from the nearest industry with output to spare) but nothing depends on it: commerce accessibility only counts customers. Add a `supplyWeight` to `BALANCE.transit`, default 0, and blend it into commerce accessibility in `TransitSystem` (the goods market's map already gives each shop its travel time to a supplier: `travelTime(data.goods.field, road)`); put the weight on the debug tuning panel. At 0 nothing changes; raising it makes shops with no industry in reach grow slower. This is a balance change (it alters the opening and pulls industry toward the centre), so tune it in a real city before making it the default. Possible follow-ups: unmet goods demand (`goods.field.demandRatio` > 1) slowing commerce; industry needing shops to sell to.
 4. **Zoom smoothness.** _Fixed the stutter:_ sprites and map chunks are no longer re-baked on every wheel step; they are drawn stretched while the zoom moves and sharpened a few per frame once it stops (on the owner's city in headless Chrome a zoom-step frame went from about 90 ms to about 12 ms). The zoom step is also scaled by how far the wheel event scrolled (one mouse notch is still 10%), so a trackpad no longer zooms uncontrollably fast.
 5. **Show traffic on the roads** (on hold, with GRAPHICS). The owner is dropping the wandering cosmetic cars and choosing a per-tile way to show traffic from the graphics session's mock page. The engine side already has what that needs per road tile in `world.traffic`: total volume (`trafficVolume`), capacity (`roadCapacity`), each market's own volume (`shopping`, `jobs`, `goods`, so trucks can show where goods traffic is), and the direction of travel toward each market's destinations (`field.parent`). Add anything missing once the look is picked.
-6. **First tick after a load.** About 60–80 ms on the owner's 512×512 city: land value does one whole-map pass and traffic its first 24 iterations. Spread them over a few ticks or do them before the first frame.
-7. **Per-frame tile loop** (unmeasured). The renderer allocates a vibe object per visible tile per frame.
+6. **First tick after a load.** About 20 ms on the owner's 512×512 city by `npm run bench` (it was 60–80 ms before the tick work): land value does one whole-map pass and traffic its first 24 iterations. Spread them over a few ticks or do them before the first frame.
+7. **Per-frame tile loop.** The renderer allocates a vibe object per visible tile per frame. `npm run bench` now measures frames: on the owner's city, drawn on the CPU, a still frame is about 3 ms zoomed in and 11 ms at zoom 0.5, and 9–28 ms while zooming. Look here if zoomed-out play feels slow.
 
 Standing rules (see AGENT.md): systems never loop over the whole map (`world.index`, `FieldBounds`); when `_renderChunk` reads a new layer, `_chunkSignature` must read it too; anything that feeds back into traffic routing gets a stability check.
 
@@ -56,6 +63,7 @@ Done and merged:
 - Traffic overlay with load past 100%, commute tint and route trace; `?debug=true` inspector numbers and live tuning panel (#29).
 - Save files: export / import a city as `.citysave.json` (#30).
 - Sim tick on a 512×512 map: about 95 ms → 3 ms in Node, 31 ms → 1.6 ms in Chrome, results identical (#31).
+- Engineering: checks on every PR (typecheck, tests, build); a whole-simulation "nothing changed" test; `npm run bench` for tick and frame times (see AGENT.md, Testing).
 - Cleanup: old traffic overlay code removed from the renderer, traffic uses the shared index, service coverage is recomputed only when roads or buildings change, no second autosave on returning to the tab.
 
 ## DESIGN
