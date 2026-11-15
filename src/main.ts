@@ -8,26 +8,12 @@ localizeHTML();
 
 import { CommandHistory } from './commands/CommandHistory';
 import { Scheduler } from './sim/Scheduler';
-import { NetworkSystem } from './sim/systems/NetworkSystem';
-import { PowerSystem } from './sim/systems/PowerSystem';
-import { WaterSystem } from './sim/systems/WaterSystem';
-import { SewageSystem } from './sim/systems/SewageSystem';
-import { ServiceSystem, computeServiceCoverage } from './sim/systems/ServiceSystem';
-import { LandValueSystem } from './sim/systems/LandValueSystem';
-import { PollutionSystem } from './sim/systems/PollutionSystem';
-import { CrimeSystem } from './sim/systems/CrimeSystem';
-import { TransitSystem } from './sim/systems/TransitSystem';
-import { FireSystem } from './sim/systems/FireSystem';
-import { EducationSystem } from './sim/systems/EducationSystem';
-import { ZoneGrowthSystem } from './sim/systems/ZoneGrowthSystem';
-import { EconomySystem } from './sim/systems/EconomySystem';
-import { PoliticsSystem } from './sim/systems/PoliticsSystem';
+import { createSystems } from './sim/createSystems';
+import { computeServiceCoverage } from './sim/systems/ServiceSystem';
+import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
-import { AbandonmentSystem } from './sim/systems/AbandonmentSystem';
-import { HealthcareSystem } from './sim/systems/HealthcareSystem';
 import { InputController } from './input/InputController';
 import type { Tool } from './input/InputController';
-import type { System } from './sim/Scheduler';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
 import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
@@ -82,31 +68,6 @@ resize();
 // ── Mutable game state ────────────────────────────────────────────────────────
 // Single object so closures always see the current world/history/scheduler.
 
-// Systems carry per-game state (alert cooldowns, shortage flags, caches), so
-// every new or loaded world gets a fresh set — see startGame().
-function createSystems(): System[] {
-  state.transit = new TransitSystem();
-  return [
-    new NetworkSystem(),
-    new PowerSystem(),
-    new WaterSystem(),
-    new SewageSystem(),
-    new ServiceSystem(),
-    new LandValueSystem(),
-    new PollutionSystem(),
-    new CrimeSystem(),
-    new FireSystem(),
-    state.transit,
-    new AbandonmentSystem(),
-    new EducationSystem(),
-    new HealthcareSystem(),
-    new ZoneGrowthSystem(),
-    new EconomySystem(),
-    new VibeSystem(),  // spatial vibe simulation
-    new PoliticsSystem(),
-  ];
-}
-
 const state = {
   world:     null as unknown as World,
   history:   null as unknown as CommandHistory,
@@ -142,7 +103,10 @@ function syncSpeedButtons(): void {
 function startGame(world: World): void {
   state.world     = world;
   state.history   = new CommandHistory(world);
-  state.scheduler = new Scheduler(world, createSystems());
+  // Systems carry per-game state, so every new or loaded world gets a fresh set.
+  const sim = createSystems();
+  state.transit = sim.transit;
+  state.scheduler = new Scheduler(world, sim.systems);
   syncSpeedButtons();
   autosave.reset();
   toastPanel.setWorld(world);
