@@ -53,7 +53,7 @@ src/
   ui/
     NewGameDialog, SaveLoadPanel, TileInfoPanel, EconPanel, ToastPanel,
     DemandChart, MusicPanel, SpriteSandbox
-  audio/               MusicManager.ts, tracks/
+  audio/               MusicManager.ts, compose.ts, tracks/, variants/, sketches/
   i18n/                index.ts, types.ts, locales/en.ts
   data/
     balance.ts
@@ -401,6 +401,14 @@ Load-bearing decisions — don't change without good reason.
 2. Emit from the relevant system: `world.events.emit('myEvent', { tx, ty, ... })`
 3. Use a cooldown (`private _lastAlertTick`) to prevent spam for aggregate/recurring conditions
 4. Write a test in `eventbus.test.ts` verifying payload fields and cooldown behavior
+
+### A new music track
+
+Tracks are code: `MusicManager` plays a `Track` (see `audio/types.ts`) with WebAudio oscillators, no audio files.
+1. Write it with the helpers in `audio/compose.ts` (header explains the mini-notation): independent voices with their own rhythms, compiled to the step-locked `Track` format. Voice 0 is the lead; timbre comes from `genre` + voice index. There are no drums, so bass lines should land on the downbeat.
+2. Drafts under review go in `audio/variants/<song-slug>/vN.ts` (exporting `meta` and `track`); short melody demos in `audio/sketches/`. `node scripts/build-music-review.mjs <out.html>` builds a listening page from them, and `node scripts/music-stats.mjs` prints length and loudness (keep `peakVelSum` under ~2.5–3.5).
+3. Once approved, move the file into `audio/tracks/`, fix its `compose.ts` import path, and name takes of an existing song `"Song · Take"`. `playlistOrder` rotates songs so no song plays twice in a row. Cut takes live in `audio/variants/_dropped/`, outside the tests.
+4. `musicVariants.test.ts` checks every take runs about three minutes and compiles cleanly.
 
 ---
 

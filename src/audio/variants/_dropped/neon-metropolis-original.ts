@@ -1,4 +1,4 @@
-import type { Track } from '../types';
+import type { Track } from '../../types';
 
 const edmLeadA = [{pitch:'E4',length:0.25},{pitch:'G4',length:0.25},{pitch:'A4',length:0.5},{pitch:'E4',length:0.25},{pitch:'G4',length:0.25},{pitch:'B4',length:0.25},{pitch:'A4',length:0.25}];
 const edmLeadB = [{pitch:'A4',length:0.25},{pitch:'C5',length:0.25},{pitch:'D5',length:0.5},{pitch:'A4',length:0.25},{pitch:'C5',length:0.25},{pitch:'E5',length:0.25},{pitch:'D5',length:0.25}];
