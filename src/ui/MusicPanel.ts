@@ -5,7 +5,7 @@ const VOLUME_KEY = 'city-builder.musicVolume';
 
 /**
  * Name shown to the player: a take's own name ("Cloudy Sky · Drifting Over" -> "Drifting Over").
- * The full "Song · Take" name stays internal; playlistOrder uses it to space related takes apart.
+ * The full "Song · Take" name stays internal; the shuffle uses it to keep related takes apart.
  */
 function displayName(trackName: string): string {
   return trackName.split(' · ').pop()!;

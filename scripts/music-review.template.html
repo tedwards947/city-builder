@@ -169,7 +169,7 @@ textarea:focus { border-color: var(--accent); outline: none; }
 const SONGS = /*__SONGS__*/[];
 const PLAYLIST = /*__PLAYLIST__*/[];
 if (PLAYLIST.length) document.getElementById('playlist').textContent =
-  `In the game now (${PLAYLIST.length} tracks, played in this order): ${PLAYLIST.join(', ')}.`;
+  `In the game now (${PLAYLIST.length} tracks, shuffled in play): ${PLAYLIST.join(', ')}.`;
 
 // ---------- helpers ----------
 const $ = (s, el = document) => el.querySelector(s);

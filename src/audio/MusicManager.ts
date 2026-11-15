@@ -11,24 +11,31 @@ export function noteFrequency(pitch: string): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+/** A track's song family: takes are named "Song · Take", so "Dusty Roads · Prairie Waltz" is "Dusty Roads". */
+const songOf = (t: Track) => t.name.split(' · ')[0];
+
 /**
- * Playlist order: songs rotate so the same song never plays twice in a row.
- * Takes of a song are named "Song · Take"; round 1 plays each song's original
- * (alphabetical by song), later rounds play one take of each song in turn.
+ * A shuffled pass through every track. Takes of one song are kept apart: no
+ * song plays twice in a row, and the pass doesn't open with `afterSong` (the
+ * song that ended the previous pass). The only exception is when one song has
+ * more takes than everything else combined, so repeats can't be avoided.
  */
-export function playlistOrder(tracks: Track[]): Track[] {
-  const families = new Map<string, Track[]>();
-  for (const t of tracks) {
-    const song = t.name.split(' · ')[0];
-    if (!families.has(song)) families.set(song, []);
-    families.get(song)!.push(t);
-  }
-  const groups = [...families.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, ts]) => ts.sort((a, b) => a.name.localeCompare(b.name)));
+export function shufflePlaylist(tracks: Track[], random: () => number = Math.random, afterSong?: string): Track[] {
+  const left = [...tracks];
   const out: Track[] = [];
-  for (let round = 0; out.length < tracks.length; round++) {
-    for (const g of groups) if (round < g.length) out.push(g[round]);
+  let prev = afterSong;
+  while (left.length) {
+    const counts = new Map<string, number>();
+    for (const t of left) counts.set(songOf(t), (counts.get(songOf(t)) ?? 0) + 1);
+    // A song holding half or more of what's left (rounded up) must take every other slot from here on,
+    // starting now, or its takes end up side by side.
+    const forced = [...counts].find(([song, n]) => song !== prev && n * 2 >= left.length + 1)?.[0];
+    let pool = forced ? left.filter(t => songOf(t) === forced) : left.filter(t => songOf(t) !== prev);
+    if (pool.length === 0) pool = left;
+    const pick = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
+    left.splice(left.indexOf(pick), 1);
+    out.push(pick);
+    prev = songOf(pick);
   }
   return out;
 }
@@ -48,10 +55,13 @@ export class MusicManager {
   private noteIndex = 0; 
   private timerId: number | null = null;
   private onTrackChange: (trackName: string) => void;
+  private random: () => number;
   public ready: Promise<void>;
 
-  constructor(onTrackChange: (trackName: string) => void) {
+  /** `random` is injectable so tests can shuffle deterministically. */
+  constructor(onTrackChange: (trackName: string) => void, random: () => number = Math.random) {
     this.onTrackChange = onTrackChange;
+    this.random = random;
     this.ready = this.loadTracks();
   }
 
@@ -73,7 +83,7 @@ export class MusicManager {
         }
       }
       
-      this.tracks = playlistOrder(loadedTracks);
+      this.tracks = shufflePlaylist(loadedTracks, this.random);
       
       if (this.tracks.length === 0) {
         console.warn("No tracks were successfully loaded.");
@@ -123,31 +133,43 @@ export class MusicManager {
     if (this.tracks.length === 0) return;
     const wasPlaying = this.isPlaying;
     this.stop();
-    this.currentTrackIndex = (this.currentTrackIndex + 1) % this.tracks.length;
+    this.advance();
     this.noteIndex = 0;
     this.seqIndex = 0;
     if (wasPlaying) this.start(); else this.onTrackChange(this.tracks[this.currentTrackIndex].name);
   }
 
-  /** Every loaded track name, in playlist order. */
+  /** Move to the next track in the shuffle; after the last one, reshuffle for a fresh pass. */
+  private advance() {
+    this.currentTrackIndex++;
+    if (this.currentTrackIndex >= this.tracks.length) {
+      const last = this.tracks[this.tracks.length - 1];
+      this.tracks = shufflePlaylist(this.tracks, this.random, last && songOf(last));
+      this.currentTrackIndex = 0;
+    }
+  }
+
+  /** Every loaded track name, in the current shuffled order. */
   public getTrackNames(): string[] {
     return this.tracks.map(t => t.name);
   }
 
-  /** Every loaded track's name and style, in playlist order. */
+  /** Every loaded track's name and style, in the current shuffled order. */
   public getTrackList(): { name: string; genre: Track['genre'] }[] {
     return this.tracks.map(t => ({ name: t.name, genre: t.genre }));
   }
 
   /**
    * Jump to a track by name and play it from the top (starting playback if paused).
-   * The playlist then carries on in its usual order from that track. Returns false for an unknown name.
+   * A fresh shuffle of the other tracks follows it. Returns false for an unknown name.
    */
   public playTrack(name: string): boolean {
-    const index = this.tracks.findIndex(t => t.name === name);
-    if (index < 0) return false;
+    const picked = this.tracks.find(t => t.name === name);
+    if (!picked) return false;
     this.stop();
-    this.currentTrackIndex = index;
+    const rest = shufflePlaylist(this.tracks.filter(t => t !== picked), this.random, songOf(picked));
+    this.tracks = [picked, ...rest];
+    this.currentTrackIndex = 0;
     this.noteIndex = 0;
     this.seqIndex = 0;
     this.start();
@@ -187,7 +209,7 @@ export class MusicManager {
       this.seqIndex++;
       
       if (this.seqIndex >= track.sequence.length) {
-        this.currentTrackIndex = (this.currentTrackIndex + 1) % this.tracks.length;
+        this.advance();
         this.seqIndex = 0;
         this.onTrackChange(this.tracks[this.currentTrackIndex].name);
       }
