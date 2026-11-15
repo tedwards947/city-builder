@@ -1,261 +1,287 @@
-// TransitSystem — road-network-aware traffic flow model.
+// TransitSystem — flow-based traffic over the road network.
 //
-// DESIGN: Normalized BFS spreading + cross-zone gravity flow.
+// There are no individual trips or routes. Instead, per pass:
 //
-// Each developed zone tile BFS-es outward through the road network (road↔road
-// adjacency only) up to BALANCE.transit.accessRadius hops. It deposits its
-// devLevel as load across every road tile it reaches, weighted by distance and
-// normalized so that the total deposit sums to exactly devLevel regardless of
-// how many roads are reachable. This normalization is the key to the "parallel
-// road relief" property: when a second road is added, the same zone's total
-// contribution is now split across more road tiles, reducing the load on the
-// original artery.
+//   1. TRAVEL-TIME MAPS. For each destination type (commerce, industry,
+//      homes) one flood over the road network gives every road tile its travel
+//      time to the nearest developed zone of that type. Crossing a tile costs
+//      1 / speedMult of its road class, so avenues and highways are "shorter".
 //
-// Road congestion = cross-zone gravity flow:
-//   flow = rLoad × (cLoad + iLoad) + iLoad × cLoad
-// A road tile that can reach both an R district and a C/I district carries
-// the cross-traffic between them and therefore becomes congested; a dead-end
-// cul-de-sac serving only residential sees no R×C product and stays empty.
+//   2. FLOWS. Three flows are sent downhill along those maps:
+//        homes → commerce, homes → industry, industry → commerce
+//      Each developed origin tile puts (devLevel × trips rate) onto its best
+//      adjacent road; road tiles are then swept from farthest to nearest, each
+//      handing its traffic to the neighbour it was reached from. One sweep per
+//      flow yields the volume on every road tile, through-traffic included.
 //
-// Accessibility layer:
-//   For each zone tile, reads the complementary load values from its adjacent
-//   road tile(s) and stores a 0-255 score. R tiles: reachable C+I. C tiles:
-//   reachable R+I. I tiles: reachable R+C. Used by ZoneGrowthSystem to apply
-//   a growth multiplier — zones with no road path to their complementary types
-//   develop slower.
+//   3. CONGESTION = volume / capacity of the road class, as a 0-255 byte.
 //
-// Runs every transit.flowInterval ticks (slower cadence than zone growth).
+//   4. ACCESSIBILITY per zone tile, from travel time: homes look for the
+//      nearer of commerce or industry, commerce and industry look for homes.
+//      255 = next door, falling linearly to 0 at BALANCE.transit.commuteMax.
+//      ZoneGrowthSystem uses it as a growth multiplier.
+//
+// Highways carry traffic but give no access: zones join the network only
+// through streets and avenues (the same rule ZoneGrowthSystem uses).
+//
+// Everyone heads for the NEAREST destination and congestion does not yet feed
+// back into travel time — destination capacity and damped feedback are the
+// next step (see TODO.md, GAME ENGINE).
+//
+// The maps and per-flow volumes of the last pass are published as
+// `world.traffic` for the overlay, inspector and tuning panel.
+//
+// Runs every transit.flowInterval ticks, and only when its inputs changed.
 
 import { World } from '../World';
-import { ROAD_NONE, ROAD_STREET, ZONE_NONE, ZONE_R, ZONE_C } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
-
-// Capacity lookup indexed by road class byte (built once, constant at runtime).
-const CLASS_CAPACITY: number[] = (() => {
-  const arr: number[] = [0, 0, 0, 0];
-  for (const [k, v] of Object.entries(BALANCE.roadClasses)) {
-    arr[Number(k)] = v.capacity;
-  }
-  return arr;
-})();
+import {
+  type TrafficData, type TrafficField,
+  makeTrafficField, bestAccessRoad, neighbourIndex, roadCapacity,
+} from '../TrafficData';
 
 export class TransitSystem {
-  private _rLoad: Float32Array | null = null;
-  private _cLoad: Float32Array | null = null;
-  private _iLoad: Float32Array | null = null;
-  // Generation-based visited array: avoids O(n) fill between BFS runs.
-  private _visitedGen: Uint32Array | null = null;
-  private _queue: Int32Array | null = null;
-  private _qdepth: Uint8Array | null = null;
-  private _gen = 0;
-  // Hash of zone+dev+roadClass at the last full pass — if it is unchanged,
-  // the BFS passes are skipped. NaN = never computed.
+  private _n = 0;
+  private _data!: TrafficData;
+  private _flow!: Float32Array;     // traffic being swept along one map
+  // Per road class byte: travel cost per tile (1 / speedMult). Refreshed each pass.
+  private readonly _classCost: number[] = [0, 1, 1, 1];
+  // Binary min-heap for the floods (lazy deletion).
+  private _heapKey!: Float32Array;
+  private _heapId!: Int32Array;
+  private _heapSize = 0;
+  // Hash of the layers, and the tuning values, at the last full pass.
   private _lastInputHash = NaN;
+  private _lastTuning = '';
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
+    this._run(world, false);
+  }
 
+  /** Recompute now, whatever the tick (used by the tuning panel). */
+  recompute(world: World): void {
+    this._run(world, true);
+  }
+
+  private _run(world: World, force: boolean): void {
     const { width, height } = world.grid;
     const n = width * height;
 
-    if (!this._rLoad || this._rLoad.length !== n) {
-      this._rLoad      = new Float32Array(n);
-      this._cLoad      = new Float32Array(n);
-      this._iLoad      = new Float32Array(n);
-      this._visitedGen = new Uint32Array(n);
-      this._queue      = new Int32Array(n);
-      this._qdepth     = new Uint8Array(n);
-      this._gen        = 0;
+    if (this._n !== n) {
+      this._n = n;
+      this._data = {
+        version: 0,
+        toC: makeTrafficField(n), toI: makeTrafficField(n), toR: makeTrafficField(n),
+        volRC: new Float32Array(n), volRI: new Float32Array(n), volIC: new Float32Array(n),
+      };
+      this._flow = new Float32Array(n);
+      // Each road tile is pushed at most once per neighbour plus once as a source.
+      this._heapKey = new Float32Array(n * 5 + 1);
+      this._heapId = new Int32Array(n * 5 + 1);
       this._lastInputHash = NaN;
     }
 
-    // Skip the expensive BFS passes when roads and zones are unchanged.
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
     const dev       = world.layers.devLevel;
-    // The hash is position-dependent: a plain sum misses changes that cancel
-    // out (a road moved, one zone growing as another shrinks).
+    const abandoned = world.layers.abandoned;
+    const T = BALANCE.transit;
+
+    // Skip the pass when nothing it reads has changed. The hash is
+    // position-dependent: a plain sum misses changes that cancel out
+    // (a road moved, one zone growing as another shrinks).
     {
       let h = 0x811c9dc5 | 0;
       for (let i = 0; i < n; i++) {
-        h = Math.imul(h ^ (zone[i] | (dev[i] << 8) | (roadClass[i] << 16)), 0x9e3779b1);
+        const v = zone[i] | (dev[i] << 8) | (roadClass[i] << 16) | (abandoned[i] !== 0 ? 1 << 24 : 0);
+        h = Math.imul(h ^ v, 0x9e3779b1);
         h ^= h >>> 15;
       }
-      if (h === this._lastInputHash) return;
+      let tuning = `${T.tripsRtoC},${T.tripsRtoI},${T.tripsItoC},${T.commuteMax}`;
+      for (const k of [1, 2, 3]) {
+        const rc = BALANCE.roadClasses[k];
+        tuning += `,${rc.capacity},${rc.speedMult}`;
+        this._classCost[k] = 1 / rc.speedMult;
+      }
+      if (!force && world.traffic === this._data && h === this._lastInputHash && tuning === this._lastTuning) return;
       this._lastInputHash = h;
+      this._lastTuning = tuning;
     }
 
-    const rLoad      = this._rLoad!;
-    const cLoad      = this._cLoad!;
-    const iLoad      = this._iLoad!;
-    const visitedGen = this._visitedGen!;
-    const queue      = this._queue!;
-    const qdepth     = this._qdepth!;
+    const data = this._data;
 
-    rLoad.fill(0);
-    cLoad.fill(0);
-    iLoad.fill(0);
+    // ── 1. Travel-time maps ───────────────────────────────────────────────────
+    this._flood(world, ZONE_C, data.toC);
+    this._flood(world, ZONE_I, data.toI);
+    this._flood(world, ZONE_R, data.toR);
 
-    const R         = BALANCE.transit.accessRadius;
-    const Rp1       = R + 1;
+    // ── 2. Flows ──────────────────────────────────────────────────────────────
+    this._sendFlow(world, data.toC, ZONE_R, T.tripsRtoC, data.volRC);
+    this._sendFlow(world, data.toI, ZONE_R, T.tripsRtoI, data.volRI);
+    this._sendFlow(world, data.toC, ZONE_I, T.tripsItoC, data.volIC);
 
-    // ── Pass 1: BFS spread zone load through road network (normalized) ────────
-    //
-    // For each developed zone tile, BFS outward through connected road tiles.
-    // Load deposited to road tile at depth d:
-    //   devLevel × rate × (1 − d/Rp1) / totalWeight
-    // where `rate` is rGenRate / cAttrRate / iAttrRate from BALANCE.
-    // Normalization by totalWeight ensures total deposit = devLevel × rate,
-    // so adding more roads splits the same demand rather than adding to it.
-
-    const T = BALANCE.transit;
-
-    for (let zy = 0; zy < height; zy++) {
-      for (let zx = 0; zx < width; zx++) {
-        const zi = zy * width + zx;
-        if (zone[zi] === ZONE_NONE || dev[zi] === 0) continue;
-
-        const zoneType = zone[zi];
-        const devLevel = dev[zi];
-        const rate     = zoneType === ZONE_R ? T.rGenRate
-                       : zoneType === ZONE_C ? T.cAttrRate
-                       :                       T.iAttrRate;
-        const gen      = ++this._gen;
-
-        let head = 0, tail = 0, totalWeight = 0;
-
-        // Seed: all cardinal road tiles adjacent to this zone tile (depth 0).
-        const s0 = zx > 0        ? zi - 1      : -1;
-        const s1 = zx < width-1  ? zi + 1      : -1;
-        const s2 = zy > 0        ? zi - width  : -1;
-        const s3 = zy < height-1 ? zi + width  : -1;
-
-        for (const s of [s0, s1, s2, s3]) {
-          if (s < 0 || roadClass[s] === ROAD_NONE || visitedGen[s] === gen) continue;
-          visitedGen[s] = gen;
-          queue[tail]   = s;
-          qdepth[tail]  = 0;
-          tail++;
-          totalWeight  += 1; // weight at depth 0 = 1 - 0/Rp1 = 1
-        }
-
-        if (tail === 0) continue; // zone has no adjacent road → contributes nothing
-
-        // BFS expansion
-        let limit = 0;
-        const maxLimit = 1000000;
-        while (head < tail && limit < maxLimit) {
-          limit++;
-          const cur = queue[head];
-          const d   = qdepth[head];
-          head++;
-
-          if (d >= R) continue; // don't expand beyond accessRadius
-
-          const cx  = cur % width;
-          const cy  = (cur - cx) / width;
-          const nd  = d + 1;
-          const nw  = 1 - nd / Rp1;
-
-          const checkAndEnqueue = (ni: number) => {
-            if (ni >= 0 && roadClass[ni] !== ROAD_NONE && visitedGen[ni] !== gen) {
-              if (tail < queue.length) {
-                visitedGen[ni] = gen;
-                queue[tail]    = ni;
-                qdepth[tail]   = nd;
-                tail++;
-                totalWeight   += nw;
-              } else {
-                console.error('TransitSystem queue overflow at', ni);
-              }
-            }
-          };
-
-          if (cx > 0)        checkAndEnqueue(cur - 1);
-          if (cx < width-1)  checkAndEnqueue(cur + 1);
-          if (cy > 0)        checkAndEnqueue(cur - width);
-          if (cy < height-1) checkAndEnqueue(cur + width);
-        }
-
-        if (limit >= maxLimit) {
-          console.warn(`TransitSystem BFS limit reached for zone at ${zx},${zy}. Access calculations may be incomplete.`);
-        }
-
-        if (totalWeight === 0) continue;
-
-        // Deposit normalized load to every visited road tile.
-        for (let q = 0; q < tail; q++) {
-          const ri   = queue[q];
-          const d    = qdepth[q];
-          const load = devLevel * rate * (1 - d / Rp1) / totalWeight;
-          if (zoneType === ZONE_R)      rLoad[ri] += load;
-          else if (zoneType === ZONE_C) cLoad[ri] += load;
-          else                          iLoad[ri] += load;
-        }
-      }
-    }
-
-    // ── Pass 2: flow → congestion ─────────────────────────────────────────────
-    //
-    // flow = baseline + cross-zone product
-    //   baseline  = rLoad + cLoad + iLoad       (any zone activity creates traffic)
-    //   cross     = rLoad×(cLoad+iLoad) + iLoad×cLoad  (extra load where zones intermix)
-    //
-    // The cross term is what makes arterials connecting R↔C/I districts busier
-    // than stub roads serving a single zone type. The baseline term means a pure
-    // residential area still has light local traffic (residents making short trips).
-
+    // ── 3. Congestion ─────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
+    const { volRC, volRI, volIC } = data;
     let totalCong = 0, roadCount = 0;
-
     for (let i = 0; i < n; i++) {
-      if (roadClass[i] === ROAD_NONE) {
-        congestion[i] = 0;
-        continue;
-      }
-      const rl = rLoad[i], cl = cLoad[i], il = iLoad[i];
-      const flow = (rl + cl + il) + rl * (cl + il) + il * cl;
-      const cap  = CLASS_CAPACITY[roadClass[i]] || CLASS_CAPACITY[ROAD_STREET];
-      const c    = Math.min(255, Math.round(flow / cap * 255));
+      const rc = roadClass[i];
+      if (rc === ROAD_NONE) { congestion[i] = 0; continue; }
+      const volume = volRC[i] + volRI[i] + volIC[i];
+      const c = Math.min(255, Math.round(volume / roadCapacity(rc) * 255));
       congestion[i] = c;
       totalCong += c;
       roadCount++;
     }
-
     world.stats.avgCongestion = roadCount > 0 ? Math.round(totalCong / roadCount) : 0;
 
-    // ── Pass 3: accessibility per zone tile ───────────────────────────────────
-    //
-    // Reads the complementary load already accumulated on adjacent road tiles.
-    // This is a single O(n) scan — no extra BFS needed because the road tiles
-    // already encode "how much complementary zone is reachable from here."
-
+    // ── 4. Accessibility ──────────────────────────────────────────────────────
     const accessibility = world.layers.accessibility;
-    const norm = BALANCE.transit.accessNormFactor;
+    const distC = data.toC.dist, distI = data.toI.dist, distR = data.toR.dist;
+    const commuteMax = T.commuteMax;
 
-    for (let zy = 0; zy < height; zy++) {
-      for (let zx = 0; zx < width; zx++) {
-        const zi = zy * width + zx;
-        if (zone[zi] === ZONE_NONE) { accessibility[zi] = 0; continue; }
+    for (let zi = 0; zi < n; zi++) {
+      const zoneType = zone[zi];
+      if (zoneType === ZONE_NONE) { accessibility[zi] = 0; continue; }
 
-        const zoneType = zone[zi];
-        let best = 0;
+      let best = Infinity;
+      for (let k = 0; k < 4; k++) {
+        const ri = neighbourIndex(zi, k, width, height);
+        if (ri < 0) continue;
+        const rc = roadClass[ri];
+        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;
+        const t = zoneType === ZONE_R ? Math.min(distC[ri], distI[ri]) : distR[ri];
+        if (t < best) best = t;
+      }
 
-        const d0 = zx > 0        ? zi - 1      : -1;
-        const d1 = zx < width-1  ? zi + 1      : -1;
-        const d2 = zy > 0        ? zi - width  : -1;
-        const d3 = zy < height-1 ? zi + width  : -1;
+      accessibility[zi] = best < commuteMax ? Math.round(255 * (1 - best / commuteMax)) : 0;
+    }
 
-        for (const d of [d0, d1, d2, d3]) {
-          if (d < 0 || roadClass[d] === ROAD_NONE) continue;
-          const comp = zoneType === ZONE_R ? cLoad[d] + iLoad[d]
-                     : zoneType === ZONE_C ? rLoad[d] + iLoad[d]
-                     :                       rLoad[d] + cLoad[d];
-          if (comp > best) best = comp;
-        }
+    data.version++;
+    world.traffic = data;
+  }
 
-        accessibility[zi] = Math.min(255, Math.round(best * norm));
+  /**
+   * Fill `field` with the travel time from every road tile to the nearest
+   * developed, non-abandoned zone tile of `zoneType` (Dijkstra from all of
+   * them at once). A zone is entered from an adjacent street or avenue.
+   */
+  private _flood(world: World, zoneType: number, field: TrafficField): void {
+    const { width, height } = world.grid;
+    const n = width * height;
+    const roadClass = world.layers.roadClass;
+    const zone      = world.layers.zone;
+    const dev       = world.layers.devLevel;
+    const abandoned = world.layers.abandoned;
+    const classCost = this._classCost;
+    const { dist, parent, order } = field;
+
+    dist.fill(Infinity);
+    this._heapSize = 0;
+
+    for (let i = 0; i < n; i++) {
+      if (zone[i] !== zoneType || dev[i] === 0 || abandoned[i] !== 0) continue;
+      for (let k = 0; k < 4; k++) {
+        const ri = neighbourIndex(i, k, width, height);
+        if (ri < 0 || dist[ri] === 0) continue;
+        const rc = roadClass[ri];
+        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;
+        dist[ri] = 0;
+        parent[ri] = -1;
+        this._push(ri, 0);
       }
     }
+
+    let count = 0;
+    while (this._heapSize > 0) {
+      const key = this._heapKey[0];
+      const cur = this._pop();
+      if (key > dist[cur]) continue; // stale heap entry
+      order[count++] = cur;
+
+      const curCost = classCost[roadClass[cur]];
+      for (let k = 0; k < 4; k++) {
+        const ni = neighbourIndex(cur, k, width, height);
+        if (ni < 0) continue;
+        const rc = roadClass[ni];
+        if (rc === ROAD_NONE) continue;
+        // Half of each tile is crossed when stepping from one to the next.
+        const nd = Math.fround(key + (curCost + classCost[rc]) * 0.5);
+        if (nd < dist[ni]) {
+          dist[ni] = nd;
+          parent[ni] = cur;
+          this._push(ni, nd);
+        }
+      }
+    }
+    field.count = count;
+  }
+
+  /**
+   * Put each origin zone's trips on its best adjacent road, then sweep the
+   * map from farthest to nearest so every road tile accumulates the traffic
+   * passing through it. Writes the result to `out`.
+   */
+  private _sendFlow(world: World, field: TrafficField, originZone: number, rate: number, out: Float32Array): void {
+    const n = this._n;
+    const zone      = world.layers.zone;
+    const dev       = world.layers.devLevel;
+    const abandoned = world.layers.abandoned;
+    const { parent, order, count } = field;
+    const flow = this._flow;
+
+    out.fill(0);
+    if (count === 0 || rate === 0) return; // no destination of this type anywhere
+
+    flow.fill(0);
+    for (let i = 0; i < n; i++) {
+      if (zone[i] !== originZone || dev[i] === 0 || abandoned[i] !== 0) continue;
+      const road = bestAccessRoad(world, i, field);
+      if (road >= 0) flow[road] += dev[i] * rate;
+    }
+
+    // Farthest first: a tile's parent is always nearer, so it is handled later.
+    for (let k = count - 1; k >= 0; k--) {
+      const ri = order[k];
+      const f = flow[ri];
+      if (f === 0) continue;
+      out[ri] = f;
+      const p = parent[ri];
+      if (p >= 0) flow[p] += f;
+    }
+  }
+
+  private _push(id: number, key: number): void {
+    const keys = this._heapKey, ids = this._heapId;
+    let i = this._heapSize++;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (keys[p] <= key) break;
+      keys[i] = keys[p]; ids[i] = ids[p];
+      i = p;
+    }
+    keys[i] = key; ids[i] = id;
+  }
+
+  private _pop(): number {
+    const keys = this._heapKey, ids = this._heapId;
+    const top = ids[0];
+    const size = --this._heapSize;
+    if (size > 0) {
+      const key = keys[size], id = ids[size];
+      let i = 0;
+      for (;;) {
+        let c = 2 * i + 1;
+        if (c >= size) break;
+        if (c + 1 < size && keys[c + 1] < keys[c]) c++;
+        if (keys[c] >= key) break;
+        keys[i] = keys[c]; ids[i] = ids[c];
+        i = c;
+      }
+      keys[i] = key; ids[i] = id;
+    }
+    return top;
   }
 }

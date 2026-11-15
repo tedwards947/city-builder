@@ -188,7 +188,7 @@ All layers are flat typed arrays of length `width * height`. Index with `grid.id
 | crime | Uint8Array | 0–255 crime level |
 | police | Uint8Array | 0/1 — police coverage this tick |
 | congestion | Uint8Array | 0–255 road traffic congestion (TransitSystem) |
-| accessibility | Uint8Array | 0–255 reachable complementary zone capacity (TransitSystem) |
+| accessibility | Uint8Array | 0–255 from travel time to the nearest complementary zone: 255 = next door, 0 = `transit.commuteMax` or unreachable (TransitSystem) |
 | abandoned | Uint8Array | 0=normal, 1=abandoned (no income, no growth) |
 | distress | Uint8Array | 0–255 distress accumulator |
 | fireRisk | Uint8Array | 0–255 fire risk level |
@@ -358,6 +358,8 @@ Load-bearing decisions — don't change without good reason.
 
 **Renderer behind an interface:** All world→screen math goes through `Projection`. `Projection.depth()` returns `0` for top-down, `tx+ty` for isometric — this is the isometric swap hook.
 
+**Traffic is flow-based, not agent-based** (`TransitSystem`, tests in `transit.test.ts`). No trips or routes are simulated. Per pass: one Dijkstra flood per destination type (commerce, industry, homes) gives each road tile its travel time to the nearest developed zone of that type, with a tile costing `1 / speedMult`; trips from homes → commerce, homes → industry and industry → commerce are put on each origin's best adjacent road and swept downhill along the flood; congestion = volume / class capacity; accessibility comes from travel time. Highways carry traffic but give zones no access (same rule as growth). Everyone goes to the nearest destination and congestion does not yet feed back into travel time — see `TODO.md`. The vehicles in `VehicleLayer` are cosmetic. The last pass is published as `world.traffic` (`src/sim/TrafficData.ts`: travel-time maps and per-flow volumes, not saved). `src/render/TrafficOverlay.ts` draws the traffic overlay from it as its own layer after `renderer.render()` (road load past 100%, commute tint on zones, route trace on hover); the old traffic overlay code inside `CanvasRenderer` is no longer switched on. With `?debug=true` (`src/debug.ts`) the tile inspector adds traffic numbers and `TrafficTuningPanel` shows sliders that edit `BALANCE` live and call `TransitSystem.recompute()`.
+
 **Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `CanvasRenderer` compares a per-chunk content signature (`_chunkSignature`) and redraws the cached chunk canvas only if it changed. **If `_renderChunk` starts reading a new layer, mix that layer into `_chunkSignature` too**, or the chunk will not update when it changes. Per-frame art (clay sprites, overlays, fire, vehicles) is not cached and is unaffected.
 
 **TypeScript constraints:** `erasableSyntaxOnly: true` — no constructor parameter properties. Use explicit field declarations + assignment in body. `verbatimModuleSyntax` — use `import type` for type-only imports.
@@ -432,6 +434,9 @@ Already in the code — must not be removed:
 ```
 costs:        road=10 (bridge ×3), zoneR=20, zoneC=25, zoneI=25, bulldoze=5
 roadClasses:  street={cost:10,maint:0.04}, avenue={50,0.12}, highway={150,0.35}
+              capacity 20/80/200, speedMult 1.0/1.4/2.0 (both used by TransitSystem)
+transit:      flowInterval=8, tripsRtoC=0.33, tripsRtoI=0.34, tripsItoC=0.38 (per origin dev level),
+              commuteMax=48 street tiles, congestionGrowthPenalty=0.75, accessFloor=0.05
 buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={1500,10}
               police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}
 tax/tick:     zoneR=0.65, zoneC=1.0, zoneI=1.25  (per dev level)
@@ -512,9 +517,10 @@ Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays,
 
 More than one agent session may be working in this repo at once.
 
-- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> vibecheck`) and merge back into the integration branch (`vibecheck` at the time of writing) when the work is green.
+- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> origin/main`) and bring it back to `main` as a small pull request when the work is green.
 - A worktree starts from a commit, so uncommitted work in another tree is invisible to it. Commit (when the user asks) before splitting work across worktrees.
 - A new worktree has no `node_modules`; run `npm install` in it. `generated_imgs/` is git-ignored and exists only in the main checkout.
+- `TODO.md` holds one ranked backlog per area (GRAPHICS, GAME ENGINE, …). Edit only your own section.
 - Before starting, find the other sessions (`ListAgents`) and ask what files they own. If you must share a tree, agree on file ownership first and stay out of each other's files.
 - Use a different dev-server port per session (`npx vite --port <n> --strictPort`), and delete any temporary harness files you create.
 - Commit only when the user asks, and tell the other sessions before you do so two sessions don't commit the same tree. Never stash, reset or check out over a tree another session is using.

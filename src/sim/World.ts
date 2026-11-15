@@ -13,6 +13,7 @@ import {
   VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
 } from './constants';
 import { BALANCE } from '../data/balance';
+import type { TrafficData } from './TrafficData';
 
 export interface Layers {
   terrain:   Uint8Array;
@@ -114,6 +115,8 @@ export class World {
   buildings: BuildingEntity[];
   readonly events: EventBus;
   roadNetDirty: boolean;
+  /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
+  traffic: TrafficData | null = null;
   private _fireCount = 0;
 
   constructor(width: number, height: number, seed = 1, terrainOptions: TerrainOptions = {}) {
