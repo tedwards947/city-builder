@@ -8,23 +8,15 @@ import { BALANCE } from '../data/balance';
 
 /** One travel-time map: time to the nearest destination, and the way there. */
 export interface TrafficField {
-  // Cost per road tile to the destination it is assigned to, in street tiles:
-  // travel time (congestion included) plus that destination's `price`.
-  // Infinity = unreachable.
+  // Travel time per road tile to the nearest door, in street tiles
+  // (congestion included). Infinity = unreachable.
   dist: Float32Array;
-  parent: Int32Array;    // next tile toward the destination; -1 at a door
-  order: Int32Array;     // road tiles in order of increasing dist
+  parent: Int32Array;    // next tile on the quickest way there; -1 at a door
+  order: Int32Array;     // road tiles in order of increasing dist (doors first)
   count: number;         // number of valid entries in `order`
-  // Pure travel time (congestion included, no price) from this road tile to
-  // the first door on its route.
-  near: Float32Array;
   // Doors: road tiles next to a destination zone. Indexed by road tile.
   doorCap: Float32Array;   // trips the zones at this door can take; 0 = not a door
   doorLoad: Float32Array;  // trips that ended at this door on the last iteration
-  // Extra cost of ending a route at this door, raised while more trips end
-  // there than it can take so that the overflow drives on to the next one.
-  price: Float32Array;
-  isDoor: Uint8Array;      // 1 if the tile was a door at the last flood (to spot new doors)
   /** Total trips wanting this destination type ÷ total door capacity. */
   demandRatio: number;
 }
@@ -93,14 +85,13 @@ export function makeTrafficData(n: number): TrafficData {
 export function makeTrafficField(n: number): TrafficField {
   return {
     dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
-    near: new Float32Array(n), doorCap: new Float32Array(n), doorLoad: new Float32Array(n),
-    price: new Float32Array(n), isDoor: new Uint8Array(n), demandRatio: 0,
+    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0,
   };
 }
 
-/** Pure travel time from a road tile to the nearest destination on its route (Infinity if none). */
+/** Travel time from a road tile to the nearest destination on `field` (Infinity if none). */
 export function travelTime(field: TrafficField, roadIdx: number): number {
-  return field.dist[roadIdx] < Infinity ? field.near[roadIdx] : Infinity;
+  return field.dist[roadIdx];
 }
 
 /** Total trips through a road tile. */

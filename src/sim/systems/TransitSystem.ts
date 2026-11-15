@@ -1,34 +1,37 @@
 // TransitSystem — flow-based traffic over the road network.
 //
-// There are no individual trips or routes. One ITERATION does this:
+// There are no individual trips or routes. One ITERATION does this for each
+// MARKET (see TrafficData.MARKET_DEFS):
 //
-//   1. TRAVEL-TIME MAPS. For each destination type (commerce, industry,
-//      homes) one flood over the road network gives every road tile its cost
-//      to a destination of that type and the way there. Crossing a tile costs
-//      1 / speedMult of its road class, more when the tile is congested, so
-//      avenues and highways are "shorter" and jams push traffic elsewhere.
-//      A "door" is a road tile next to a developed destination zone.
+//     shopping: homes → commerce     jobs: homes → industry
+//     goods:    commerce → industry  (shops fetch goods from industry)
 //
-//   2. FLOWS. Each MARKET (see TrafficData.MARKET_DEFS) is sent downhill
-//      along its own map:
-//        shopping: homes → commerce     jobs: homes → industry
-//        goods:    commerce → industry  (shops fetch goods from the nearest
-//                                        industry with output to spare)
-//      Each developed origin tile puts (devLevel × trips rate) onto its best
-//      adjacent road; road tiles are then swept from farthest to nearest, each
-//      handing its traffic to the neighbour it was reached from. Every door a
-//      stream passes takes trips up to its capacity (its zones' levels ×
-//      shopCapacity / jobCapacity); the rest drives on. Whatever is left ends
-//      at the last door of the route.
+//   1. MAP. A flood over the road network gives every road tile its travel
+//      time to the nearest destination of the market and the way there.
+//      Crossing a tile costs 1 / speedMult of its road class, more when the
+//      tile is congested, so avenues and highways are "shorter" and jams push
+//      traffic elsewhere. A "door" is a road tile next to a developed
+//      destination zone; its capacity is its zones' levels × the market's
+//      capacity per level.
 //
-//   3. PRICES. A door where more trips ended than it can take gets a higher
-//      "price" (extra cost of ending a route there), so on the next iteration
-//      routes end further on, at doors with room. This is what stops one shop
-//      absorbing a whole city.
+//   2. FLOW. Each developed origin tile puts (devLevel × trips rate) onto its
+//      best adjacent road. Road tiles are then swept from farthest to nearest,
+//      each handing its traffic on to the neighbours nearer the destination:
+//      most to the best one, less to each the more of a detour it is. Traffic
+//      ends at the first door it reaches.
 //
-// Iterations repeat until nothing moves much: several per pass, more on the
-// first pass and from recompute(). Volumes are averaged over iterations, so
-// where two routes keep trading places the traffic shows as split.
+//   3. SPILL. A door that got more trips than it has room for passes the
+//      excess to other doors within SPILL_RADIUS road tiles that still have
+//      room, nearest first — so a street of shops fills up along its length
+//      instead of everything stopping at the first one. What still does not
+//      fit stays at the door, which then shows as over capacity: the district
+//      needs more shops (or jobs, or industry).
+//
+// Nothing in 2 or 3 feeds back, so they cannot oscillate. The one feedback is
+// congestion → travel time → routes; it is kept calm by the smooth split in 2
+// and by averaging, per tile, any volume that keeps changing. Iterations
+// repeat until nothing moves much: a few per pass, more on the first pass,
+// after a road edit and from recompute().
 //
 // Then: CONGESTION = volume / capacity of the road class, as a 0-255 byte,
 // and ACCESSIBILITY per zone tile from travel time — homes look for the
@@ -39,11 +42,11 @@
 // Highways carry traffic but give no access: zones join the network only
 // through streets and avenues (the same rule ZoneGrowthSystem uses).
 //
-// The maps and per-flow volumes are published as `world.traffic` for the
+// The maps and per-market volumes are published as `world.traffic` for the
 // overlay, inspector and tuning panel.
 //
-// Runs every transit.flowInterval ticks, while its inputs change or the
-// assignment is still settling.
+// Runs every transit.flowInterval ticks while its inputs change or traffic is
+// still settling, and at once when the road layer changes.
 
 import { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R } from '../constants';
@@ -55,23 +58,32 @@ import {
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
 const ITERATIONS_FIRST_PASS = 24;   // first pass of a game, and recompute()
+const ITERATIONS_AFTER_EDIT = 12;   // the player changed a road: settle it while they watch
 const ITERATIONS_PER_PASS = 3;
-const ITERATIONS_MAX = 60;          // since the inputs last changed; then stop regardless
-const SETTLED_LOAD = 0.004;         // largest change in volume / capacity (about 1 congestion byte)
-const SETTLED_PRICE = 0.02;         // largest change in a door price, in tiles
-const PRICE_GAIN = 3;               // tiles of price per 100% a door is over its share
-const PRICE_MAX_STEP = 6;           // largest price change per iteration, in tiles
-const PRICE_TOLERANCE = 0.1;        // doors within ±10% of their share are left alone
-const PRICE_DECAY = 0.15;           // prices fall this much slower than they rise
-const PRICE_DECAY_IDLE = 0.5;       // …except at a door with no custom at all
+const ITERATIONS_MAX = 18;          // since the inputs last changed; then stop regardless
+const AVERAGE_WINDOW = 20;          // rounds a tile that keeps changing is averaged over
+const STABLE_LOAD = 0.01;           // a tile whose volume / capacity moved less than this did not change
+const SETTLED_LOAD = 0.02;          // largest change in volume / capacity that still counts as settled
 const CONGESTION_CAP = 3;           // load ratio beyond which a tile gets no slower
+const COST_EASE = 0.3;              // share of the way a tile's travel cost moves per round
+// How strongly traffic prefers the shortest way: each tile of detour cuts a
+// route's share by e^-ROUTE_SPREAD. Higher = closer to "everyone takes the
+// single best route" (and jumpier); lower = traffic smeared over more routes.
+const ROUTE_SPREAD = 1.5;
+// How far (in road tiles) a full door's overflow looks for doors with room.
+const SPILL_RADIUS = 12;
 
 export class TransitSystem {
   private _n = 0;
   private _data!: TrafficData;
   private _flow!: Float32Array;     // traffic being swept along one map
-  private _raw!: Float32Array;      // one flow's volumes this iteration, before averaging
-  private _room!: Float32Array;     // capacity left at each door during a sweep
+  private _raw!: Float32Array;      // one market's volumes this iteration, before averaging
+  // Per market, per road tile: last iteration's raw volume, and for how many
+  // rounds in a row it has been changing (see _merge).
+  private _prev: Float32Array[] = [];
+  private _unstable: Uint8Array[] = [];
+  private _firstIteration = true;   // nothing to compare against yet
+  private _room!: Float32Array;     // capacity left at each door
   private _cost!: Float32Array;     // travel cost per road tile this iteration
   // Per road class byte: travel cost per tile (1 / speedMult). Refreshed each pass.
   private readonly _classCost: number[] = [0, 1, 1, 1];
@@ -79,23 +91,52 @@ export class TransitSystem {
   private _heapKey!: Float32Array;
   private _heapId!: Int32Array;
   private _heapSize = 0;
-  // Hash of the layers, and the tuning values, at the last pass.
+  // Breadth-first search state for _spill.
+  private _bfsQueue!: Int32Array;
+  private _bfsFrom!: Int32Array;    // tile each visited tile was reached from
+  private _bfsSeen!: Uint32Array;   // search number that last visited the tile
+  private _bfsSteps!: Uint8Array;
+  private _bfsRun = 0;
+  // Hash of the layers, of the road layer alone, and the tuning values, at the last pass.
   private _lastInputHash = NaN;
+  private _lastRoadHash = NaN;
   private _lastTuning = '';
   private _iter = 0;                // iterations since the inputs last changed
   private _fresh = true;            // no pass has run yet
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
-    this._run(world, false);
+    this._run(world, ITERATIONS_PER_PASS, false);
   }
 
   /** Recompute now, whatever the tick, and iterate until settled (used by the tuning panel). */
   recompute(world: World): void {
-    this._run(world, true);
+    this._run(world, ITERATIONS_FIRST_PASS, true);
   }
 
-  private _run(world: World, force: boolean): void {
+  /**
+   * Call every frame. If the road layer has changed since the last pass (the
+   * player built, upgraded or bulldozed a road, or undid one), run a pass
+   * straight away — also while paused — instead of waiting for the next
+   * traffic tick. Cheap when nothing changed: one scan of the road layer.
+   */
+  refreshIfRoadsChanged(world: World): void {
+    if (this._n !== world.grid.width * world.grid.height) return; // no pass has run yet
+    if (this._roadHash(world) === this._lastRoadHash) return;
+    this._run(world, ITERATIONS_AFTER_EDIT, false);
+  }
+
+  private _roadHash(world: World): number {
+    const roadClass = world.layers.roadClass;
+    let h = 0x811c9dc5 | 0;
+    for (let i = 0; i < roadClass.length; i++) {
+      h = Math.imul(h ^ roadClass[i], 0x9e3779b1);
+      h ^= h >>> 15;
+    }
+    return h;
+  }
+
+  private _run(world: World, rounds: number, force: boolean): void {
     const { width, height } = world.grid;
     const n = width * height;
 
@@ -109,6 +150,13 @@ export class TransitSystem {
       // Each road tile is pushed at most once per neighbour plus once as a source.
       this._heapKey = new Float32Array(n * 5 + 1);
       this._heapId = new Int32Array(n * 5 + 1);
+      this._bfsQueue = new Int32Array(n);
+      this._bfsFrom = new Int32Array(n);
+      this._bfsSeen = new Uint32Array(n);
+      this._bfsSteps = new Uint8Array(n);
+      this._prev = this._data.markets.map(() => new Float32Array(n));
+      this._unstable = this._data.markets.map(() => new Uint8Array(n));
+      this._firstIteration = true;
       this._lastInputHash = NaN;
       this._fresh = true;
     }
@@ -141,11 +189,12 @@ export class TransitSystem {
     if (changed) {
       this._lastInputHash = h;
       this._lastTuning = tuning;
+      this._lastRoadHash = this._roadHash(world);
       this._iter = 0;
       data.settled = false;
     }
 
-    const budget = this._fresh || force ? ITERATIONS_FIRST_PASS : ITERATIONS_PER_PASS;
+    const budget = this._fresh ? ITERATIONS_FIRST_PASS : rounds;
     this._fresh = false;
     for (let k = 0; k < budget && !data.settled; k++) {
       const moved = this._iterate(world);
@@ -156,7 +205,7 @@ export class TransitSystem {
     // The way to homes is only needed for accessibility, so once per pass,
     // with the roads as slow as the final volumes make them.
     this._updateCosts(world);
-    this._flood(world, ZONE_R, data.toR, 1, false);
+    this._flood(world, ZONE_R, data.toR, 1);
 
     // ── Congestion ────────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
@@ -215,38 +264,42 @@ export class TransitSystem {
       if (rc === ROAD_NONE) continue;
       const ratio = trafficVolume(data, i) / roadCapacity(rc);
       const over = Math.min(ratio, CONGESTION_CAP) - T.freeFlow;
-      cost[i] = classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1);
+      const target = classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1);
+      // Ease toward the new cost rather than jumping to it, so a road that
+      // just filled up sheds traffic gradually instead of all at once.
+      // (0 = a tile that had no cost yet.)
+      cost[i] = cost[i] === 0 || this._firstIteration ? target : cost[i] + (target - cost[i]) * COST_EASE;
     }
   }
 
-  /** One round of maps → flows → prices, for every market. Returns whether anything moved noticeably. */
+  /** One round of map → flow → spill for every market. Returns whether anything moved noticeably. */
   private _iterate(world: World): boolean {
-    // Weight of this iteration in the running average: 1, then falling.
-    const damp = 1 / (1 + this._iter * 0.5);
-    const step = Math.max(0.5, damp);
-
     this._updateCosts(world);
 
-    let moved = 0, priceMoved = 0;
-    for (const m of this._data.markets) {
+    let moved = 0;
+    const markets = this._data.markets;
+    for (let k = 0; k < markets.length; k++) {
+      const m = markets[k];
       const { def, field } = m;
-      this._flood(world, def.dest, field, marketCapacity(def), true);
+      this._flood(world, def.dest, field, marketCapacity(def));
       const demand = this._inject(world, field, def.origin, marketRate(def), this._flow);
       this._openDoors(field, demand);
-      moved = Math.max(moved, this._sweep(world, field, this._flow, m.volume, damp));
-      priceMoved = Math.max(priceMoved, this._updatePrices(field, step));
+      this._sweep(world, field, this._flow);
+      this._spill(world, field);
+      moved = Math.max(moved, this._merge(world, m.volume, this._prev[k], this._unstable[k]));
     }
 
-    return moved > SETTLED_LOAD || priceMoved > SETTLED_PRICE;
+    this._firstIteration = false;
+    return moved > SETTLED_LOAD;
   }
 
   /**
-   * Fill `field` with the cost from every road tile to a developed,
-   * non-abandoned zone tile of `zoneType`, and the way there (Dijkstra from
-   * all doors at once, each starting at its price). A zone is entered from an
-   * adjacent street or avenue; its capacity is shared between its doors.
+   * Fill `field` with the travel time from every road tile to the nearest
+   * developed, non-abandoned zone tile of `zoneType`, and the way there
+   * (Dijkstra from all doors at once). A zone is entered from an adjacent
+   * street or avenue; its capacity is shared between its doors.
    */
-  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, priced: boolean): void {
+  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number): void {
     const { width, height } = world.grid;
     const n = width * height;
     const roadClass = world.layers.roadClass;
@@ -254,8 +307,9 @@ export class TransitSystem {
     const dev       = world.layers.devLevel;
     const abandoned = world.layers.abandoned;
     const cost = this._cost;
-    const { dist, parent, order, near, doorCap, price, isDoor } = field;
+    const { dist, parent, order, doorCap } = field;
 
+    dist.fill(Infinity);
     doorCap.fill(0);
     this._heapSize = 0;
 
@@ -278,29 +332,11 @@ export class TransitSystem {
       }
     }
 
-    // A door that has just appeared (a shop was built, or grew its first
-    // level) starts at a price just above what driving on from here already
-    // cost — `dist` still holds the previous map. So it takes its share of
-    // the traffic passing its door, but does not pull in everyone for whom
-    // an unpriced shop would look like a bargain; its price then drifts down
-    // until it has the custom it can handle.
-    for (let ri = 0; ri < n; ri++) {
-      if (doorCap[ri] === 0) { price[ri] = 0; isDoor[ri] = 0; continue; }
-      if (isDoor[ri] === 0) {
-        isDoor[ri] = 1;
-        // No earlier map (first flood, or no destination existed): start at 0.
-        const before = field.count > 0 ? dist[ri] : Infinity;
-        price[ri] = priced && before < Infinity ? before + 1 : 0;
-      }
-    }
-
-    dist.fill(Infinity);
     for (let ri = 0; ri < n; ri++) {
       if (doorCap[ri] === 0) continue;
-      const p = priced ? price[ri] : 0;
-      dist[ri] = p;
+      dist[ri] = 0;
       parent[ri] = -1;
-      this._push(ri, p);
+      this._push(ri, 0);
     }
 
     let count = 0;
@@ -309,10 +345,6 @@ export class TransitSystem {
       const cur = this._pop();
       if (key > dist[cur]) continue; // stale heap entry
       order[count++] = cur;
-      // Travel time to the first door on the way: 0 at any door, even one the
-      // route drives past.
-      const p = parent[cur];
-      near[cur] = doorCap[cur] > 0 || p < 0 ? 0 : near[p] + (cost[cur] + cost[p]) * 0.5;
 
       const curCost = cost[cur];
       for (let k = 0; k < 4; k++) {
@@ -354,7 +386,7 @@ export class TransitSystem {
   /**
    * Set each door's room for this iteration. When there are more trips than
    * capacity in total, every door's room is scaled up by the same factor, so
-   * prices only react to a door taking more than its SHARE.
+   * "over capacity" then means a door got more than its SHARE.
    */
   private _openDoors(field: TrafficField, demand: number): void {
     const { doorCap, doorLoad, order, count } = field;
@@ -372,96 +404,158 @@ export class TransitSystem {
 
   /**
    * Sweep `flow` along the map from farthest to nearest, so every road tile
-   * accumulates the traffic passing through it. Doors on the way take trips
-   * while they have room; the last door of a route takes whatever is left.
-   * Blends the result into `out` and returns the largest change in
-   * volume / capacity.
+   * accumulates the traffic passing through it (into `_raw`). Traffic ends
+   * at the first door it reaches.
    */
-  private _sweep(world: World, field: TrafficField, flow: Float32Array, out: Float32Array, damp: number): number {
-    const n = this._n;
-    const roadClass = world.layers.roadClass;
-    const { parent, order, count, doorCap, doorLoad } = field;
+  private _sweep(world: World, field: TrafficField, flow: Float32Array): void {
+    const { width, height } = world.grid;
+    const { dist, parent, order, count, doorLoad } = field;
     const room = this._room;
     const raw = this._raw;
+    const cost = this._cost;
     raw.fill(0);
 
-    // Farthest first: a tile's parent is always nearer, so it is handled later.
+    // Farthest first: every tile a stream is handed to is nearer, so it is
+    // handled later.
     for (let k = count - 1; k >= 0; k--) {
       const ri = order[k];
-      let f = flow[ri];
+      const f = flow[ri];
       if (f === 0) continue;
       raw[ri] = f;
-      const p = parent[ri];
-      if (p < 0) {
+      if (parent[ri] < 0) {
+        // A door: the stream ends here. (It may get more than it has room
+        // for; _spill deals with that.)
         doorLoad[ri] += f;
         room[ri] -= f;
-      } else {
-        if (doorCap[ri] > 0 && room[ri] > 0) {
-          const taken = f < room[ri] ? f : room[ri];
-          doorLoad[ri] += taken;
-          room[ri] -= taken;
-          f -= taken;
-        }
-        if (f > 0) flow[p] += f;
+        continue;
       }
-    }
 
-    let moved = 0;
-    for (let i = 0; i < n; i++) {
-      const d = raw[i] - out[i];
-      if (d === 0) continue;
-      const rc = roadClass[i];
-      if (rc === ROAD_NONE) { out[i] = 0; continue; }
-      const stepd = d * damp;
-      out[i] = damp === 1 ? raw[i] : out[i] + stepd;
-      const rel = Math.abs(stepd) / roadCapacity(rc);
-      if (rel > moved) moved = rel;
+      // Hand the stream on to every neighbour that is nearer the destination,
+      // not just the best one: most to the best, less to each the more of a
+      // detour it is. Near-equal routes then share traffic, and a small
+      // change in cost shifts a little traffic instead of flipping all of it.
+      const here = dist[ri], hereCost = cost[ri];
+      let n0 = -1, n1 = -1, n2 = -1, n3 = -1;
+      let w0 = 0, w1 = 0, w2 = 0, w3 = 0;
+      for (let d = 0; d < 4; d++) {
+        const ni = neighbourIndex(ri, d, width, height);
+        if (ni < 0 || !(dist[ni] < here)) continue;
+        // How much longer the trip is via this neighbour than via the best one.
+        const detour = dist[ni] + (hereCost + cost[ni]) * 0.5 - here;
+        const wgt = detour <= 0 ? 1 : Math.exp(-ROUTE_SPREAD * detour);
+        if (d === 0) { n0 = ni; w0 = wgt; } else if (d === 1) { n1 = ni; w1 = wgt; }
+        else if (d === 2) { n2 = ni; w2 = wgt; } else { n3 = ni; w3 = wgt; }
+      }
+      const total = w0 + w1 + w2 + w3;
+      if (total <= 0) { flow[parent[ri]] += f; continue; }
+      const share = f / total;
+      if (n0 >= 0) flow[n0] += share * w0;
+      if (n1 >= 0) flow[n1] += share * w1;
+      if (n2 >= 0) flow[n2] += share * w2;
+      if (n3 >= 0) flow[n3] += share * w3;
     }
-    return moved;
   }
 
   /**
-   * Raise the price of doors where more trips ended than they had room for,
-   * lower it where there is room to spare. Returns the largest change.
+   * Pass each over-full door's excess to doors with room within SPILL_RADIUS
+   * road tiles, nearest first, adding the traffic to the roads in between.
+   * Doors are handled in a fixed order and nothing here depends on earlier
+   * iterations, so the result is the same every time for the same inputs.
    */
-  private _updatePrices(field: TrafficField, step: number): number {
-    const { doorCap, doorLoad, price, order, parent, count } = field;
-    const scale = Math.max(1, field.demandRatio);
-    const priceMax = BALANCE.transit.commuteMax * 2;
-    // How much the door at the END of each tile's route is being raised.
-    // Order is nearest first, so a tile's parent is always filled in before it.
-    const endRise = this._room;
-    let moved = 0;
+  private _spill(world: World, field: TrafficField): void {
+    const { width, height } = world.grid;
+    const roadClass = world.layers.roadClass;
+    const { order, count, parent, doorLoad } = field;
+    const room = this._room;
+    const raw = this._raw;
+    const queue = this._bfsQueue, from = this._bfsFrom, seen = this._bfsSeen, steps = this._bfsSteps;
+
     for (let k = 0; k < count; k++) {
-      const ri = order[k];
-      const p = parent[ri];
-      const cap = doorCap[ri];
-      if (cap === 0) { endRise[ri] = p < 0 ? 0 : endRise[p]; continue; }
-      const over = doorLoad[ri] / (cap * scale);
-      let d = 0;
-      if (p < 0) {
-        // The last door of a route: everything left over ended here.
-        if (over > 1 + PRICE_TOLERANCE) d = Math.min(PRICE_GAIN * (over - 1), PRICE_MAX_STEP) * step;
-        endRise[ri] = d;
+      const door = order[k];
+      if (parent[door] >= 0) break;          // doors come first in `order` (travel time 0)
+      let excess = -room[door];
+      if (excess <= 1e-6) continue;
+
+      // Breadth-first over road tiles from the door.
+      const run = ++this._bfsRun;
+      let head = 0, tail = 0;
+      seen[door] = run; steps[door] = 0; from[door] = -1;
+      queue[tail++] = door;
+      while (head < tail && excess > 1e-6) {
+        const cur = queue[head++];
+        if (cur !== door && room[cur] > 0 && parent[cur] < 0) {
+          // A door with room: send it what fits, along the way we came.
+          const take = excess < room[cur] ? excess : room[cur];
+          room[cur] -= take;
+          doorLoad[cur] += take;
+          doorLoad[door] -= take;
+          room[door] += take;
+          excess -= take;
+          for (let t = cur; t !== door; t = from[t]) raw[t] += take;
+        }
+        if (steps[cur] >= SPILL_RADIUS) continue;
+        for (let d = 0; d < 4; d++) {
+          const ni = neighbourIndex(cur, d, width, height);
+          if (ni < 0 || seen[ni] === run || roadClass[ni] === ROAD_NONE) continue;
+          seen[ni] = run; steps[ni] = steps[cur] + 1; from[ni] = cur;
+          queue[tail++] = ni;
+        }
+      }
+    }
+  }
+
+  /**
+   * Merge this iteration's volumes (`_raw`) into `out`, tile by tile. A tile
+   * whose volume is the same as on the previous iteration takes the new
+   * value as it is, so a change (a new road, a grown zone) shows at once and
+   * nothing else is disturbed. A tile whose volume keeps changing — routes
+   * trading traffic as they jam — is averaged over its recent iterations
+   * instead, so it shows the split rather than flickering. Returns the
+   * largest change in volume / capacity.
+   */
+  private _merge(world: World, out: Float32Array, prev: Float32Array, unstable: Uint8Array): number {
+    const n = this._n;
+    const roadClass = world.layers.roadClass;
+    const raw = this._raw;
+    const first = this._firstIteration;
+
+    let moved = 0;
+    for (let i = 0; i < n; i++) {
+      const r = raw[i], o = out[i], before = prev[i];
+      if (r === 0 && o === 0 && before === 0) continue;
+      prev[i] = r;
+      const rc = roadClass[i];
+      if (rc === ROAD_NONE) { out[i] = 0; unstable[i] = 0; continue; }
+      const cap = roadCapacity(rc);
+      let next: number;
+      if (first) {
+        next = r;
+        unstable[i] = 0;
+      } else if (Math.abs(r - before) <= cap * STABLE_LOAD) {
+        // Unchanged since last round. A tile that changed once (an edit)
+        // takes the new value now; one that has been swinging for a while
+        // has to hold still for as long before it is trusted again.
+        if (unstable[i] <= 1) {
+          next = r;
+          unstable[i] = 0;
+        } else {
+          unstable[i]--;
+          next = o + (r - o) / (unstable[i] + 1);
+        }
       } else {
-        // A door the route drives past. If it is full and the route's last
-        // door is overflowing, rise with it: the whole queue of full doors
-        // moves up together, so next time the route ends one door further on.
-        endRise[ri] = endRise[p];
-        if (over >= 1 - PRICE_TOLERANCE) d = endRise[p];
+        const rounds = unstable[i] < AVERAGE_WINDOW ? unstable[i] + 1 : AVERAGE_WINDOW;
+        unstable[i] = rounds;
+        next = o + (r - o) / (rounds + 1);
       }
-      // Doors with room to spare drift back down, slowly, so that the queue
-      // built above is not undone while it is still forming.
-      // A door nobody uses at all (a new shop waiting for custom) drops faster.
-      if (d === 0 && over < 1 - PRICE_TOLERANCE && price[ri] > 0) {
-        const rate = doorLoad[ri] === 0 ? PRICE_DECAY_IDLE : PRICE_DECAY;
-        d = -rate * Math.min(PRICE_GAIN * (1 - over), PRICE_MAX_STEP) * step;
-      }
-      if (d === 0) continue;
-      const next = Math.min(priceMax, Math.max(0, price[ri] + d));
-      const change = Math.abs(next - price[ri]);
-      price[ri] = next;
-      if (change > moved) moved = change;
+      out[i] = next;
+      // A tile that has been averaging for a full window has reached its
+      // split; its remaining wobble does not count as "still settling".
+      if (unstable[i] >= AVERAGE_WINDOW) continue;
+      // One that is partway to a new value does, however small the step:
+      // stopping now would leave it stranded halfway.
+      if (unstable[i] > 0) { moved = 1; continue; }
+      const rel = Math.abs(next - o) / cap;
+      if (rel > moved) moved = rel;
     }
     return moved;
   }

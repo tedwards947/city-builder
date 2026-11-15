@@ -42,7 +42,7 @@ export function trafficDebugHtml(world: World, i: number): string {
       const full = field.doorLoad[i] > share * 1.1;
       html += row(
         `${MARKET_NAME[m.def.key]} door: ${fmt(field.doorLoad[i])} trips end here, room for ${fmt(share)}`
-          + (field.price[i] > 0 ? ` · price ${fmt(field.price[i])}` : ''),
+          + (full ? ' — over capacity' : ''),
         full ? '#e95' : '#9ad',
       );
     }

@@ -434,6 +434,8 @@ function frame(now: number): void {
   lastFrameTime = now;
 
   state.scheduler.update(now);
+  // A road edit shows in the traffic straight away, even while paused.
+  state.transit.refreshIfRoadsChanged(state.world);
   autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)

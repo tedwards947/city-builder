@@ -455,20 +455,39 @@ describe('TransitSystem — destination capacity', () => {
     expect(vol(27)).toBeGreaterThan(0);
   });
 
-  it('overflow from a small nearby shop drives on to a bigger one further away', () => {
+  it('overflow from a full shop spills to shops with room nearby', () => {
+    // Homes between a corner shop to the west and bigger shops a few tiles past it.
     const w = makeWorld(36, 12);
     roadRow(w, 2, 30, 5);
-    zoneAt(w, 4, 4, ZONE_C, 1);                                   // corner shop, west
-    for (let x = 8; x <= 12; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
-    for (let x = 24; x <= 28; x++) zoneAt(w, x, 4, ZONE_C, 3);    // mall, east
+    zoneAt(w, 12, 4, ZONE_C, 1);                                  // corner shop, nearest to every home
+    for (let x = 14; x <= 18; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 4; x <= 8; x++) zoneAt(w, x, 4, ZONE_C, 3);      // bigger shops beyond it, 4-8 tiles on
     const d = settle(w);
     expect(d.settled).toBe(true);
     const demand = 10 * 3 * T.tripsRtoC;
-    const corner = d.shopping.field.doorLoad[w.grid.idx(4, 5)];
-    expect(corner).toBeGreaterThan(0);
-    expect(corner).toBeLessThanOrEqual(T.shopCapacity * 1.2);
-    // The rest crosses the gap toward the mall.
-    expect(d.shopping.volume[w.grid.idx(18, 5)]).toBeGreaterThan(demand - T.shopCapacity * 1.2 - 0.01);
+    const corner = d.shopping.field.doorLoad[w.grid.idx(12, 5)];
+    expect(corner).toBeCloseTo(T.shopCapacity, 3);                // full, not over
+    // The rest drove on past it.
+    expect(d.shopping.volume[w.grid.idx(10, 5)]).toBeCloseTo(demand - T.shopCapacity, 3);
+    let beyond = 0;
+    for (let x = 4; x <= 8; x++) beyond += d.shopping.field.doorLoad[w.grid.idx(x, 5)];
+    expect(beyond).toBeCloseTo(demand - T.shopCapacity, 3);
+  });
+
+  it('with no other shop in reach, a full shop stays over capacity', () => {
+    // The same corner shop, but the bigger shops are far away on the other
+    // side: every home is nearest to the corner shop, and nothing else is
+    // close enough to take its overflow.
+    const w = makeWorld(48, 12);
+    roadRow(w, 2, 44, 5);
+    zoneAt(w, 4, 4, ZONE_C, 1);
+    for (let x = 8; x <= 12; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 38; x <= 42; x++) zoneAt(w, x, 4, ZONE_C, 3);
+    const d = settle(w);
+    const demand = 10 * 3 * T.tripsRtoC;
+    expect(d.shopping.field.doorLoad[w.grid.idx(4, 5)]).toBeCloseTo(demand, 3);
+    expect(demand).toBeGreaterThan(T.shopCapacity * 2);
+    expect(d.shopping.volume[w.grid.idx(25, 5)]).toBe(0);         // nobody crosses to the far shops
   });
 
   it('when there are too few shops everywhere, prices stay put and doors share the excess', () => {
@@ -486,9 +505,9 @@ describe('TransitSystem — destination capacity', () => {
     expect(Math.abs(west - east) / (west + east)).toBeLessThan(0.25);
   });
 
-  it('a new shop does not pull the whole town to it at once', () => {
-    // Homes in the middle, a full shopping street to the east, and a long
-    // empty road to the west where a single shop is then built.
+  it('a new shop draws only the homes nearer to it than to other shops', () => {
+    // Homes in the middle, a shopping street to the east, and a long empty
+    // road to the west where a single shop is then built.
     const w = makeWorld(48, 12);
     roadRow(w, 2, 44, 5);
     for (let x = 18; x <= 27; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
@@ -499,38 +518,42 @@ describe('TransitSystem — destination capacity', () => {
     expect(d.shopping.volume[westRoad]).toBe(0);
 
     zoneAt(w, 8, 4, ZONE_C, 1);
-    const room = T.shopCapacity * 1.2;
-    // On the very next pass, and on every pass while it settles, the road
-    // west carries no more than the new shop can take.
-    for (let pass = 40; pass < 70; pass++) {
-      run(w, sys, interval * pass);
-      d = w.traffic!;
-      expect(d.shopping.volume[westRoad]).toBeLessThanOrEqual(room);
-      if (d.settled) break;
-    }
-    // Once things settle it has won some custom of its own, within its room.
-    expect(d.settled).toBe(true);
-    const load = d.shopping.field.doorLoad[w.grid.idx(8, 5)];
-    expect(load).toBeGreaterThan(0);
-    expect(load).toBeLessThanOrEqual(room);
+    run(w, sys, interval * 40);
+    d = w.traffic!;
+    // Homes at x=18..20 are nearer the new shop (x=8) than the street (x=34)
+    // and x=21 is halfway, so about 3.5 of the 10 columns of homes switch —
+    // a little more, because the busier road east is slightly slower.
+    // Everyone else still goes east.
+    const perColumn = 2 * 3 * T.tripsRtoC;
+    const first = d.shopping.volume[westRoad];
+    expect(first).toBeGreaterThan(3 * perColumn);
+    expect(first).toBeLessThan(4.5 * perColumn);
+    expect(d.shopping.volume[w.grid.idx(30, 5)]).toBeCloseTo(10 * perColumn - first, 1);
+    // That first answer is already close to where it settles.
+    d = settle(w, sys);
+    expect(Math.abs(d.shopping.volume[westRoad] - first)).toBeLessThan(0.5 * perColumn);
   });
 
-  it('a new shop on a road traffic already uses takes its share straight away', () => {
+  it('a new shop on a road traffic already uses changes nothing upstream', () => {
     const w = makeWorld(48, 12);
     roadRow(w, 2, 44, 5);
     for (let x = 4; x <= 13; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
-    for (let x = 34; x <= 43; x++) zoneAt(w, x, 4, ZONE_C, 1);
+    for (let x = 34; x <= 43; x++) zoneAt(w, x, 4, ZONE_C, 2);
     const sys = new TransitSystem();
-    settle(w, sys);
+    let d = settle(w, sys);
+    const demand = 20 * 3 * T.tripsRtoC;
+    const upstream = w.grid.idx(18, 5);
+    expect(d.shopping.volume[upstream]).toBeCloseTo(demand, 3);
 
-    zoneAt(w, 24, 4, ZONE_C, 1);                 // halfway along the route
+    zoneAt(w, 28, 4, ZONE_C, 1);                 // on the way, 6 tiles before the street
     run(w, sys, interval * 40);
-    const d = w.traffic!;
-    const load = d.shopping.field.doorLoad[w.grid.idx(24, 5)];
-    expect(load).toBeGreaterThan(T.shopCapacity * 0.8);
-    expect(load).toBeLessThanOrEqual(T.shopCapacity * 1.2);
-    // Traffic past it is lower by what it took, not gone.
-    expect(d.shopping.volume[w.grid.idx(30, 5)]).toBeGreaterThan(20 * 3 * T.tripsRtoC - T.shopCapacity * 1.2 - 0.5);
+    d = w.traffic!;
+    // The same traffic still comes down the road…
+    expect(d.shopping.volume[upstream]).toBeCloseTo(demand, 3);
+    // …the new shop keeps what it has room for, and the rest carries on to
+    // the shopping street as before.
+    expect(d.shopping.field.doorLoad[w.grid.idx(28, 5)]).toBeCloseTo(T.shopCapacity, 3);
+    expect(d.shopping.volume[w.grid.idx(31, 5)]).toBeCloseTo(demand - T.shopCapacity, 3);
   });
 
   it('abandoned or undeveloped zones are not doors', () => {
@@ -543,6 +566,78 @@ describe('TransitSystem — destination capacity', () => {
     expect(d.shopping.field.doorCap[w.grid.idx(6, 5)]).toBe(0);
     expect(d.shopping.field.doorCap[w.grid.idx(8, 5)]).toBe(0);
     expect(d.shopping.field.doorCap[w.grid.idx(10, 5)]).toBe(T.shopCapacity);
+  });
+});
+
+describe('TransitSystem — reacting to edits', () => {
+  it('refreshIfRoadsChanged runs at once when a road changes, and not otherwise', () => {
+    const w = simpleTown();
+    const sys = new TransitSystem();
+    sys.refreshIfRoadsChanged(w);                  // before any pass: nothing to do
+    expect(w.traffic).toBeNull();
+
+    run(w, sys);
+    const v = w.traffic!.version;
+    sys.refreshIfRoadsChanged(w);                  // roads unchanged
+    expect(w.traffic!.version).toBe(v);
+
+    // Zone changes are left for the next traffic tick.
+    w.layers.devLevel[w.grid.idx(2, 4)] = 1;
+    sys.refreshIfRoadsChanged(w);
+    expect(w.traffic!.version).toBe(v);
+
+    // A road edit is picked up immediately, whatever the tick.
+    roadRow(w, 11, 12, 5);
+    w.tick = interval + 3;
+    sys.refreshIfRoadsChanged(w);
+    expect(w.traffic!.version).toBe(v + 1);
+    expect(cong(w, 6, 5)).toBe(Math.round(1 * T.tripsRtoC / STREET_CAP * 255)); // and the zone change with it
+  });
+
+  it('one new road tile in a congested town settles fast and leaves the rest alone', () => {
+    // A grid town with streets far too small for it, so jams and full shops
+    // are everywhere — the case where traffic used to keep reshuffling.
+    const street = BALANCE.roadClasses[ROAD_STREET];
+    const saved = street.capacity;
+    street.capacity = 6;
+    try {
+      const size = 56;
+      const w = makeWorld(size, size);
+      for (let y = 4; y <= 52; y++) for (let x = 4; x <= 52; x++) {
+        if (x % 6 === 4 || y % 6 === 4) { forceBuildable(w, x, y); w.layers.roadClass[w.grid.idx(x, y)] = ROAD_STREET; }
+        else if ((x + y) % 2 === 0) {
+          const district = ((x / 16) | 0) + 2 * ((y / 16) | 0);
+          zoneAt(w, x, y, district % 3 === 0 ? ZONE_C : district % 3 === 1 ? ZONE_I : ZONE_R, 1 + ((x + 2 * y) % 3));
+        }
+      }
+      const sys = new TransitSystem();
+      let pass = 0;
+      do { pass++; run(w, sys, interval * pass); } while (!w.traffic!.settled && pass < 30);
+      expect(w.traffic!.settled).toBe(true);
+
+      const load = () => {
+        const d = w.traffic!;
+        return Array.from(w.layers.roadClass, (rc, i) => (rc ? trafficVolume(d, i) / roadCapacity(rc) : 0));
+      };
+      const before = load();
+      expect(before.filter(v => v > 1).length).toBeGreaterThan(20);   // it really is jammed
+
+      // A one-tile stub off an existing street.
+      const stub = w.grid.idx(23, 29);
+      w.layers.zone[stub] = 0; w.layers.devLevel[stub] = 0;
+      w.layers.roadClass[stub] = ROAD_STREET;
+      sys.refreshIfRoadsChanged(w);
+      let more = 0;
+      while (!w.traffic!.settled && more < 30) { more++; pass++; run(w, sys, interval * pass); }
+      expect(more).toBeLessThanOrEqual(3);
+
+      const after = load();
+      const roads = before.filter((_, i) => w.layers.roadClass[i] !== 0).length;
+      const shifted = after.filter((v, i) => Math.abs(v - before[i]) > 0.25).length;
+      expect(shifted).toBeLessThan(roads * 0.03);
+    } finally {
+      street.capacity = saved;
+    }
   });
 });
 
@@ -583,21 +678,19 @@ describe('TransitSystem — goods (shops fetch from industry)', () => {
   });
 
   it('industry supplies up to goodsCapacity per level, then shops go to the next factory', () => {
-    // A small factory beside the shops, a big one further away.
+    // A small factory beside the shops, a big one a little further on.
     const w = makeWorld(48, 12);
     roadRow(w, 2, 44, 5);
-    zoneAt(w, 12, 4, ZONE_I, 1);                                   // near, small
-    for (let x = 14; x <= 23; x++) { zoneAt(w, x, 4, ZONE_C, 3); zoneAt(w, x, 6, ZONE_C, 3); }
-    for (let x = 38; x <= 42; x++) zoneAt(w, x, 4, ZONE_I, 3);     // far, big
+    zoneAt(w, 24, 4, ZONE_I, 1);                                   // near, small
+    for (let x = 26; x <= 35; x++) { zoneAt(w, x, 4, ZONE_C, 3); zoneAt(w, x, 6, ZONE_C, 3); }
+    for (let x = 14; x <= 18; x++) zoneAt(w, x, 4, ZONE_I, 3);     // 6-10 tiles past it, big
     const sys = new TransitSystem();
     for (let pass = 1; pass <= 30; pass++) { run(w, sys, interval * pass); if (w.traffic!.settled) break; }
     const d = w.traffic!;
     const demand = 20 * 3 * T.tripsCtoI;
     expect(demand).toBeGreaterThan(T.goodsCapacity * 2);           // more than the near one supplies
-    const near = d.goods.field.doorLoad[w.grid.idx(12, 5)];
-    expect(near).toBeGreaterThan(0);
-    expect(near).toBeLessThanOrEqual(T.goodsCapacity * 1.2);
-    expect(d.goods.volume[w.grid.idx(30, 5)]).toBeGreaterThan(demand - T.goodsCapacity * 1.2 - 0.5);
+    expect(d.goods.field.doorLoad[w.grid.idx(24, 5)]).toBeCloseTo(T.goodsCapacity, 3);
+    expect(d.goods.volume[w.grid.idx(21, 5)]).toBeCloseTo(demand - T.goodsCapacity, 3);
   });
 
   it('markets are listed generically and by name', () => {
@@ -636,7 +729,7 @@ describe('TransitSystem — congestion slows roads', () => {
     const jammed = withTinyStreets(build);   // the same trips on a 4-trip street
     const at = free.grid.idx(2, 5);
     expect(travelTime(free.traffic!.shopping.field, at)).toBeCloseTo(20);
-    expect(travelTime(jammed.traffic!.shopping.field, at)).toBeGreaterThan(24);
+    expect(travelTime(jammed.traffic!.shopping.field, at)).toBeGreaterThan(22);
     expect(access(jammed, 2, 4)).toBeLessThan(access(free, 2, 4));
   });
 
@@ -665,13 +758,15 @@ describe('TransitSystem — congestion slows roads', () => {
     expect(spread.north).toBeGreaterThan(total * 0.3);
     expect(spread.south).toBeGreaterThan(total * 0.3);
 
-    // With the slowdown switched off, everything takes the shorter route.
+    // With the slowdown switched off, traffic takes the shorter route.
     const savedDelay = transit.congestionDelay;
     transit.congestionDelay = 0;
     try {
       const oneWay = withTinyStreets(build);
-      expect(oneWay.south).toBe(0);
-      expect(oneWay.north).toBeCloseTo(total, 3);
+      // (All but the one home that sits right at the fork, a step down the
+      // southern way, for which the two are the same length.)
+      expect(oneWay.south).toBeLessThan(total * 0.1);
+      expect(oneWay.north).toBeGreaterThan(total * 0.9);
     } finally {
       transit.congestionDelay = savedDelay;
     }

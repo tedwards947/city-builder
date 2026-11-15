@@ -195,8 +195,9 @@ export const BALANCE = {
     tripsRtoC: 0.33,      // homes → commerce
     tripsRtoI: 0.34,      // homes → industry
     tripsCtoI: 0.38,      // commerce → industry: shops fetching goods, per COMMERCE level
-    // Trips a destination can take per developed level. When the shops (or
-    // jobs) nearest to a district are full, the overflow drives on to the next.
+    // Trips a destination can take per developed level. Trips go to the
+    // nearest destination; when it is full the overflow goes on to others with
+    // room close by, and what still does not fit shows as over capacity.
     shopCapacity: 2,      // per commerce level
     jobCapacity: 2,       // per industry level
     goodsCapacity: 2,     // goods trips each industry level can supply
