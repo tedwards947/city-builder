@@ -18,6 +18,7 @@ function saveVolume(v: number): void {
 export class MusicPanel {
   private el: HTMLElement;
   private trackNameEl: HTMLElement;
+  private trackBoxEl: HTMLElement;
   private playPauseBtn: HTMLButtonElement;
   private nextBtn: HTMLButtonElement;
   private musicManager: MusicManager;
@@ -30,7 +31,7 @@ export class MusicPanel {
     this.el.innerHTML = `
       <div class="mp-track-info">
         <span class="mp-label">Now Playing</span>
-        <span class="mp-track-name" id="mp-track-name">None</span>
+        <span class="mp-track-name" id="mp-track-box"><span class="mp-marquee" id="mp-track-name">None</span></span>
       </div>
       <div class="mp-controls">
         <button class="mp-btn" id="mp-play-pause">▶</button>
@@ -43,6 +44,11 @@ export class MusicPanel {
     document.body.appendChild(this.el);
 
     this.trackNameEl = document.getElementById('mp-track-name')!;
+    this.trackBoxEl = document.getElementById('mp-track-box')!;
+    // The title box narrows with the window; re-check whether the title still fits
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => this.refreshMarquee()).observe(this.trackBoxEl);
+    }
     this.playPauseBtn = document.getElementById('mp-play-pause') as HTMLButtonElement;
     this.nextBtn = document.getElementById('mp-next') as HTMLButtonElement;
 
@@ -77,12 +83,32 @@ export class MusicPanel {
   }
 
   public updateUI() {
-    this.trackNameEl.textContent = this.musicManager.getTrackName();
+    this.setTrackName(this.musicManager.getTrackName());
     this.playPauseBtn.textContent = this.musicManager.isCurrentlyPlaying() ? '⏸' : '▶';
   }
 
   public onTrackChange(name: string) {
-    this.trackNameEl.textContent = name;
+    this.setTrackName(name);
     this.updateUI();
+  }
+
+  private setTrackName(name: string) {
+    if (this.trackNameEl.textContent === name) return; // don't restart the scroll on every UI refresh
+    this.trackNameEl.textContent = name;
+    this.trackBoxEl.title = name;
+    this.refreshMarquee();
+  }
+
+  /** Scroll the title back and forth when it is wider than its box. */
+  private refreshMarquee() {
+    const text = this.trackNameEl;
+    const overflow = text.scrollWidth - this.trackBoxEl.clientWidth;
+    const scrolling = overflow > 2;
+    if (scrolling) {
+      text.style.setProperty('--mp-shift', `${-overflow}px`);
+      // ~30 px/s for the moving part, plus the pauses at each end
+      text.style.setProperty('--mp-duration', `${(overflow / 30 / 0.6).toFixed(2)}s`);
+    }
+    text.classList.toggle('scrolling', scrolling);
   }
 }
