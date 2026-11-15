@@ -59,6 +59,8 @@ const SMOULDER_MS = 20000;
 const CLAY_TREE_MIN_TILE = 8;
 /** Tile size (px) from which roads show cars. */
 const TRAFFIC_MIN_TILE = 12;
+/** Tile size (px) from which roads show every car; below it, half of them. */
+const TRAFFIC_FULL_TILE = 20;
 
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
@@ -363,9 +365,10 @@ export class CanvasRenderer {
           const volume = traffic ? trafficVolume(traffic, i) : 0;
           const load = traffic ? volume / roadCapacity(road) : congestion / 255;
           const cars = this._trafficCars;
-          cars.length = 0;
-          roadTrafficCars(tx, ty, this._drawnRoad(world, tx, ty), this._roadsAround(world, tx, ty), load, volume > 0 ? traffic!.goods.volume[i] / volume : 0, now / 1000, cars);
-          drawTrafficCars(ctx, cars, sxi, syi, clayTile);
+          // Cars only a few pixels long are thinned by half: they cost as much to draw and say no more.
+          const count = roadTrafficCars(tx, ty, this._drawnRoad(world, tx, ty), this._roadsAround(world, tx, ty), load,
+            volume > 0 ? traffic!.goods.volume[i] / volume : 0, now / 1000, cars, ts < TRAFFIC_FULL_TILE ? 0.5 : 1);
+          drawTrafficCars(ctx, cars, count, sxi, syi, clayTile);
         }
       }
 
