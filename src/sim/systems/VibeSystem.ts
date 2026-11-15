@@ -5,8 +5,11 @@ import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { FieldBounds, growRect } from '../FieldBounds';
 
 type VibeLayer = 'vibeEgalitarian' | 'vibeGreen' | 'vibePlanned';
+const VIBE_LAYERS: readonly VibeLayer[] = ['vibeEgalitarian', 'vibeGreen', 'vibePlanned'];
+const NEUTRAL = 128;
 
 /**
  * VibeSystem — manages localized neighborhood vibes.
@@ -22,6 +25,12 @@ export class VibeSystem {
   private registeredWorld: World | null = null;
   // Scratch buffer reused across layers and runs (avoids per-run allocation).
   private _buf: Uint8Array = new Uint8Array(0);
+  // Where each vibe layer is away from neutral (128). Diffusion and the
+  // city-wide averages work on these rectangles instead of the whole map;
+  // everything outside is exactly neutral, so the results are the same.
+  private readonly _live: Record<VibeLayer, FieldBounds> = {
+    vibeEgalitarian: new FieldBounds(), vibeGreen: new FieldBounds(), vibePlanned: new FieldBounds(),
+  };
 
   update(world: World): void {
     if (world !== this.registeredWorld) {
@@ -161,14 +170,21 @@ export class VibeSystem {
   private _diffuse(world: World, decay: boolean): void {
     const { width, height } = world.grid;
     const n = width * height;
-    const layers = [world.layers.vibeEgalitarian, world.layers.vibeGreen, world.layers.vibePlanned];
     const decayProbability = BALANCE.vibe.decayProbability;
     if (this._buf.length !== n) this._buf = new Uint8Array(n);
     const next = this._buf;
 
-    for (const layer of layers) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (const name of VIBE_LAYERS) {
+      const layer = world.layers[name];
+      const live = this._live[name];
+      live.scan(layer, width, NEUTRAL);
+      // An all-neutral layer diffuses to itself and never rolls for decay.
+      if (live.empty) continue;
+      // One diffusion step can reach one tile beyond where the layer is live.
+      const work = growRect(live.rect(), width, height, 1);
+
+      for (let y = work.y0; y <= work.y1; y++) {
+        for (let x = work.x0; x <= work.x1; x++) {
           const i = y * width + x;
 
           // 1. Diffusion (weighted average with cardinal neighbours)
@@ -182,30 +198,43 @@ export class VibeSystem {
           let val = Math.round(sum / count);
 
           // 2. Decay toward 128 (neutral): integer step gated by a roll.
-          if (decay && val !== 128 && world.rng() < decayProbability) {
-            val += val > 128 ? -1 : 1;
+          if (decay && val !== NEUTRAL && world.rng() < decayProbability) {
+            val += val > NEUTRAL ? -1 : 1;
           }
 
           next[i] = val;
         }
       }
-      layer.set(next);
+      for (let y = work.y0; y <= work.y1; y++) {
+        const a = y * width + work.x0, b = y * width + work.x1 + 1;
+        layer.set(next.subarray(a, b), a);
+      }
     }
     world.grid.markAllDirty();
   }
 
   private _updateGlobalAxes(world: World): void {
-    // Averaging the entire map for global stats/legacy logic
-    const { width, height } = world.grid;
-    const n = width * height;
-    let sumE = 0, sumG = 0, sumP = 0;
-    
-    for (let i = 0; i < n; i++) {
-      sumE += world.layers.vibeEgalitarian[i];
-      sumG += world.layers.vibeGreen[i];
-      sumP += world.layers.vibePlanned[i];
+    // Averaging the entire map for global stats/legacy logic. Tiles outside a
+    // layer's live rectangle are exactly neutral, so they are counted without
+    // being visited.
+    const { width } = world.grid;
+    const n = width * world.grid.height;
+    const sums = [0, 0, 0];
+    for (let k = 0; k < VIBE_LAYERS.length; k++) {
+      const layer = world.layers[VIBE_LAYERS[k]];
+      const live = this._live[VIBE_LAYERS[k]];
+      live.scan(layer, width, NEUTRAL);
+      const inside = live.tileCount;
+      let sum = 0;
+      if (!live.empty) {
+        for (let y = live.y0; y <= live.y1; y++) {
+          for (let i = y * width + live.x0, rowEnd = y * width + live.x1; i <= rowEnd; i++) sum += layer[i];
+        }
+      }
+      sums[k] = sum + (n - inside) * NEUTRAL;
     }
-    
+    const [sumE, sumG, sumP] = sums;
+
     const max = BALANCE.character.axisMax;
     world.character.egalitarian = ((sumE / n) - 128) / 128 * max;
     world.character.green       = ((sumG / n) - 128) / 128 * max;
