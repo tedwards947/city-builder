@@ -2,6 +2,8 @@
 
 One section per area, each a ranked list (1 = do first). Each session owns its own section: add, re-rank and tick off items there, and leave the other sections alone.
 
+DESIGN is the owner's list: things that need a design decision before anyone builds them. Sessions add to it only when the owner asks, and move an item into their own section once it is decided.
+
 ## GRAPHICS
 
 Items marked [paid] need new nanobanana images (billed to the owner; ask before generating).
@@ -44,3 +46,14 @@ Ranked by how much it changes play, then by cost. "Unmeasured" means a suspected
 7. **Per-frame tile loop** (unmeasured). The renderer allocates a vibe object per visible tile per frame and the fallback sprite lookup builds a string key per call.
 8. **Redundant autosave on tab return.** The game saves when the tab is hidden and then again on the first frame back.
 9. **Keep `_chunkSignature` in step with the chunk layer.** Standing rule rather than a task: when graphics work changes what `_renderChunk` draws (graphics items 1 and 2 will), the signature in `CanvasRenderer` must read the same layers, or chunks stop updating.
+
+## DESIGN
+
+Raised by the owner. Lettered, not ranked.
+
+a. **Make "vibe" mean something.** Right now it does very little.
+   - What exists: three per-tile layers (egalitarian, green, planned) that player actions nudge (zoning, roads, parks, service buildings, displacing people), which then spread to neighbours and decay back to neutral. They are averaged into a city-wide "character".
+   - What it affects: only looks — the colour palette, which sprite variant a lot gets, and the vibe overlay. Nothing in the simulation reads it: not growth, land value, demand, crime, traffic or political capital.
+   - It also fades to nothing. In the owner's exported city (population 6,664, tick 20,726) all three layers are exactly neutral on every tile, and the city-wide character is 0 / 0 / 0. Nudges only happen at the moment of an action and decay wins.
+   - To decide: what vibe is for (identity and looks only, or a gameplay lever), what keeps it alive in a standing city (ongoing sources such as zones, parks and industry, not just one-off nudges), what it should change in the sim, and how the player sees and steers it.
+   - Owners once decided: the sim side is GAME ENGINE (`VibeSystem`), the look is GRAPHICS (vibe sprite variants are already on that list).
