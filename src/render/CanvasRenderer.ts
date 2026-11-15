@@ -5,6 +5,7 @@ import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
 import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
+import { loadWildTrees, wildTreesReady, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -48,6 +49,8 @@ const _deathAccentColors: string[] = Array.from({ length: 256 }, (_, v) => {
 const CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
 const SMOULDER_MS = 20000;
+/** Tile size (px) from which trees are clay sprites; below it they are flat marks in the chunk layer. */
+const CLAY_TREE_MIN_TILE = 8;
 
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
@@ -77,6 +80,7 @@ export class CanvasRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     loadClaySprites();
+    loadWildTrees();
   }
 
   render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
@@ -193,6 +197,11 @@ export class CanvasRenderer {
     fireQueue.length = 0;
     if (this._lastBurnWorld !== world) { this._lastBurnWorld = world; this._lastBurn.clear(); }
 
+    // Clay trees replace the chunk layer's flat ones at the same tile size the
+    // chunks were drawn for, so the two never show together.
+    const clayTrees = renderTs >= CLAY_TREE_MIN_TILE && wildTreesReady();
+    if (clayTrees) this._drawForestFloor(ctx, world, camera, bounds);
+
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
       for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
         iterations++;
@@ -202,6 +211,15 @@ export class CanvasRenderer {
         const building   = world.layers.building[i];
         const fireV      = world.layers.fire[i];
         const road       = world.layers.roadClass[i];
+
+        if (clayTrees && this._hasTree(world, i)) {
+          let around = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            if ((dx !== 0 || dy !== 0) && world.grid.inBounds(tx + dx, ty + dy) && this._hasTree(world, world.grid.idx(tx + dx, ty + dy))) around++;
+          }
+          drawWildTrees(ctx, world.layers.vegetation[i], wildVariant(tx, ty), wildDensity(around),
+            Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), clayTile);
+        }
 
         // Skip entirely empty tiles to save CPU (But include roads!)
         if (zone === ZONE_NONE && building === BUILDING_NONE && fireV === 0 && road === ROAD_NONE && !hasOverlay) continue;
@@ -421,6 +439,37 @@ export class CanvasRenderer {
     ctx.strokeRect(tlsx, tlsy, brsx - tlsx, brsy - tlsy);
   }
 
+  /** True if the tile shows a wild tree (vegetation on otherwise untouched land). */
+  private _hasTree(world: World, i: number): boolean {
+    const L = world.layers;
+    return L.vegetation[i] !== VEG_NONE && L.roadClass[i] === ROAD_NONE && L.building[i] === BUILDING_NONE && L.zone[i] === ZONE_NONE;
+  }
+
+  /**
+   * A darker floor under forests: every tree tile that touches another, with
+   * the outer corners rounded. One fill, so nothing darkens twice.
+   */
+  private _drawForestFloor(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: { x0: number; y0: number; x1: number; y1: number }): void {
+    const { width, height } = world.grid;
+    const tree = (tx: number, ty: number): boolean => tx >= 0 && ty >= 0 && tx < width && ty < height && this._hasTree(world, ty * width + tx);
+    const radius = TILE_SIZE * camera.zoom * 0.45;
+    ctx.beginPath();
+    for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
+      for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
+        if (!tree(tx, ty)) continue;
+        const n = tree(tx, ty - 1), s = tree(tx, ty + 1), w = tree(tx - 1, ty), e = tree(tx + 1, ty);
+        if (!n && !s && !w && !e) continue; // a lone tree has no floor
+        const x0 = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx)));
+        const y0 = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+        const x1 = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx + 1)));
+        const y1 = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty + 1)));
+        ctx.roundRect(x0, y0, x1 - x0, y1 - y0, [n || w ? 0 : radius, n || e ? 0 : radius, s || e ? 0 : radius, s || w ? 0 : radius]);
+      }
+    }
+    ctx.fillStyle = 'rgba(38,84,40,0.4)';
+    ctx.fill();
+  }
+
   /**
    * Hash of everything `_renderChunk` reads for one chunk. Values are reduced
    * to what is actually drawn (palette buckets, marker thresholds), so sim
@@ -583,7 +632,8 @@ export class CanvasRenderer {
         const syi = Math.floor((ty - tileY0) * ts);
         const tsi = Math.ceil(ts) + 1;
 
-        if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
+        // From CLAY_TREE_MIN_TILE up, trees are clay sprites drawn per frame (see render()).
+        if (ts < CLAY_TREE_MIN_TILE && vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
 
           this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, localP);
         }
