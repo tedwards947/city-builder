@@ -172,7 +172,7 @@ export class TrafficOverlay {
         const field = zone === ZONE_C ? data.toC : data.toI;
         for (let k = 0; k < 4; k++) {
           const ri = neighbourIndex(hover, k, width, height);
-          if (ri >= 0 && field.dist[ri] === 0) (zone === ZONE_C ? targetsC : targetsI).push(ri);
+          if (ri >= 0 && field.doorCap[ri] > 0) (zone === ZONE_C ? targetsC : targetsI).push(ri);
         }
       }
     }

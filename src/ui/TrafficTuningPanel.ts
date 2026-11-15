@@ -41,6 +41,11 @@ const GROUPS: [string, Knob[]][] = [
     roadKnob(2, 'speedMult', 'Avenue', 0.5, 4, 0.1),
     roadKnob(3, 'speedMult', 'Highway', 0.5, 6, 0.1),
   ]],
+  ['Destinations and jams', [
+    transitKnob('shopCapacity', 'Trips per shop level', 0.25, 10, 0.25),
+    transitKnob('jobCapacity', 'Trips per job level', 0.25, 10, 0.25),
+    transitKnob('congestionDelay', 'Slowdown when full', 0, 4, 0.1),
+  ]],
   ['Effect on growth', [
     transitKnob('commuteMax', 'Commute limit (tiles)', 8, 200, 1),
     transitKnob('accessFloor', 'Growth at zero access', 0, 1, 0.01),
@@ -170,6 +175,7 @@ export class TrafficTuningPanel {
     const rc = roadClasses;
     return [
       `transit: tripsRtoC: ${T.tripsRtoC}, tripsRtoI: ${T.tripsRtoI}, tripsItoC: ${T.tripsItoC}, `
+        + `shopCapacity: ${T.shopCapacity}, jobCapacity: ${T.jobCapacity}, congestionDelay: ${T.congestionDelay}, `
         + `commuteMax: ${T.commuteMax}, accessFloor: ${T.accessFloor}, congestionGrowthPenalty: ${T.congestionGrowthPenalty}`,
       `roadClasses: street { capacity: ${rc[1].capacity}, speedMult: ${rc[1].speedMult} }, `
         + `avenue { capacity: ${rc[2].capacity}, speedMult: ${rc[2].speedMult} }, `
@@ -197,6 +203,9 @@ export class TrafficTuningPanel {
       + line('Trips on the network', tot.trips.toFixed(0))
       + line('Average commute', `${tot.avgCommute.toFixed(1)} tiles`)
       + line('Homes past commute limit', `${tot.overLimitPct.toFixed(1)}%`, tot.overLimitPct > 5)
-      + line('Homes cut off', `${tot.cutOffPct.toFixed(1)}% of ${tot.homes}`, tot.cutOffPct > 5);
+      + line('Homes cut off', `${tot.cutOffPct.toFixed(1)}% of ${tot.homes}`, tot.cutOffPct > 5)
+      + line('Shop trips vs capacity', `${Math.round(tot.shopDemand * 100)}%`, tot.shopDemand > 1)
+      + line('Job trips vs capacity', `${Math.round(tot.jobDemand * 100)}%`, tot.jobDemand > 1)
+      + (tot.settled ? '' : line('Traffic', 'still settling…'));
   }
 }

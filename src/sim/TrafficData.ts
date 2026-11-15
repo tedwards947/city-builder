@@ -8,10 +8,24 @@ import { BALANCE } from '../data/balance';
 
 /** One travel-time map: time to the nearest destination, and the way there. */
 export interface TrafficField {
-  dist: Float32Array;    // travel time per road tile, in street tiles; Infinity = unreachable
-  parent: Int32Array;    // next tile toward the destination; -1 at a destination
+  // Cost per road tile to the destination it is assigned to, in street tiles:
+  // travel time (congestion included) plus that destination's `price`.
+  // Infinity = unreachable.
+  dist: Float32Array;
+  parent: Int32Array;    // next tile toward the destination; -1 at a door
   order: Int32Array;     // road tiles in order of increasing dist
   count: number;         // number of valid entries in `order`
+  // Pure travel time (congestion included, no price) from this road tile to
+  // the first door on its route.
+  near: Float32Array;
+  // Doors: road tiles next to a destination zone. Indexed by road tile.
+  doorCap: Float32Array;   // trips the zones at this door can take; 0 = not a door
+  doorLoad: Float32Array;  // trips that ended at this door on the last iteration
+  // Extra cost of ending a route at this door, raised while more trips end
+  // there than it can take so that the overflow drives on to the next one.
+  price: Float32Array;
+  /** Total trips wanting this destination type ÷ total door capacity. */
+  demandRatio: number;
 }
 
 export interface TrafficData {
@@ -20,14 +34,26 @@ export interface TrafficData {
   toC: TrafficField;     // to the nearest developed commerce
   toI: TrafficField;     // to the nearest developed industry
   toR: TrafficField;     // to the nearest developed homes
-  // Trips passing through each road tile, per flow.
+  // Trips passing through each road tile, per flow. Averaged over recent
+  // iterations, so where routes alternate the traffic shows as split.
   volRC: Float32Array;   // homes → commerce (follows toC)
   volRI: Float32Array;   // homes → industry (follows toI)
   volIC: Float32Array;   // industry → commerce (follows toC)
+  /** False while the pass is still settling toward a stable assignment. */
+  settled: boolean;
 }
 
 export function makeTrafficField(n: number): TrafficField {
-  return { dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0 };
+  return {
+    dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
+    near: new Float32Array(n), doorCap: new Float32Array(n), doorLoad: new Float32Array(n),
+    price: new Float32Array(n), demandRatio: 0,
+  };
+}
+
+/** Pure travel time from a road tile to the nearest destination on its route (Infinity if none). */
+export function travelTime(field: TrafficField, roadIdx: number): number {
+  return field.dist[roadIdx] < Infinity ? field.near[roadIdx] : Infinity;
 }
 
 /** Total trips through a road tile. */

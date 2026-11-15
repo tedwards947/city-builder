@@ -6,7 +6,7 @@ import { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { BALANCE } from '../data/balance';
-import { bestAccessRoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { bestAccessRoad, roadCapacity, trafficVolume, travelTime } from '../sim/TrafficData';
 import { loadColor, markUpstream, routeFrom } from '../render/TrafficOverlay';
 import { trafficTotals } from '../ui/trafficDebug';
 import {
@@ -411,6 +411,163 @@ describe('TransitSystem — published traffic data', () => {
     } finally {
       cls.capacity = saved;
     }
+  });
+});
+
+describe('TransitSystem — destination capacity', () => {
+  /** Keep running traffic passes until the assignment has settled. */
+  function settle(w: World, sys = new TransitSystem()) {
+    for (let pass = 1; pass <= 30; pass++) {
+      run(w, sys, interval * pass);
+      if (w.traffic!.settled) break;
+    }
+    return w.traffic!;
+  }
+
+  it('a street of shops fills door by door instead of piling up at the first', () => {
+    // Homes at the west end of one street, ten small shops along its east end.
+    const w = makeWorld(40, 12);
+    roadRow(w, 2, 30, 5);
+    for (let x = 2; x <= 11; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 20; x <= 29; x++) zoneAt(w, x, 4, ZONE_C, 1);
+    const d = settle(w);
+    expect(d.settled).toBe(true);
+
+    const demand = 20 * 3 * T.tripsRtoC;
+    const capacity = 10 * T.shopCapacity;
+    expect(d.toC.demandRatio).toBeCloseTo(demand / capacity);
+    const room = T.shopCapacity * Math.max(1, demand / capacity);
+
+    // No door takes much more than it has room for…
+    let ended = 0;
+    for (let x = 20; x <= 29; x++) {
+      const load = d.toC.doorLoad[w.grid.idx(x, 5)];
+      expect(load).toBeLessThanOrEqual(room * 1.2);
+      ended += load;
+    }
+    expect(ended).toBeCloseTo(demand, 3);
+    // …so traffic thins out along the street rather than stopping at its start.
+    const vol = (x: number) => d.volRC[w.grid.idx(x, 5)];
+    expect(vol(19)).toBeCloseTo(demand, 3);
+    expect(vol(24)).toBeGreaterThan(demand * 0.25);
+    expect(vol(24)).toBeLessThan(vol(20));
+    expect(vol(27)).toBeGreaterThan(0);
+  });
+
+  it('overflow from a small nearby shop drives on to a bigger one further away', () => {
+    const w = makeWorld(36, 12);
+    roadRow(w, 2, 30, 5);
+    zoneAt(w, 4, 4, ZONE_C, 1);                                   // corner shop, west
+    for (let x = 8; x <= 12; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 24; x <= 28; x++) zoneAt(w, x, 4, ZONE_C, 3);    // mall, east
+    const d = settle(w);
+    expect(d.settled).toBe(true);
+    const demand = 10 * 3 * T.tripsRtoC;
+    const corner = d.toC.doorLoad[w.grid.idx(4, 5)];
+    expect(corner).toBeGreaterThan(0);
+    expect(corner).toBeLessThanOrEqual(T.shopCapacity * 1.2);
+    // The rest crosses the gap toward the mall.
+    expect(d.volRC[w.grid.idx(18, 5)]).toBeGreaterThan(demand - T.shopCapacity * 1.2 - 0.01);
+  });
+
+  it('when there are too few shops everywhere, prices stay put and doors share the excess', () => {
+    const w = makeWorld(40, 12);
+    roadRow(w, 2, 30, 5);
+    for (let x = 12; x <= 20; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    zoneAt(w, 4, 4, ZONE_C, 1);
+    zoneAt(w, 28, 4, ZONE_C, 1);
+    const d = settle(w);
+    expect(d.settled).toBe(true);
+    expect(d.toC.demandRatio).toBeGreaterThan(4);
+    const west = d.toC.doorLoad[w.grid.idx(4, 5)], east = d.toC.doorLoad[w.grid.idx(28, 5)];
+    expect(west + east).toBeCloseTo(18 * 3 * T.tripsRtoC, 3);
+    // Symmetric town: each shop gets about half.
+    expect(Math.abs(west - east) / (west + east)).toBeLessThan(0.25);
+  });
+
+  it('abandoned or undeveloped zones are not doors', () => {
+    const w = simpleTown();
+    zoneAt(w, 6, 4, ZONE_C, 0);
+    zoneAt(w, 8, 4, ZONE_C, 2);
+    w.layers.abandoned[w.grid.idx(8, 4)] = 1;
+    run(w);
+    const d = w.traffic!;
+    expect(d.toC.doorCap[w.grid.idx(6, 5)]).toBe(0);
+    expect(d.toC.doorCap[w.grid.idx(8, 5)]).toBe(0);
+    expect(d.toC.doorCap[w.grid.idx(10, 5)]).toBe(T.shopCapacity);
+  });
+});
+
+describe('TransitSystem — congestion slows roads', () => {
+  const street = BALANCE.roadClasses[ROAD_STREET];
+  const transit = BALANCE.transit as unknown as Record<string, number>;
+
+  /** Run `fn` with a street capacity small enough for a few homes to jam it. */
+  function withTinyStreets<R>(fn: () => R): R {
+    const saved = street.capacity;
+    street.capacity = 4;
+    try { return fn(); } finally { street.capacity = saved; }
+  }
+
+  it('a jammed road takes longer, which lowers accessibility', () => {
+    const build = () => {
+      const w = makeWorld(36, 12);
+      roadRow(w, 2, 26, 5);
+      for (let x = 2; x <= 9; x++) { zoneAt(w, x, 4, ZONE_R, 1); zoneAt(w, x, 6, ZONE_R, 1); }
+      for (let x = 22; x <= 26; x++) zoneAt(w, x, 4, ZONE_C, 3);
+      run(w);
+      return w;
+    };
+    const free = build();                    // 5.3 trips on a 20-trip street: free flow
+    const jammed = withTinyStreets(build);   // the same trips on a 4-trip street
+    const at = free.grid.idx(2, 5);
+    expect(travelTime(free.traffic!.toC, at)).toBeCloseTo(20);
+    expect(travelTime(jammed.traffic!.toC, at)).toBeGreaterThan(24);
+    expect(access(jammed, 2, 4)).toBeLessThan(access(free, 2, 4));
+  });
+
+  it('traffic spreads over two routes once the shorter one jams', () => {
+    // Homes on a western stub, shops on an eastern stub, joined by a north
+    // loop and a slightly longer south loop.
+    const build = () => {
+      const w = makeWorld(32, 20);
+      roadRow(w, 2, 6, 10);
+      roadCol(w, 6, 4, 17);
+      roadCol(w, 22, 4, 17);
+      roadRow(w, 7, 21, 4);
+      roadRow(w, 7, 21, 17);
+      roadRow(w, 23, 27, 10);
+      for (let x = 2; x <= 5; x++) { zoneAt(w, x, 9, ZONE_R, 3); zoneAt(w, x, 11, ZONE_R, 3); }
+      for (let x = 24; x <= 27; x++) zoneAt(w, x, 9, ZONE_C, 3);
+      const sys = new TransitSystem();
+      for (let pass = 1; pass <= 12; pass++) run(w, sys, interval * pass);
+      const d = w.traffic!;
+      return { north: d.volRC[w.grid.idx(14, 4)], south: d.volRC[w.grid.idx(14, 17)] };
+    };
+    const total = 8 * 3 * T.tripsRtoC;
+
+    const spread = withTinyStreets(build);
+    expect(spread.north + spread.south).toBeCloseTo(total, 1);
+    expect(spread.north).toBeGreaterThan(total * 0.3);
+    expect(spread.south).toBeGreaterThan(total * 0.3);
+
+    // With the slowdown switched off, everything takes the shorter route.
+    const savedDelay = transit.congestionDelay;
+    transit.congestionDelay = 0;
+    try {
+      const oneWay = withTinyStreets(build);
+      expect(oneWay.south).toBe(0);
+      expect(oneWay.north).toBeCloseTo(total, 3);
+    } finally {
+      transit.congestionDelay = savedDelay;
+    }
+  });
+
+  it('light traffic does not slow a road at all', () => {
+    const w = simpleTown();
+    run(w);
+    expect(travelTime(w.traffic!.toC, w.grid.idx(2, 5))).toBe(8);
+    expect(w.traffic!.settled).toBe(true);
   });
 });
 

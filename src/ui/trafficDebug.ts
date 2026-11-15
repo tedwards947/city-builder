@@ -5,7 +5,7 @@
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime } from '../sim/TrafficData';
 
 const fmt = (v: number, digits = 1) => (v < Infinity ? v.toFixed(digits) : '∞');
 const row = (text: string, color = '#9ad') => `<div class="ti-detail" style="color:${color}">${text}</div>`;
@@ -28,7 +28,19 @@ export function trafficDebugHtml(world: World, i: number): string {
     html += row(`Trips ${fmt(vol)} / ${cap} capacity = ${Math.round(vol / cap * 100)}%`);
     html += row(`To commerce: homes ${fmt(d.volRC[i])}, industry ${fmt(d.volIC[i])}`);
     html += row(`To industry: homes ${fmt(d.volRI[i])}`);
-    html += row(`Time to commerce ${fmt(d.toC.dist[i])} · industry ${fmt(d.toI.dist[i])} · homes ${fmt(d.toR.dist[i])}`);
+    html += row(`Time to commerce ${fmt(travelTime(d.toC, i))} · industry ${fmt(travelTime(d.toI, i))} · homes ${fmt(travelTime(d.toR, i))}`);
+    // A door: the road tile where trips to the zones beside it end.
+    for (const [name, field] of [['Shop', d.toC], ['Job', d.toI]] as const) {
+      const cap = field.doorCap[i];
+      if (cap === 0) continue;
+      const share = cap * Math.max(1, field.demandRatio);
+      const full = field.doorLoad[i] > share * 1.1;
+      html += row(
+        `${name} door: ${fmt(field.doorLoad[i])} trips end here, room for ${fmt(share)}`
+          + (field.price[i] > 0 ? ` · price ${fmt(field.price[i])}` : ''),
+        full ? '#e95' : '#9ad',
+      );
+    }
     if (road === ROAD_HIGHWAY) html += row('Highway: carries traffic, gives zones no access', '#999');
     return html;
   }
@@ -39,7 +51,7 @@ export function trafficDebugHtml(world: World, i: number): string {
 
   const timeVia = (field: typeof d.toC) => {
     const r = bestAccessRoad(world, i, field);
-    return r >= 0 ? field.dist[r] : Infinity;
+    return r >= 0 ? travelTime(field, r) : Infinity;
   };
   if (zone === ZONE_R) {
     html += row(`Commute: commerce ${fmt(timeVia(d.toC))} · industry ${fmt(timeVia(d.toI))} (limit ${T.commuteMax})`);
@@ -78,6 +90,9 @@ export interface TrafficTotals {
   avgCommute: number;     // mean travel time of homes that can reach a destination
   cutOffPct: number;      // % of homes with no reachable commerce or industry
   overLimitPct: number;   // % of homes at or beyond commuteMax (but connected)
+  shopDemand: number;     // trips wanting commerce ÷ commerce capacity (1 = exactly enough)
+  jobDemand: number;      // trips wanting industry ÷ industry capacity
+  settled: boolean;       // false while the assignment is still settling
 }
 
 /** City-wide traffic figures from the last pass, or null before the first one. */
@@ -103,10 +118,10 @@ export function trafficTotals(world: World): TrafficTotals | null {
     const zone = L.zone[i], dev = L.devLevel[i];
     if (zone === ZONE_NONE || dev === 0 || L.abandoned[i] !== 0) continue;
     const rC = bestAccessRoad(world, i, d.toC);
-    const tC = rC >= 0 ? d.toC.dist[rC] : Infinity;
+    const tC = rC >= 0 ? travelTime(d.toC, rC) : Infinity;
     if (zone === ZONE_R) {
       const rI = bestAccessRoad(world, i, d.toI);
-      const tI = rI >= 0 ? d.toI.dist[rI] : Infinity;
+      const tI = rI >= 0 ? travelTime(d.toI, rI) : Infinity;
       if (tC < Infinity) trips += dev * T.tripsRtoC;
       if (tI < Infinity) trips += dev * T.tripsRtoI;
       homes++;
@@ -121,5 +136,6 @@ export function trafficTotals(world: World): TrafficTotals | null {
     roads, usedPct: pct(used, roads), overPct: pct(over, roads), worstRatio: worst,
     trips, homes, avgCommute: reach > 0 ? commuteSum / reach : 0,
     cutOffPct: pct(homes - reach, homes), overLimitPct: pct(overLimit, homes),
+    shopDemand: d.toC.demandRatio, jobDemand: d.toI.demandRatio, settled: d.settled,
   };
 }
