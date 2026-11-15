@@ -15,11 +15,12 @@ export class AbandonmentSystem {
   update(world: World): void {
     if (world.tick % BALANCE.abandonment.distressInterval !== 0) return;
 
-    const { width, height } = world.grid;
-    const n = width * height;
+    const { width } = world.grid;
     const { zone, devLevel, power, water, abandoned, distress, crime, fire, fireRisk, roadClass } = world.layers;
 
-    for (let i = 0; i < n; i++) {
+    const area = world.index.area(world);
+    for (let y = area.y0; y <= area.y1; y++) {
+    for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
       // Skip already-abandoned tiles — abandonment is permanent until bulldozed.
       if (abandoned[i] !== 0) continue;
 
@@ -78,6 +79,7 @@ export class AbandonmentSystem {
         world.grid.markDirty(x, y);
         world.events.emit('tileAbandoned', { tx: x, ty: y, zone: zone[i], level: devLevel[i] });
       }
+    }
     }
   }
 }

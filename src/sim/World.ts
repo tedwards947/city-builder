@@ -14,6 +14,7 @@ import {
 } from './constants';
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
+import { WorldIndex } from './WorldIndex';
 
 export interface Layers {
   terrain:   Uint8Array;
@@ -118,6 +119,30 @@ export class World {
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
   traffic: TrafficData | null = null;
   private _fireCount = 0;
+  private _index: WorldIndex | null = null;
+  private _indexPinned = false;
+
+  /**
+   * Lists of the tiles that matter (roads, zones) and the bounds of the built
+   * area — see WorldIndex. Rebuilt on every access unless pinned, so it is
+   * never stale; the Scheduler pins it for the length of a tick.
+   */
+  get index(): WorldIndex {
+    if (!this._index) this._index = new WorldIndex(this.grid.width * this.grid.height);
+    if (!this._indexPinned) this._index.rebuild(this);
+    return this._index;
+  }
+
+  /** Build the index now and keep it until unpinIndex(). */
+  pinIndex(): void {
+    this._indexPinned = false;
+    void this.index;
+    this._indexPinned = true;
+  }
+
+  unpinIndex(): void {
+    this._indexPinned = false;
+  }
 
   constructor(width: number, height: number, seed = 1, terrainOptions: TerrainOptions = {}) {
     this.grid = new Grid(width, height);

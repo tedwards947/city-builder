@@ -7,7 +7,6 @@ export class EconomySystem {
   private _lastWarnTick = -Infinity;
 
   update(world: World): void {
-    const { width, height } = world.grid;
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     const lv = world.layers.landValue;
@@ -17,7 +16,9 @@ export class EconomySystem {
     let income = 0;
     let population = 0;
     let roadMaintenance = 0;
-    for (let i = 0; i < width * height; i++) {
+    const { zoned, zonedCount, roads, roadCount } = world.index;
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] !== ZONE_NONE && dev[i] > 0) {
         // Abandoned tiles have no residents and generate no income.
         if (abandoned[i] !== 0) continue;
@@ -44,6 +45,9 @@ export class EconomySystem {
         }
         income += dev[i] * baseRate * lvMult * eduMult * sickMult;
       }
+    }
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
       if (roadClass[i] !== ROAD_NONE) {
         roadMaintenance += BALANCE.roadClasses[roadClass[i]]?.maintenance ?? 0;
       }

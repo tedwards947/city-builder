@@ -50,6 +50,12 @@ export class Scheduler {
 
   private _tick(): void {
     this.world.tick++;
-    for (const sys of this.systems) sys.update(this.world);
+    // One scan of the map for the whole tick; every system shares it.
+    this.world.pinIndex();
+    try {
+      for (const sys of this.systems) sys.update(this.world);
+    } finally {
+      this.world.unpinIndex();
+    }
   }
 }

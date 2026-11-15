@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Scheduler, MAX_FRAME_GAP_MS } from '../sim/Scheduler';
-import type { World } from '../sim/World';
+import { World } from '../sim/World';
 
 function makeScheduler(speed = 1) {
-  const world = { tick: 0 } as World;
+  const world = new World(8, 8, 1);
   const scheduler = new Scheduler(world, [], 500);
   scheduler.setSpeed(speed);
   return { world, scheduler, start: performance.now() };
