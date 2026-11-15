@@ -5,10 +5,11 @@ Buildings are drawn from **clay image sprites**. The older **code-drawn vector s
 ## Clay image sprites
 
 - Source art: `art/clay-set/raw/*.png` (1024px, solid magenta background), generated with the nanobanana MCP by editing from `art/clay-set/ref/anchor.png` so every sprite shares the same camera and square plot. Image calls are billed to the user: ask before generating.
-- `node art/clay-set/cutout.mjs` cuts out the background and writes the review sprites (`art/clay-set/sprites`, 256px), the game sprites (`public/sprites/clay`, 128px) and `src/render/clay/claySpriteData.ts` (plot rectangle per sprite). Never edit those outputs by hand.
+- `node art/clay-set/cutout.mjs` cuts out the background and writes the review sprites (`art/clay-set/sprites`, 256px), the game sprites (`public/sprites/clay`, 128px, 256-colour palette PNGs with alpha) and `src/render/clay/claySpriteData.ts` (plot rectangle per sprite). Never edit those outputs by hand.
 - Names: `{res,com,ind}-{1,2,3}`, an optional design letter (`-b`, `-c`, `-d`…; the game picks among a slot's designs by lot ID), plus optional `-green`, `-gritty`, `-communal`, `-wealthy`; civic buildings are `power, water, sewage, police, fire, school, hospital, park` (one look each, no vibe variants).
 - `src/render/clay/ClaySprites.ts` loads them, picks the variant from the tile's local vibe (abandoned buildings always use gritty), and scales the plot to fill the tile. Buildings rise above their plot, so tiles are drawn top row first.
 - Smoke, steam and flares are **not** in the images. They are drawn by code at the points listed in `EMITTERS` in `ClaySprites.ts` (256px sprite coordinates). Keep smoke out of new art and add an emitter instead.
+- Fire is code-drawn too: `drawClayFire` (flames, glow, smoke) while a lot burns and `drawClaySmolder` (soot and thin smoke, 20 s, render-only) after it goes out. Both, and the crime / sickness / death lot markers, are drawn after every sprite so the building in front cannot hide them.
 - Review page: open `art/clay-set/index.html`.
 
 ### Lot dressing (landscaping)

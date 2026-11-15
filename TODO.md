@@ -4,25 +4,29 @@ One section per area, each a ranked list (1 = do first). Each session owns its o
 
 ## GRAPHICS
 
-Ranked by how much the player notices it, then by cost. Items marked [paid] need new nanobanana images (billed to the owner; ask before generating).
+Items marked [paid] need new nanobanana images (billed to the owner; ask before generating).
 
-1. **Bring back the per-lot status markers.** Crime dots, the sickness cross and the death marker are drawn on the chunk layer, so the clay plots now cover them. Redraw them on top of the sprite (the status tints already are). This is lost gameplay feedback, not just looks.
-2. **Roads and terrain in the clay style.** Buildings are clay; roads, grass, water, sand and wild trees are still the old flat art, and the seam shows at every plot edge. Biggest remaining visual clash. Likely a mix of code-drawn clay shapes and a few tiles [paid].
-3. **Empty zoned lots.** A zoned tile with nothing built yet (level 0) is still a flat coloured square. Give it a clay plot: bare lawn / paving / dirt, maybe a "for sale" sign or a construction stage.
-4. **Vibe versions of the 27 new designs** [paid] (27 × 4 = 108 images). Green, gritty, communal and wealthy districts still show one design per slot, so they look as same-ish as the neutral town used to.
-5. **Landscaping polish.**
-   - Neighbouring lots can get identical dressing (6 variants per sprite): raise the count or avoid matching neighbours.
-   - All-tower districts read uniform (tree rows dominate): add more tower treatments.
-   - Plazas and ground tones can sit over shops' painted parking bays.
-   - The slate duplex (`res-2-b`) almost never gets any dressing.
-   - Green-vibe sprites are already leafy, so dressing makes them the busiest lots: tone it down there.
-6. **Fire and damage in the clay style.** The fire animation is old-style, and a fire-damaged or burnt-out building has no look of its own.
-7. **Vibe versions of the civic buildings** [paid] (6–8 buildings × 4 = 24–32 images). Police, fire, hospital, school, power, sewage (and water tower, park) look the same in every district.
-8. **Vehicles in the clay style.** Cars on the roads are still flat shapes.
-9. **More level-3 designs** [paid]. Towers have four designs per zone; a dense downtown repeats quickly.
-10. **Night and liveness.** Window-glow masks for a night mode (one extra image per sprite [paid]), and a small bounce when a building is placed or levels up.
-11. **Retire the old sprite code.** `TestHouse` and `IndustrialHouse` are still registered in production; decide whether the ~80 code-drawn fallback sprites and the Shift+S sandbox stay, and remove what does not.
-12. **Smaller sprite downloads.** Game sprites are 1.5 MB; palette PNG or WebP would cut that to about a third, but needs an extra tool and is slightly lossy. Low priority.
+### Next (ranked)
+
+1. **Clay trees.** Wild trees on unbuilt land are still flat shapes next to clay buildings. Needs a design conversation with the owner first (code-drawn clay blobs vs. the generated tree props already used for lot landscaping vs. new tree tiles [paid]; forests vs. single trees; how they meet roads and plots).
+2. **Review the six new towers** (`res-3-e/f/g`, `com-3-e/f/g`; numbers 28–33 on `art/clay-set/variants.html`). They are already in the game; pull any the owner rejects. `res-3-g` is the weakest (slightly turned, faint stone texture).
+3. **Decide the fate of the code-drawn fallback sprites.** About 80 files under `src/render/entities/` plus the Shift+S sandbox now only show for the instant before the clay images load. Delete them (and the sandbox), or keep them as a fallback? Owner decision.
+
+### Waiting on something else
+
+- **Roads and terrain in the clay style**: waiting on the traffic redesign. Note from the engine session: traffic now concentrates on real routes, so street / avenue / highway should look clearly different; there is still no lane, direction or turn data, so intersections need no sim-driven art.
+- **Vehicles in the clay style**: waiting on the traffic redesign. Vehicles will later follow flow maps and get a per-tile direction; hold direction-dependent art until the engine session says that has landed.
+- **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.
+- **Landscaping polish**: on hold. Known issues: identical neighbours (6 variants per sprite), uniform all-tower districts, plazas over shops' painted parking bays, the slate duplex (`res-2-b`) almost never dressed, green-vibe lots too busy.
+- **Night and liveness**: on hold. Window-glow masks for a night mode [paid], a small bounce when a building is placed or levels up.
+
+### Deprioritised
+
+- **Vibe versions of the civic buildings** [paid] (24–32 images).
+
+### Decided
+
+- **Empty zoned lots** stay bare grass with the zone colour, at least for now.
 
 ## GAME ENGINE
 

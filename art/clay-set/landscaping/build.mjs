@@ -25,14 +25,16 @@ for (const d of ['masks', 'shade', 'props']) mkdirSync(join(here, d), { recursiv
 // ── PNG in/out ───────────────────────────────────────────────────────────────
 function readPng(path) {
   const b = readFileSync(path);
-  let p = 8, w = 0, h = 0, ct = 6; const idat = [];
+  let p = 8, w = 0, h = 0, ct = 6, plte = null, trns = null; const idat = [];
   while (p < b.length) {
     const len = b.readUInt32BE(p), type = b.toString('latin1', p + 4, p + 8), data = b.subarray(p + 8, p + 8 + len);
     if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); ct = data[9]; if (data[8] !== 8 || data[12]) throw new Error('unsupported png ' + path); }
+    if (type === 'PLTE') plte = data;
+    if (type === 'tRNS') trns = data;
     if (type === 'IDAT') idat.push(data);
     p += 12 + len;
   }
-  const bpp = ct === 6 ? 4 : ct === 2 ? 3 : 0; if (!bpp) throw new Error('unsupported colour type ' + path);
+  const bpp = ct === 6 ? 4 : ct === 2 ? 3 : ct === 3 ? 1 : 0; if (!bpp) throw new Error('unsupported colour type ' + path);
   const raw = inflateSync(Buffer.concat(idat)), stride = w * bpp, rgba = new Uint8Array(w * h * 4);
   let prev = new Uint8Array(stride);
   for (let y = 0; y < h; y++) {
@@ -44,6 +46,7 @@ function readPng(path) {
       else if (f === 4) { const pp = a + u - c, pa = Math.abs(pp - a), pb = Math.abs(pp - u), pc = Math.abs(pp - c); add = pa <= pb && pa <= pc ? a : pb <= pc ? u : c; }
       line[i] = (line[i] + add) & 255;
     }
+    if (ct === 3) { for (let x = 0; x < w; x++) { const d = (y * w + x) * 4, k = line[x]; rgba[d] = plte[k * 3]; rgba[d + 1] = plte[k * 3 + 1]; rgba[d + 2] = plte[k * 3 + 2]; rgba[d + 3] = trns && k < trns.length ? trns[k] : 255; } prev = line; continue; }
     for (let x = 0; x < w; x++) { const d = (y * w + x) * 4; rgba[d] = line[x * bpp]; rgba[d + 1] = line[x * bpp + 1]; rgba[d + 2] = line[x * bpp + 2]; rgba[d + 3] = bpp === 4 ? line[x * bpp + 3] : 255; }
     prev = line;
   }

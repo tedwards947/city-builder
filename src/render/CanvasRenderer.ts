@@ -5,7 +5,7 @@ import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import { SpriteRegistry } from './SpriteRegistry';
 import type { VibeState } from './SpriteTypes';
-import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, type ClayEffect } from './clay/ClaySprites';
+import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -47,6 +47,8 @@ const _deathAccentColors: string[] = Array.from({ length: 256 }, (_, v) => {
 });
 
 const CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
+/** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
+const SMOULDER_MS = 20000;
 
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
@@ -65,6 +67,12 @@ export class CanvasRenderer {
   private _chunkRenderTs = 0;                 // tile size chunks are currently drawn at
   private _lastGrid: World['grid'] | null = null;
   private _clayEffects: ClayEffect[] = [];
+  /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
+  private _markerQueue: number[] = [];
+  private _fireQueue: number[] = [];
+  /** When each visible tile was last seen burning (ms), for the smoulder afterwards. Render-only. */
+  private _lastBurn = new Map<number, number>();
+  private _lastBurnWorld: World | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -186,6 +194,11 @@ export class CanvasRenderer {
     const clayTile = Math.ceil(ts);
     const clayEffects = this._clayEffects;
     clayEffects.length = 0;
+    const markerQueue = this._markerQueue;
+    const fireQueue = this._fireQueue;
+    markerQueue.length = 0;
+    fireQueue.length = 0;
+    if (this._lastBurnWorld !== world) { this._lastBurnWorld = world; this._lastBurn.clear(); }
 
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
       for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
@@ -244,7 +257,10 @@ export class CanvasRenderer {
               ctx.fillRect(sxi, syi, clayTile, clayTile);
             }
           }
-          if (!isAbandoned && ts >= 10) collectClayEffects(clay, sxi, syi, clayTile, i, clayEffects);
+          if (!isAbandoned && fireV === 0 && ts >= 10) collectClayEffects(clay, sxi, syi, clayTile, i, clayEffects);
+          // The plot also hides the chunk layer's crime / sickness / death markers:
+          // queue them to be redrawn above every sprite.
+          if (building === BUILDING_NONE && dev > 0) markerQueue.push(i, sxi, syi);
         } else if (sprite) {
           ctx.save();
           ctx.translate(sxi, syi);
@@ -291,8 +307,14 @@ export class CanvasRenderer {
           ctx.fillRect(sxi, syi, tsi, tsi);
         }
 
+        // Fire and its aftermath are drawn after every sprite, so flames are
+        // not hidden by the building in front.
         if (fireV > 0) {
-          this._drawFire(ctx, sxi, syi, tsi, ts, now);
+          this._lastBurn.set(i, now);
+          fireQueue.push(i, sxi, syi);
+        } else if (this._lastBurn.has(i)) {
+          if (now - this._lastBurn.get(i)! > SMOULDER_MS) this._lastBurn.delete(i);
+          else fireQueue.push(i, sxi, syi);
         }
 
         if (!trafficOverlay && ts > 20 && road !== ROAD_NONE && congestion > 15) {
@@ -304,6 +326,20 @@ export class CanvasRenderer {
 
     // Smoke, steam and flares rise over everything behind them.
     if (clayEffects.length > 0) drawClayEffects(ctx, clayEffects, now * 0.001);
+
+    for (let q = 0; q < fireQueue.length; q += 3) {
+      const i = fireQueue[q], fx = fireQueue[q + 1], fy = fireQueue[q + 2];
+      const fireV = world.layers.fire[i];
+      const seed = ((i * 2654435761) >>> 0) / 4294967296;
+      if (fireV > 0) drawClayFire(ctx, fx, fy, clayTile, now * 0.001, seed, fireV / BALANCE.fire.burnDuration);
+      else drawClaySmolder(ctx, fx, fy, clayTile, now * 0.001, seed, 1 - (now - this._lastBurn.get(i)!) / SMOULDER_MS);
+    }
+
+    for (let q = 0; q < markerQueue.length; q += 3) {
+      const i = markerQueue[q];
+      this._drawLotMarkers(ctx, markerQueue[q + 1], markerQueue[q + 2], tsi, ts, world.layers.zone[i], world.layers.devLevel[i],
+        world.layers.crime[i], world.layers.sickness[i], world.layers.recentDeath[i], world.layers.abandoned[i] !== 0, true);
+    }
 
     if (camera.zoom >= 1.2) {
       ctx.strokeStyle = 'rgba(0,0,0,0.15)';
@@ -727,47 +763,56 @@ export class CanvasRenderer {
           chunkCtx.fillStyle = _pollutionColors[pollutionV];
           chunkCtx.fillRect(sxi, syi, tsi, tsi);
         }
-        if (crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
-          chunkCtx.fillStyle = _crimeIndicatorColors[crimeV];
-          const dotSize = Math.max(2, Math.floor(ts * 0.18));
-          chunkCtx.fillRect(sxi + 1, syi + 1, dotSize, dotSize);
-          if (crimeV > 120) chunkCtx.fillRect(sxi + tsi - dotSize - 1, syi + 1, dotSize, dotSize);
-          if (crimeV > 200) chunkCtx.fillRect(sxi + 1, syi + tsi - dotSize - 1, dotSize, dotSize);
-        }
-        if (sicknessV > 80 && zone === ZONE_R && dev > 0 && !isAbandoned) {
-          chunkCtx.fillStyle = _sicknessColors[sicknessV];
-          const cs = Math.max(2, Math.floor(ts * 0.15));
-          const sicCx = sxi + tsi - cs - 1;
-          const sicCy = syi + tsi - cs - 1;
-          const sicArm = Math.max(1, Math.floor(cs * 0.4));
-          chunkCtx.fillRect(sicCx - sicArm, sicCy - cs, sicArm * 2, cs * 2);
-          chunkCtx.fillRect(sicCx - cs, sicCy - sicArm, cs * 2, sicArm * 2);
-        }
-        if (recentDeathV > 0 && zone === ZONE_R && dev > 0) {
-          chunkCtx.fillStyle = _deathColors[recentDeathV];
-          const ds = Math.max(2, Math.floor(ts * 0.18));
-          const dx = sxi + 1;
-          const dy = syi + tsi - ds - 1;
-          chunkCtx.fillRect(dx, dy, ds, ds);
-          chunkCtx.fillStyle = _deathAccentColors[recentDeathV];
-          const arm2 = Math.max(1, Math.floor(ds * 0.3));
-          const dCx = dx + Math.floor(ds / 2);
-          const dCy = dy - arm2;
-          chunkCtx.fillRect(dCx - arm2, dCy - arm2, arm2 * 2, arm2 * 3);
-          chunkCtx.fillRect(dCx - arm2 * 2, dCy, arm2 * 4, arm2);
-        }
+        this._drawLotMarkers(chunkCtx, sxi, syi, tsi, ts, zone, dev, crimeV, sicknessV, recentDeathV, isAbandoned, false);
       }
     }
   }
 
-  private _drawFire(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, now: number): void {
-    const flicker = Math.sin(now * 0.015) * 0.3 + 0.7;
-    ctx.fillStyle = `rgba(255, 60, 0, ${flicker})`;
-    ctx.fillRect(sxi, syi, tsi, tsi);
-    if (ts > 8) {
-      ctx.fillStyle = `rgba(255, 200, 0, ${flicker * 0.8})`;
-      const pad = ts * 0.2;
-      ctx.fillRect(sxi + pad, syi + pad, tsi - pad * 2, tsi - pad * 2);
+  /**
+   * Crime dots (top corners, bottom-left at the worst), the sickness cross
+   * (bottom-right) and the recent-death marker (bottom-left) for one lot.
+   * `backed` adds a dark backing so they read on top of a clay sprite.
+   */
+  private _drawLotMarkers(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, zone: number, dev: number, crimeV: number, sicknessV: number, recentDeathV: number, isAbandoned: boolean, backed: boolean): void {
+    const back = (x: number, y: number, w: number, h: number): void => {
+      if (!backed) return;
+      ctx.fillStyle = 'rgba(12,14,18,0.6)';
+      ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    };
+    if (crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
+      const dotSize = Math.max(2, Math.floor(ts * 0.18));
+      const dot = (x: number, y: number): void => {
+        back(x, y, dotSize, dotSize);
+        ctx.fillStyle = backed ? '#ff3b30' : _crimeIndicatorColors[crimeV];
+        ctx.fillRect(x, y, dotSize, dotSize);
+      };
+      dot(sxi + 1, syi + 1);
+      if (crimeV > 120) dot(sxi + tsi - dotSize - 1, syi + 1);
+      if (crimeV > 200) dot(sxi + 1, syi + tsi - dotSize - 1);
+    }
+    if (sicknessV > 80 && zone === ZONE_R && dev > 0 && !isAbandoned) {
+      const cs = Math.max(2, Math.floor(ts * 0.15));
+      const sicCx = sxi + tsi - cs - 1;
+      const sicCy = syi + tsi - cs - 1;
+      const sicArm = Math.max(1, Math.floor(cs * 0.4));
+      back(sicCx - cs, sicCy - cs, cs * 2, cs * 2);
+      ctx.fillStyle = backed ? '#2fe0c8' : _sicknessColors[sicknessV];
+      ctx.fillRect(sicCx - sicArm, sicCy - cs, sicArm * 2, cs * 2);
+      ctx.fillRect(sicCx - cs, sicCy - sicArm, cs * 2, sicArm * 2);
+    }
+    if (recentDeathV > 0 && zone === ZONE_R && dev > 0) {
+      const ds = Math.max(2, Math.floor(ts * 0.18));
+      const dx = sxi + 1;
+      const dy = syi + tsi - ds - 1;
+      const arm2 = Math.max(1, Math.floor(ds * 0.3));
+      const dCx = dx + Math.floor(ds / 2);
+      const dCy = dy - arm2;
+      back(dx, dCy - arm2, Math.max(ds, arm2 * 3), ds + arm2 * 2);
+      ctx.fillStyle = _deathColors[recentDeathV];
+      ctx.fillRect(dx, dy, ds, ds);
+      ctx.fillStyle = _deathAccentColors[recentDeathV];
+      ctx.fillRect(dCx - arm2, dCy - arm2, arm2 * 2, arm2 * 3);
+      ctx.fillRect(dCx - arm2 * 2, dCy, arm2 * 4, arm2);
     }
   }
 
