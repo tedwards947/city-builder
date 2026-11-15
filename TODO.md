@@ -10,7 +10,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-1. **Refine the clay trees** (in the game and "good enough to carry on", per the owner). To revisit: more broadleaf variety (beech is the only round-crowned tree; oak, birch, maple and willow were rejected twice, first too cartoonish, then too gnarly; the owner likes compact dense crowns with hidden trunks) [paid]; forests look a little planted because the tidy rows line up across tiles (the owner rejected random scatter and mirrored trees as sloppy, so add wobble carefully); larch is muted in `trees.mjs` (`MUTE`), retune if needed; frame cost of large forests and of zooming has not been measured; after the engine's zoom fix lands, key the per-tile trees on the chunk's own drawn size (`_chunkTs`). Review pages: `art/clay-set/trees.html`, `art/clay-set/forest.html`.
+Nothing ranked right now; the owner picks the next item from the list below.
 
 ### Waiting on something else
 
@@ -18,6 +18,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 - **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.
 - **Landscaping polish**: on hold. Known issues: identical neighbours (6 variants per sprite), uniform all-tower districts, plazas over shops' painted parking bays, the slate duplex (`res-2-b`) almost never dressed, green-vibe lots too busy.
 - **Night and liveness**: on hold. Window-glow masks for a night mode [paid], a small bounce when a building is placed or levels up.
+- **Refine the clay trees**: on hold, fine for now per the owner (in the game and "good enough to carry on", per the owner). To revisit: more broadleaf variety (beech is the only round-crowned tree; oak, birch, maple and willow were rejected twice, first too cartoonish, then too gnarly; the owner likes compact dense crowns with hidden trunks) [paid]; forests look a little planted because the tidy rows line up across tiles (the owner rejected random scatter and mirrored trees as sloppy, so add wobble carefully); larch is muted in `trees.mjs` (`MUTE`), retune if needed; frame cost of large forests and of zooming has not been measured; after the engine's zoom fix lands, key the per-tile trees on the chunk's own drawn size (`_chunkTs`). Review pages: `art/clay-set/trees.html`, `art/clay-set/forest.html`.
 
 ### Deprioritised
 
@@ -25,6 +26,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Decided
 
+- **Toolbar:** a two-column palette of line icons under the stats panel (concept A on `art/clay-set/toolbar.html`; the owner preferred line icons to clay thumbnails). Families (roads, zones, utilities, services, parks, overlays, menu) open fly-outs; the Manual / Auto road switch is in the Roads fly-out. To add a tool, add an item to `TOOLBAR` in `src/ui/Toolbar.ts`, an icon in `toolbarIcons.ts` and its two strings.
 - **Problem indicators:** merged pins per district when zoomed out, a badge per building when zoomed in (option A on `art/clay-set/indicators.html`). Hovering a badge with the inspect tool explains it.
 - **No power / no water:** a building without power goes dark (no look for no water: the owner found it too quiet), plus a bolt / drop pin per district when zoomed out and a bolt / drop badge on every affected lot when zoomed in (option D on `art/clay-set/utilities.html`, with badges added after the owner found the look alone did not explain itself). Empty zoned lots have no building to change, so they keep the old dark tint. The no-sewage / no-services tints are unchanged; ask the owner before reworking them.
 - **Commute:** violet pins for long-commute and cut-off lots, and the inspected lot's trip drawn along the roads (K1 + K2 on the same page); the inspect pane lists each trip against the limit.
