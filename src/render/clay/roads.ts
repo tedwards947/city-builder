@@ -282,13 +282,19 @@ const hash = (a: number, b: number, c: number): number => {
 };
 
 /**
- * Appends the cars showing on road tile (tx, ty) at `time` seconds to `out`.
+ * Writes the cars showing on road tile (tx, ty) at `time` seconds into `out`
+ * from index 0 and returns how many. `out` is a pool: its objects are reused
+ * from call to call (and added to when it is too short), so nothing is
+ * allocated per frame; read only the first `count` entries.
+ *
  * `load` is volume / capacity (not capped at 1); `goodsShare` (0–1) is how much
- * of the traffic is goods, which shows as vans and trucks.
+ * of the traffic is goods, which shows as vans and trucks; `density` (0–1)
+ * thins the cars, for tile sizes at which they are too small to read.
  */
-export function roadTrafficCars(tx: number, ty: number, cls: number, around: readonly number[], load: number, goodsShare: number, time: number, out: TrafficCar[]): void {
-  if (cls === ROAD_NONE || !(load > 0.04)) return;
-  const fill = Math.min(1, load * FILL_AT_CAPACITY);
+export function roadTrafficCars(tx: number, ty: number, cls: number, around: readonly number[], load: number, goodsShare: number, time: number, out: TrafficCar[], density = 1): number {
+  if (cls === ROAD_NONE || !(load > 0.04)) return 0;
+  const fill = Math.min(1, load * FILL_AT_CAPACITY) * density;
+  let count = 0;
   const braking = load > 1;
   const speed = trafficSpeed(cls, load);
   for (let axis = 0; axis < 2; axis++) {
@@ -312,19 +318,21 @@ export function roadTrafficCars(tx: number, ty: number, cls: number, around: rea
           const h = hash(k, line, lane * 13 + dir + axis * 17);
           // Drive on the right: eastbound south of the centre line, southbound west of it.
           const off = lanes[lane] * dir * (axis === 0 ? 1 : -1);
-          out.push({
-            x: axis === 0 ? s : 0.5 + off,
-            y: axis === 0 ? 0.5 + off : s,
-            dx: axis === 0 ? dir : 0,
-            dy: axis === 0 ? 0 : dir,
-            kind: h < goodsShare * 0.5 ? 2 : h < goodsShare ? 1 : h > 0.95 ? 1 : 0,
-            colour: Math.floor(h * 977) % CAR_COLOURS.length,
-            braking,
-          });
+          let car = out[count];
+          if (!car) { car = { x: 0, y: 0, dx: 0, dy: 0, kind: 0, colour: 0, braking: false }; out.push(car); }
+          count++;
+          car.x = axis === 0 ? s : 0.5 + off;
+          car.y = axis === 0 ? 0.5 + off : s;
+          car.dx = axis === 0 ? dir : 0;
+          car.dy = axis === 0 ? 0 : dir;
+          car.kind = h < goodsShare * 0.5 ? 2 : h < goodsShare ? 1 : h > 0.95 ? 1 : 0;
+          car.colour = Math.floor(h * 977) % CAR_COLOURS.length;
+          car.braking = braking;
         }
       }
     }
   }
+  return count;
 }
 
 // One baked picture per look (colour, kind, heading, braking), remembered with
@@ -389,9 +397,10 @@ function bakeCar(T: number, colourIdx: number, kind: CarKind, heading: number, b
   return canvas;
 }
 
-/** Draws cars from `roadTrafficCars` for the tile whose top-left corner is (sx, sy). */
-export function drawTrafficCars(ctx: Ctx, cars: readonly TrafficCar[], sx: number, sy: number, T: number): void {
-  for (const car of cars) {
+/** Draws the first `count` cars from `roadTrafficCars` for the tile whose top-left corner is (sx, sy). */
+export function drawTrafficCars(ctx: Ctx, cars: readonly TrafficCar[], count: number, sx: number, sy: number, T: number): void {
+  for (let n = 0; n < count; n++) {
+    const car = cars[n];
     const heading = car.dx > 0 ? 0 : car.dy > 0 ? 1 : car.dx < 0 ? 2 : 3;
     const key = ((car.colour * 3 + car.kind) * 4 + heading) * 2 + (car.braking ? 1 : 0);
     let entry = baked.get(key);

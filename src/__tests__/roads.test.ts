@@ -5,8 +5,8 @@ import { ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY } from '../sim/consta
 const EW = [ROAD_NONE, ROAD_STREET, ROAD_NONE, ROAD_STREET]; // N, E, S, W
 const cars = (load: number, time = 0, cls = ROAD_STREET, around = EW, goods = 0, tx = 5, ty = 7): TrafficCar[] => {
   const out: TrafficCar[] = [];
-  roadTrafficCars(tx, ty, cls, around, load, goods, time, out);
-  return out;
+  const count = roadTrafficCars(tx, ty, cls, around, load, goods, time, out);
+  return out.slice(0, count);
 };
 const average = (load: number, cls = ROAD_STREET, around = EW): number => {
   let n = 0;
@@ -96,7 +96,32 @@ describe('trafficSpeed', () => {
   });
 
   it('moves cars: the same road shows different positions a moment later', () => {
-    const at = (time: number): TrafficCar[] => { const out: TrafficCar[] = []; roadTrafficCars(5, 7, ROAD_HIGHWAY, [ROAD_NONE, ROAD_HIGHWAY, ROAD_NONE, ROAD_HIGHWAY], 0.9, 0, time, out); return out; };
+    const at = (time: number): TrafficCar[] => { const out: TrafficCar[] = []; return out.slice(0, roadTrafficCars(5, 7, ROAD_HIGHWAY, [ROAD_NONE, ROAD_HIGHWAY, ROAD_NONE, ROAD_HIGHWAY], 0.9, 0, time, out)); };
     expect(at(1)).not.toEqual(at(1.1));
+  });
+});
+
+describe('road traffic car pool', () => {
+  it('reuses the objects in the pool and reports how many are in use', () => {
+    const pool: TrafficCar[] = [];
+    const busy = roadTrafficCars(5, 7, ROAD_STREET, EW, 2, 0, 1, pool);
+    expect(busy).toBeGreaterThan(0);
+    const first = pool[0], size = pool.length;
+    const quiet = roadTrafficCars(5, 7, ROAD_STREET, EW, 0, 0, 1, pool);
+    expect(quiet).toBe(0);
+    expect(pool.length).toBe(size); // nothing dropped, nothing added
+    expect(roadTrafficCars(5, 7, ROAD_STREET, EW, 2, 0, 1, pool)).toBe(busy);
+    expect(pool[0]).toBe(first);
+  });
+
+  it('thins the cars by the density it is given', () => {
+    let full = 0, half = 0;
+    const pool: TrafficCar[] = [];
+    for (let tx = 0; tx < 300; tx++) {
+      full += roadTrafficCars(tx, 7, ROAD_STREET, EW, 1.5, 0, 2, pool, 1);
+      half += roadTrafficCars(tx, 7, ROAD_STREET, EW, 1.5, 0, 2, pool, 0.5);
+    }
+    expect(half).toBeGreaterThan(full * 0.35);
+    expect(half).toBeLessThan(full * 0.65);
   });
 });
