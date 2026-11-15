@@ -5,6 +5,40 @@ import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
 
+/** Inverse of `a` modulo `m`, or 0 if there is none (a and m share a factor). */
+function modInverse(a: number, m: number): number {
+  let r0 = m, r1 = a % m, t0 = 0, t1 = 1;
+  while (r1 !== 0) {
+    const q = Math.floor(r0 / r1);
+    [r0, r1] = [r1, r0 - q * r1];
+    [t0, t1] = [t1, t0 - q * t1];
+  }
+  return r0 === 1 ? ((t0 % m) + m) % m : 0;
+}
+
+/**
+ * The zoned tiles in the order a scan `i = (start + k·step) mod n`, k = 0…n-1,
+ * visits them. The scan reaches tile i at k = (i − start)·step⁻¹ mod n, so
+ * sorting by that k gives the order without walking the whole map. Returns
+ * null when step has no inverse mod n (the scan then repeats tiles, and the
+ * caller walks it as written).
+ */
+function steppedOrder(world: World, start: number, step: number, n: number): Int32Array | null {
+  const inv = modInverse(step, n);
+  if (inv === 0) return null;
+  const { zoned, zonedCount } = world.index;
+  const when = new Float64Array(n > 0 ? zonedCount : 0);
+  const order = new Int32Array(zonedCount);
+  for (let q = 0; q < zonedCount; q++) {
+    // Both factors are below n ≤ 2^20 or so, so the product is exact.
+    when[q] = ((((zoned[q] - start) % n) + n) % n) * inv % n;
+    order[q] = q;
+  }
+  order.sort((a, b) => when[a] - when[b]);
+  for (let q = 0; q < zonedCount; q++) order[q] = zoned[order[q]];
+  return order;
+}
+
 export class ZoneGrowthSystem {
   update(world: World): void {
     if (world.tick % BALANCE.growth.tickInterval !== 0) return;
@@ -29,8 +63,12 @@ export class ZoneGrowthSystem {
     const n = width * height;
     const step = 97;
     let idx = Math.floor(world.rng() * n);
-    for (let k = 0; k < n; k++) {
-      const i = (idx + k * step) % n;
+    // Only zoned tiles can grow, so visit just those — in the order the
+    // stepped scan would reach them, which keeps the random rolls identical.
+    const visit = steppedOrder(world, idx, step, n);
+    const count = visit ? visit.length : n;
+    for (let k = 0; k < count; k++) {
+      const i = visit ? visit[k] : (idx + k * step) % n;
       if (zone[i] === ZONE_NONE) continue;
       if (abandoned[i] !== 0) continue;
       if (dev[i] >= BALANCE.growth.maxLevel) continue;

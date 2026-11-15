@@ -15,11 +15,26 @@
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
 const LV = BALANCE.landValue;
 const DM = BALANCE.demand;
 
+// How far a tile's land value looks for things that change it: congestion
+// within 2 tiles, industry / neighbours within industryRadius, and coverage
+// layers that reach a tile or so off the roads.
+const REACH = Math.max(2, LV.industryRadius, BALANCE.power.propagationRange, BALANCE.water.propagationRange, 1);
+
 export class LandValueSystem {
+  // Land value is defined on every tile, but away from the city it sits at a
+  // resting value that never changes. So each run only recomputes the tiles
+  // that can move — near something built, in pollution, or still easing
+  // toward rest — and keeps a running total of the layer for the average.
+  private readonly _pollution = new FieldBounds();
+  private _layer: Uint8Array | null = null;   // the layer `_total` and `_easing` describe
+  private _total = 0;                          // sum of the whole layer
+  private _easing: Rect = { x0: 0, y0: 0, x1: -1, y1: -1 }; // tiles that changed last run
+
   update(world: World): void {
     if (world.tick % BALANCE.growth.tickInterval !== 0) return;
 
@@ -37,9 +52,29 @@ export class LandValueSystem {
     const roadClass = world.layers.roadClass;
 
     // ── Per-tile land value ────────────────────────────────────────────────────
-    let lvSum = 0;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
+    // Which tiles to recompute. The first run on a layer does the whole map
+    // (that also establishes the total). After that: everything within REACH
+    // of the built-up area, everything in pollution, and whatever changed
+    // last run. A tile outside all three has only resting inputs and did not
+    // move last time, so it is at its fixed point and stays there.
+    let region: Rect;
+    const firstRun = lv !== this._layer;
+    if (firstRun) {
+      this._layer = lv;
+      this._total = 0;
+      region = { x0: 0, y0: 0, x1: width - 1, y1: height - 1 };
+    } else {
+      this._pollution.scan(poll, width, 0);
+      region = unionRect(
+        unionRect(growRect(world.index.area(world), width, height, REACH), this._pollution.rect()),
+        this._easing,
+      );
+    }
+
+    let delta = 0;
+    let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
+    for (let y = region.y0; y <= region.y1; y++) {
+      for (let x = region.x0; x <= region.x1; x++) {
         const i = y * width + x;
 
         let target: number = LV.base;
@@ -87,16 +122,29 @@ export class LandValueSystem {
 
         target = Math.max(0, Math.min(255, target));
         // Smooth toward target.
-        lv[i] = Math.round(lv[i] * (1 - LV.smoothing) + target * LV.smoothing);
-        lvSum += lv[i];
+        const before = lv[i];
+        const after = Math.round(before * (1 - LV.smoothing) + target * LV.smoothing);
+        lv[i] = after;
+        if (firstRun) delta += after;
+        else delta += after - before;
+        if (after !== before) {
+          if (x < cx0) cx0 = x;
+          if (x > cx1) cx1 = x;
+          if (y < cy0) cy0 = y;
+          if (y > cy1) cy1 = y;
+        }
       }
     }
-    world.stats.avgLandValue = Math.round(lvSum / n);
+    this._total += delta;
+    this._easing = { x0: cx0, y0: cy0, x1: cx1, y1: cy1 };
+    world.stats.avgLandValue = Math.round(this._total / n);
 
     // ── Demand curves ──────────────────────────────────────────────────────────
     // Tally dev levels per zone type across the city.
     let rDev = 0, cDev = 0, iDev = 0;
-    for (let i = 0; i < n; i++) {
+    const { zoned, zonedCount } = world.index;
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (dev[i] === 0) continue;
       if (zone[i] === ZONE_R) rDev += dev[i];
       else if (zone[i] === ZONE_C) cDev += dev[i];

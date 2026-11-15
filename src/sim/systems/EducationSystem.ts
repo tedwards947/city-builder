@@ -10,14 +10,15 @@ import { BALANCE } from '../../data/balance';
  */
 export class EducationSystem {
   update(world: World): void {
-    const { width, height } = world.grid;
-    const n = width * height;
+    const { width } = world.grid;
     const zone = world.layers.zone;
     const school = world.layers.school;
     const education = world.layers.education;
     const b = BALANCE.education;
 
-    for (let i = 0; i < n; i++) {
+    const area = world.index.area(world);
+    for (let y = area.y0; y <= area.y1; y++) {
+    for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
       if (zone[i] !== ZONE_R) {
         // Non-residential zones don't track education level (or it decays immediately).
         education[i] = 0;
@@ -37,6 +38,7 @@ export class EducationSystem {
 
       // Clamp to 0-255.
       education[i] = Math.min(255, Math.max(0, Math.floor(next)));
+    }
     }
   }
 }

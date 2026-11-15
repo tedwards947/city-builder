@@ -19,8 +19,7 @@ export class HealthcareSystem {
   private _lastCrisisAlertTick = -Infinity;
 
   update(world: World): void {
-    const { width, height } = world.grid;
-    const n = width * height;
+    const { width } = world.grid;
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     const hospital = world.layers.hospital;
@@ -29,7 +28,9 @@ export class HealthcareSystem {
     const abandoned = world.layers.abandoned;
     const b = BALANCE.healthcare;
 
-    for (let i = 0; i < n; i++) {
+    const area = world.index.area(world);
+    for (let y = area.y0; y <= area.y1; y++) {
+    for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
       // Tick down the recentDeath visual timer on all tiles.
       if (recentDeath[i] > 0) {
         recentDeath[i]--;
@@ -60,6 +61,7 @@ export class HealthcareSystem {
         world.events.emit('deathEvent', { tx: i % width, ty: (i / width) | 0 });
       }
     }
+    }
 
     // Emit healthcareCrisis when city-wide average sickness exceeds threshold (with cooldown).
     const cooldown = world.tick - this._lastCrisisAlertTick >= b.crisisCooldownTicks;
@@ -67,7 +69,9 @@ export class HealthcareSystem {
       let sicknessSum = 0;
       let sicknessCount = 0;
       let affectedTiles = 0;
-      for (let i = 0; i < n; i++) {
+      const { zoned, zonedCount } = world.index;
+      for (let k = 0; k < zonedCount; k++) {
+        const i = zoned[k];
         if (zone[i] === ZONE_R && dev[i] > 0 && abandoned[i] === 0) {
           sicknessSum += sickness[i];
           sicknessCount++;

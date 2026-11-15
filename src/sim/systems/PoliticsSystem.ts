@@ -28,9 +28,10 @@ const servicesCoverageFactor: SatisfactionFactor = {
   name: 'servicesCoverage',
   compute(world) {
     const { zone, devLevel, services } = world.layers;
-    const n = world.grid.width * world.grid.height;
+    const { zoned, zonedCount } = world.index;
     let total = 0, covered = 0;
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] === ZONE_R && devLevel[i] > 0) {
         total++;
         if (services[i]) covered++;
@@ -46,9 +47,10 @@ const powerCoverageFactor: SatisfactionFactor = {
   name: 'powerCoverage',
   compute(world) {
     const { zone, devLevel, power } = world.layers;
-    const n = world.grid.width * world.grid.height;
+    const { zoned, zonedCount } = world.index;
     let total = 0, covered = 0;
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
         total++;
         if (power[i]) covered++;
@@ -63,9 +65,10 @@ const waterCoverageFactor: SatisfactionFactor = {
   name: 'waterCoverage',
   compute(world) {
     const { zone, devLevel, water } = world.layers;
-    const n = world.grid.width * world.grid.height;
+    const { zoned, zonedCount } = world.index;
     let total = 0, covered = 0;
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
         total++;
         if (water[i]) covered++;
@@ -80,9 +83,10 @@ const crimeFactor: SatisfactionFactor = {
   name: 'crime',
   compute(world) {
     const { zone, devLevel, crime } = world.layers;
-    const n = world.grid.width * world.grid.height;
+    const { zoned, zonedCount } = world.index;
     let total = 0, sum = 0;
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
         total++;
         sum += crime[i];

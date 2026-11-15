@@ -9,8 +9,7 @@ import { BALANCE } from '../../data/balance';
  */
 export class FireSystem {
   update(world: World): void {
-    const { width, height } = world.grid;
-    const n = width * height;
+    const { width } = world.grid;
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     const pollution = world.layers.pollution;
@@ -21,7 +20,9 @@ export class FireSystem {
 
     const building = world.layers.building;
 
-    for (let i = 0; i < n; i++) {
+    const area = world.index.area(world);
+    for (let y = area.y0; y <= area.y1; y++) {
+    for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
       const z = zone[i];
 
       // Skip tiles that are empty and have no active fire / residual risk.
@@ -114,6 +115,7 @@ export class FireSystem {
           world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level });
         }
       }
+    }
     }
   }
 }

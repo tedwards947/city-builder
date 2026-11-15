@@ -12,15 +12,16 @@ export class CrimeSystem {
   private _lastAlertTick = -Infinity;
 
   update(world: World): void {
-    const { width, height } = world.grid;
-    const n = width * height;
+    const { width } = world.grid;
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     const police = world.layers.police;
     const crime = world.layers.crime;
     const b = BALANCE.crime;
 
-    for (let i = 0; i < n; i++) {
+    const area = world.index.area(world);
+    for (let y = area.y0; y <= area.y1; y++) {
+    for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
       const z = zone[i];
       if (z === ZONE_NONE) {
         // No zone, crime decays to 0.
@@ -69,6 +70,7 @@ export class CrimeSystem {
       }
       crime[i] = Math.min(255, Math.max(0, rounded));
     }
+    }
 
     // Emit crimeSpike when city-wide average exceeds threshold (with cooldown).
     const cooldown = world.tick - this._lastAlertTick >= b.alertCooldownTicks;
@@ -76,7 +78,9 @@ export class CrimeSystem {
       let crimeSum = 0;
       let crimeCount = 0;
       let affectedTiles = 0;
-      for (let i = 0; i < n; i++) {
+      const { zoned, zonedCount } = world.index;
+      for (let k = 0; k < zonedCount; k++) {
+        const i = zoned[k];
         if (zone[i] !== ZONE_NONE && dev[i] > 0) {
           crimeSum += crime[i];
           crimeCount++;

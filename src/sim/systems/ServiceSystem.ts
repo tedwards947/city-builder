@@ -83,7 +83,6 @@ export function computeServiceCoverage(
 
 export class ServiceSystem {
   update(world: World): void {
-    const { width, height } = world.grid;
     const services = world.layers.services;
     const police = world.layers.police;
     const fireStation = world.layers.fireStation;
@@ -116,7 +115,9 @@ export class ServiceSystem {
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     let covered = 0;
-    for (let i = 0; i < width * height; i++) {
+    const { zoned, zonedCount } = world.index;
+    for (let k = 0; k < zonedCount; k++) {
+      const i = zoned[k];
       if (zone[i] !== ZONE_NONE && dev[i] > 0 && services[i] === 1) covered++;
     }
     world.stats.servicesCoveredZones = covered;
