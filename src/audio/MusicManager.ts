@@ -129,6 +129,26 @@ export class MusicManager {
     if (wasPlaying) this.start(); else this.onTrackChange(this.tracks[this.currentTrackIndex].name);
   }
 
+  /** Every loaded track name, in playlist order. */
+  public getTrackNames(): string[] {
+    return this.tracks.map(t => t.name);
+  }
+
+  /**
+   * Jump to a track by name and play it from the top (starting playback if paused).
+   * The playlist then carries on in its usual order from that track. Returns false for an unknown name.
+   */
+  public playTrack(name: string): boolean {
+    const index = this.tracks.findIndex(t => t.name === name);
+    if (index < 0) return false;
+    this.stop();
+    this.currentTrackIndex = index;
+    this.noteIndex = 0;
+    this.seqIndex = 0;
+    this.start();
+    return true;
+  }
+
   private scheduler() {
     // 0.5s lookahead: large enough that background tab throttling (setTimeout → ~1s) won't cause gaps
     let loopLimit = 0;

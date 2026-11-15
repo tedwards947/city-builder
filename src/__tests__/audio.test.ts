@@ -111,6 +111,19 @@ describe('MusicManager', () => {
     expect(musicManager.getTrackName()).toBe('Cloudy Sky');
   });
 
+  it('lists every track and jumps to a picked one, starting playback', () => {
+    const names = musicManager.getTrackNames();
+    expect(names).toHaveLength(TRACK_COUNT);
+    expect(musicManager.playTrack('Sunrise · Dawn Waltz')).toBe(true);
+    expect(musicManager.getTrackName()).toBe('Sunrise · Dawn Waltz');
+    expect(musicManager.isCurrentlyPlaying()).toBe(true);
+    expect(lastTrackName).toBe('Sunrise · Dawn Waltz');
+    // the playlist carries on from the picked track
+    musicManager.next();
+    expect(musicManager.getTrackName()).toBe(names[names.indexOf('Sunrise · Dawn Waltz') + 1]);
+    expect(musicManager.playTrack('No Such Song')).toBe(false);
+  });
+
   it('applies and clamps the volume', () => {
     musicManager.setVolume(0.5);
     musicManager.start(); // context created after setVolume: starts at the chosen level

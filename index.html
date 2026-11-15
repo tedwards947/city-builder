@@ -121,24 +121,36 @@
     /* Stops 100px short of the screen centre, clear of the centred #speedbar (~165px wide).
        The title and volume slider shrink to fit; long titles scroll (see MusicPanel.refreshMarquee). */
     #music-panel { position: absolute; top: 10px; left: 160px; max-width: calc(50vw - 260px); box-sizing: border-box; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(8px); pointer-events: auto; font-size: 11px; color: #eee; border: 1px solid rgba(255,255,255,0.12); }
-    /* Below ~920px the side slot is narrower than the panel's minimum (~200px): tuck it centred under the speed bar */
-    @media (max-width: 920px) {
-      #music-panel { top: 48px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); min-width: 200px; }
+    /* Below ~980px the side slot is narrower than the panel's minimum (~235px): tuck it centred under the speed bar */
+    @media (max-width: 980px) {
+      #music-panel { top: 48px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); min-width: 235px; }
     }
     .mp-track-info { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 48px; }
     .mp-label { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
     .mp-track-name { display: block; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; max-width: 140px; }
     .mp-marquee { display: inline-block; white-space: nowrap; }
-    .mp-marquee.scrolling { animation: mp-marquee var(--mp-duration, 6s) ease-in-out infinite alternate; }
-    @keyframes mp-marquee { 0%, 20% { transform: translateX(0); } 80%, 100% { transform: translateX(var(--mp-shift, 0)); } }
     @media (prefers-reduced-motion: reduce) {
       .mp-track-name { text-overflow: ellipsis; }
-      .mp-marquee, .mp-marquee.scrolling { display: inline; animation: none; }
+      .mp-marquee { display: inline; }
     }
     .mp-volume { flex: 0 1 64px; width: 64px; min-width: 36px; margin: 0; accent-color: #8aa; cursor: pointer; }
     .mp-controls { display: flex; gap: 6px; flex: none; }
     .mp-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 28px; height: 28px; border-radius: 4px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .mp-btn:hover { background: rgba(255,255,255,0.2); }
+    .mp-btn[aria-expanded="true"] { background: #4a7a9a; border-color: #6ba0c0; }
+    /* Song picker: drops down from the music panel */
+    .mp-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; min-width: 220px; max-height: min(60vh, 420px); overflow-y: auto;
+      background: rgba(10,18,28,0.95); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 6px; backdrop-filter: blur(8px);
+      display: flex; flex-direction: column; gap: 1px; font-size: 12px; }
+    .mp-menu[hidden] { display: none; }
+    .mp-menu-song { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 8px 3px; }
+    .mp-menu-song:first-child { padding-top: 3px; }
+    .mp-menu-item { background: none; border: none; border-radius: 4px; color: #eee; text-align: left; font: inherit; padding: 5px 8px; cursor: pointer; white-space: nowrap; }
+    .mp-menu-item.take { padding-left: 16px; }
+    .mp-menu-item:hover, .mp-menu-item:focus-visible { background: rgba(255,255,255,0.12); outline: none; }
+    .mp-menu-item.current { color: #fff; font-weight: 600; background: rgba(74,122,154,0.45); }
+    .mp-menu-item.current::after { content: '♪'; margin-left: 8px; color: #8cc8e8; }
+    .mp-menu-empty { color: #8aa; padding: 6px 8px; }
 
     /* ── Toast system ── */
     #toast-container { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 1000; width: 280px; align-items: center; }

@@ -21,6 +21,10 @@ export class MusicPanel {
   private trackBoxEl: HTMLElement;
   private playPauseBtn: HTMLButtonElement;
   private nextBtn: HTMLButtonElement;
+  private listBtn: HTMLButtonElement;
+  private marqueeAnim: Animation | null = null;
+  private marqueeKey = '';
+  private menuEl: HTMLElement;
   private musicManager: MusicManager;
 
   constructor(musicManager: MusicManager) {
@@ -36,9 +40,12 @@ export class MusicPanel {
       <div class="mp-controls">
         <button class="mp-btn" id="mp-play-pause">▶</button>
         <button class="mp-btn" id="mp-next">⏭</button>
+        <button class="mp-btn" id="mp-list" title="Pick a song" aria-label="Pick a song"
+                aria-haspopup="true" aria-expanded="false" aria-controls="mp-menu">☰</button>
       </div>
       <input class="mp-volume" id="mp-volume" type="range" min="0" max="100" step="1"
              aria-label="Music volume" title="Music volume">
+      <div class="mp-menu" id="mp-menu" role="menu" aria-label="Songs" hidden></div>
     `;
 
     document.body.appendChild(this.el);
@@ -79,7 +86,74 @@ export class MusicPanel {
     // Release focus after a drag; the game ignores its shortcuts while an input has focus
     volumeEl.addEventListener('change', () => volumeEl.blur());
 
+    // Song picker
+    this.listBtn = document.getElementById('mp-list') as HTMLButtonElement;
+    this.menuEl = document.getElementById('mp-menu')!;
+    this.listBtn.addEventListener('click', () => (this.menuEl.hidden ? this.openMenu() : this.closeMenu()));
+    this.menuEl.addEventListener('click', (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-track]');
+      if (!item) return;
+      this.musicManager.playTrack(item.dataset.track!);
+      this.closeMenu();
+      this.updateUI();
+    });
+    // Close on a click anywhere else, or Escape
+    document.addEventListener('pointerdown', (e) => {
+      if (!this.menuEl.hidden && !this.el.contains(e.target as Node)) this.closeMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.menuEl.hidden) this.closeMenu();
+    });
+
     this.updateUI();
+  }
+
+  /** Songs grouped by name ("Song · Take"), alphabetical, original first; the current track is marked. */
+  private openMenu() {
+    const names = this.musicManager.getTrackNames();
+    const current = this.musicManager.getTrackName();
+    const groups = new Map<string, string[]>();
+    for (const n of [...names].sort((a, b) => a.localeCompare(b))) {
+      const song = n.split(' · ')[0];
+      if (!groups.has(song)) groups.set(song, []);
+      groups.get(song)!.push(n);
+    }
+    this.menuEl.replaceChildren();
+    if (names.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'mp-menu-empty';
+      empty.textContent = 'Songs are still loading…';
+      this.menuEl.append(empty);
+    }
+    for (const [song, tracks] of groups) {
+      const single = tracks.length === 1 && tracks[0] === song;
+      if (!single) {
+        const head = document.createElement('div');
+        head.className = 'mp-menu-song';
+        head.textContent = song;
+        this.menuEl.append(head);
+      }
+      for (const name of tracks) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'mp-menu-item' + (single ? '' : ' take');
+        item.setAttribute('role', 'menuitem');
+        item.dataset.track = name;
+        item.textContent = single ? name : (name.split(' · ')[1] ?? 'Original');
+        if (name === current) { item.classList.add('current'); item.setAttribute('aria-current', 'true'); }
+        this.menuEl.append(item);
+      }
+    }
+    this.menuEl.hidden = false;
+    this.listBtn.setAttribute('aria-expanded', 'true');
+    this.menuEl.querySelector<HTMLElement>('.current')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  private closeMenu() {
+    this.menuEl.hidden = true;
+    this.listBtn.setAttribute('aria-expanded', 'false');
+    // Don't leave focus on the panel: Space is the game's pause key
+    (document.activeElement as HTMLElement | null)?.blur();
   }
 
   public updateUI() {
@@ -99,16 +173,35 @@ export class MusicPanel {
     this.refreshMarquee();
   }
 
-  /** Scroll the title back and forth when it is wider than its box. */
+  /**
+   * Marquee for titles wider than their box: hold at the start, scroll to the end once,
+   * hold there, then fade back to the start (no scrolling backwards) and repeat.
+   */
   private refreshMarquee() {
     const text = this.trackNameEl;
-    const overflow = text.scrollWidth - this.trackBoxEl.clientWidth;
-    const scrolling = overflow > 2;
-    if (scrolling) {
-      text.style.setProperty('--mp-shift', `${-overflow}px`);
-      // ~30 px/s for the moving part, plus the pauses at each end
-      text.style.setProperty('--mp-duration', `${(overflow / 30 / 0.6).toFixed(2)}s`);
-    }
-    text.classList.toggle('scrolling', scrolling);
+    const overflow = Math.round(text.scrollWidth - this.trackBoxEl.clientWidth);
+    const key = `${text.textContent}|${overflow}`;
+    if (key === this.marqueeKey) return; // same title, same fit: let the running loop continue
+    this.marqueeKey = key;
+    this.marqueeAnim?.cancel();
+    this.marqueeAnim = null;
+
+    const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (overflow <= 2 || reducedMotion || typeof text.animate !== 'function') return; // CSS shows an ellipsis
+
+    const HOLD_START = 3000, HOLD_END = 2500, FADE = 300; // ms
+    const scroll = (overflow / 30) * 1000; // ~30 px/s
+    const total = HOLD_START + scroll + HOLD_END + 2 * FADE;
+    const at = (ms: number) => ms / total;
+    const start = 'translateX(0)', end = `translateX(${-overflow}px)`;
+    this.marqueeAnim = text.animate([
+      { transform: start, opacity: 1, offset: 0 },
+      { transform: start, opacity: 1, offset: at(HOLD_START), easing: 'ease-in-out' },
+      { transform: end, opacity: 1, offset: at(HOLD_START + scroll) },
+      { transform: end, opacity: 1, offset: at(HOLD_START + scroll + HOLD_END) },
+      { transform: end, opacity: 0, offset: at(HOLD_START + scroll + HOLD_END + FADE) },
+      { transform: start, opacity: 0, offset: at(HOLD_START + scroll + HOLD_END + FADE) },
+      { transform: start, opacity: 1, offset: 1 },
+    ], { duration: total, iterations: Infinity });
   }
 }
