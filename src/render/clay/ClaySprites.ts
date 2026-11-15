@@ -421,3 +421,60 @@ function drawFlare(ctx: CanvasRenderingContext2D, ox: number, oy: number, u: num
   flame(1, '#f2762e'); flame(0.68, '#f9b233'); flame(0.36, '#fff0a8');
   drawPlume(ctx, ox + lean, oy - h, u, t, seed, '#5d5f65', '#3f4146', 0.55, 4, 44, 2.6);
 }
+
+/** One clay flame: three nested tongues, base centred on (ox, oy). */
+function flameTongue(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, lean: number): void {
+  const layer = (scale: number, colour: string): void => {
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.moveTo(ox - w * scale, oy);
+    ctx.quadraticCurveTo(ox - w * scale * 1.25, oy - h * scale * 0.55, ox + lean * scale, oy - h * scale);
+    ctx.quadraticCurveTo(ox + w * scale * 1.25, oy - h * scale * 0.55, ox + w * scale, oy);
+    ctx.closePath(); ctx.fill();
+  };
+  layer(1, '#e8542a'); layer(0.68, '#f9a633'); layer(0.36, '#fff0a8');
+}
+
+/**
+ * A building on fire: a warm glow on the plot, a handful of clay flames that
+ * re-pose every step, and dark smoke above. (x, y) is the tile's top-left
+ * corner, `strength` 0..1 is how fiercely it burns. Time-pure, like the smoke.
+ */
+export function drawClayFire(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, t: number, seed: number, strength: number): void {
+  const ts = Math.floor(t * 10) / 10;
+  const step = Math.floor(ts * 8);
+  const s = Math.floor(seed * 9973);
+  const power = 0.55 + 0.45 * Math.min(1, Math.max(0, strength));
+
+  ctx.fillStyle = `rgba(255,110,30,${(0.16 + 0.1 * hash(s, step)).toFixed(3)})`;
+  ctx.fillRect(x, y, tile, tile);
+
+  // Fewer flames on small tiles; fixed spots per lot, drawn back to front.
+  const count = tile >= 40 ? 5 : tile >= 20 ? 3 : 2;
+  for (let k = 0; k < count; k++) {
+    const fx = x + tile * (0.18 + 0.64 * ((k + 0.5) / count) + (hash(s + k, 7) - 0.5) * 0.12);
+    const fy = y + tile * (0.5 + 0.42 * (k % 2 ? 0.25 : 0.85) + (hash(s + k, 11) - 0.5) * 0.1);
+    const flick = 0.7 + 0.6 * hash(s + k * 31, step);
+    const h = tile * 0.46 * power * flick;
+    const lean = (hash(s + k * 17, step) - 0.5) * tile * 0.14;
+    flameTongue(ctx, fx, Math.min(fy, y + tile - 1), tile * 0.1 * power, h, lean);
+  }
+  if (tile >= 12) drawPlume(ctx, x + tile * 0.5, y + tile * 0.25, tile / 200, ts, seed, '#55565c', '#38393e', 1.5, 6, 85, 3.2);
+}
+
+/**
+ * A lot that has just burned: soot over the plot and thin smoke, fading out
+ * as `fade` goes from 1 to 0.
+ */
+export function drawClaySmolder(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, t: number, seed: number, fade: number): void {
+  const f = Math.min(1, Math.max(0, fade));
+  if (f <= 0) return;
+  ctx.fillStyle = `rgba(22,14,10,${(0.5 * f).toFixed(3)})`;
+  ctx.fillRect(x, y, tile, tile);
+  if (tile >= 12 && f > 0.15) {
+    const ts = Math.floor(t * 10) / 10;
+    const size = 0.5 + 0.6 * f;
+    drawPlume(ctx, x + tile * 0.38, y + tile * 0.45, tile / 200, ts, seed, '#77787e', '#55565c', size, 3, 60, 4.2);
+    drawPlume(ctx, x + tile * 0.66, y + tile * 0.6, tile / 200, ts, seed + 0.37, '#77787e', '#55565c', size * 0.8, 3, 50, 5);
+  }
+}

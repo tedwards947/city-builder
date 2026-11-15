@@ -1,6 +1,4 @@
 import { SpriteRegistry } from './SpriteRegistry';
-import { TestHouse } from './entities/TestHouse';
-import { IndustrialHouse } from './entities/IndustrialHouse';
 import * as CottageL1 from './entities/res-low/CottageL1';
 import * as ModernBoxL1 from './entities/res-low/ModernBoxL1';
 import * as AFrameCabinL1 from './entities/res-low/AFrameCabinL1';
@@ -84,8 +82,6 @@ export function initSpriteRegistry(): void {
   const reg = SpriteRegistry.instance;
   
   // Register all entities here
-  reg.register(TestHouse);
-  reg.register(IndustrialHouse);
 
   // Residential Level 1 (Individual assets)
   Object.values(CottageL1).forEach(entity => reg.register(entity as any));

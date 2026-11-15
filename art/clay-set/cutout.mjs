@@ -2,7 +2,7 @@
 //   node art/clay-set/cutout.mjs
 // raw/*.png (JPEG or PNG data, 1024px, magenta background)
 //   → sprites/*.png (256px RGBA) + sprites/manifest.json (plot rectangle per sprite)
-//   → public/sprites/clay/*.png (128px RGBA, what the game loads)
+//   → public/sprites/clay/*.png (128px, 256-colour palette PNG with alpha: what the game loads)
 //     + src/render/clay/claySpriteData.ts (plot rectangle per game sprite)
 // No dependencies: macOS `sips` converts to BMP, which is trivial to read.
 import { execFileSync } from 'node:child_process';
@@ -163,6 +163,70 @@ function writePng(path, { w, h, rgba }) {
   ]));
 }
 
+// ── Palette PNG (game sprites) ──────────────────────────────────────────────
+// 256 RGBA colours per sprite: about half the bytes of truecolour, and at
+// 128px the difference is not visible. Median cut, then a few k-means passes.
+function quantize({ w, h, rgba }, maxColours = 255) {
+  const n = w * h;
+  const idx = [];
+  for (let i = 0; i < n; i++) if (rgba[i * 4 + 3] > 0) idx.push(i);
+  // Median cut over the opaque-ish pixels (index 0 is reserved for transparent).
+  let boxes = [idx];
+  const range = (box) => {
+    let best = 0, bestC = 0;
+    for (let c = 0; c < 4; c++) {
+      let lo = 255, hi = 0;
+      for (const i of box) { const v = rgba[i * 4 + c]; if (v < lo) lo = v; if (v > hi) hi = v; }
+      // Alpha differences matter more at the edges than a colour step does.
+      const r = (hi - lo) * (c === 3 ? 1.5 : 1);
+      if (r > best) { best = r; bestC = c; }
+    }
+    return [best * Math.sqrt(box.length), bestC];
+  };
+  while (boxes.length < maxColours) {
+    let pick = -1, score = 0, ch = 0;
+    boxes.forEach((b, k) => { if (b.length < 2) return; const [s, c] = range(b); if (s > score) { score = s; pick = k; ch = c; } });
+    if (pick < 0) break;
+    const box = boxes[pick].sort((a, b) => rgba[a * 4 + ch] - rgba[b * 4 + ch]);
+    const mid = box.length >> 1;
+    boxes.splice(pick, 1, box.slice(0, mid), box.slice(mid));
+  }
+  let pal = boxes.map((box) => {
+    const s = [0, 0, 0, 0];
+    for (const i of box) for (let c = 0; c < 4; c++) s[c] += rgba[i * 4 + c];
+    return s.map((v) => v / Math.max(1, box.length));
+  });
+  const out = new Uint8Array(n); // 0 = transparent
+  const nearest = (i) => {
+    let best = 0, bd = Infinity;
+    const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], a = rgba[i * 4 + 3];
+    for (let k = 0; k < pal.length; k++) {
+      const p = pal[k], d = (p[0] - r) ** 2 + (p[1] - g) ** 2 + (p[2] - b) ** 2 + 2 * (p[3] - a) ** 2;
+      if (d < bd) { bd = d; best = k; }
+    }
+    return best;
+  };
+  for (let pass = 0; pass < 4; pass++) {
+    const sum = pal.map(() => [0, 0, 0, 0, 0]);
+    for (const i of idx) { const k = nearest(i); out[i] = k + 1; const s = sum[k]; for (let c = 0; c < 4; c++) s[c] += rgba[i * 4 + c]; s[4]++; }
+    if (pass < 3) pal = pal.map((p, k) => (sum[k][4] ? sum[k].slice(0, 4).map((v) => v / sum[k][4]) : p));
+  }
+  return { w, h, indices: out, palette: [[0, 0, 0, 0], ...pal.map((p) => p.map(Math.round))] };
+}
+function writePalettePng(path, img) {
+  const { w, h, indices, palette } = quantize(img);
+  const raw = Buffer.alloc((w + 1) * h); // filter 0: indexed rows compress best unfiltered
+  for (let y = 0; y < h; y++) Buffer.from(indices.buffer, y * w, w).copy(raw, y * (w + 1) + 1);
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 3;
+  writeFileSync(path, Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr),
+    chunk('PLTE', Buffer.from(palette.flatMap((p) => [p[0], p[1], p[2]]))),
+    chunk('tRNS', Buffer.from(palette.map((p) => p[3]))),
+    chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0)),
+  ]));
+}
+
 const manifest = {};
 const gameManifest = {};
 const tmp = join(tmpdir(), `clay-cutout-${process.pid}.bmp`);
@@ -171,7 +235,7 @@ for (const f of readdirSync(RAW).filter((f) => f.endsWith('.png')).sort()) {
   const cut = cutout(readBmp(tmp));
   const small = downscale(cut, SCALE);
   const game = downscale(cut, GAME_SCALE);
-  writePng(join(GAME_OUT, f), game);
+  writePalettePng(join(GAME_OUT, f), game);
   const gp = findPlot(game);
   gameManifest[f.replace(/\.png$/, "")] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
   writePng(join(OUT, f), small);
