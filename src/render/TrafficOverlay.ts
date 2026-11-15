@@ -189,12 +189,6 @@ export class TrafficOverlay {
     }
     const upC = this._upC, upI = this._upI;
 
-    // For a destination, draw the roads its traffic arrives by, with arrows.
-    if (L.roadClass[hover] === ROAD_NONE) {
-      if (targetsC.length > 0) this._drawArrivals(ctx, camera, world, data.toC, upC, targetsC, TO_COMMERCE, bounds, ts);
-      if (targetsI.length > 0) this._drawArrivals(ctx, camera, world, data.toI, upI, targetsI, TO_INDUSTRY, bounds, ts);
-    }
-
     const pad = Math.max(1, Math.round(ts * 0.12));
     ctx.lineWidth = Math.max(1.5, ts * 0.12);
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
@@ -235,84 +229,6 @@ export class TrafficOverlay {
     }
   }
 
-  /**
-   * Every road that carries traffic toward `targets` (the doors of a hovered
-   * destination): lines along the roads, arrows pointing the way it drives,
-   * and a dot on each door. `up` marks the road tiles upstream of the doors.
-   */
-  private _drawArrivals(
-    ctx: Ctx, camera: Camera, world: World, field: TrafficField, up: Uint8Array, targets: number[], color: string,
-    bounds: { x0: number; y0: number; x1: number; y1: number }, ts: number,
-  ): void {
-    const { width } = world.grid;
-    const data = world.traffic!;
-    const { parent } = field;
-    const volume = (i: number) => (field === data.toC ? data.volRC[i] + data.volIC[i] : data.volRI[i]);
-    const cx = (i: number) => camera.worldToScreenX(Projection.tileToWorldX(i % width)) + ts / 2;
-    const cy = (i: number) => camera.worldToScreenY(Projection.tileToWorldY((i - (i % width)) / width)) + ts / 2;
-    const lw = Math.max(2, ts * 0.22);
-
-    // One path for all the segments: each tile joined to the next one on its way.
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
-      for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
-        const ri = ty * width + tx;
-        if (up[ri] !== 1 || volume(ri) <= 0) continue;
-        const p = parent[ri];
-        if (p < 0 || up[p] !== 1) continue;   // the door itself, or past it
-        ctx.moveTo(cx(ri), cy(ri));
-        ctx.lineTo(cx(p), cy(p));
-      }
-    }
-    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-    ctx.lineWidth = lw + 2;
-    ctx.stroke();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lw;
-    ctx.stroke();
-
-    // Arrowheads on a regular pattern of tiles, so every branch gets some.
-    const every = Math.max(2, Math.round(48 / ts));
-    const a = Math.max(3, ts * 0.34);
-    ctx.fillStyle = '#fff';
-    for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
-      for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
-        if ((tx + ty) % every !== 0) continue;
-        const ri = ty * width + tx;
-        if (up[ri] !== 1 || volume(ri) <= 0) continue;
-        const p = parent[ri];
-        if (p < 0 || up[p] !== 1) continue;
-        this._arrowhead(ctx, cx(ri), cy(ri), Math.sign(cx(p) - cx(ri)), Math.sign(cy(p) - cy(ri)), ts, a);
-      }
-    }
-
-    for (const door of targets) this._dot(ctx, cx(door), cy(door), color, ts);
-  }
-
-  /** An arrowhead on the edge between a tile centred at (x0, y0) and its neighbour in direction (dx, dy). */
-  private _arrowhead(ctx: Ctx, x0: number, y0: number, dx: number, dy: number, ts: number, a: number): void {
-    const mx = x0 + dx * ts / 2, my = y0 + dy * ts / 2;
-    ctx.beginPath();
-    ctx.moveTo(mx + dx * a, my + dy * a);
-    ctx.lineTo(mx - dx * a * 0.6 - dy * a * 0.8, my - dy * a * 0.6 + dx * a * 0.8);
-    ctx.lineTo(mx - dx * a * 0.6 + dy * a * 0.8, my - dy * a * 0.6 - dx * a * 0.8);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  /** The dot that marks where a route ends. */
-  private _dot(ctx: Ctx, x: number, y: number, color: string, ts: number): void {
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(3, ts * 0.3), 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#fff';
-    ctx.stroke();
-  }
-
   /** A line through the route's tile centres, with arrowheads in driving direction. */
   private _drawRoute(ctx: Ctx, camera: Camera, width: number, path: number[], color: string, ts: number): void {
     if (path.length === 0) return;
@@ -338,10 +254,23 @@ export class TrafficOverlay {
     ctx.fillStyle = '#fff';
     for (let k = every >> 1; k + 1 < path.length; k += every) {
       const x0 = cx(path[k]), y0 = cy(path[k]);
-      this._arrowhead(ctx, x0, y0, Math.sign(cx(path[k + 1]) - x0), Math.sign(cy(path[k + 1]) - y0), ts, a);
+      const dx = Math.sign(cx(path[k + 1]) - x0), dy = Math.sign(cy(path[k + 1]) - y0);
+      const mx = x0 + dx * ts / 2, my = y0 + dy * ts / 2;
+      ctx.beginPath();
+      ctx.moveTo(mx + dx * a, my + dy * a);
+      ctx.lineTo(mx - dx * a * 0.6 - dy * a * 0.8, my - dy * a * 0.6 + dx * a * 0.8);
+      ctx.lineTo(mx - dx * a * 0.6 + dy * a * 0.8, my - dy * a * 0.6 - dx * a * 0.8);
+      ctx.closePath();
+      ctx.fill();
     }
     const end = path[path.length - 1];
-    this._dot(ctx, cx(end), cy(end), color, ts);
+    ctx.beginPath();
+    ctx.arc(cx(end), cy(end), Math.max(3, ts * 0.3), 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
   }
 
   private _drawLegend(ctx: Ctx, camera: Camera): void {
