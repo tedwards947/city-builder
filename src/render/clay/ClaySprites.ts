@@ -93,8 +93,6 @@ export interface ClaySprite {
   /** Per dressing variant: the baked source and a copy pre-scaled for the current tile size. Slot 0 starts as the plain image. */
   readonly slots: (DressSlot | undefined)[];
   /** Where the plot sits in the pre-scaled copies. */
-  plotX: number;
-  plotY: number;
 }
 
 interface DressSlot {
@@ -161,7 +159,6 @@ export function loadClaySprites(): void {
         level: Number(id[4]) || 1,
         pixels: null, lot: null, prepared: false,
         slots: [{ source: image, scaled: null, scaledFor: -1, dressed: false, waitingForTrees: 0 }],
-        plotX: 0, plotY: 0,
       });
       const z = ZONE_ID.exec(id);
       if (z) {
@@ -210,8 +207,57 @@ export function pickClaySprite(zone: number, building: number, dev: number, vibe
  */
 export function drawClaySprite(ctx: CanvasRenderingContext2D, s: ClaySprite, sx: number, sy: number, tile: number, variant = 0): void {
   const slot = dressSlot(s, variant);
-  if (slot.scaledFor !== tile) rescale(s, slot, tile);
-  if (slot.scaled) ctx.drawImage(slot.scaled, sx - s.plotX, sy - s.plotY);
+  const m = s.meta;
+  const plotW = m.right - m.left + 1;
+  const plotH = plotW * PLOT_ASPECT;
+  const kx = tile / plotW;
+  const ky = tile / plotH; // stretch slightly so the plot fills the square tile
+
+  if (slot.scaledFor !== tile) {
+    // A caller that does not use beginClayFrame (or draws at another size)
+    // gets a crisp copy at once, as before. Inside a frame, wait until the
+    // size has settled and there is budget left.
+    const inFrame = tile === frameTile;
+    if (!inFrame) rescale(s, slot, tile);
+    else if (rescaleBudget > 0) { rescaleBudget--; rescale(s, slot, tile); }
+  }
+
+  if (slot.scaledFor === tile) {
+    if (slot.scaled) ctx.drawImage(slot.scaled, sx - Math.round(m.left * kx), sy - Math.round((m.bottom + 1 - plotH) * ky));
+    return;
+  }
+  // Mid-zoom (or over this frame's budget): stretch what we have to the new
+  // size. One plain drawImage, slightly soft, replaced by a crisp copy once
+  // the zoom stops.
+  const image = slot.scaled ?? slot.source;
+  if (!image) return;
+  if (!ctx.imageSmoothingEnabled) ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(image, sx - m.left * kx, sy - (m.bottom + 1 - plotH) * ky, m.w * kx, m.h * ky);
+}
+
+// ── Zoom smoothing ────────────────────────────────────────────────────────────
+// Every change of tile size used to re-bake a scaled copy of every visible
+// sprite and dressing variant in that one frame — hundreds of small canvases
+// per wheel step. Now the renderer calls beginClayFrame() once per frame;
+// while the size is changing, sprites are drawn stretched, and crisp copies
+// are baked a few per frame once it has held still for a moment.
+
+/** How long the tile size must hold still before crisp copies are baked. */
+const SETTLE_MS = 120;
+/** Crisp copies baked per frame once settled. */
+const RESCALES_PER_FRAME = 32;
+
+let frameTile = -1;      // tile size of the frame in progress; -1 = no frames in use
+let tileSince = 0;       // when the tile size last changed
+let rescaleBudget = 0;   // crisp copies still allowed this frame
+
+/**
+ * Call once per frame before drawing sprites, with the tile size they will be
+ * drawn at and the frame's time in ms.
+ */
+export function beginClayFrame(tile: number, now: number): void {
+  if (tile !== frameTile) { frameTile = tile; tileSince = now; }
+  rescaleBudget = now - tileSince >= SETTLE_MS ? RESCALES_PER_FRAME : 0;
 }
 
 /** Reads the sprite's pixels and analyses its ground, once. Leaves `lot` null if that is not possible. */
@@ -328,8 +374,6 @@ function rescale(s: ClaySprite, slot: DressSlot, tile: number): void {
   c.clearRect(0, 0, w, h);
   c.drawImage(slot.source, 0, 0, m.w * kx, m.h * ky);
   slot.scaled = canvas;
-  s.plotX = Math.round(m.left * kx);
-  s.plotY = Math.round((m.bottom + 1 - plotH) * ky);
 }
 
 /** Adds the sprite's smoke/steam/flare emitters, positioned on screen, to `out`. */

@@ -31,9 +31,13 @@ function setup() {
   const redraws: string[] = [];
   r._renderChunk = (_c: unknown, _w: unknown, cx: number, cy: number) => { redraws.push(`${cx},${cy}`); };
 
-  const frame = () => {
+  // Each frame is a second after the last unless told otherwise, so by
+  // default the zoom always counts as settled.
+  let now = 0;
+  const frame = (msLater = 1000) => {
     redraws.length = 0;
-    renderer.render(world, camera, null, 'none', false, false, false, null, 0);
+    now += msLater;
+    renderer.render(world, camera, null, 'none', false, false, false, null, now);
     return [...redraws];
   };
   return { world, camera, view, frame };
@@ -89,12 +93,59 @@ describe('CanvasRenderer chunk cache', () => {
     expect(frame()).toEqual(['0,1']);
   });
 
-  it('redraws everything visible after a significant zoom change', () => {
+  it('redraws everything visible after a significant zoom change, once the zoom settles', () => {
     const { camera, frame } = setup();
     frame();
     camera.zoom = 1.005;
+    expect(frame()).toEqual([]);          // too small a change to bother
     expect(frame()).toEqual([]);
     camera.zoom = 1.5;
-    expect(frame().sort()).toEqual(['0,0', '1,0']);
+    expect(frame(16)).toEqual([]);        // the frame the zoom changes on: keep scaling the old canvases
+    expect(frame(16)).toEqual([]);        // still within the settle time
+    expect(frame(200).sort()).toEqual(['0,0', '1,0']);
+    expect(frame(16)).toEqual([]);
+  });
+
+  it('does not redraw chunks at all while the zoom keeps changing', () => {
+    const { camera, frame } = setup();
+    frame();
+    let redrawn = 0;
+    for (let k = 0; k < 30; k++) {        // a long continuous zoom, one step per frame
+      camera.zoom *= 1.03;
+      redrawn += frame(16).length;
+    }
+    expect(redrawn).toBe(0);
+    expect(frame(200).length).toBe(2);    // then once, at the final size
+  });
+
+  it('a chunk whose content changes mid-zoom is still redrawn at once', () => {
+    const { world, camera, frame } = setup();
+    frame();
+    camera.zoom = 1.4;
+    frame(16);
+    world.layers.zone[world.grid.idx(CHUNK_SIZE + 2, 3)] = ZONE_R;
+    world.grid.markDirty(CHUNK_SIZE + 2, 3);
+    camera.zoom = 1.5;
+    expect(frame(16)).toEqual(['1,0']);
+  });
+
+  it('spreads size-only redraws over several frames', () => {
+    const { camera, view, frame } = setup();
+    // A wide view: 4 × 4 = 16 chunks.
+    view.x1 = CHUNK_SIZE * 4 - 1; view.y1 = CHUNK_SIZE * 4 - 1;
+    expect(frame().length).toBe(16);      // first draws are allowed 24 a frame
+    camera.zoom = 2;
+    frame(16);
+    const perFrame = [frame(200).length, frame(16).length, frame(16).length, frame(16).length];
+    expect(perFrame).toEqual([6, 6, 4, 0]);
+  });
+
+  it('draws newly revealed chunks a batch at a time', () => {
+    const { view, frame } = setup();
+    frame();
+    // Suddenly the whole 64×64 map is in view: 16 chunks, 14 of them new.
+    view.x1 = 63; view.y1 = 63;
+    expect(frame(16).length).toBe(14);
+    expect(frame(16).length).toBe(0);
   });
 });
