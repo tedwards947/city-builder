@@ -57,3 +57,10 @@ a. **Make "vibe" mean something.** Right now it does very little.
    - It also fades to nothing. In the owner's exported city (population 6,664, tick 20,726) all three layers are exactly neutral on every tile, and the city-wide character is 0 / 0 / 0. Nudges only happen at the moment of an action and decay wins.
    - To decide: what vibe is for (identity and looks only, or a gameplay lever), what keeps it alive in a standing city (ongoing sources such as zones, parks and industry, not just one-off nudges), what it should change in the sim, and how the player sees and steers it.
    - Owners once decided: the sim side is GAME ENGINE (`VibeSystem`), the look is GRAPHICS (vibe sprite variants are already on that list).
+
+b. **Give political capital more to do.** It has a real job, but a thin one.
+   - What exists: a 0–100 pool. It refills every tick, 0.1 when citizens are miserable up to 0.4 when they are fully satisfied. Satisfaction is four things: service coverage of homes (40%), power coverage (20%), water coverage (20%) and low crime (20%).
+   - What it is spent on: displacing people. Bulldozing or re-zoning occupied homes costs 3.5 per resident (a full level-3 lot is 70 of the 100), and the action is refused if the pool is short. Clearing abandoned buildings pays a little back.
+   - Why it feels thin: that is the only thing it gates, so a player who is not demolishing never thinks about it. In the owner's exported city (population 6,664) the pool is full at 100 and satisfaction is 0.99. A happy city refills an empty pool in about four minutes at 1×.
+   - To decide: what else should cost it (raising taxes, building next to homes — industry, highways, a power plant — rezoning, cutting services, running a deficit?), what else should feed satisfaction (commute, pollution, jobs, land value, shortages, taxes, fires), whether a low pool should have consequences beyond refusing an action, and whether it stays one city-wide pool or becomes per district.
+   - Ties to (a): vibe could be what citizens want (a green district objects to industry more), with political capital as the price of going against it.
