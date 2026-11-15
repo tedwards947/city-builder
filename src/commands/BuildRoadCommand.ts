@@ -19,6 +19,21 @@ import { BALANCE } from '../data/balance';
 //
 // targetClass defaults to ROAD_STREET for backward compatibility.
 
+/**
+ * Money needed to make this tile a road of `targetClass`: the full price for a
+ * new road, the difference for an upgrade, times the bridge multiplier on
+ * water. 0 if the tile already has that class or better; null if a road cannot
+ * go here at all (a building, or off the map).
+ */
+export function roadBuildCost(world: World, tx: number, ty: number, targetClass: number): number | null {
+  if (!world.isBuildable(tx, ty, true)) return null;
+  const current = world.layers.roadClass[world.grid.idx(tx, ty)];
+  if (current >= targetClass) return 0;
+  const mult = world.getTerrain(tx, ty) === TERRAIN_WATER ? BALANCE.costs.bridgeMultiplier : 1;
+  const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost : 0;
+  return (BALANCE.roadClasses[targetClass].cost - currentCost) * mult;
+}
+
 export class BuildRoadCommand extends Command {
   private readonly tx: number;
   private readonly ty: number;
@@ -36,16 +51,13 @@ export class BuildRoadCommand extends Command {
   }
 
   execute(world: World): boolean {
-    const isWater = world.getTerrain(this.tx, this.ty) === TERRAIN_WATER;
     if (!world.isBuildable(this.tx, this.ty, true)) return false;
 
     const i = world.grid.idx(this.tx, this.ty);
     const current = world.layers.roadClass[i];
     if (current >= this.targetClass) return false; // already same or better class
 
-    const targetCost  = BALANCE.roadClasses[this.targetClass].cost * (isWater ? BALANCE.costs.bridgeMultiplier : 1);
-    const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost * (isWater ? BALANCE.costs.bridgeMultiplier : 1) : 0;
-    const cost = targetCost - currentCost;
+    const cost = roadBuildCost(world, this.tx, this.ty, this.targetClass)!;
 
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 

@@ -3,6 +3,9 @@
 //   View / Inspect tool      drag → pan camera
 //   Road / zone / bulldoze   primary drag → paint along the path (one undo step
 //                            per stroke); right/middle drag or two fingers → pan
+//   Road tools, auto mode    tap → start; tap again → build an L-shaped road to
+//                            that tile (one undo step, all or nothing);
+//                            right-click or cancelAutoRoad() → abandon; drag → pan
 //   Building tools           tap → place one; drag → pan
 //   Wheel / pinch            zoom
 //
@@ -20,6 +23,10 @@ import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHW
 import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
 import { wheelZoomFactor } from './wheelZoom';
+import { autoRoadPath } from './autoRoad';
+
+/** How the road tools lay roads: by dragging, or click a start then click an end. */
+export type RoadMode = 'manual' | 'auto';
 
 export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
 
@@ -34,6 +41,11 @@ const BUILDING_TOOL_KIND: Partial<Record<Tool, number>> = {
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
+
+/** The road class a tool builds, or undefined if it is not a road tool. */
+export function roadClassForTool(tool: Tool): number | undefined {
+  return ROAD_TOOL_CLASS[tool];
+}
 
 /** Tools that paint along a drag instead of panning. */
 export function isPaintTool(tool: Tool): boolean {
@@ -76,6 +88,7 @@ export class InputController {
   private readonly getTool: () => Tool;
   private readonly onHover: (tile: { tx: number; ty: number }) => void;
   private readonly onRejected: ((reason: FailReason) => void) | undefined;
+  private readonly getRoadMode: () => RoadMode;
 
   private readonly pointers = new Map<number, { sx: number; sy: number }>();
   private lastSingle: { sx: number; sy: number } | null = null;
@@ -86,6 +99,9 @@ export class InputController {
   private readonly dragThreshold = 6;
   private gesture: Gesture = 'tap';
   private stroke: Stroke | null = null;
+  private downButton = 0;
+  // Auto road mode: the start tile, once clicked, until the road is built or abandoned.
+  private autoStart: { tool: Tool; world: World; tile: TilePos } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -95,6 +111,7 @@ export class InputController {
     getTool: () => Tool,
     onHover: (tile: { tx: number; ty: number }) => void,
     onRejected?: (reason: FailReason) => void,
+    getRoadMode: () => RoadMode = () => 'manual',
   ) {
     this.canvas = canvas;
     this.camera = camera;
@@ -103,6 +120,7 @@ export class InputController {
     this.getTool = getTool;
     this.onHover = onHover;
     this.onRejected = onRejected;
+    this.getRoadMode = getRoadMode;
     canvas.addEventListener('pointerdown',   this._down.bind(this));
     canvas.addEventListener('pointermove',   this._move.bind(this));
     canvas.addEventListener('pointerup',     this._up.bind(this));
@@ -130,8 +148,11 @@ export class InputController {
       // Mouse: only the primary button uses the tool; middle/right always pan.
       // Touch and pen report button 0.
       const primary = e.button === 0;
+      this.downButton = e.button;
       if (!primary) {
         this.gesture = 'pan';
+      } else if (this._autoRoadTool(tool)) {
+        this.gesture = 'tap';       // a click sets the start or the end; a drag pans
       } else if (isPaintTool(tool)) {
         this.gesture = 'paint';
         this._beginStroke(tool, this.camera.screenToTile(p.sx, p.sy));
@@ -200,8 +221,12 @@ export class InputController {
       } else if (this.gesture === 'tap' && !this.isDragging) {
         const tile = this.camera.screenToTile(p.sx, p.sy);
         if (this.getWorld().grid.inBounds(tile.tx, tile.ty)) {
-          this._applyTool(tile.tx, tile.ty);
+          if (this._autoRoadTool(this.getTool())) this._autoRoadClick(tile);
+          else this._applyTool(tile.tx, tile.ty);
         }
+      } else if (this.gesture === 'pan' && !this.isDragging && this.downButton === 2) {
+        // A right-click (not a right-drag, which pans) abandons a started road.
+        this.cancelAutoRoad();
       }
     }
     this._afterRelease();
@@ -240,6 +265,60 @@ export class InputController {
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     this.camera.zoomAt(sx, sy, wheelZoomFactor(e.deltaY, e.deltaMode, e.ctrlKey));
+  }
+
+  // ── Auto road mode ──────────────────────────────────────────────────────────
+
+  private _autoRoadTool(tool: Tool): boolean {
+    return tool in ROAD_TOOL_CLASS && this.getRoadMode() === 'auto';
+  }
+
+  /**
+   * The start of the road being laid in auto mode, or null. A start made with
+   * another tool, another mode or another world no longer counts.
+   */
+  get autoRoadStart(): TilePos | null {
+    const a = this.autoStart;
+    if (!a) return null;
+    if (a.tool !== this.getTool() || a.world !== this.getWorld() || !this._autoRoadTool(a.tool)) {
+      this.autoStart = null;
+      return null;
+    }
+    return a.tile;
+  }
+
+  /** Abandon the road being laid in auto mode, if any. Returns whether there was one. */
+  cancelAutoRoad(): boolean {
+    const had = this.autoRoadStart !== null;
+    this.autoStart = null;
+    return had;
+  }
+
+  private _autoRoadClick(tile: TilePos): void {
+    const start = this.autoRoadStart;
+    const tool = this.getTool();
+    if (!start) {
+      this.autoStart = { tool, world: this.getWorld(), tile };
+      return;
+    }
+    // Build the whole route as one undo step, or none of it: if any tile is
+    // refused for money or political capital, everything is taken back and the
+    // start is kept, so the player can pick a nearer end.
+    const history = this.getHistory();
+    history.beginBatch();
+    let refused: FailReason | undefined;
+    for (const { tx, ty } of autoRoadPath(start, tile)) {
+      const cmd = commandForTool(tool, tx, ty);
+      if (!cmd) continue;
+      if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
+    }
+    if (refused) {
+      history.cancelBatch();
+      this.onRejected?.(refused);
+      return;
+    }
+    history.endBatch();
+    this.autoStart = null;
   }
 
   // ── Drag-paint strokes ──────────────────────────────────────────────────────

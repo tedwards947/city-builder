@@ -178,6 +178,13 @@ export interface TranslationSchema {
       undo: string;
       redo: string;
     };
+    roadMode: {
+      manual: string;
+      auto: string;
+      manualDesc: string;
+      autoDesc: string;
+      holdHint: string;
+    };
     toolbarDesc: {
       new: string;
       save: string;

@@ -39,6 +39,16 @@ export interface RenderOptions {
   coveragePreview?: Set<number> | null;
   /** The frame's time in ms. Drives animation and zoom smoothing. */
   now?: number;
+  /** A road about to be built (auto road mode): its tiles in order, start first. */
+  roadPreview?: RoadPreview | null;
+}
+
+export interface RoadPreview {
+  tiles: ReadonlyArray<{ tx: number; ty: number }>;
+  /** False draws it in red: the city cannot pay for it. */
+  ok: boolean;
+  /** Short text shown beside the end tile, e.g. the price. */
+  label?: string;
 }
 
 // Overlay colour by layer value (0–255).
@@ -117,7 +127,7 @@ export class CanvasRenderer {
   /** Draws one frame. The passes run back to front. */
   render(world: World, camera: Camera, options: RenderOptions = {}): void {
     if (camera.zoom < 0.1) return;
-    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0 } = options;
+    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null } = options;
 
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
@@ -149,6 +159,7 @@ export class CanvasRenderer {
     if (camera.zoom >= 1.2) this._drawTileGrid(ctx, camera, bounds);
     if (overlay !== 'none') this._drawOverlayLegend(ctx, overlay, camera.viewportH);
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
+    if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool);
 
     const tlsx = camera.worldToScreenX(0);
@@ -425,6 +436,42 @@ export class CanvasRenderer {
           : 'rgba(80, 200, 255, 0.22)';
         ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(ts) + 1, Math.ceil(ts) + 1);
       }
+    }
+  }
+
+  /** The road about to be built in auto road mode: its tiles tinted, the start outlined, the price by the end. */
+  private _drawRoadPreview(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, preview: RoadPreview): void {
+    const { tiles, ok, label } = preview;
+    if (tiles.length === 0) return;
+    const size = Math.ceil(ts) + 1;
+    const fill = ok ? 'rgba(255,255,255,0.45)' : 'rgba(255,90,90,0.5)';
+    const blocked = 'rgba(255,90,90,0.25)';
+    for (const { tx, ty } of tiles) {
+      const sx = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx)));
+      const sy = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+      // A tile no road can go on (a building) is skipped when building: show it fainter and red.
+      ctx.fillStyle = world.isBuildable(tx, ty, true) ? fill : blocked;
+      ctx.fillRect(sx, sy, size, size);
+    }
+    const start = tiles[0], end = tiles[tiles.length - 1];
+    ctx.strokeStyle = ok ? '#fff' : '#f66';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+      Math.floor(camera.worldToScreenX(Projection.tileToWorldX(start.tx))) + 1,
+      Math.floor(camera.worldToScreenY(Projection.tileToWorldY(start.ty))) + 1,
+      Math.ceil(ts) - 1, Math.ceil(ts) - 1,
+    );
+    if (label) {
+      const x = camera.worldToScreenX(Projection.tileToWorldX(end.tx)) + ts + 8;
+      const y = camera.worldToScreenY(Projection.tileToWorldY(end.ty)) + ts / 2;
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      const w = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(10,18,28,0.85)';
+      ctx.fillRect(x - 5, y - 10, w + 10, 20);
+      ctx.fillStyle = ok ? '#7dd87d' : '#f77';
+      ctx.fillText(label, x, y);
     }
   }
 

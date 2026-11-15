@@ -210,6 +210,13 @@ export const en: TranslationSchema = {
       undo: "Undo",
       redo: "Redo",
     },
+    roadMode: {
+      manual: "Manual",
+      auto: "Auto",
+      manualDesc: "Drag to draw",
+      autoDesc: "Click start, click end",
+      holdHint: "Hold the button to switch manual / auto",
+    },
     toolbarDesc: {
       new: "Start a new city",
       save: "Save your city",

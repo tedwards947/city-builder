@@ -1,6 +1,7 @@
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
+import type { RoadPreview } from './render/CanvasRenderer';
 import { localizeHTML, t, tArray } from './i18n';
 import type { FailReason } from './commands/Command';
 
@@ -12,8 +13,10 @@ import { createSystems } from './sim/createSystems';
 import { computeServiceCoverage } from './sim/systems/ServiceSystem';
 import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
-import { InputController } from './input/InputController';
-import type { Tool } from './input/InputController';
+import { InputController, roadClassForTool } from './input/InputController';
+import type { Tool, RoadMode } from './input/InputController';
+import { autoRoadPath, planAutoRoad } from './input/autoRoad';
+import { RoadModeMenu, loadRoadMode } from './ui/RoadModeMenu';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
 import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
@@ -154,7 +157,11 @@ function notifyRejected(reason: FailReason): void {
   );
 }
 
-new InputController(
+// Road tools: 'manual' = drag to draw, 'auto' = click a start, click an end.
+// Set by the menu on the road buttons (see RoadModeMenu, wired up below).
+let roadMode: RoadMode = loadRoadMode();
+
+const input = new InputController(
   canvas,
   camera,
   () => state.world,
@@ -162,6 +169,7 @@ new InputController(
   () => currentTool,
   (tile) => { hoverTile = tile; },
   (reason) => notifyRejected(reason),
+  () => roadMode,
 );
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
@@ -207,6 +215,20 @@ document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]').forEach(btn => 
     setTool(tool);
   });
 });
+
+// Hold (or right-click) a road button to choose manual or auto road laying.
+const roadButtons = [...document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]')]
+  .filter(b => roadClassForTool(b.dataset.tool as Tool) !== undefined);
+const roadModeMenu = new RoadModeMenu(
+  document.getElementById('road-mode-menu')!,
+  roadButtons,
+  (mode, btn) => {
+    roadMode = mode;
+    input.cancelAutoRoad();
+    if (btn) setTool(btn.dataset.tool as Tool);   // picking a mode also picks that road tool
+  },
+);
+roadMode = roadModeMenu.current;
 
 // ── Toolbar costs ─────────────────────────────────────────────────────────────
 // Tooltip cost/upkeep come from BALANCE so they can't drift from the sim.
@@ -254,6 +276,7 @@ const tip        = document.getElementById('toolbar-tip')!;
 const tipDesc    = tip.querySelector('.tip-desc')!;
 const tipCost    = tip.querySelector('.tip-cost')!;
 const tipUpkeep  = tip.querySelector('.tip-upkeep')!;
+const tipHint    = tip.querySelector('.tip-hint')!;
 
 function isBuildingTool(btn: HTMLButtonElement): boolean {
   return TOOL_BUILDING_KIND[btn.dataset.tool as Tool] !== undefined;
@@ -270,6 +293,9 @@ document.querySelectorAll<HTMLButtonElement>('#toolbar button').forEach(btn => {
     const upkeep = btn.dataset.upkeep;
     tipUpkeep.textContent = upkeep ? 'Upkeep: ' + upkeep : '';
     (tipUpkeep as HTMLElement).style.display = upkeep ? '' : 'none';
+    const isRoad = roadClassForTool(btn.dataset.tool as Tool) !== undefined;
+    tipHint.textContent = isRoad ? t('ui.roadMode.holdHint') : '';
+    (tipHint as HTMLElement).style.display = isRoad ? '' : 'none';
     const rect = btn.getBoundingClientRect();
     tip.style.left = Math.min(rect.left + rect.width / 2, window.innerWidth - 160) + 'px';
     tip.style.transform = 'translateX(-50%)';
@@ -304,6 +330,9 @@ window.addEventListener('keydown', (e) => {
   if (isTypingTarget(e.target)) return;
 
   const key = e.key.toLowerCase();
+
+  // Escape abandons a road started in auto mode.
+  if (key === 'escape') { input.cancelAutoRoad(); return; }
 
   // Undo / redo are the only shortcuts that use Ctrl/Cmd.
   if (e.ctrlKey || e.metaKey) {
@@ -394,8 +423,16 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
+  // Auto road mode: the road that a click would build now, and its price.
+  let roadPreview: RoadPreview | null = null;
+  const roadStart = input.autoRoadStart;
+  const roadClass = roadClassForTool(currentTool);
+  if (roadStart && hoverTile && roadClass !== undefined) {
+    const plan = planAutoRoad(state.world, autoRoadPath(roadStart, hoverTile), roadClass);
+    roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: fmtCost(plan.cost) };
+  }
   renderer.render(state.world, camera, {
-    hoverTile, tool: currentTool, coveragePreview, now,
+    hoverTile, tool: currentTool, coveragePreview, now, roadPreview,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
