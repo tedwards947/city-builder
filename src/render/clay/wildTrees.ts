@@ -12,6 +12,7 @@
  * is one `drawImage`.
  */
 import { WILD_TREE_RECTS, WILD_TREE_MAX_HEIGHT } from './wildTreeData';
+import { RebakeBudget } from '../RebakeBudget';
 
 /** Species by vegetation value (index = vegetation - 1). */
 export const WILD_SPECIES = ['beech', 'larch', 'pine', 'spruce', 'poplar', 'cypress'] as const;
@@ -107,19 +108,14 @@ const PAD_X = 0.35, PAD_TOP = 0.75, PAD_BOTTOM = 0.15;
 // size it was baked at.
 const baked = new Map<number, { canvas: HTMLCanvasElement; tile: number }>();
 
-// Zoom smoothing, as for the building sprites (see ClaySprites.beginClayFrame):
-// while the tile size is changing, a clump baked at another size is drawn
-// stretched; once the size has held still it is re-baked, a few per frame.
-const SETTLE_MS = 120;
-const REBAKES_PER_FRAME = 24;
-let frameTile = -1;      // tile size of the frame in progress; -1 = no frames in use
-let tileSince = 0;
-let rebakeBudget = 0;
+// Zoom smoothing (see RebakeBudget.ts): while the tile size is changing, a
+// clump baked at another size is drawn stretched; once the size has held still
+// it is re-baked, a few per frame.
+const rebake = new RebakeBudget(24);
 
 /** Call once per frame before drawing trees, with the tile size and the frame's time in ms. */
 export function beginWildTreeFrame(tile: number, now: number): void {
-  if (tile !== frameTile) { frameTile = tile; tileSince = now; }
-  rebakeBudget = now - tileSince >= SETTLE_MS ? REBAKES_PER_FRAME : 0;
+  rebake.begin(tile, now);
 }
 
 function bake(vegetation: number, variant: number, density: number, tile: number): HTMLCanvasElement {
@@ -161,9 +157,7 @@ export function drawWildTrees(ctx: CanvasRenderingContext2D, vegetation: number,
     // A caller that does not use beginWildTreeFrame (or draws at another
     // size) gets a crisp clump at once; inside a frame, wait for the size to
     // settle and for budget.
-    const inFrame = tile === frameTile;
-    if (!inFrame || rebakeBudget > 0) {
-      if (inFrame) rebakeBudget--;
+    if (rebake.allow(tile)) {
       entry.canvas = bake(vegetation, variant, density, tile);
       entry.tile = tile;
     }

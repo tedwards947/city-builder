@@ -9,6 +9,7 @@ import {
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../../sim/constants';
+import { RebakeBudget } from '../RebakeBudget';
 
 /**
  * Clay-miniature image sprites (public/sprites/clay), made by art/clay-set/cutout.mjs.
@@ -223,9 +224,7 @@ export function drawClaySprite(ctx: CanvasRenderingContext2D, s: ClaySprite, sx:
     // A caller that does not use beginClayFrame (or draws at another size)
     // gets a crisp copy at once, as before. Inside a frame, wait until the
     // size has settled and there is budget left.
-    const inFrame = tile === frameTile;
-    if (!inFrame) rescale(s, slot, tile);
-    else if (rescaleBudget > 0) { rescaleBudget--; rescale(s, slot, tile); }
+    if (rebake.allow(tile)) rescale(s, slot, tile);
   }
 
   if (slot.scaledFor === tile) {
@@ -248,22 +247,15 @@ export function drawClaySprite(ctx: CanvasRenderingContext2D, s: ClaySprite, sx:
 // while the size is changing, sprites are drawn stretched, and crisp copies
 // are baked a few per frame once it has held still for a moment.
 
-/** How long the tile size must hold still before crisp copies are baked. */
-const SETTLE_MS = 120;
-/** Crisp copies baked per frame once settled. */
-const RESCALES_PER_FRAME = 32;
-
-let frameTile = -1;      // tile size of the frame in progress; -1 = no frames in use
-let tileSince = 0;       // when the tile size last changed
-let rescaleBudget = 0;   // crisp copies still allowed this frame
+/** Crisp copies are baked 32 per frame once the tile size has held still (see RebakeBudget.ts). */
+const rebake = new RebakeBudget(32);
 
 /**
  * Call once per frame before drawing sprites, with the tile size they will be
  * drawn at and the frame's time in ms.
  */
 export function beginClayFrame(tile: number, now: number): void {
-  if (tile !== frameTile) { frameTile = tile; tileSince = now; }
-  rescaleBudget = now - tileSince >= SETTLE_MS ? RESCALES_PER_FRAME : 0;
+  rebake.begin(tile, now);
 }
 
 /** Reads the sprite's pixels and analyses its ground, once. Leaves `lot` null if that is not possible. */

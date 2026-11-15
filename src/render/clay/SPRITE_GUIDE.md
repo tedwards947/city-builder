@@ -1,6 +1,6 @@
 # Sprite Guide
 
-Buildings are drawn from **clay image sprites**. Until an image has loaded, the renderer's flat chunk-layer drawing (`_drawZoneBuilding` and the civic blocks in `CanvasRenderer._renderChunk`) shows instead. The old code-drawn vector sprites and the Shift+S sandbox were removed.
+Buildings are drawn from **clay image sprites**. Until an image has loaded, the renderer's flat chunk-layer drawing (`src/render/flatTiles.ts`, painted by `paintChunk` in `src/render/chunkPainter.ts`) shows instead. The old code-drawn vector sprites and the Shift+S sandbox were removed.
 
 ## Clay image sprites
 
@@ -35,7 +35,7 @@ Trees on unbuilt land are clay sprites too, from tile size 8px up (below that th
 
 All code-drawn, in `roads.ts` (no images).
 
-- `drawClayRoad` draws one road tile into the chunk layer from its class and its four neighbours' classes: street (narrow, dashed line, pavement), avenue (fills the tile, planted median), highway (dark, barriers). Junctions of three or more arms get zebra crossings and stop lines; a road on water is a bridge (parapets, arches, piers, shadow). A tile draws only inside itself, and `_chunkSignature` mixes in the neighbouring chunks' road classes along the edge.
+- `drawClayRoad` draws one road tile into the chunk layer from its class and its four neighbours' classes: street (narrow, dashed line, pavement), avenue (fills the tile, planted median), highway (dark, barriers). Junctions of three or more arms get zebra crossings and stop lines; a road on water is a bridge (parapets, arches, piers, shadow). A tile draws only inside itself, and `chunkSignature` mixes in the neighbouring chunks' road classes along the edge.
 - Traffic is shown per tile, with no vehicles travelling the map (the owner removed the wandering cars): each lane is a conveyor of slots and a slot shows a car only where the tile is busy enough. `roadTrafficCars` (pure, tested in `src/__tests__/roads.test.ts`) takes the tile's load (`trafficVolume / roadCapacity`, not capped) and goods share (vans and trucks); cars brake when the road is over capacity. `drawTrafficCars` draws them from small baked pictures in the per-frame pass, from 12px tiles up.
 - Design mock with the alternatives that were considered: `art/clay-set/roads.html` (the owner chose J2 and T1).
 

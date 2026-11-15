@@ -394,7 +394,10 @@ function frame(now: number): void {
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, currentTool, overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
+  renderer.render(state.world, camera, {
+    hoverTile, tool: currentTool, coveragePreview, now,
+    overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
+  });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);

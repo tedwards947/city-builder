@@ -18,6 +18,7 @@
  * `roadTrafficCars` is pure and tested; the rest needs a canvas.
  */
 import { ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY } from '../../sim/constants';
+import { RebakeBudget } from '../RebakeBudget';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -339,19 +340,14 @@ export function roadTrafficCars(tx: number, ty: number, cls: number, around: rea
 // the tile size it was baked at.
 const baked = new Map<number, { canvas: HTMLCanvasElement; tile: number }>();
 
-// Zoom smoothing, as for sprites and trees (see ClaySprites.beginClayFrame):
-// while the tile size is changing, a car baked at another size is drawn
-// stretched; once the size has held still it is re-baked, a few per frame.
-const SETTLE_MS = 120;
-const REBAKES_PER_FRAME = 24;
-let frameTile = -1; // tile size of the frame in progress; -1 = no frames in use
-let tileSince = 0;
-let rebakeBudget = 0;
+// Zoom smoothing (see RebakeBudget.ts): while the tile size is changing, a car
+// baked at another size is drawn stretched; once the size has held still it is
+// re-baked, a few per frame.
+const rebake = new RebakeBudget(24);
 
 /** Call once per frame before drawing cars, with the tile size and the frame's time in ms. */
 export function beginTrafficFrame(tile: number, now: number): void {
-  if (tile !== frameTile) { frameTile = tile; tileSince = now; }
-  rebakeBudget = now - tileSince >= SETTLE_MS ? REBAKES_PER_FRAME : 0;
+  rebake.begin(tile, now);
 }
 
 function bakeCar(T: number, colourIdx: number, kind: CarKind, heading: number, braking: boolean): HTMLCanvasElement {
@@ -410,9 +406,7 @@ export function drawTrafficCars(ctx: Ctx, cars: readonly TrafficCar[], count: nu
     } else if (entry.tile !== T) {
       // Outside a frame (or at another size) bake at once; inside one, wait
       // for the size to settle and for budget.
-      const inFrame = T === frameTile;
-      if (!inFrame || rebakeBudget > 0) {
-        if (inFrame) rebakeBudget--;
+      if (rebake.allow(T)) {
         entry.canvas = bakeCar(T, car.colour, car.kind, heading, car.braking);
         entry.tile = T;
       }
