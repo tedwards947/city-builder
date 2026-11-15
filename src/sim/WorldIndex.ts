@@ -145,20 +145,4 @@ export class WorldIndex {
       y1: Math.min(height - 1, this.ay1 + pad),
     };
   }
-
-  /**
-   * The built rectangle grown by `pad` tiles and clipped to the map, for
-   * systems whose effects reach beyond the tiles that cause them (pollution,
-   * land value, coverage radii). Empty map → an empty rectangle.
-   */
-  padded(world: World, pad: number): { x0: number; y0: number; x1: number; y1: number } {
-    if (this.x1 < this.x0) return { x0: 0, y0: 0, x1: -1, y1: -1 };
-    const { width, height } = world.grid;
-    return {
-      x0: Math.max(0, this.x0 - pad),
-      y0: Math.max(0, this.y0 - pad),
-      x1: Math.min(width - 1, this.x1 + pad),
-      y1: Math.min(height - 1, this.y1 + pad),
-    };
-  }
 }

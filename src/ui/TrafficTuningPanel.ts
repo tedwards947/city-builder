@@ -67,36 +67,34 @@ export class TrafficTuningPanel {
     this.getWorld = getWorld;
     this.recompute = recompute;
 
-    const el = document.createElement('div');
+    const panel = document.createElement('div');
     // Sits under the stats box in the top-right corner.
-    el.style.cssText = 'position:absolute;top:296px;right:12px;width:270px;max-height:calc(100vh - 400px);overflow:auto;'
+    panel.style.cssText = 'position:absolute;top:296px;right:12px;width:270px;max-height:calc(100vh - 400px);overflow:auto;'
       + 'background:rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;'
       + 'font-size:11px;color:#ccd;line-height:1.5;backdrop-filter:blur(8px);z-index:40;';
     // Keep clicks and scrolls on the panel from reaching the map.
     for (const type of ['mousedown', 'pointerdown', 'wheel', 'click', 'touchstart']) {
-      el.addEventListener(type, (e) => e.stopPropagation());
+      panel.addEventListener(type, (e) => e.stopPropagation());
     }
 
     const title = document.createElement('div');
     title.textContent = 'Traffic tuning (debug) ▾';
     title.style.cssText = 'font-weight:bold;color:#9ad;margin-bottom:4px;cursor:pointer;';
-    el.appendChild(title);
+    panel.appendChild(title);
 
     this.totalsEl = document.createElement('div');
     this.totalsEl.style.cssText = 'margin-bottom:6px;color:#dde;';
-    el.appendChild(this.totalsEl);
+    panel.appendChild(this.totalsEl);
 
-    // Everything below the totals folds away when the title is clicked.
-    const outer = el;
-    const body = document.createElement('div');
-    outer.appendChild(body);
+    // Everything below the totals goes into `el`, which folds away when the
+    // title is clicked.
+    const el = document.createElement('div');
+    panel.appendChild(el);
     title.addEventListener('click', () => {
-      const open = body.style.display === 'none';
-      body.style.display = open ? '' : 'none';
+      const open = el.style.display === 'none';
+      el.style.display = open ? '' : 'none';
       title.textContent = `Traffic tuning (debug) ${open ? '▾' : '▸'}`;
     });
-    {
-      const el = body; // the controls below go into the folding part
 
     for (const [groupName, knobs] of GROUPS) {
       const h = document.createElement('div');
@@ -154,9 +152,8 @@ export class TrafficTuningPanel {
     note.textContent = 'Not saved. Turn on the traffic overlay (T) to see the effect.';
     note.style.cssText = 'margin-top:6px;color:#888;';
     el.appendChild(note);
-    }
 
-    document.body.appendChild(outer);
+    document.body.appendChild(panel);
     this.sync();
   }
 

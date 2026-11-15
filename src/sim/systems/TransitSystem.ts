@@ -49,7 +49,7 @@
 // still settling, and at once when the road layer changes.
 
 import { World } from '../World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
 import {
   type TrafficData, type TrafficField,
@@ -97,19 +97,18 @@ export class TransitSystem {
   private _bfsSeen!: Uint32Array;   // search number that last visited the tile
   private _bfsSteps!: Uint8Array;
   private _bfsRun = 0;
-  // Hash of the layers, of the road layer alone, and the tuning values, at the last pass.
+  // Hash of the roads and zones, of the roads alone, and the tuning values, at the last pass.
   private _lastInputHash = NaN;
   private _lastRoadHash = NaN;
   private _lastTuning = '';
   private _iter = 0;                // iterations since the inputs last changed
-  // Index lists rebuilt at the start of each pass. Everything after that
-  // loops over these, so a pass costs in proportion to the built-up area,
-  // not to the size of the map.
-  private _roads!: Int32Array;      // road tiles
+  // Tile lists set at the start of each pass. Everything after that loops
+  // over these, so a pass costs in proportion to the built-up area, not to
+  // the size of the map.
+  private _roads!: Int32Array;      // road tiles (world.index's list)
   private _roadCount = 0;
   private _lots!: Int32Array;       // developed, non-abandoned zone tiles
   private _lotCount = 0;
-  private _zoned!: Int32Array;      // every zoned tile (only used within _run)
   private _fresh = true;            // no pass has run yet
 
   update(world: World): void {
@@ -126,7 +125,7 @@ export class TransitSystem {
    * Call every frame. If the road layer has changed since the last pass (the
    * player built, upgraded or bulldozed a road, or undid one), run a pass
    * straight away — also while paused — instead of waiting for the next
-   * traffic tick. Cheap when nothing changed: one scan of the road layer.
+   * traffic tick. Cheap when nothing changed: one pass over the road list.
    */
   refreshIfRoadsChanged(world: World): void {
     if (this._n !== world.grid.width * world.grid.height) return; // no pass has run yet
@@ -134,14 +133,18 @@ export class TransitSystem {
     this._run(world, ITERATIONS_AFTER_EDIT, false);
   }
 
+  /** Hash of where the roads are and what class each is. */
   private _roadHash(world: World): number {
     const roadClass = world.layers.roadClass;
+    const { roads, roadCount } = world.index;
     let h = 0x811c9dc5 | 0;
-    for (let i = 0; i < roadClass.length; i++) {
-      h = Math.imul(h ^ roadClass[i], 0x9e3779b1);
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
+      h = Math.imul(h ^ i, 0x9e3779b1);
+      h = Math.imul(h ^ roadClass[i], 0x85ebca6b);
       h ^= h >>> 15;
     }
-    return h;
+    return h ^ roadCount;
   }
 
   private _run(world: World, rounds: number, force: boolean): void {
@@ -162,9 +165,7 @@ export class TransitSystem {
       this._bfsFrom = new Int32Array(n);
       this._bfsSeen = new Uint32Array(n);
       this._bfsSteps = new Uint8Array(n);
-      this._roads = new Int32Array(n);
       this._lots = new Int32Array(n);
-      this._zoned = new Int32Array(n);
       this._prev = this._data.markets.map(() => new Float32Array(n));
       this._unstable = this._data.markets.map(() => new Uint8Array(n));
       this._firstIteration = true;
@@ -179,27 +180,26 @@ export class TransitSystem {
     const T = BALANCE.transit;
     const data = this._data;
 
-    // Has anything the pass reads changed? The hash is position-dependent: a
-    // plain sum misses changes that cancel out (a road moved, one zone growing
-    // as another shrinks).
-    // The same scan of the map builds the index lists and the road-only hash.
-    const roads = this._roads, lots = this._lots, zoned = this._zoned;
-    let roadCount = 0, lotCount = 0, zonedCount = 0;
-    let h = 0x811c9dc5 | 0, roadHash = 0x811c9dc5 | 0;
-    for (let i = 0; i < n; i++) {
-      const z = zone[i], rc = roadClass[i];
-      const v = z | (dev[i] << 8) | (rc << 16) | (abandoned[i] !== 0 ? 1 << 24 : 0);
-      h = Math.imul(h ^ v, 0x9e3779b1);
+    // Has anything the pass reads changed? The hash takes in each tile's
+    // position: a plain sum misses changes that cancel out (a road moved, one
+    // zone growing as another shrinks).
+    // Roads and zoned tiles come from the shared index; the list of
+    // developed lots is built here while hashing them.
+    const { roads, roadCount, zoned, zonedCount } = world.index;
+    const lots = this._lots;
+    let lotCount = 0;
+    const roadHash = this._roadHash(world);
+    let h = roadHash;
+    for (let q = 0; q < zonedCount; q++) {
+      const i = zoned[q];
+      const live = dev[i] > 0 && abandoned[i] === 0;
+      h = Math.imul(h ^ i, 0x9e3779b1);
+      h = Math.imul(h ^ (zone[i] | (dev[i] << 8) | (live ? 1 << 24 : 0)), 0x85ebca6b);
       h ^= h >>> 15;
-      roadHash = Math.imul(roadHash ^ rc, 0x9e3779b1);
-      roadHash ^= roadHash >>> 15;
-      if (rc !== ROAD_NONE) roads[roadCount++] = i;
-      if (z !== ZONE_NONE) {
-        zoned[zonedCount++] = i;
-        if (dev[i] > 0 && abandoned[i] === 0) lots[lotCount++] = i;
-      }
+      if (live) lots[lotCount++] = i;
     }
-    this._roadCount = roadCount; this._lotCount = lotCount;
+    h ^= zonedCount;
+    this._roads = roads; this._roadCount = roadCount; this._lotCount = lotCount;
     let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
     for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)}`;
     for (const k of [1, 2, 3]) {
