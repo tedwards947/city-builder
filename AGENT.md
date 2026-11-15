@@ -34,8 +34,12 @@ src/
       AbandonmentSystem, EducationSystem, HealthcareSystem, ZoneGrowthSystem,
       EconomySystem, VibeSystem, PoliticsSystem
   render/
-    CanvasRenderer.ts, Camera.ts, Projection.ts,
-    SpriteTypes.ts, CharacterPalette.ts
+    CanvasRenderer.ts  (the frame: order of the passes, and the per-frame passes themselves),
+    ChunkCache.ts      (WHEN a chunk of the static layer is redrawn: signatures, zoom smoothing, per-frame budgets),
+    chunkPainter.ts    (WHAT the static layer looks like: `paintChunk`, and `chunkSignature` beside it),
+    flatTiles.ts       (the flat rectangles look used in the static layer), drawnRoads.ts (road neighbour lookups),
+    RebakeBudget.ts    (zoom smoothing shared by sprites, trees and cars),
+    Camera.ts, Projection.ts, SpriteTypes.ts, CharacterPalette.ts
     clay/              ClaySprites.ts (image building sprites, baked lot-dressing variants, smoke/flare effects),
                        claySpriteData.ts (generated), groundTones.ts (ground mask + tones),
                        lotGround.ts (free-ground analysis), lotDressing.ts (landscaping planner, no DOM),
@@ -375,7 +379,9 @@ Load-bearing decisions — don't change without good reason.
 
 **Traffic is flow-based, not agent-based** (`TransitSystem`, tests in `transit.test.ts`). No trips or routes are simulated. Traffic is a list of MARKETS (`MARKET_DEFS` in `src/sim/TrafficData.ts`): shopping (homes → commerce), jobs (homes → industry) and goods (commerce → industry: each shop fetches from the nearest industry with output to spare). Each market has its own map, door capacities, prices and road volumes, and `TransitSystem`, `TrafficOverlay` and the debug tools all loop over the list — **to add or change a kind of trip, edit `MARKET_DEFS` (and its rate/capacity keys in `BALANCE.transit`), not the pass.** Per iteration and per market: (1) a Dijkstra flood gives each road tile its travel time to the nearest "door" (road tile beside a developed destination zone), a tile costing `1 / speedMult`, more when loaded past `freeFlow` (`congestionDelay`); (2) each origin's trips are put on its best adjacent road and swept downhill, each tile handing its traffic to ALL nearer neighbours, weighted by how little of a detour each is (`ROUTE_SPREAD`) — traffic ends at the first door it reaches; (3) a door that got more than its capacity (zone levels × `shopCapacity`/`jobCapacity`/`goodsCapacity`) spills the excess to doors with room within `SPILL_RADIUS` road tiles, and what still does not fit stays there as over capacity. Congestion = total volume / class capacity; accessibility comes from travel time (homes: nearer of shops or jobs; commerce and industry: homes). Highways carry traffic but give zones no access (same rule as growth). **Stability matters more than cleverness here.** Steps 2 and 3 have no feedback on purpose; an earlier version balanced door loads with iterated "prices" and never settled in a dense city (one new road tile reshuffled hundreds of roads for a minute). The only feedback is congestion → travel time → routes, kept calm by the multi-neighbour split, eased cost changes (`COST_EASE`) and per-tile averaging of volumes that keep changing (`_merge`). If you add a mechanism that feeds back into routing, re-run a stability check like the 'one new road tile in a congested town' test. A pass is a few iterations (more on the first pass, after a road edit and from `recompute()`); `world.traffic.settled` says when it has stopped moving. `main.ts` calls `refreshIfRoadsChanged()` every frame so road edits show at once, also while paused. The vehicles in `VehicleLayer` are cosmetic. The last pass is published as `world.traffic` (`src/sim/TrafficData.ts`: travel-time maps and per-flow volumes, not saved). `src/render/TrafficOverlay.ts` draws the traffic overlay from it as its own layer after `renderer.render()` (road load past 100%, commute tint on zones, route trace on hover); `CanvasRenderer` has no traffic overlay of its own any more. With `?debug=true` (`src/debug.ts`) the tile inspector adds traffic numbers and `TrafficTuningPanel` shows sliders that edit `BALANCE` live and call `TransitSystem.recompute()`.
 
-**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `CanvasRenderer` compares a per-chunk content signature (`_chunkSignature`) and redraws the cached chunk canvas only if it changed. **If `_renderChunk` starts reading a new layer, mix that layer into `_chunkSignature` too**, or the chunk will not update when it changes. Per-frame art (clay sprites, overlays, fire, vehicles) is not cached and is unaffected.
+**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `ChunkCache` compares a per-chunk content signature and redraws the cached chunk canvas only if it changed. The signature (`chunkSignature`) sits next to the drawing (`paintChunk`) in `src/render/chunkPainter.ts`. **If `paintChunk` starts reading a new layer, mix that layer into `chunkSignature` too**, or the chunk will not update when it changes; `chunkPainter.test.ts` fails if one is missing. Reduce the value to what is actually drawn (a threshold, a bucket), so sim noise does not cause redraws. Per-frame art (clay sprites, overlays, fire, cars, badges) is not cached and is unaffected.
+
+**The renderer's call:** `renderer.render(world, camera, { hoverTile, tool, overlay, coveragePreview, now })`; every option is optional. Anything cached at a tile size (a baked sprite, a tree clump, a car) uses a `RebakeBudget` so it is drawn stretched while the zoom moves and re-made a few per frame once it stops; do the same for any new cache, or zooming will stutter again. After a change to drawing code that is not meant to change the look, `npm run bench` before and after: the `picture` values must be identical.
 
 **TypeScript constraints:** `erasableSyntaxOnly: true` — no constructor parameter properties. Use explicit field declarations + assignment in body. `verbatimModuleSyntax` — use `import type` for type-only imports.
 
@@ -520,9 +526,10 @@ npm run bench                                  # built-in test city
 npm run bench -- path/to/city.citysave.json    # a city exported from the game (Save/Load → Export)
 ```
 
-Prints the time of a sim tick (in Node and in Chrome, with the cost of each system) and of drawing a frame in headless Chrome (standing still, panning, zooming, at three zoom levels). Options: `--json`, `--no-browser`; Chrome is found automatically or taken from `$CHROME`.
+Prints the time of a sim tick (in Node and in Chrome, with the cost of each system) and of drawing a frame in headless Chrome (standing still, panning, zooming, at three zoom levels), plus a `picture` fingerprint of the pixels drawn in each view and with each overlay, the hover outline, the inspect routes and a coverage preview. Options: `--json`, `--no-browser`; Chrome is found automatically or taken from `$CHROME`.
 
 - Run it before and after any change meant to affect speed, or that adds per-tick or per-frame work, and put both sets of numbers in the PR. Compare runs on the same machine only.
+- The `picture` values are the same on every run of the same code on the same city. Use them to prove a rendering refactor changed no pixels; if you meant to change the look, they will differ and that is fine.
 - The frame times are drawn on the CPU so that they repeat from run to run (within about 10%); they are not what a player's GPU does, so compare them with each other, not with 16.7 ms.
 - A big exported city tells you more than the built-in one. The code is in `src/bench/` and `scripts/bench.mjs`; it is not part of the game build.
 
@@ -535,6 +542,7 @@ Test files:
 - `history-batch.test.ts` — batched strokes, undo/redo
 - `dragPath.test.ts`, `input-drag.test.ts` — drag-to-paint paths and synthetic pointer events
 - `saveFile.test.ts` — export / import of save files, bad-file rejection
+- `chunkCache.test.ts`, `chunkPainter.test.ts`, `rebakeBudget.test.ts` — the static layer is redrawn only when its picture changes; the signature covers every layer the painter reads; zoom smoothing
 - `transit.test.ts`, `trafficCity.test.ts` — traffic model on small hand-built maps, and stability on a 6,500-person test city (`fixtures/testCity.ts`)
 - `goldenCity.test.ts` — the whole simulation on the test city against a stored fingerprint (see below)
 - `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game

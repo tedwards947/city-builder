@@ -56,7 +56,9 @@ function printFrames(r) {
     console.log(`    while zooming    ${spread(v.zooming)}`);
     console.log(`    after zooming    ${spread(v.afterZoom)}`);
     console.log(`    first frame      ${ms(v.firstFrameMs)}`);
+    console.log(`    picture          ${v.picture}   (same code and city give the same value; a change means the look changed)`);
   }
+  console.log('  other pictures     ' + Object.entries(r.extras).map(([k, v]) => `${k} ${v}`).join('  '));
 }
 
 /** Opens the bench page in headless Chrome and resolves with what it posts back. */

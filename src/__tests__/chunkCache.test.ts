@@ -26,10 +26,12 @@ function setup() {
   } as any;
 
   // No DOM in node: hand out a mock chunk context and count chunk redraws.
-  const r = renderer as any;
-  r._getOrCreateChunkCtx = () => mockCtx;
+  (renderer.chunks as any)._contextFor = () => mockCtx;
   const redraws: string[] = [];
-  r._renderChunk = (_c: unknown, _w: unknown, cx: number, cy: number) => { redraws.push(`${cx},${cy}`); };
+  renderer.chunks.painter = {
+    signature: renderer.chunks.painter.signature,       // the real "did the picture change" check
+    paint: (_c, _w, cx, cy) => { redraws.push(`${cx},${cy}`); },
+  };
 
   // Each frame is a second after the last unless told otherwise, so by
   // default the zoom always counts as settled.
@@ -37,7 +39,7 @@ function setup() {
   const frame = (msLater = 1000) => {
     redraws.length = 0;
     now += msLater;
-    renderer.render(world, camera, null, 'none', false, false, false, null, now);
+    renderer.render(world, camera, { now });
     return [...redraws];
   };
   return { world, camera, view, frame };

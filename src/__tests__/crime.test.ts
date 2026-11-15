@@ -149,7 +149,7 @@ describe('Crime integration with other systems', () => {
     expect(w.layers.devLevel[i]).toBe(1); // Blocked, did not grow to 2
   });
 
-  it('CanvasRenderer.render accepts crimeOverlay parameter', () => {
+  it('CanvasRenderer.render draws the crime overlay without throwing', () => {
     const w = makeWorld();
     const camera = {
       visibleTileBounds: () => ({ x0: 0, y0: 0, x1: 5, y1: 5 }),
@@ -176,8 +176,7 @@ describe('Crime integration with other systems', () => {
     
     // Verify it doesn't throw when crimeOverlay is true
     expect(() => {
-      // world, camera, hoverTile, currentTool, crime, fire, vibe, coveragePreview, now
-      renderer.render(w, camera, null, 'none', true, false, false, null, 0);
+      renderer.render(w, camera, { overlay: 'crime' });
     }).not.toThrow();
   });
 });
