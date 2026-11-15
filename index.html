@@ -125,9 +125,10 @@
     @media (max-width: 980px) {
       #music-panel { top: 48px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); min-width: 235px; }
     }
-    .mp-track-info { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 48px; }
+    /* Fixed width so the panel doesn't change size from song to song; it only shrinks when the window is narrow */
+    .mp-track-info { display: flex; flex-direction: column; flex: 0 1 140px; width: 140px; min-width: 48px; }
     .mp-label { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-    .mp-track-name { display: block; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; max-width: 140px; }
+    .mp-track-name { display: block; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; width: 100%; }
     .mp-marquee { display: inline-block; white-space: nowrap; }
     @media (prefers-reduced-motion: reduce) {
       .mp-track-name { text-overflow: ellipsis; }
@@ -146,11 +147,9 @@
     .mp-menu-song { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 8px 3px; }
     .mp-menu-song:first-child { padding-top: 3px; }
     .mp-menu-item { background: none; border: none; border-radius: 4px; color: #eee; text-align: left; font: inherit; padding: 5px 8px; cursor: pointer; white-space: nowrap; }
-    .mp-menu-item.take { padding-left: 16px; }
     .mp-menu-item:hover, .mp-menu-item:focus-visible { background: rgba(255,255,255,0.12); outline: none; }
     .mp-menu-item.current { color: #fff; font-weight: 600; background: rgba(74,122,154,0.45); }
-    .mp-menu-item.current::after { content: '♪'; margin-left: 8px; color: #8cc8e8; }
-    .mp-menu-empty { color: #8aa; padding: 6px 8px; }
+    .mp-menu-item.current::after { content: '♪'; margin-left: 8px; color: #8cc8e8; }    .mp-menu-empty { color: #8aa; padding: 6px 8px; }
 
     /* ── Toast system ── */
     #toast-container { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 1000; width: 280px; align-items: center; }

@@ -10,7 +10,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-1. **Clay trees.** Wild trees on unbuilt land are still flat shapes next to clay buildings. Needs a design conversation with the owner first (code-drawn clay blobs vs. the generated tree props already used for lot landscaping vs. new tree tiles [paid]; forests vs. single trees; how they meet roads and plots).
+1. **Refine the clay trees** (in the game and "good enough to carry on", per the owner). To revisit: more broadleaf variety (beech is the only round-crowned tree; oak, birch, maple and willow were rejected twice, first too cartoonish, then too gnarly; the owner likes compact dense crowns with hidden trunks) [paid]; forests look a little planted because the tidy rows line up across tiles (the owner rejected random scatter and mirrored trees as sloppy, so add wobble carefully); larch is muted in `trees.mjs` (`MUTE`), retune if needed; frame cost of large forests and of zooming has not been measured; after the engine's zoom fix lands, key the per-tile trees on the chunk's own drawn size (`_chunkTs`). Review pages: `art/clay-set/trees.html`, `art/clay-set/forest.html`.
 
 ### Waiting on something else
 

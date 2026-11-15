@@ -1,6 +1,18 @@
 import type { MusicManager } from '../audio/MusicManager';
+import type { Track } from '../audio/types';
 
 const VOLUME_KEY = 'city-builder.musicVolume';
+
+/**
+ * Name shown to the player: a take's own name ("Cloudy Sky · Drifting Over" -> "Drifting Over").
+ * The full "Song · Take" name stays internal; playlistOrder uses it to space related takes apart.
+ */
+function displayName(trackName: string): string {
+  return trackName.split(' · ').pop()!;
+}
+
+/** Song picker sections, in display order. */
+const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['country', 'Country'], ['edm', 'Electronic']];
 
 function loadVolume(): number | null {
   try {
@@ -108,38 +120,32 @@ export class MusicPanel {
     this.updateUI();
   }
 
-  /** Songs grouped by name ("Song · Take"), alphabetical, original first; the current track is marked. */
+  /** Tracks grouped by style (Ambient, Country, Electronic), alphabetical within each; the current track is marked. */
   private openMenu() {
-    const names = this.musicManager.getTrackNames();
+    const tracks = this.musicManager.getTrackList();
     const current = this.musicManager.getTrackName();
-    const groups = new Map<string, string[]>();
-    for (const n of [...names].sort((a, b) => a.localeCompare(b))) {
-      const song = n.split(' · ')[0];
-      if (!groups.has(song)) groups.set(song, []);
-      groups.get(song)!.push(n);
-    }
     this.menuEl.replaceChildren();
-    if (names.length === 0) {
+    if (tracks.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'mp-menu-empty';
       empty.textContent = 'Songs are still loading…';
       this.menuEl.append(empty);
     }
-    for (const [song, tracks] of groups) {
-      const single = tracks.length === 1 && tracks[0] === song;
-      if (!single) {
-        const head = document.createElement('div');
-        head.className = 'mp-menu-song';
-        head.textContent = song;
-        this.menuEl.append(head);
-      }
-      for (const name of tracks) {
+    for (const [genre, label] of STYLES) {
+      const names = tracks.filter(t => t.genre === genre).map(t => t.name)
+        .sort((a, b) => displayName(a).localeCompare(displayName(b)));
+      if (names.length === 0) continue;
+      const head = document.createElement('div');
+      head.className = 'mp-menu-song';
+      head.textContent = label;
+      this.menuEl.append(head);
+      for (const name of names) {
         const item = document.createElement('button');
         item.type = 'button';
-        item.className = 'mp-menu-item' + (single ? '' : ' take');
+        item.className = 'mp-menu-item';
         item.setAttribute('role', 'menuitem');
         item.dataset.track = name;
-        item.textContent = single ? name : (name.split(' · ')[1] ?? 'Original');
+        item.textContent = displayName(name);
         if (name === current) { item.classList.add('current'); item.setAttribute('aria-current', 'true'); }
         this.menuEl.append(item);
       }
@@ -166,7 +172,8 @@ export class MusicPanel {
     this.updateUI();
   }
 
-  private setTrackName(name: string) {
+  private setTrackName(trackName: string) {
+    const name = displayName(trackName);
     if (this.trackNameEl.textContent === name) return; // don't restart the scroll on every UI refresh
     this.trackNameEl.textContent = name;
     this.trackBoxEl.title = name;
