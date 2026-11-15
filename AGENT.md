@@ -17,6 +17,7 @@ See the backlog/wishlist at WISHLIST.md
 - Canvas 2D renderer (MVP); PixiJS later
 - Cloudflare Pages for hosting
 - IndexedDB for local saves (manual slots + autosave in slot 0); Cloudflare Workers + R2/D1 for cloud saves (future phases)
+- Save files: the Save dialog exports the current city as a `.citysave.json` file and the Load dialog imports one (`src/persistence/SaveFile.ts`: JSON, layers as base64, upgraded through `migrate`). IndexedDB saves are tied to one site address (including the port), so a file is the way to move a city between ports, browsers or machines, or to hand one to an agent for testing
 ---
 
 ## Module Structure
@@ -487,6 +488,8 @@ Test files:
 - `stakes.test.ts` — debt events and blocking, fire damage, reachable abandonment thresholds, refusal reasons
 - `history-batch.test.ts` — batched strokes, undo/redo
 - `dragPath.test.ts`, `input-drag.test.ts` — drag-to-paint paths and synthetic pointer events
+- `saveFile.test.ts` — export / import of save files, bad-file rejection
+- `transit.test.ts`, `trafficCity.test.ts` — traffic model on small hand-built maps, and stability on a 6,500-person test city (`fixtures/testCity.ts`)
 - `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game
 - `World`, `Grid`, `rng`, `Vegetation`, `graphics`, `i18n`, `audio`, `ToastPanel`
 

@@ -72,6 +72,10 @@ export interface TranslationSchema {
       loadGame: string;
       deleteConfirm: string;
       saveNamePrompt: string;
+      exportFile: string;
+      exportNamePrompt: string;
+      importFile: string;
+      importFailed: string;
       pop: string;
       water: string;
     };

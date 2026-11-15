@@ -9,10 +9,11 @@
 // No other code changes needed. The store interface already carries userId
 // on every call, so LocalStore and a future RemoteStore both work the same way.
 
-import type { IStore, SlotInfo } from './SaveFormat';
+import type { IStore, SlotInfo, SaveMeta } from './SaveFormat';
 import { migrate } from './SaveFormat';
 import { serialize, deserialize, type VibeBootstrapper } from './Serializer';
 import type { World } from '../sim/World';
+import { encodeSaveFile, decodeSaveFile } from './SaveFile';
 
 export const DEFAULT_USER_ID = 'local';
 
@@ -28,9 +29,22 @@ export class SaveManager {
   }
 
   async saveGame(world: World, slot: number, name?: string): Promise<void> {
-    const snapshot = serialize(world);
-    const meta = {
-      name:       name ?? `City ${slot}`,
+    await this.store.save(this.userId, slot, this._meta(world, name ?? `City ${slot}`), serialize(world));
+  }
+
+  /** The city as the text of a save file (see SaveFile.ts). Touches no slot. */
+  exportGame(world: World, name: string): string {
+    return encodeSaveFile(this._meta(world, name), serialize(world));
+  }
+
+  /** A city from the text of a save file. Throws a readable Error if the file is no good. */
+  importGame(text: string): World {
+    return deserialize(decodeSaveFile(text).snapshot, this.bootstrapper);
+  }
+
+  private _meta(world: World, name: string): SaveMeta {
+    return {
+      name,
       savedAt:    Date.now(),
       tick:       world.tick,
       population: world.stats.population,
@@ -41,7 +55,6 @@ export class SaveManager {
         waterAmount: world.terrainOptions.waterAmount ?? 'medium',
       },
     };
-    await this.store.save(this.userId, slot, meta, snapshot);
   }
 
   async loadGame(slot: number): Promise<World | null> {
