@@ -24,6 +24,7 @@ export interface TrafficField {
   // Extra cost of ending a route at this door, raised while more trips end
   // there than it can take so that the overflow drives on to the next one.
   price: Float32Array;
+  isDoor: Uint8Array;      // 1 if the tile was a door at the last flood (to spot new doors)
   /** Total trips wanting this destination type ÷ total door capacity. */
   demandRatio: number;
 }
@@ -47,7 +48,7 @@ export function makeTrafficField(n: number): TrafficField {
   return {
     dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
     near: new Float32Array(n), doorCap: new Float32Array(n), doorLoad: new Float32Array(n),
-    price: new Float32Array(n), demandRatio: 0,
+    price: new Float32Array(n), isDoor: new Uint8Array(n), demandRatio: 0,
   };
 }
 

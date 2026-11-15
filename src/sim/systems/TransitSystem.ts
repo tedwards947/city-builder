@@ -60,6 +60,7 @@ const PRICE_GAIN = 3;               // tiles of price per 100% a door is over it
 const PRICE_MAX_STEP = 6;           // largest price change per iteration, in tiles
 const PRICE_TOLERANCE = 0.1;        // doors within ±10% of their share are left alone
 const PRICE_DECAY = 0.15;           // prices fall this much slower than they rise
+const PRICE_DECAY_IDLE = 0.5;       // …except at a door with no custom at all
 const CONGESTION_CAP = 3;           // load ratio beyond which a tile gets no slower
 
 export class TransitSystem {
@@ -270,9 +271,8 @@ export class TransitSystem {
     const dev       = world.layers.devLevel;
     const abandoned = world.layers.abandoned;
     const cost = this._cost;
-    const { dist, parent, order, near, doorCap, price } = field;
+    const { dist, parent, order, near, doorCap, price, isDoor } = field;
 
-    dist.fill(Infinity);
     doorCap.fill(0);
     this._heapSize = 0;
 
@@ -295,8 +295,25 @@ export class TransitSystem {
       }
     }
 
+    // A door that has just appeared (a shop was built, or grew its first
+    // level) starts at a price just above what driving on from here already
+    // cost — `dist` still holds the previous map. So it takes its share of
+    // the traffic passing its door, but does not pull in everyone for whom
+    // an unpriced shop would look like a bargain; its price then drifts down
+    // until it has the custom it can handle.
     for (let ri = 0; ri < n; ri++) {
-      if (doorCap[ri] === 0) { price[ri] = 0; continue; }
+      if (doorCap[ri] === 0) { price[ri] = 0; isDoor[ri] = 0; continue; }
+      if (isDoor[ri] === 0) {
+        isDoor[ri] = 1;
+        // No earlier map (first flood, or no destination existed): start at 0.
+        const before = field.count > 0 ? dist[ri] : Infinity;
+        price[ri] = priced && before < Infinity ? before + 1 : 0;
+      }
+    }
+
+    dist.fill(Infinity);
+    for (let ri = 0; ri < n; ri++) {
+      if (doorCap[ri] === 0) continue;
       const p = priced ? price[ri] : 0;
       dist[ri] = p;
       parent[ri] = -1;
@@ -452,8 +469,10 @@ export class TransitSystem {
       }
       // Doors with room to spare drift back down, slowly, so that the queue
       // built above is not undone while it is still forming.
+      // A door nobody uses at all (a new shop waiting for custom) drops faster.
       if (d === 0 && over < 1 - PRICE_TOLERANCE && price[ri] > 0) {
-        d = -PRICE_DECAY * Math.min(PRICE_GAIN * (1 - over), PRICE_MAX_STEP) * step;
+        const rate = doorLoad[ri] === 0 ? PRICE_DECAY_IDLE : PRICE_DECAY;
+        d = -rate * Math.min(PRICE_GAIN * (1 - over), PRICE_MAX_STEP) * step;
       }
       if (d === 0) continue;
       const next = Math.min(priceMax, Math.max(0, price[ri] + d));

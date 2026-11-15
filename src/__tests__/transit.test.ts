@@ -485,6 +485,53 @@ describe('TransitSystem — destination capacity', () => {
     expect(Math.abs(west - east) / (west + east)).toBeLessThan(0.25);
   });
 
+  it('a new shop does not pull the whole town to it at once', () => {
+    // Homes in the middle, a full shopping street to the east, and a long
+    // empty road to the west where a single shop is then built.
+    const w = makeWorld(48, 12);
+    roadRow(w, 2, 44, 5);
+    for (let x = 18; x <= 27; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 34; x <= 43; x++) zoneAt(w, x, 4, ZONE_C, 1);
+    const sys = new TransitSystem();
+    let d = settle(w, sys);
+    const westRoad = w.grid.idx(12, 5);
+    expect(d.volRC[westRoad]).toBe(0);
+
+    zoneAt(w, 8, 4, ZONE_C, 1);
+    const room = T.shopCapacity * 1.2;
+    // On the very next pass, and on every pass while it settles, the road
+    // west carries no more than the new shop can take.
+    for (let pass = 40; pass < 70; pass++) {
+      run(w, sys, interval * pass);
+      d = w.traffic!;
+      expect(d.volRC[westRoad]).toBeLessThanOrEqual(room);
+      if (d.settled) break;
+    }
+    // Once things settle it has won some custom of its own, within its room.
+    expect(d.settled).toBe(true);
+    const load = d.toC.doorLoad[w.grid.idx(8, 5)];
+    expect(load).toBeGreaterThan(0);
+    expect(load).toBeLessThanOrEqual(room);
+  });
+
+  it('a new shop on a road traffic already uses takes its share straight away', () => {
+    const w = makeWorld(48, 12);
+    roadRow(w, 2, 44, 5);
+    for (let x = 4; x <= 13; x++) { zoneAt(w, x, 4, ZONE_R, 3); zoneAt(w, x, 6, ZONE_R, 3); }
+    for (let x = 34; x <= 43; x++) zoneAt(w, x, 4, ZONE_C, 1);
+    const sys = new TransitSystem();
+    settle(w, sys);
+
+    zoneAt(w, 24, 4, ZONE_C, 1);                 // halfway along the route
+    run(w, sys, interval * 40);
+    const d = w.traffic!;
+    const load = d.toC.doorLoad[w.grid.idx(24, 5)];
+    expect(load).toBeGreaterThan(T.shopCapacity * 0.8);
+    expect(load).toBeLessThanOrEqual(T.shopCapacity * 1.2);
+    // Traffic past it is lower by what it took, not gone.
+    expect(d.volRC[w.grid.idx(30, 5)]).toBeGreaterThan(20 * 3 * T.tripsRtoC - T.shopCapacity * 1.2 - 0.5);
+  });
+
   it('abandoned or undeveloped zones are not doors', () => {
     const w = simpleTown();
     zoneAt(w, 6, 4, ZONE_C, 0);
