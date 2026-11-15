@@ -3,9 +3,14 @@
 // purpose — this is a balancing tool, not player-facing UI.
 
 import type { World } from '../sim/World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime } from '../sim/TrafficData';
+import {
+  type TrafficField, type MarketKey,
+  bestAccessRoad, marketRate, neighbourIndex, roadCapacity, trafficVolume, travelTime,
+} from '../sim/TrafficData';
+
+const MARKET_NAME: Record<MarketKey, string> = { shopping: 'Shopping', jobs: 'Work', goods: 'Goods' };
 
 const fmt = (v: number, digits = 1) => (v < Infinity ? v.toFixed(digits) : '∞');
 const row = (text: string, color = '#9ad') => `<div class="ti-detail" style="color:${color}">${text}</div>`;
@@ -26,17 +31,17 @@ export function trafficDebugHtml(world: World, i: number): string {
     const vol = trafficVolume(d, i);
     const cap = roadCapacity(road);
     html += row(`Trips ${fmt(vol)} / ${cap} capacity = ${Math.round(vol / cap * 100)}%`);
-    html += row(`To commerce: homes ${fmt(d.volRC[i])}, industry ${fmt(d.volIC[i])}`);
-    html += row(`To industry: homes ${fmt(d.volRI[i])}`);
-    html += row(`Time to commerce ${fmt(travelTime(d.toC, i))} · industry ${fmt(travelTime(d.toI, i))} · homes ${fmt(travelTime(d.toR, i))}`);
+    html += row(d.markets.map(m => `${MARKET_NAME[m.def.key]} ${fmt(m.volume[i])}`).join(' · '));
+    html += row(`Time to shops ${fmt(travelTime(d.shopping.field, i))} · jobs ${fmt(travelTime(d.jobs.field, i))} · homes ${fmt(travelTime(d.toR, i))}`);
     // A door: the road tile where trips to the zones beside it end.
-    for (const [name, field] of [['Shop', d.toC], ['Job', d.toI]] as const) {
+    for (const m of d.markets) {
+      const field = m.field;
       const cap = field.doorCap[i];
       if (cap === 0) continue;
       const share = cap * Math.max(1, field.demandRatio);
       const full = field.doorLoad[i] > share * 1.1;
       html += row(
-        `${name} door: ${fmt(field.doorLoad[i])} trips end here, room for ${fmt(share)}`
+        `${MARKET_NAME[m.def.key]} door: ${fmt(field.doorLoad[i])} trips end here, room for ${fmt(share)}`
           + (field.price[i] > 0 ? ` · price ${fmt(field.price[i])}` : ''),
         full ? '#e95' : '#9ad',
       );
@@ -49,17 +54,25 @@ export function trafficDebugHtml(world: World, i: number): string {
   const access = L.accessibility[i];
   html += row(`Accessibility ${access}/255 (${Math.round(access / 255 * 100)}%)`);
 
-  const timeVia = (field: typeof d.toC) => {
+  const timeVia = (field: TrafficField) => {
     const r = bestAccessRoad(world, i, field);
     return r >= 0 ? travelTime(field, r) : Infinity;
   };
   if (zone === ZONE_R) {
-    html += row(`Commute: commerce ${fmt(timeVia(d.toC))} · industry ${fmt(timeVia(d.toI))} (limit ${T.commuteMax})`);
-    if (dev > 0) html += row(`Sends ${fmt(dev * T.tripsRtoC, 2)} trips to commerce, ${fmt(dev * T.tripsRtoI, 2)} to industry`);
+    html += row(`Commute: shops ${fmt(timeVia(d.shopping.field))} · jobs ${fmt(timeVia(d.jobs.field))} (limit ${T.commuteMax})`);
   } else {
     html += row(`Time to homes ${fmt(timeVia(d.toR))} (limit ${T.commuteMax})`);
-    if (zone === ZONE_I && dev > 0) html += row(`Sends ${fmt(dev * T.tripsItoC, 2)} trips to commerce (${fmt(timeVia(d.toC))} away)`);
-    if (zone === ZONE_C) html += row('Sends no trips (destination only)', '#999');
+  }
+  // What this lot sends, per market.
+  for (const m of d.markets) {
+    if (m.def.origin !== zone || dev === 0) continue;
+    const t = timeVia(m.field);
+    html += row(
+      t < Infinity
+        ? `${MARKET_NAME[m.def.key]}: sends ${fmt(dev * marketRate(m.def), 2)} trips, ${fmt(t)} away`
+        : `${MARKET_NAME[m.def.key]}: nowhere in reach`,
+      t < Infinity ? '#9ad' : '#e95',
+    );
   }
 
   // The growth multipliers ZoneGrowthSystem applies from traffic.
@@ -92,6 +105,7 @@ export interface TrafficTotals {
   overLimitPct: number;   // % of homes at or beyond commuteMax (but connected)
   shopDemand: number;     // trips wanting commerce ÷ commerce capacity (1 = exactly enough)
   jobDemand: number;      // trips wanting industry ÷ industry capacity
+  goodsDemand: number;    // goods trips from shops ÷ what industry can supply
   settled: boolean;       // false while the assignment is still settling
 }
 
@@ -117,18 +131,17 @@ export function trafficTotals(world: World): TrafficTotals | null {
     }
     const zone = L.zone[i], dev = L.devLevel[i];
     if (zone === ZONE_NONE || dev === 0 || L.abandoned[i] !== 0) continue;
-    const rC = bestAccessRoad(world, i, d.toC);
-    const tC = rC >= 0 ? travelTime(d.toC, rC) : Infinity;
+    for (const m of d.markets) {
+      if (m.def.origin !== zone) continue;
+      const r = bestAccessRoad(world, i, m.field);
+      if (r >= 0 && travelTime(m.field, r) < Infinity) trips += dev * marketRate(m.def);
+    }
     if (zone === ZONE_R) {
-      const rI = bestAccessRoad(world, i, d.toI);
-      const tI = rI >= 0 ? travelTime(d.toI, rI) : Infinity;
-      if (tC < Infinity) trips += dev * T.tripsRtoC;
-      if (tI < Infinity) trips += dev * T.tripsRtoI;
+      const rS = bestAccessRoad(world, i, d.shopping.field);
+      const rJ = bestAccessRoad(world, i, d.jobs.field);
+      const t = Math.min(rS >= 0 ? travelTime(d.shopping.field, rS) : Infinity, rJ >= 0 ? travelTime(d.jobs.field, rJ) : Infinity);
       homes++;
-      const t = Math.min(tC, tI);
       if (t < Infinity) { reach++; commuteSum += t; if (t >= T.commuteMax) overLimit++; }
-    } else if (zone === ZONE_I && tC < Infinity) {
-      trips += dev * T.tripsItoC;
     }
   }
   const pct = (a: number, b: number) => (b > 0 ? a / b * 100 : 0);
@@ -136,6 +149,7 @@ export function trafficTotals(world: World): TrafficTotals | null {
     roads, usedPct: pct(used, roads), overPct: pct(over, roads), worstRatio: worst,
     trips, homes, avgCommute: reach > 0 ? commuteSum / reach : 0,
     cutOffPct: pct(homes - reach, homes), overLimitPct: pct(overLimit, homes),
-    shopDemand: d.toC.demandRatio, jobDemand: d.toI.demandRatio, settled: d.settled,
+    shopDemand: d.shopping.field.demandRatio, jobDemand: d.jobs.field.demandRatio,
+    goodsDemand: d.goods.field.demandRatio, settled: d.settled,
   };
 }

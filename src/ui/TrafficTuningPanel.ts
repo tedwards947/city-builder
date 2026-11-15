@@ -29,7 +29,7 @@ const GROUPS: [string, Knob[]][] = [
   ['Trips per building level', [
     transitKnob('tripsRtoC', 'Homes → commerce', 0, 1, 0.01),
     transitKnob('tripsRtoI', 'Homes → industry', 0, 1, 0.01),
-    transitKnob('tripsItoC', 'Industry → commerce', 0, 1, 0.01),
+    transitKnob('tripsCtoI', 'Shops → industry (goods)', 0, 1, 0.01),
   ]],
   ['Road capacity (trips)', [
     roadKnob(1, 'capacity', 'Street', 5, 200, 1),
@@ -44,6 +44,7 @@ const GROUPS: [string, Knob[]][] = [
   ['Destinations and jams', [
     transitKnob('shopCapacity', 'Trips per shop level', 0.25, 10, 0.25),
     transitKnob('jobCapacity', 'Trips per job level', 0.25, 10, 0.25),
+    transitKnob('goodsCapacity', 'Goods per factory level', 0.25, 10, 0.25),
     transitKnob('congestionDelay', 'Slowdown when full', 0, 4, 0.1),
   ]],
   ['Effect on growth', [
@@ -174,8 +175,8 @@ export class TrafficTuningPanel {
     const T = transit;
     const rc = roadClasses;
     return [
-      `transit: tripsRtoC: ${T.tripsRtoC}, tripsRtoI: ${T.tripsRtoI}, tripsItoC: ${T.tripsItoC}, `
-        + `shopCapacity: ${T.shopCapacity}, jobCapacity: ${T.jobCapacity}, congestionDelay: ${T.congestionDelay}, `
+      `transit: tripsRtoC: ${T.tripsRtoC}, tripsRtoI: ${T.tripsRtoI}, tripsCtoI: ${T.tripsCtoI}, `
+        + `shopCapacity: ${T.shopCapacity}, jobCapacity: ${T.jobCapacity}, goodsCapacity: ${T.goodsCapacity}, congestionDelay: ${T.congestionDelay}, `
         + `commuteMax: ${T.commuteMax}, accessFloor: ${T.accessFloor}, congestionGrowthPenalty: ${T.congestionGrowthPenalty}`,
       `roadClasses: street { capacity: ${rc[1].capacity}, speedMult: ${rc[1].speedMult} }, `
         + `avenue { capacity: ${rc[2].capacity}, speedMult: ${rc[2].speedMult} }, `
@@ -206,6 +207,7 @@ export class TrafficTuningPanel {
       + line('Homes cut off', `${tot.cutOffPct.toFixed(1)}% of ${tot.homes}`, tot.cutOffPct > 5)
       + line('Shop trips vs capacity', `${Math.round(tot.shopDemand * 100)}%`, tot.shopDemand > 1)
       + line('Job trips vs capacity', `${Math.round(tot.jobDemand * 100)}%`, tot.jobDemand > 1)
+      + line('Goods trips vs supply', `${Math.round(tot.goodsDemand * 100)}%`, tot.goodsDemand > 1)
       + (tot.settled ? '' : line('Traffic', 'still settling…'));
   }
 }

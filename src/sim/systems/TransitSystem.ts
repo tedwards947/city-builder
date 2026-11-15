@@ -9,8 +9,11 @@
 //      avenues and highways are "shorter" and jams push traffic elsewhere.
 //      A "door" is a road tile next to a developed destination zone.
 //
-//   2. FLOWS. Three flows are sent downhill along those maps:
-//        homes → commerce, homes → industry, industry → commerce
+//   2. FLOWS. Each MARKET (see TrafficData.MARKET_DEFS) is sent downhill
+//      along its own map:
+//        shopping: homes → commerce     jobs: homes → industry
+//        goods:    commerce → industry  (shops fetch goods from the nearest
+//                                        industry with output to spare)
 //      Each developed origin tile puts (devLevel × trips rate) onto its best
 //      adjacent road; road tiles are then swept from farthest to nearest, each
 //      handing its traffic to the neighbour it was reached from. Every door a
@@ -43,11 +46,11 @@
 // assignment is still settling.
 
 import { World } from '../World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
 import {
   type TrafficData, type TrafficField,
-  makeTrafficField, bestAccessRoad, neighbourIndex, roadCapacity,
+  makeTrafficData, marketRate, marketCapacity, bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
 } from '../TrafficData';
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
@@ -66,8 +69,7 @@ const CONGESTION_CAP = 3;           // load ratio beyond which a tile gets no sl
 export class TransitSystem {
   private _n = 0;
   private _data!: TrafficData;
-  private _flowA!: Float32Array;    // traffic being swept along one map (first flow)
-  private _flowB!: Float32Array;    // second flow on the same map
+  private _flow!: Float32Array;     // traffic being swept along one map
   private _raw!: Float32Array;      // one flow's volumes this iteration, before averaging
   private _room!: Float32Array;     // capacity left at each door during a sweep
   private _cost!: Float32Array;     // travel cost per road tile this iteration
@@ -99,14 +101,8 @@ export class TransitSystem {
 
     if (this._n !== n) {
       this._n = n;
-      this._data = {
-        version: 0,
-        toC: makeTrafficField(n), toI: makeTrafficField(n), toR: makeTrafficField(n),
-        volRC: new Float32Array(n), volRI: new Float32Array(n), volIC: new Float32Array(n),
-        settled: false,
-      };
-      this._flowA = new Float32Array(n);
-      this._flowB = new Float32Array(n);
+      this._data = makeTrafficData(n);
+      this._flow = new Float32Array(n);
       this._raw = new Float32Array(n);
       this._room = new Float32Array(n);
       this._cost = new Float32Array(n);
@@ -133,7 +129,8 @@ export class TransitSystem {
       h = Math.imul(h ^ v, 0x9e3779b1);
       h ^= h >>> 15;
     }
-    let tuning = `${T.tripsRtoC},${T.tripsRtoI},${T.tripsItoC},${T.commuteMax},${T.shopCapacity},${T.jobCapacity},${T.congestionDelay},${T.freeFlow}`;
+    let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
+    for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)}`;
     for (const k of [1, 2, 3]) {
       const rc = BALANCE.roadClasses[k];
       tuning += `,${rc.capacity},${rc.speedMult}`;
@@ -163,13 +160,11 @@ export class TransitSystem {
 
     // ── Congestion ────────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
-    const { volRC, volRI, volIC } = data;
     let totalCong = 0, roadCount = 0;
     for (let i = 0; i < n; i++) {
       const rc = roadClass[i];
       if (rc === ROAD_NONE) { congestion[i] = 0; continue; }
-      const volume = volRC[i] + volRI[i] + volIC[i];
-      const c = Math.min(255, Math.round(volume / roadCapacity(rc) * 255));
+      const c = Math.min(255, Math.round(trafficVolume(data, i) / roadCapacity(rc) * 255));
       congestion[i] = c;
       totalCong += c;
       roadCount++;
@@ -177,8 +172,11 @@ export class TransitSystem {
     world.stats.avgCongestion = roadCount > 0 ? Math.round(totalCong / roadCount) : 0;
 
     // ── Accessibility ─────────────────────────────────────────────────────────
+    // What each zone type needs within reach. Homes: the nearer of commerce
+    // (shopping) or industry (jobs). Commerce and industry: homes.
+    // (TODO.md: let commerce also need industry, via the goods market's map.)
     const accessibility = world.layers.accessibility;
-    const { toC, toI, toR } = data;
+    const toShops = data.shopping.field, toJobs = data.jobs.field, toHomes = data.toR;
     const commuteMax = T.commuteMax;
 
     for (let zi = 0; zi < n; zi++) {
@@ -191,14 +189,9 @@ export class TransitSystem {
         if (ri < 0) continue;
         const rc = roadClass[ri];
         if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;
-        let t: number;
-        if (zoneType === ZONE_R) {
-          const tc = toC.dist[ri] < Infinity ? toC.near[ri] : Infinity;
-          const ti = toI.dist[ri] < Infinity ? toI.near[ri] : Infinity;
-          t = Math.min(tc, ti);
-        } else {
-          t = toR.dist[ri] < Infinity ? toR.near[ri] : Infinity;
-        }
+        const t = zoneType === ZONE_R
+          ? Math.min(travelTime(toShops, ri), travelTime(toJobs, ri))
+          : travelTime(toHomes, ri);
         if (t < best) best = t;
       }
 
@@ -214,45 +207,35 @@ export class TransitSystem {
     const n = this._n;
     const T = BALANCE.transit;
     const roadClass = world.layers.roadClass;
-    const { volRC, volRI, volIC } = this._data;
+    const data = this._data;
     const cost = this._cost;
     const classCost = this._classCost;
     for (let i = 0; i < n; i++) {
       const rc = roadClass[i];
       if (rc === ROAD_NONE) continue;
-      const ratio = (volRC[i] + volRI[i] + volIC[i]) / roadCapacity(rc);
+      const ratio = trafficVolume(data, i) / roadCapacity(rc);
       const over = Math.min(ratio, CONGESTION_CAP) - T.freeFlow;
       cost[i] = classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1);
     }
   }
 
-  /** One round of maps → flows → prices. Returns whether anything moved noticeably. */
+  /** One round of maps → flows → prices, for every market. Returns whether anything moved noticeably. */
   private _iterate(world: World): boolean {
-    const T = BALANCE.transit;
-    const { volRC, volRI, volIC, toC, toI } = this._data;
     // Weight of this iteration in the running average: 1, then falling.
     const damp = 1 / (1 + this._iter * 0.5);
+    const step = Math.max(0.5, damp);
 
     this._updateCosts(world);
 
-    this._flood(world, ZONE_C, toC, T.shopCapacity, true);
-    this._flood(world, ZONE_I, toI, T.jobCapacity, true);
-
-    let moved = 0;
-
-    // Commerce takes two flows, which share its doors' capacity.
-    const demandRC = this._inject(world, toC, ZONE_R, T.tripsRtoC, this._flowA);
-    const demandIC = this._inject(world, toC, ZONE_I, T.tripsItoC, this._flowB);
-    this._openDoors(toC, demandRC + demandIC);
-    moved = Math.max(moved, this._sweep(world, toC, this._flowA, volRC, damp));
-    moved = Math.max(moved, this._sweep(world, toC, this._flowB, volIC, damp));
-
-    const demandRI = this._inject(world, toI, ZONE_R, T.tripsRtoI, this._flowA);
-    this._openDoors(toI, demandRI);
-    moved = Math.max(moved, this._sweep(world, toI, this._flowA, volRI, damp));
-
-    const step = Math.max(0.5, damp);
-    const priceMoved = Math.max(this._updatePrices(toC, step), this._updatePrices(toI, step));
+    let moved = 0, priceMoved = 0;
+    for (const m of this._data.markets) {
+      const { def, field } = m;
+      this._flood(world, def.dest, field, marketCapacity(def), true);
+      const demand = this._inject(world, field, def.origin, marketRate(def), this._flow);
+      this._openDoors(field, demand);
+      moved = Math.max(moved, this._sweep(world, field, this._flow, m.volume, damp));
+      priceMoved = Math.max(priceMoved, this._updatePrices(field, step));
+    }
 
     return moved > SETTLED_LOAD || priceMoved > SETTLED_PRICE;
   }
