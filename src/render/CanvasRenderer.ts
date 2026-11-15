@@ -4,11 +4,12 @@ import { Projection, TILE_SIZE } from './Projection';
 import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
-import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
+import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { drawClayRoad, drawnRoadClass, roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
 import { trafficVolume, roadCapacity } from '../sim/TrafficData';
-import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster } from './clay/problemPins';
+import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
+import { drawCommuteRoutes } from './clay/commuteRoute';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -49,6 +50,7 @@ const PROBLEM_BADGE_MIN_TILE = 30;
 /** Below this tile size, districts of one or two lots get no pin. */
 const PROBLEM_SMALL_PIN_MIN_TILE = 10;
 const PROBLEM_PIN_REFRESH_MS = 400;
+const BADGE_KINDS: readonly BadgeKind[] = ['crime', 'health', 'power', 'water', 'commute', 'cutoff', 'road', 'death'];
 /** Tile size (px) from which roads show every car; below it, half of them. */
 const TRAFFIC_FULL_TILE = 20;
 
@@ -73,11 +75,14 @@ export class CanvasRenderer {
   private _clayEffects: ClayEffect[] = [];
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
   private _markerQueue: number[] = [];
+  private _utilityQueue: number[] = [];
   private _fireQueue: number[] = [];
   private _pins: ProblemCluster[] = [];
   private _pinsWorld: World | null = null;
   private _pinsTick = -1;
   private _pinsAt = 0;
+  // Every badge and pin drawn last frame as (x, y, radius, kind index, count), for `badgeAt`.
+  private _badges: number[] = [];
   private _around: number[] = [0, 0, 0, 0];
   private _rawAround: number[] = [0, 0, 0, 0];
   private _trafficCars: TrafficCar[] = [];
@@ -90,6 +95,19 @@ export class CanvasRenderer {
     this.ctx = canvas.getContext('2d')!;
     loadClaySprites();
     loadWildTrees();
+  }
+
+  /**
+   * The badge or pin under canvas point (x, y) in the last frame drawn, topmost
+   * first, or null. `count` is the number of lots a district pin stands for.
+   */
+  badgeAt(x: number, y: number): { kind: BadgeKind; count: number } | null {
+    const b = this._badges;
+    for (let q = b.length - 5; q >= 0; q -= 5) {
+      const dx = x - b[q], dy = y - b[q + 1], r = b[q + 2] + 2;
+      if (dx * dx + dy * dy <= r * r) return { kind: BADGE_KINDS[b[q + 3]], count: b[q + 4] };
+    }
+    return null;
   }
 
   render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
@@ -240,6 +258,8 @@ export class CanvasRenderer {
     const markerQueue = this._markerQueue;
     const fireQueue = this._fireQueue;
     markerQueue.length = 0;
+    const utilityQueue = this._utilityQueue;
+    utilityQueue.length = 0;
     fireQueue.length = 0;
     if (this._lastBurnWorld !== world) { this._lastBurnWorld = world; this._lastBurn.clear(); }
 
@@ -282,6 +302,8 @@ export class CanvasRenderer {
         const sy  = camera.worldToScreenY(Projection.tileToWorldY(ty));
         const sxi = Math.floor(sx);
         const syi = Math.floor(sy);
+        // Zoomed in, every lot is checked for a missing road, power or water, empty ones too.
+        if (ts >= PROBLEM_BADGE_MIN_TILE && zone !== ZONE_NONE) utilityQueue.push(i, sxi, syi);
 
         // 1. Draw Sprite (Buildings/Houses)
         // Localized Vibe for sprite selection
@@ -299,13 +321,14 @@ export class CanvasRenderer {
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
-          drawClaySprite(ctx, clay, sxi, syi, clayTile, visualVariant >> 3);
+          // A lot without power shows it on the building itself (lights out).
+          const look = building === BUILDING_NONE && !isAbandoned && world.layers.power[i] === 0 ? LOOK_NO_POWER : 0;
+          drawClaySprite(ctx, clay, sxi, syi, clayTile, visualVariant >> 3, look);
           if (building === BUILDING_NONE) {
             // The plot hides the chunk layer's status tints, so repeat them here.
             let tint: string | null = null;
             if (isAbandoned) tint = 'rgba(24,18,12,0.38)';
-            else if (world.layers.power[i] === 0) tint = p.noPowerTint;
-            else if (world.layers.water[i] === 0 && dev >= 1) tint = p.noWaterTint;
+            else if (look) tint = null;
             else if (world.layers.sewage[i] === 0 && dev >= 2) tint = p.noSewageTint;
             else if (world.layers.services[i] === 0 && dev >= 2) tint = p.noServicesTint;
             if (tint) {
@@ -381,13 +404,30 @@ export class CanvasRenderer {
 
     // Problem indicators (see clay/problemPins.ts): zoomed in, a badge on each
     // seriously affected building; zoomed out, one pin per troubled district.
+    const badges = this._badges;
+    badges.length = 0;
+    const badge = (x: number, y: number, r: number, kind: BadgeKind, count: number): void => {
+      drawProblemBadge(ctx, x, y, r, kind, count);
+      badges.push(x, y, r, BADGE_KINDS.indexOf(kind), count);
+    };
     if (ts >= PROBLEM_BADGE_MIN_TILE) {
       const r = ts * 0.16;
       for (let q = 0; q < markerQueue.length; q += 3) {
         const i = markerQueue[q], x = markerQueue[q + 1], y = markerQueue[q + 2];
-        if (crimeProblem(world, i, CRIME_BADGE_MIN)) drawProblemBadge(ctx, x + ts * 0.8, y + ts * 0.2, r, 'crime');
-        if (healthProblem(world, i, SICKNESS_BADGE_MIN)) drawProblemBadge(ctx, x + ts * 0.2, y + ts * 0.2, r, 'health');
-        if (world.layers.recentDeath[i] > 0 && world.layers.zone[i] === ZONE_R) drawProblemBadge(ctx, x + ts * 0.2, y + ts * 0.8, r, 'death');
+        if (crimeProblem(world, i, CRIME_BADGE_MIN)) badge(x + ts * 0.8, y + ts * 0.2, r, 'crime', 1);
+        if (healthProblem(world, i, SICKNESS_BADGE_MIN)) badge(x + ts * 0.2, y + ts * 0.2, r, 'health', 1);
+        if (world.layers.recentDeath[i] > 0 && world.layers.zone[i] === ZONE_R) badge(x + ts * 0.2, y + ts * 0.8, r, 'death', 1);
+      }
+      // No road, no power, no water, commute: along the front of the lot. With
+      // no road the rest are symptoms and only the road badge shows.
+      for (let q = 0; q < utilityQueue.length; q += 3) {
+        const m = lotProblemMask(world, utilityQueue[q]), x = utilityQueue[q + 1], y = utilityQueue[q + 2];
+        if (m & 64) { badge(x + ts * 0.5, y + ts * 0.8, r, 'road', 1); continue; }
+        const power = (m & 4) !== 0, water = (m & 8) !== 0;
+        if (power) badge(x + ts * (water ? 0.34 : 0.5), y + ts * 0.8, r, 'power', 1);
+        if (water) badge(x + ts * (power ? 0.62 : 0.5), y + ts * 0.8, r, 'water', 1);
+        if (m & 32) badge(x + ts * 0.85, y + ts * 0.5, r, 'cutoff', 1);
+        else if (m & 16) badge(x + ts * 0.85, y + ts * 0.5, r, 'commute', 1);
       }
     } else {
       // Districts are regrouped when the sim has ticked, at most a few times a second.
@@ -398,9 +438,23 @@ export class CanvasRenderer {
       for (const pin of this._pins) {
         // When tiles are tiny, a lot or two on its own is not worth a pin.
         if (ts < PROBLEM_SMALL_PIN_MIN_TILE && pin.count < 3) continue;
-        const x = camera.worldToScreenX(pin.x * TILE_SIZE), y = camera.worldToScreenY(pin.y * TILE_SIZE), r = pinRadius(pin.count);
+        let x = camera.worldToScreenX(pin.x * TILE_SIZE);
+        const y = camera.worldToScreenY(pin.y * TILE_SIZE), r = pinRadius(pin.count);
+        // A district with two problems has both pins in the same place: step aside.
+        for (let tries = 0, q = 0; tries < 6 && q < badges.length; q += 5) {
+          const reach = (r + badges[q + 2]) * 0.85;
+          if (Math.abs(badges[q + 1] - y) < reach && Math.abs(badges[q] - x) < reach) { x = badges[q] + r + badges[q + 2]; q = -5; tries++; }
+        }
         if (x < -r || y < -r || x > cw + r || y > ch + r) continue;
-        drawProblemBadge(ctx, x, y, r, pin.kind, pin.count);
+        badge(x, y, r, pin.kind, pin.count);
+      }
+    }
+
+    // The inspected lot's trips to work and shops (or to homes), along the roads.
+    if (currentTool === 'inspect' && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
+      const i = world.grid.idx(hoverTile.tx, hoverTile.ty);
+      if (world.layers.zone[i] !== ZONE_NONE && world.layers.devLevel[i] > 0 && world.layers.abandoned[i] === 0) {
+        drawCommuteRoutes(ctx, world, i, ts, camera.worldToScreenX(0), camera.worldToScreenY(0));
       }
     }
 

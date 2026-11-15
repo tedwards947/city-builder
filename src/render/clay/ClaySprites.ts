@@ -103,7 +103,12 @@ interface DressSlot {
   dressed: boolean;
   /** Set when the plan has trees that had not loaded at bake time: the tree epoch it was baked at. */
   waitingForTrees: number;
+  /** For a look (lights out): the source it was washed from, to redo it when that changes. */
+  from?: CanvasImageSource | null;
 }
+
+/** How a lot without services looks: bit 1 = no power (dark, grey, as if the lights are out). */
+export const LOOK_NO_POWER = 1;
 
 /** How many dressing variants each zone sprite has. */
 export const CLAY_DRESSING_COUNT = 6;
@@ -203,10 +208,11 @@ export function pickClaySprite(zone: number, building: number, dev: number, vibe
 /**
  * Draws the sprite so its plot fills the tile whose top-left corner is (sx, sy)
  * and whose side is `tile` pixels. `variant` (any non-negative integer, e.g.
- * spare bits of the lot's id) picks which dressing the lot gets.
+ * spare bits of the lot's id) picks which dressing the lot gets; `look` (LOOK_*
+ * bits) shows it without power.
  */
-export function drawClaySprite(ctx: CanvasRenderingContext2D, s: ClaySprite, sx: number, sy: number, tile: number, variant = 0): void {
-  const slot = dressSlot(s, variant);
+export function drawClaySprite(ctx: CanvasRenderingContext2D, s: ClaySprite, sx: number, sy: number, tile: number, variant = 0, look = 0): void {
+  const slot = look ? lookSlot(s, variant, look) : dressSlot(s, variant);
   const m = s.meta;
   const plotW = m.right - m.left + 1;
   const plotH = plotW * PLOT_ASPECT;
@@ -300,6 +306,36 @@ function dressSlot(s: ClaySprite, variant: number): DressSlot {
   } catch {
     return slot ?? plain;
   }
+}
+
+/**
+ * The slot for a dressing variant shown without power: the
+ * dressed sprite with a colour wash, kept beside the normal slots.
+ */
+function lookSlot(s: ClaySprite, variant: number, look: number): DressSlot {
+  const base = dressSlot(s, variant);
+  if (!base.source) return base;
+  const at = CLAY_DRESSING_COUNT * (look & 3) + (s.zone ? variant % CLAY_DRESSING_COUNT : 0);
+  let slot = s.slots[at];
+  if (slot && slot.from === base.source) return slot;
+  const { w, h } = s.meta;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const c = canvas.getContext('2d');
+  if (!c) return base;
+  c.drawImage(base.source, 0, 0, w, h);
+  const wash = (op: GlobalCompositeOperation, colour: string, alpha: number): void => {
+    c.globalCompositeOperation = op; c.globalAlpha = alpha; c.fillStyle = colour; c.fillRect(0, 0, w, h);
+  };
+  if (look & LOOK_NO_POWER) { wash('saturation', '#808080', 0.8); wash('multiply', '#4a4f66', 0.8); }
+  // The washes filled the whole canvas: cut it back to the sprite's shape.
+  c.globalCompositeOperation = 'destination-in'; c.globalAlpha = 1;
+  c.drawImage(base.source, 0, 0, w, h);
+  if (!slot) slot = s.slots[at] = { source: null, scaled: null, scaledFor: -1, dressed: true, waitingForTrees: 0 };
+  slot.source = canvas;
+  slot.from = base.source;
+  slot.scaledFor = -1;
+  return slot;
 }
 
 /** Shared scratch canvases for baking (one variant is baked at a time). */

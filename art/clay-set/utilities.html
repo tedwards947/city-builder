@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No power, no water, commute ideas</title>
+<style>
+  :root { --bg: #14171c; --panel: #1d222a; --line: #2f3742; --text: #e6e9ee; --dim: #98a2b0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 28px 0 4px; }
+  h1:first-child { margin-top: 0; }
+  p.sub { color: var(--dim); margin: 0 0 18px; max-width: 85ch; }
+  .opt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+  .opt h2 { font-size: 17px; margin: 0 0 2px; }
+  .opt p { color: var(--dim); margin: 0 0 10px; font-size: 13px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .pair div span { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+
+  .panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .pane { background: #232830; border: 1px solid #3a4250; border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+  .pane .cap { color: var(--dim); font-size: 12px; margin: 0 0 8px; }
+  .pane h3 { margin: 0; font-size: 15px; }
+  .pane .type { color: var(--dim); margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+  .chip { border-radius: 999px; padding: 2px 9px 2px 7px; font-size: 12px; font-weight: 600; color: #fff; }
+  .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+  .row b { font-weight: 600; }
+  .hint { color: var(--dim); font-size: 12px; margin: 2px 0 8px; }
+  .bar { height: 8px; border-radius: 4px; background: #39414d; position: relative; margin: 4px 0 2px; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+  .bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #e6e9ee; }
+  .sep { border-top: 1px solid #3a4250; margin: 8px 0; }
+  .bad { color: #ff8b7e; } .ok { color: #7fd48a; } .warn { color: #f0b04c; }
+</style>
+</head>
+<body>
+<main>
+  <h1>No power and no water</h1>
+  <p class="sub">The same town in every row. The north-east has no power, the south-west has no water, and a strip in the south has neither. Left: zoomed out. Right: zoomed in where all three meet (no water on the left, neither in the middle, no power on the right).</p>
+  <div id="utilities"></div>
+
+  <h1>Commute problems</h1>
+  <p class="sub">The game knows, for every lot, how far its residents travel to jobs and shops (or how far a business is from homes), and whether anything is in reach at all. Here a block of homes in the south has a long commute and the block next to it is cut off. Right: zoomed in on both.</p>
+  <div id="commute"></div>
+
+  <h1>In the inspect pane</h1>
+  <p class="sub">A sketch of what clicking a lot could show. Problems come first as chips in the same colours as the map marks; the commute gets a bar against the limit and says which trip is the long one. Numbers are made up.</p>
+  <div class="panes">
+    <div class="pane">
+      <p class="cap">A house with a long commute</p>
+      <h3>Residential, level 2</h3><div class="type">Terraced houses</div>
+      <div class="chips"><span class="chip" style="background:#8a63d2">◷ Long commute</span></div>
+      <div class="row"><span>To jobs</span><b class="warn">31 tiles</b></div>
+      <div class="bar"><i style="width:65%;background:#f0b04c"></i><u style="left:100%"></u></div>
+      <div class="row"><span>To shops</span><b class="ok">12 tiles</b></div>
+      <div class="bar"><i style="width:25%;background:#7fd48a"></i><u style="left:100%"></u></div>
+      <div class="hint">Limit 48 tiles. Growth here is slowed to 35%.</div>
+      <div class="hint">Zone jobs closer, or give the route a faster road.</div>
+      <div class="sep"></div>
+      <div class="row"><span>Power</span><b class="ok">Connected</b></div>
+      <div class="row"><span>Water</span><b class="ok">Connected</b></div>
+    </div>
+    <div class="pane">
+      <p class="cap">A house that is cut off</p>
+      <h3>Residential, level 1</h3><div class="type">Cottage</div>
+      <div class="chips"><span class="chip" style="background:#8a63d2">⊖ No jobs in reach</span></div>
+      <div class="row"><span>To jobs</span><b class="bad">None within 48 tiles</b></div>
+      <div class="bar"><i style="width:100%;background:#ff6b5e"></i></div>
+      <div class="row"><span>To shops</span><b class="ok">9 tiles</b></div>
+      <div class="bar"><i style="width:19%;background:#7fd48a"></i><u style="left:100%"></u></div>
+      <div class="hint">This lot will not grow until its residents can reach work.</div>
+      <div class="sep"></div>
+      <div class="row"><span>Power</span><b class="ok">Connected</b></div>
+      <div class="row"><span>Water</span><b class="ok">Connected</b></div>
+    </div>
+    <div class="pane">
+      <p class="cap">A shop with no power or water</p>
+      <h3>Commercial, level 2</h3><div class="type">Corner shop</div>
+      <div class="chips"><span class="chip" style="background:#d99a1c">⚡ No power</span><span class="chip" style="background:#3d8fe0">💧 No water</span></div>
+      <div class="row"><span>Power</span><b class="bad">Out of reach</b></div>
+      <div class="hint">No power plant covers this lot. Build one nearer.</div>
+      <div class="row"><span>Water</span><b class="bad">City is short</b></div>
+      <div class="hint">Covered by a tower, but the city uses 140 and makes 100.</div>
+      <div class="sep"></div>
+      <div class="row"><span>Customers</span><b class="ok">8 tiles away</b></div>
+      <div class="bar"><i style="width:17%;background:#7fd48a"></i><u style="left:100%"></u></div>
+    </div>
+  </div>
+</main>
+<script src="sprites/manifest.js"></script>
+<script>
+const SPRITES = window.SPRITES || {};
+const PLOT_ASPECT = 0.905, COLS = 44, ROWS = 26;
+const hash = (a, b, c = 0) => { let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+// ── Town ────────────────────────────────────────────────────────────────────
+const isRoad = (x, y) => x % 6 === 0 || y % 5 === 0;
+const inMap = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+const zoneAt = (x, y) => (!inMap(x, y) || isRoad(x, y) ? '' : x > 30 && y > 14 ? 'ind' : (x > 15 && x < 28 && y > 5 && y < 15) ? 'com' : 'res');
+const levelAt = (x, y) => 1 + Math.floor(hash(x, y, 4) * 3);
+const SETS = { res: [['res-1', 'res-1-b', 'res-1-c', 'res-1-d'], ['res-2', 'res-2-b', 'res-2-c', 'res-2-d'], ['res-3', 'res-3-b', 'res-3-f', 'res-3-h']], com: [['com-1', 'com-1-b', 'com-1-c'], ['com-2', 'com-2-b', 'com-2-c'], ['com-3', 'com-3-f', 'com-3-i']], ind: [['ind-1', 'ind-1-b'], ['ind-2', 'ind-2-b'], ['ind-3', 'ind-3-b']] };
+const spriteAt = (x, y) => { const z = zoneAt(x, y); if (!z) return null; const set = SETS[z][levelAt(x, y) - 1]; return set[Math.floor(hash(x, y, 8) * set.length)]; };
+
+const noPower = (x, y) => !!zoneAt(x, y) && ((x >= 29 && y <= 13) || (x >= 7 && x <= 17 && y >= 20));
+const noWater = (x, y) => !!zoneAt(x, y) && x <= 11 && y >= 15;
+// Commute as a share of the limit; 2 = nothing in reach; 0 = fine.
+const cutOff = (x, y) => zoneAt(x, y) === 'res' && x >= 19 && x <= 23 && y >= 16 && y <= 19;
+const longTrip = (x, y) => zoneAt(x, y) === 'res' && x >= 13 && x <= 17 && y >= 16;
+const tripShare = (x, y) => (cutOff(x, y) ? 2 : longTrip(x, y) ? 0.62 + hash(x, y, 41) * 0.33 : 0.1 + hash(x, y, 42) * 0.3);
+
+const AMBER = '#d99a1c', BLUE = '#3d8fe0', VIOLET = '#8a63d2';
+
+const images = {}, looks = new Map();
+/** A sprite with its lights out ('dark'), parched ('dry') or both, made once. */
+function lookOf(id, look) {
+  const img = images[id]; if (!look || !img) return img;
+  const key = id + ':' + look; let c = looks.get(key); if (c) return c;
+  c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const wash = (op, colour, a) => { g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = colour; g.fillRect(0, 0, c.width, c.height); };
+  if (look !== 'dark') { wash('color', '#a8955f', 0.55); wash('saturation', '#808080', 0.25); }
+  if (look !== 'dry') { wash('saturation', '#808080', 0.8); wash('multiply', '#4a4f66', 0.8); }
+  g.globalCompositeOperation = 'destination-in'; g.globalAlpha = 1; g.drawImage(img, 0, 0);
+  looks.set(key, c); return c;
+}
+function drawTown(ctx, T, x0, y0, w, h, lookAt) {
+  ctx.fillStyle = '#3a5a3a'; ctx.fillRect(0, 0, w * T, h * T);
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const px = (x - x0) * T, py = (y - y0) * T;
+    if (isRoad(x, y)) { ctx.fillStyle = '#b7b1a4'; ctx.fillRect(px, py, T, T); ctx.fillStyle = '#63676e'; const m = T * 0.14; ctx.fillRect(px + (x % 6 === 0 ? m : 0), py + (y % 5 === 0 ? m : 0), T - (x % 6 === 0 ? 2 * m : 0), T - (y % 5 === 0 ? 2 * m : 0)); }
+  }
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const id = spriteAt(x, y), m = id && SPRITES[id], img = id && lookOf(id, lookAt ? lookAt(x, y) : ''); if (!img || !m) continue;
+    const plotW = m.right - m.left + 1, kx = T / plotW, ky = T / (plotW * PLOT_ASPECT), top = m.bottom + 1 - plotW * PLOT_ASPECT;
+    ctx.drawImage(img, (x - x0) * T - m.left * kx, (y - y0) * T - top * ky, m.w * kx, m.h * ky);
+  }
+}
+/** Groups of lots passing `hit`, joined across gaps of one tile (a road). */
+function clusters(hit) {
+  const seen = new Set(), out = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!hit(x, y) || seen.has(y * COLS + x)) continue;
+    const stack = [[x, y]], tiles = []; seen.add(y * COLS + x);
+    while (stack.length) {
+      const [cx, cy] = stack.pop(); tiles.push([cx, cy]);
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const nx = cx + dx, ny = cy + dy, k = ny * COLS + nx;
+        if (inMap(nx, ny) && hit(nx, ny) && !seen.has(k)) { seen.add(k); stack.push([nx, ny]); }
+      }
+    }
+    out.push(tiles);
+  }
+  return out;
+}
+const centre = tiles => [tiles.reduce((a, t) => a + t[0], 0) / tiles.length + 0.5, tiles.reduce((a, t) => a + t[1], 0) / tiles.length + 0.5];
+const inView = (x, y, x0, y0, w, h) => x >= x0 && y >= y0 && x < x0 + w && y < y0 + h;
+
+// ── Icons ───────────────────────────────────────────────────────────────────
+function glyph(ctx, x, y, r, kind, colour) {
+  ctx.fillStyle = '#fff';
+  if (kind === 'power') {
+    const p = [[0.05, -0.6], [-0.36, 0.1], [-0.04, 0.1], [-0.14, 0.6], [0.36, -0.12], [0.05, -0.12], [0.24, -0.6]];
+    ctx.beginPath(); p.forEach(([a, b], n) => (n ? ctx.lineTo(x + a * r, y + b * r) : ctx.moveTo(x + a * r, y + b * r))); ctx.closePath(); ctx.fill();
+  } else if (kind === 'water') {
+    ctx.beginPath(); ctx.arc(x, y + r * 0.2, r * 0.36, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y - r * 0.62); ctx.lineTo(x + r * 0.33, y + r * 0.06); ctx.lineTo(x - r * 0.33, y + r * 0.06); ctx.closePath(); ctx.fill();
+  } else if (kind === 'commute') {
+    ctx.beginPath(); ctx.arc(x, y, r * 0.54, 0, 7); ctx.fill();
+    ctx.strokeStyle = colour; ctx.lineWidth = Math.max(1.2, r * 0.13); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y - r * 0.34); ctx.lineTo(x, y); ctx.lineTo(x + r * 0.24, y + r * 0.14); ctx.stroke();
+  } else { // cut off: a no-through bar
+    ctx.beginPath(); ctx.roundRect(x - r * 0.52, y - r * 0.15, r * 1.04, r * 0.3, r * 0.08); ctx.fill();
+  }
+}
+const COLOUR = { power: AMBER, water: BLUE, commute: VIOLET, cut: VIOLET };
+function badge(ctx, x, y, r, kind, count = 1) {
+  const colour = COLOUR[kind];
+  ctx.fillStyle = 'rgba(10,12,16,0.35)'; ctx.beginPath(); ctx.arc(x + r * 0.08, y + r * 0.14, r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f4f0e6'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.fill();
+  glyph(ctx, x, y, r, kind, colour);
+  if (count > 1 && r > 9) {
+    const t = String(count); ctx.font = `700 ${Math.round(r * 0.62)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(t).width + r * 0.4, bx = x + r * 0.75, by = y - r * 0.75;
+    ctx.fillStyle = '#1b1e24'; ctx.beginPath(); ctx.roundRect(bx - tw / 2, by - r * 0.42, tw, r * 0.84, r * 0.42); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(t, bx, by + 1);
+  }
+}
+/** District pins when far, a badge per building when near; `kinds` is [hit, kind] pairs. */
+function pinsFor(kinds, ctx, T, x0, y0, w, h) {
+  if (T >= 30) {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      let n = 0;
+      for (const [hit, kind] of kinds) if (hit(x, y)) badge(ctx, (x - x0 + 0.8 - n++ * 0.36) * T, (y - y0 + 0.2) * T, T * 0.17, kind);
+    }
+    return;
+  }
+  for (const [hit, kind] of kinds) for (const tiles of clusters(hit)) {
+    const [cx, cy] = centre(tiles); if (!inView(cx, cy, x0, y0, w, h)) continue;
+    badge(ctx, (cx - x0) * T, (cy - y0) * T, Math.min(26, 8 + Math.sqrt(tiles.length) * 1.7), kind, tiles.length);
+  }
+}
+function outline(hit, colour, rgb, kind, ctx, T, x0, y0, w, h) {
+  const inD = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inMap(x + dx, y + dy) && hit(x + dx, y + dy)) return true; return false; };
+  ctx.fillStyle = `rgba(${rgb},0.12)`; ctx.strokeStyle = colour; ctx.lineWidth = Math.max(2, T * 0.07); ctx.lineCap = 'round'; ctx.setLineDash([T * 0.35, T * 0.3]);
+  ctx.beginPath();
+  for (let y = y0 - 1; y <= y0 + h; y++) for (let x = x0 - 1; x <= x0 + w; x++) {
+    if (!inD(x, y)) continue;
+    const px = (x - x0) * T, py = (y - y0) * T;
+    ctx.fillRect(px, py, T, T);
+    if (!inD(x, y - 1)) { ctx.moveTo(px, py); ctx.lineTo(px + T, py); }
+    if (!inD(x, y + 1)) { ctx.moveTo(px, py + T); ctx.lineTo(px + T, py + T); }
+    if (!inD(x - 1, y)) { ctx.moveTo(px, py); ctx.lineTo(px, py + T); }
+    if (!inD(x + 1, y)) { ctx.moveTo(px + T, py); ctx.lineTo(px + T, py + T); }
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+  for (const tiles of clusters(hit)) {
+    const [cx, cy] = centre(tiles);
+    if (inView(cx, cy, x0, y0, w, h)) badge(ctx, (cx - x0) * T, (cy - y0) * T, Math.max(9, Math.min(16, T * 0.3)), kind);
+  }
+}
+
+// ── Utility ideas ───────────────────────────────────────────────────────────
+const UTIL = [[noPower, 'power'], [noWater, 'water']];
+const utilLook = (x, y) => (noPower(x, y) ? (noWater(x, y) ? 'both' : 'dark') : noWater(x, y) ? 'dry' : '');
+function todayUtil(ctx, T, x0, y0, w, h) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const tint = noPower(x, y) ? 'rgba(20,10,40,0.45)' : noWater(x, y) ? 'rgba(10,60,80,0.35)' : null;
+    if (tint) { ctx.fillStyle = tint; ctx.fillRect((x - x0) * T, (y - y0) * T, T, T); }
+  }
+}
+const UTIL_IDEAS = [
+  ['Today', 'A dark purple wash over lots with no power and a dark teal one over lots with no water. If both are missing only the power wash shows.', null, todayUtil],
+  ['A. Pins, like crime and sickness', 'Zoomed out: one amber bolt or blue drop per district, with a count. Zoomed in: a badge on each building (two if it lacks both). Matches the indicators you already picked.', null, (...a) => pinsFor(UTIL, ...a)],
+  ['B. The buildings show it', 'No marks. Buildings without power go dark and grey, as if the lights are out. Buildings without water turn dry and dusty. Both: dark and dusty.', utilLook, () => {}],
+  ['C. Outlined districts', 'A dashed line and faint tint round each area, amber for power and blue for water, with one tag in the middle. Shows exactly where service stops.', null, (...a) => { outline(noPower, '#f0b23a', '240,170,40', 'power', ...a); outline(noWater, '#5aa6f0', '70,150,240', 'water', ...a); }],
+  ['D. Buildings show it, plus pins (B + A)', 'The look tells you where; the pin names the cause when zoomed out. Zoomed in, the look alone carries it, so there are no badges on buildings.', utilLook, (ctx, T, ...r) => { if (T < 30) pinsFor(UTIL, ctx, T, ...r); }],
+];
+
+// ── Commute ideas ───────────────────────────────────────────────────────────
+const TRIP = [[longTrip, 'commute'], [cutOff, 'cut']];
+const heat = s => (s < 0.5 ? '#7fd48a' : s < 0.8 ? '#f0b04c' : '#ff6b5e');
+function pill(ctx, x, y, text, colour, size) {
+  ctx.font = `700 ${size}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + size;
+  ctx.fillStyle = '#1b1e24'; ctx.beginPath(); ctx.roundRect(x - w / 2, y - size * 0.8, w, size * 1.6, size * 0.8); ctx.fill();
+  ctx.fillStyle = colour; ctx.fillText(text, x, y + 1);
+}
+function route(ctx, T, x0, y0) {
+  const P = (x, y) => [(x - x0 + 0.5) * T, (y - y0 + 0.5) * T];
+  const line = (pts, colour, dash) => {
+    for (const [lw, c] of [[Math.max(4, T * 0.2), 'rgba(15,17,22,0.75)'], [Math.max(2, T * 0.11), colour]]) {
+      ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.lineJoin = ctx.lineCap = 'round'; ctx.setLineDash(dash && lw < T * 0.2 ? [T * 0.25, T * 0.3] : []);
+      ctx.beginPath(); pts.forEach(([x, y], n) => { const [px, py] = P(x, y); n ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  };
+  const ring = (x, y, colour) => { const [px, py] = P(x, y); ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, T * 0.08); ctx.strokeRect(px - T / 2, py - T / 2, T, T); ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(px, py, Math.max(3, T * 0.13), 0, 7); ctx.fill(); };
+  // The inspected house: its trip to work, along the roads it would take.
+  const trip = [[15, 18], [15, 20], [36, 20], [36, 18], [35, 18]];
+  const g = ctx.createLinearGradient(...P(15, 20), ...P(36, 20)); g.addColorStop(0, '#7fd48a'); g.addColorStop(0.5, '#f0b04c'); g.addColorStop(1, '#ff6b5e');
+  line(trip, g); ring(15, 18, '#fff'); ring(35, 18, '#ff6b5e');
+  pill(ctx, ...P(Math.min(22, x0 + 9), 20), 'to work: 31 tiles', '#f0b04c', Math.max(10, T * 0.3));
+  // A cut-off house: the way out stops short.
+  line([[21, 17], [24, 17], [24, 19]], '#ff6b5e', true); ring(21, 17, '#fff');
+  const [ex, ey] = P(24, 19), s = Math.max(4, T * 0.18);
+  ctx.strokeStyle = '#ff6b5e'; ctx.lineWidth = Math.max(2, T * 0.1); ctx.beginPath(); ctx.moveTo(ex - s, ey - s); ctx.lineTo(ex + s, ey + s); ctx.moveTo(ex + s, ey - s); ctx.lineTo(ex - s, ey + s); ctx.stroke();
+  pill(ctx, ex - (T >= 30 ? T * 1.3 : 0), ey - Math.max(14, T * 0.55), 'no jobs in reach', '#ff8b7e', Math.max(10, T * 0.3));
+}
+function dials(ctx, T, x0, y0, w, h) {
+  if (T < 30) { pinsFor([[cutOff, 'cut']], ctx, T, x0, y0, w, h); return; }
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (zoneAt(x, y) !== 'res') continue;
+    const s = tripShare(x, y); if (s < 0.6) continue;
+    const px = (x - x0 + 0.8) * T, py = (y - y0 + 0.2) * T, r = T * 0.15;
+    ctx.fillStyle = 'rgba(20,23,28,0.85)'; ctx.beginPath(); ctx.arc(px, py, r * 1.25, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#4a5360'; ctx.lineWidth = r * 0.5; ctx.beginPath(); ctx.arc(px, py, r * 0.8, 0, 7); ctx.stroke();
+    ctx.strokeStyle = heat(Math.min(1, s)); ctx.beginPath(); ctx.arc(px, py, r * 0.8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, s)); ctx.stroke();
+    if (s > 1) { ctx.fillStyle = '#ff6b5e'; ctx.fillRect(px - r * 0.45, py - r * 0.12, r * 0.9, r * 0.24); }
+  }
+}
+const TRIP_IDEAS = [
+  ['K1. Pins, same family', 'A violet clock for a district with a long commute and a violet bar for one that is cut off, merging when zoomed out and one per building when zoomed in. Simple, but it does not say where people are trying to go.', null, (...a) => pinsFor(TRIP, ...a)],
+  ['K2. Show the trip when you inspect a lot', 'Nothing on the map until you click (or hover) a lot; then its trip is drawn along the roads, green near home and red by the far end, with the length. A cut-off lot shows a dashed stub that ends in a cross. Two lots are shown inspected here.', null, (ctx, T, x0, y0) => route(ctx, T, x0, y0)],
+  ['K3. A commute dial on each building', 'Zoomed in: a small ring on every home with a long trip, filling up and turning red as it nears the limit; a bar means cut off. Zoomed out: only cut-off districts get a pin. Shows how bad, lot by lot.', null, dials],
+  ['K4. Pins plus the trip on inspect (K1 + K2)', 'Pins tell you a district has a problem; clicking a lot in it shows the trip that causes it.', null, (ctx, T, x0, y0, w, h) => { pinsFor(TRIP, ctx, T, x0, y0, w, h); route(ctx, T, x0, y0); }],
+];
+
+function show(hostId, ideas, zoom, zoomLabel) {
+  const list = document.getElementById(hostId);
+  for (const [name, blurb, lookAt, fn] of ideas) {
+    const el = document.createElement('div'); el.className = 'opt';
+    el.innerHTML = `<h2>${name}</h2><p>${blurb}</p><div class="pair"><div><span>Zoomed out (whole town)</span></div><div><span>${zoomLabel}</span></div></div>`;
+    list.appendChild(el);
+    const [a, b] = el.querySelectorAll('.pair > div');
+    for (const [host, T, x0, y0, w, h] of [[a, 13, 0, 0, COLS, ROWS], [b, 44, ...zoom, 13, 8]]) {
+      const c = document.createElement('canvas'); c.width = w * T; c.height = h * T; host.appendChild(c);
+      const ctx = c.getContext('2d'); drawTown(ctx, T, x0, y0, w, h, lookAt); fn(ctx, T, x0, y0, w, h);
+    }
+  }
+}
+function start() {
+  show('utilities', UTIL_IDEAS, [3, 17], 'Zoomed in (south-west, where the areas meet)');
+  show('commute', TRIP_IDEAS, [12, 15], 'Zoomed in (the two southern blocks)');
+}
+let pending = 0;
+const done = () => { if (--pending === 0) start(); };
+for (const id of new Set(Object.values(SETS).flat(2))) { pending++; const im = new Image(); im.onload = () => { images[id] = im; done(); }; im.onerror = done; im.src = `sprites/${id}.png`; }
+</script>
+</body>
+</html>

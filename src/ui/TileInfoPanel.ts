@@ -35,6 +35,38 @@ import {BALANCE} from "../data/balance";
 import {t} from "../i18n";
 import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
+import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
+import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
+
+/** The lot's problems as chips, in the colours of the map badges ('' if it has none). */
+function problemChips(world: World, i: number): string {
+  const chips = lotProblems(world, i).map((kind) =>
+    `<span style="display:inline-block;margin:0 4px 4px 0;padding:0 8px;border-radius:999px;background:${PROBLEM_COLOUR[kind]};color:#fff;font-size:11px;font-weight:600">${t(`ui.badge.${kind}.name`)}</span>`);
+  return chips.length ? `<div>${chips.join("")}</div>` : "";
+}
+
+/** How far the lot's trips are, each as a bar against the commute limit ('' before the first traffic pass). */
+function tripRows(world: World, i: number): string {
+  const trips = lotTrips(world, i);
+  if (!trips.length) return "";
+  const limit = BALANCE.transit.commuteMax;
+  const label = {jobs: "ui.tileInfo.tripJobs", shops: "ui.tileInfo.tripShops", homes: "ui.tileInfo.tripHomes"} as const;
+  let html = "";
+  for (const trip of trips) {
+    const reached = trip.time < limit;
+    const colour = reached ? TRIP_COLOUR[tripGrade(trip.time)] : TRIP_COLOUR[2];
+    const value = trip.time < Infinity ? `${Math.round(trip.time)} / ${limit}` : t("ui.tileInfo.tripNone");
+    const width = reached ? Math.max(4, Math.round(trip.time / limit * 100)) : 100;
+    html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px"><span>${t(label[trip.key])}</span><span style="color:${colour};font-weight:600">${value}</span></div>`
+      + `<div style="height:5px;border-radius:3px;background:#3a414d;margin:1px 0 3px"><div style="height:100%;width:${width}%;border-radius:3px;background:${colour}"></div></div>`;
+  }
+  const T = BALANCE.transit;
+  const mult = T.accessFloor + (1 - T.accessFloor) * (world.layers.accessibility[i] / 255);
+  if (world.layers.devLevel[i] > 0 && mult < 0.9) {
+    html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.tripGrowth", {pct: Math.round(mult * 100)})}</div>`;
+  }
+  return html;
+}
 
 interface Req {
   label: string;
@@ -312,6 +344,7 @@ export class TileInfoPanel {
       const dots = "●".repeat(dev) + "○".repeat(BALANCE.growth.maxLevel - dev);
       const isAbandoned = world.layers.abandoned[i] !== 0;
       html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
+      html += problemChips(world, i);
 
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;
@@ -435,6 +468,8 @@ export class TileInfoPanel {
       const taxColor = taxDelta >= 0 ? "#5c5" : "#e55";
       const taxSign = taxDelta >= 0 ? "+" : "";
       html += `<div class="ti-detail" style="color:${taxColor}">${t("ui.tileInfo.taxRate", {rate: currentRate.toFixed(1), sign: taxSign, delta: taxDelta})}</div>`;
+
+      if (!isAbandoned) html += tripRows(world, i);
 
       const {reqs, maxLevel} = analyzeZone(world, tx, ty);
 
