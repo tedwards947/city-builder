@@ -12,7 +12,7 @@ export class Camera {
   viewportW: number;
   viewportH: number;
   readonly minZoom = 0.25;
-  readonly maxZoom = 4;
+  readonly maxZoom = 5;
 
   constructor(viewportW: number, viewportH: number) {
     this.viewportW = viewportW;
