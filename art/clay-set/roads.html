@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clay roads and traffic ideas</title>
+<style>
+  :root { --bg: #14171c; --panel: #1d222a; --line: #2f3742; --text: #e6e9ee; --dim: #98a2b0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 4px; }
+  p.sub { color: var(--dim); margin: 0 0 16px; max-width: 78ch; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .opt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .opt h3 { font-size: 16px; margin: 0 0 2px; }
+  .opt p { color: var(--dim); margin: 0 0 10px; font-size: 13px; }
+  canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+  .big { border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Clay roads and traffic ideas</h1>
+  <p class="sub">All drawn by code. Three sections: the road classes, junction ideas (J1–J4), and ways to show traffic without free-roaming cars (T1–T6, animated). Tell me letters, mixes, or what is missing.</p>
+
+  <h2>1. Road classes</h2>
+  <p class="sub">Highway across the top (dark, barriers, no pavement), an avenue down the left and across the lower half (fills the tile, four lanes, planted median), streets everywhere else (narrow, two lanes, pavement, grass verge). Bridges where they cross the river. Shown with junction idea J2 and no traffic.</p>
+  <canvas id="classes" class="big"></canvas>
+
+  <h2>2. Junction ideas</h2>
+  <p class="sub">The same corner of town four ways: avenue crossing avenue on the left, avenue narrowing to a street, a street crossroads and a dead end on the right.</p>
+  <div class="grid" id="junctions"></div>
+
+  <h2>3. Ways to show traffic</h2>
+  <p class="sub">Same map, same traffic in each: the lower avenue is busy, the middle street between the avenue and the river is jammed (over capacity), the highway is moderate, side streets are quiet. None of these has cars that drive around the map; each road tile shows its own load.</p>
+  <div class="grid" id="traffic"></div>
+</main>
+
+<script src="sprites/manifest.js"></script>
+<script src="landscaping/trees/manifest.js"></script>
+<script>
+const SPRITES = window.SPRITES || {}, TREES = window.TREES || {};
+const PLOT_ASPECT = 0.905;
+const hash = (a, b, c = 0) => { let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+// ── Maps ('s' street, 'a' avenue, 'h' highway, 'w' water, capital = road on water) ──
+const TOWN = [
+  'hhhhhhhhhhhhhhhHHhhh',
+  '....a.......s..ww...',
+  '.RR.a.CC.R..s..ww.t.',
+  '.RR.a.CC.R..s..ww.tt',
+  'ssssassssssssssSSsss',
+  '.R..a..II...s..ww...',
+  '.RR.a..II.sss..ww.R.',
+  '....a..........ww.R.',
+  'aaaaaaaaaaaaaaaAAaaa',
+  '.C..a...R.R....ww...',
+  '.C..s...R.R....ww.t.',
+  '....s..........ww.tt',
+];
+const CORNER = [
+  '.Ra.C.s.',
+  '..a...s.',
+  'aaaassss',
+  '.Ca.R.s.',
+  '..a.....',
+];
+const BUILD = { R: ['res-1', 'res-2-b', 'res-1-c', 'res-3-h', 'res-2'], C: ['com-1', 'com-2-c', 'com-3-f', 'com-1-b'], I: ['ind-1', 'ind-2-b', 'ind-1-c'] };
+const roadClass = (map, x, y) => { const c = (map[y] || '')[x]; return c && 'sahSAH'.includes(c) ? c.toLowerCase() : ''; };
+const isWater = (map, x, y) => { const c = (map[y] || '')[x]; return c === 'w' || c === 'S' || c === 'A' || c === 'H'; };
+
+// ── Road geometry (all in tile units) ───────────────────────────────────────
+const WIDTH = { s: 0.5, a: 0.84, h: 0.9 };       // carriageway
+const KERB = { s: 0.1, a: 0.08, h: 0.035 };      // pavement (or, for a highway, the barrier)
+const COL = {
+  grass: '#3a5a3a', water: '#2f5f8f', waterLight: '#3a6fa3',
+  s: '#63676e', a: '#585c63', h: '#42464d',
+  pavement: '#b7b1a4', pavementEdge: '#8f897c', barrier: '#cfcac0', deck: '#a59f95', rail: '#6d675e',
+  line: '#ece5d2', yellow: '#e6c14a', median: '#5f9a4e', medianDark: '#3f7a3a',
+};
+const DIRS = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]]; // dx, dy, bit (N E S W)
+function tileInfo(map, x, y) {
+  const c = roadClass(map, x, y); if (!c) return null;
+  const arms = [];
+  let mask = 0;
+  for (const [dx, dy, bit] of DIRS) {
+    const nc = roadClass(map, x + dx, y + dy);
+    if (!nc) continue;
+    mask |= bit;
+    arms.push({ dx, dy, bit, w: Math.min(WIDTH[c], WIDTH[nc]), kerb: c === 'h' || nc === 'h' ? KERB.h : KERB[c], cls: WIDTH[nc] < WIDTH[c] ? nc : c });
+  }
+  return { c, mask, arms, junction: arms.length >= 3, water: isWater(map, x, y) };
+}
+/** Centre box plus arms, each grown by `grow`; corners with no arm on either side are rounded. */
+function roadShape(ctx, info, px, py, T, grow, useKerb) {
+  const g = (a) => (useKerb ? (a ? a.kerb : KERB[info.c]) : 0) + grow;
+  const half = WIDTH[info.c] / 2 + g(null), m = info.mask, r = half * 0.75 * T;
+  const cx = px + T / 2, cy = py + T / 2;
+  ctx.roundRect(cx - half * T, cy - half * T, half * 2 * T, half * 2 * T,
+    [m & 1 || m & 8 ? 0 : r, m & 1 || m & 2 ? 0 : r, m & 4 || m & 2 ? 0 : r, m & 4 || m & 8 ? 0 : r]);
+  for (const a of info.arms) {
+    const hw = (a.w / 2 + g(a)) * T;
+    if (a.dx === 0) ctx.rect(cx - hw, a.dy < 0 ? py : cy, hw * 2, T / 2);
+    else ctx.rect(a.dx < 0 ? px : cx, cy - hw, T / 2, hw * 2);
+  }
+}
+function dashed(ctx, x0, y0, x1, y1, w, colour, dash) {
+  ctx.strokeStyle = colour; ctx.lineWidth = w; ctx.lineCap = 'butt'; ctx.setLineDash(dash || []);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
+}
+
+function drawRoads(ctx, map, T, opts) {
+  const rows = map.length, cols = map[0].length;
+  const each = (fn) => { for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) { const info = tileInfo(map, x, y); if (info) fn(info, x, y, x * T, y * T); } };
+  // 1. Pavement / barrier / bridge deck, with a darker lip on the lower edge for a moulded look.
+  each((info, x, y, px, py) => {
+    ctx.beginPath(); roadShape(ctx, info, px, py + T * 0.025, T, 0, true); ctx.fillStyle = info.water ? COL.rail : COL.pavementEdge; ctx.fill();
+    ctx.beginPath(); roadShape(ctx, info, px, py, T, 0, true); ctx.fillStyle = info.water ? COL.deck : info.c === 'h' ? COL.barrier : COL.pavement; ctx.fill();
+  });
+  // 2. Asphalt.
+  each((info, x, y, px, py) => { ctx.beginPath(); roadShape(ctx, info, px, py, T, 0, false); ctx.fillStyle = COL[info.c]; ctx.fill(); });
+  // 2b. Traffic idea T4: the surface itself warms up with load.
+  if (opts.traffic === 'tint') each((info, x, y, px, py) => {
+    const l = opts.load(x, y, info); if (l <= 0.05) return;
+    const over = Math.min(1, Math.max(0, l - 1));
+    ctx.beginPath(); roadShape(ctx, info, px, py, T, 0, false);
+    ctx.fillStyle = `rgba(${Math.round(225 - over * 35)},${Math.round(150 - over * 110)},${Math.round(60 - over * 20)},${Math.min(0.62, l * 0.42)})`; ctx.fill();
+  });
+  // 3. Markings along each arm.
+  each((info, x, y, px, py) => {
+    const cx = px + T / 2, cy = py + T / 2, lw = Math.max(1, T * 0.03);
+    for (const a of info.arms) {
+      const start = info.junction ? WIDTH[info.c] / 2 : 0; // markings stop at the junction box
+      if (start >= 0.5) continue;
+      const p = (d, off) => a.dx === 0 ? [cx + off * T, cy + a.dy * d * T] : [cx + a.dx * d * T, cy + off * T];
+      const seg = (off, w, colour, dash) => { const [x0, y0] = p(start, off), [x1, y1] = p(0.5, off); dashed(ctx, x0, y0, x1, y1, w, colour, dash); };
+      if (a.cls === 's') seg(0, lw, COL.line, [T * 0.14, T * 0.1]);
+      else if (a.cls === 'a') {
+        seg(0, T * 0.1, COL.medianDark); seg(-0.006, T * 0.075, COL.median);
+        seg(-a.w * 0.27, lw, COL.line, [T * 0.12, T * 0.12]); seg(a.w * 0.27, lw, COL.line, [T * 0.12, T * 0.12]);
+      } else {
+        seg(0, T * 0.06, COL.barrier); seg(-0.035, lw * 0.8, COL.yellow); seg(0.035, lw * 0.8, COL.yellow);
+        seg(-a.w * 0.26, lw, COL.line, [T * 0.16, T * 0.14]); seg(a.w * 0.26, lw, COL.line, [T * 0.16, T * 0.14]);
+        seg(-a.w * 0.47, lw * 0.8, COL.line); seg(a.w * 0.47, lw * 0.8, COL.line);
+      }
+    }
+    // Bushes along an avenue's median.
+    if (info.c === 'a' && !info.junction && !info.water) for (const a of info.arms) {
+      if (a.cls !== 'a') continue;
+      for (const d of [0.14, 0.38]) {
+        const bx = cx + a.dx * d * T, by = cy + a.dy * d * T;
+        ctx.fillStyle = COL.medianDark; ctx.beginPath(); ctx.arc(bx, by + T * 0.012, T * 0.05, 0, 7); ctx.fill();
+        ctx.fillStyle = '#7cb866'; ctx.beginPath(); ctx.arc(bx - T * 0.008, by - T * 0.012, T * 0.042, 0, 7); ctx.fill();
+      }
+    }
+    // Bridge rails.
+    if (info.water) for (const a of info.arms) {
+      const off = a.w / 2 + a.kerb - 0.02;
+      for (const s of [-1, 1]) { const q = (d) => a.dx === 0 ? [cx + s * off * T, cy + a.dy * d * T] : [cx + a.dx * d * T, cy + s * off * T]; const [x0, y0] = q(0), [x1, y1] = q(0.5); dashed(ctx, x0, y0, x1, y1, T * 0.035, COL.rail, [T * 0.03, T * 0.07]); }
+    }
+  });
+  // 4. Junction dressing.
+  if (opts.junction !== 'plain') each((info, x, y, px, py) => {
+    if (!info.junction || info.c === 'h') return;
+    const cx = px + T / 2, cy = py + T / 2, box = WIDTH[info.c] / 2;
+    const island = opts.junction === 'island' && info.arms.length === 4;
+    for (const a of info.arms) {
+      if (a.cls === 'h') continue;
+      // Crosswalk just outside the box (it may reach into the next tile), on a fresh patch of asphalt.
+      const d0 = box + 0.03, len = 0.13, hw = a.w / 2;
+      const rect = (d, l, half) => a.dx === 0 ? [cx - half * T, cy + (a.dy > 0 ? d : -d - l) * T, half * 2 * T, l * T] : [cx + (a.dx > 0 ? d : -d - l) * T, cy - half * T, l * T, half * 2 * T];
+      ctx.fillStyle = COL[a.cls]; ctx.fillRect(...rect(d0 - 0.01, len + 0.05, hw));
+      ctx.fillStyle = COL.line;
+      const stripes = Math.max(3, Math.round(a.w / 0.085));
+      for (let k = 0; k < stripes; k++) {
+        const o = -hw + (k + 0.25) * (a.w / stripes), sw = a.w / stripes * 0.5;
+        if (a.dx === 0) ctx.fillRect(cx + o * T, cy + (a.dy > 0 ? d0 : -d0 - len) * T, sw * T, len * T);
+        else ctx.fillRect(cx + (a.dx > 0 ? d0 : -d0 - len) * T, cy + o * T, len * T, sw * T);
+      }
+      // Stop line across the approaching (right-hand) lanes.
+      if (!island) {
+        const side = a.dx === 0 ? -a.dy : a.dx; // which half carries traffic toward the box
+        const s0 = d0 + len + 0.025;
+        if (a.dx === 0) ctx.fillRect(cx + (side > 0 ? 0.02 : -hw) * T, cy + (a.dy > 0 ? s0 : -s0 - 0.025) * T, (hw - 0.02) * T, 0.025 * T);
+        else ctx.fillRect(cx + (a.dx > 0 ? s0 : -s0 - 0.025) * T, cy + (side > 0 ? 0.02 : -hw) * T, 0.025 * T, (hw - 0.02) * T);
+      }
+    }
+    if (island) {
+      const r = (info.c === 'a' ? 0.2 : 0.11) * T;
+      ctx.fillStyle = COL.pavementEdge; ctx.beginPath(); ctx.arc(cx, cy + T * 0.015, r, 0, 7); ctx.fill();
+      ctx.fillStyle = COL.pavement; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+      ctx.fillStyle = COL.median; ctx.beginPath(); ctx.arc(cx, cy, r * 0.74, 0, 7); ctx.fill();
+      ctx.fillStyle = COL.medianDark; ctx.beginPath(); ctx.arc(cx + r * 0.08, cy + r * 0.1, r * 0.42, 0, 7); ctx.fill();
+      ctx.fillStyle = '#7cb866'; ctx.beginPath(); ctx.arc(cx - r * 0.04, cy - r * 0.08, r * 0.38, 0, 7); ctx.fill();
+    }
+    if (opts.junction === 'lights' && info.c === 'a') {
+      // Little signal posts on the four corners.
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const lx = cx + sx * (box + 0.035) * T, ly = cy + sy * (box + 0.035) * T, r = T * 0.03;
+        ctx.fillStyle = '#2b2e33'; ctx.beginPath(); ctx.roundRect(lx - r, ly - r * 2.4, r * 2, r * 4.8, r); ctx.fill();
+        const on = Math.floor((opts.t || 0) / 2500 + (sx * sy > 0 ? 0 : 1)) % 2;
+        [['#e2574c', on === 0], ['#e6c14a', false], ['#59c36a', on === 1]].forEach(([c, lit], k) => {
+          ctx.globalAlpha = lit ? 1 : 0.28; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(lx, ly + (k - 1) * r * 1.5, r * 0.6, 0, 7); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+      }
+    }
+  });
+}
+
+// ── Traffic ideas ───────────────────────────────────────────────────────────
+const CAR_COLOURS = ['#e9e6dc', '#d65a4a', '#4f86c6', '#e3b94a', '#5aa868', '#8d949c', '#3b4048', '#c98bb5'];
+/** A tiny clay car at (x, y) heading along (dx, dy). `kind` 0 car, 1 van, 2 truck. */
+function clayCar(ctx, x, y, dx, dy, T, colour, kind, braking) {
+  const len = (kind === 2 ? 0.4 : kind === 1 ? 0.3 : 0.25) * T, wid = (kind === 2 ? 0.17 : 0.15) * T;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = 'rgba(20,24,28,0.3)'; ctx.beginPath(); ctx.roundRect(-len / 2 + T * 0.01, -wid / 2 + T * 0.025, len, wid, wid * 0.4); ctx.fill();
+  ctx.fillStyle = kind === 2 ? '#e9e6dc' : colour; ctx.beginPath(); ctx.roundRect(-len / 2, -wid / 2, len, wid, wid * 0.4); ctx.fill();
+  if (kind === 2) { ctx.fillStyle = colour; ctx.beginPath(); ctx.roundRect(len / 2 - len * 0.28, -wid / 2, len * 0.28, wid, wid * 0.35); ctx.fill(); }
+  // windows / roof
+  ctx.fillStyle = 'rgba(30,40,55,0.75)';
+  if (kind === 2) { ctx.beginPath(); ctx.roundRect(len / 2 - len * 0.2, -wid * 0.36, len * 0.1, wid * 0.72, wid * 0.15); ctx.fill(); }
+  else { ctx.beginPath(); ctx.roundRect(-len * 0.26, -wid * 0.36, len * 0.56, wid * 0.72, wid * 0.25); ctx.fill();
+    ctx.fillStyle = colour; ctx.beginPath(); ctx.roundRect(-len * 0.14, -wid * 0.3, len * (kind === 1 ? 0.36 : 0.26), wid * 0.6, wid * 0.2); ctx.fill(); }
+  // highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.roundRect(-len * 0.3, -wid * 0.42, len * 0.6, wid * 0.16, wid * 0.08); ctx.fill();
+  if (braking) { ctx.fillStyle = '#ff4a3d'; ctx.fillRect(-len / 2, -wid * 0.42, len * 0.07, wid * 0.24); ctx.fillRect(-len / 2, wid * 0.18, len * 0.07, wid * 0.24); }
+  ctx.restore();
+}
+/**
+ * Every lane is a conveyor of evenly spaced slots that slide along it; a slot
+ * shows a vehicle only where the tile under it is busy enough. Nothing travels
+ * between roads: each tile just shows its own load.
+ */
+function drawTraffic(ctx, map, T, opts) {
+  const mode = opts.traffic; if (!mode || mode === 'tint') return;
+  const rows = map.length, cols = map[0].length, t = (opts.t || 0) / 1000;
+  const still = mode === 'queue';
+  const speed = still ? 0 : mode === 'streaks' ? 1.5 : 0.55; // tiles per second
+  const spacing = mode === 'streaks' ? 0.42 : 0.36;
+  const lanesFor = (c) => c === 's' ? [0.12] : c === 'a' ? [0.15, 0.31] : [0.16, 0.34];
+  const draw = (horizontal, line, dir, laneIdx) => {
+    const n = horizontal ? cols : rows, slots = Math.ceil(n / spacing);
+    for (let k = 0; k < slots; k++) {
+      const jitter = (hash(k, line, laneIdx + dir * 7) - 0.5) * 0.1;
+      let s = ((k * spacing + jitter + dir * speed * t) % (slots * spacing) + slots * spacing) % (slots * spacing);
+      const ti = Math.floor(s); if (ti >= n) continue;
+      const x = horizontal ? ti : line, y = horizontal ? line : ti;
+      const info = tileInfo(map, x, y); if (!info) continue;
+      const lanes = lanesFor(info.c); if (laneIdx >= lanes.length) continue;
+      const first = s - ti < 0.5;
+      const bit = horizontal ? (first ? 8 : 2) : (first ? 1 : 4);
+      if (!(info.mask & bit)) continue;
+      const arm = info.arms.find((a) => a.bit === bit);
+      const armLanes = lanesFor(arm.cls); if (laneIdx >= armLanes.length) continue;
+      const load = opts.load(x, y, info);
+      // Busier tiles fill more of their slots; an overloaded tile fills them all.
+      const fill = still ? Math.min(1, load * 0.75) : Math.min(1, load * 0.62);
+      if (hash(k, line * 31 + laneIdx, dir + (horizontal ? 3 : 9)) >= fill) continue;
+      const off = armLanes[laneIdx] * (horizontal ? dir : -dir); // drive on the right
+      const px = horizontal ? s * T : (line + 0.5 + off) * T, py = horizontal ? (line + 0.5 + off) * T : s * T;
+      const dx = horizontal ? dir : 0, dy = horizontal ? 0 : dir, jam = load > 1;
+      const h = hash(k, line, laneIdx * 13 + dir);
+      if (mode === 'cars' || mode === 'queue') {
+        const kind = opts.trucks && opts.trucks(x, y) && h < 0.4 ? (h < 0.2 ? 2 : 1) : h > 0.93 ? 1 : 0;
+        clayCar(ctx, px, py, dx, dy, T, CAR_COLOURS[Math.floor(h * 977) % CAR_COLOURS.length], kind, jam);
+      } else if (mode === 'streaks') {
+        const over = Math.min(1, Math.max(0, load - 0.6) / 0.8), len = T * 0.24;
+        ctx.strokeStyle = `rgba(${Math.round(236 - over * 6)},${Math.round(229 - over * 150)},${Math.round(210 - over * 150)},0.85)`;
+        ctx.lineWidth = Math.max(1.5, T * 0.045); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px - dx * len / 2, py - dy * len / 2); ctx.lineTo(px + dx * len / 2, py + dy * len / 2); ctx.stroke();
+      } else if (mode === 'lights') {
+        // Night-style: two white headlights or two red tail lights, depending on which way it faces you.
+        const front = dir > 0 === horizontal; // arbitrary but consistent: one direction shows white, the other red
+        ctx.fillStyle = front ? 'rgba(255,244,200,0.95)' : 'rgba(255,74,61,0.95)';
+        const r = Math.max(1.2, T * 0.028), w = T * 0.045;
+        for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.arc(px + (horizontal ? 0 : sgn * w), py + (horizontal ? sgn * w : 0), r, 0, 7); ctx.fill(); }
+      }
+    }
+  };
+  for (let y = 0; y < rows; y++) for (const dir of [1, -1]) for (let l = 0; l < 2; l++) draw(true, y, dir, l);
+  for (let x = 0; x < cols; x++) for (const dir of [1, -1]) for (let l = 0; l < 2; l++) draw(false, x, dir, l);
+}
+
+// ── Scene ───────────────────────────────────────────────────────────────────
+const images = {};
+function drawScene(canvas, map, T, opts) {
+  const rows = map.length, cols = map[0].length;
+  if (canvas.width !== cols * T) { canvas.width = cols * T; canvas.height = rows * T; }
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = COL.grass; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (isWater(map, x, y)) {
+    ctx.fillStyle = COL.water; ctx.fillRect(x * T, y * T, T, T);
+    ctx.fillStyle = COL.waterLight; ctx.fillRect(x * T + T * 0.2, y * T + T * (0.3 + 0.3 * hash(x, y)), T * 0.35, T * 0.05);
+  }
+  drawRoads(ctx, map, T, opts);
+  drawTraffic(ctx, map, T, opts);
+  // Buildings and trees, back to front.
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const c = map[y][x], px = x * T, py = y * T;
+    if (BUILD[c]) {
+      const id = BUILD[c][Math.floor(hash(x, y, 2) * BUILD[c].length)], img = images[id], m = SPRITES[id]; if (!img || !m) continue;
+      const plotW = m.right - m.left + 1, kx = T / plotW, ky = T / (plotW * PLOT_ASPECT), top = m.bottom + 1 - plotW * PLOT_ASPECT;
+      ctx.drawImage(img, px - m.left * kx, py - top * ky, m.w * kx, m.h * ky);
+    } else if (c === 't') {
+      for (const [ux, uy] of [[0.25, 0.5], [0.75, 0.5], [0.25, 1], [0.75, 1]]) {
+        const id = ['pine-2', 'pine-3', 'spruce-3', 'pine-4'][Math.floor(hash(x * 4 + ux * 4, y * 4 + uy * 4) * 4)], img = images[id], m = TREES[id]; if (!img || !m) continue;
+        const k = 0.75 * T / 124, w = m.w * k, h = m.h * k;
+        ctx.drawImage(img, px + ux * T - w / 2, py + uy * T - h, w, h);
+      }
+    }
+  }
+}
+// The traffic everyone shares: busy lower avenue, a jam on the middle street, moderate highway.
+function townLoad(x, y, info) {
+  if (y === 8) return 0.95;
+  if (y === 4 && x > 4 && x < 15) return 1.7;
+  if (y === 4) return 0.5;
+  if (y === 0) return 0.7;
+  if (x === 4) return y < 8 ? 0.6 : 0.3;
+  return 0.15;
+}
+const nearIndustry = (x, y) => (y === 4 && x >= 5 && x <= 12) || (x === 12 && y >= 4 && y <= 6) || y === 6;
+
+const JUNCTIONS = [
+  ['J1', 'Plain', 'Lines simply stop at the junction. Cleanest, least detail.', 'plain'],
+  ['J2', 'Crosswalks and stop lines', 'Zebra crossings on every arm and a stop line for approaching traffic.', 'cross'],
+  ['J3', 'J2 plus signals on avenues', 'Little signal posts on the corners where an avenue is involved; they change every few seconds (decoration only).', 'lights'],
+  ['J4', 'Roundabouts at crossroads', 'Four-way junctions get a planted island (bigger on avenues); three-way ones keep crosswalks.', 'island'],
+];
+const TRAFFIC = [
+  ['T1', 'Clay cars in lanes', 'Tiny cars slide along their lane, on the right. Busier road, more cars; over capacity, bumper to bumper with brake lights. Vans and trucks near industry.', 'cars'],
+  ['T2', 'Standing cars only', 'No movement at all: cars sit on the road, more of them the busier it is. Calm, and reads at a glance.', 'queue'],
+  ['T3', 'Flow streaks', 'No cars: light dashes stream along the lanes, denser with load and turning red when jammed.', 'streaks'],
+  ['T4', 'Warm road surface', 'No cars: the asphalt itself warms from grey through amber to red with load. Always-on, very quiet.', 'tint'],
+  ['T5', 'Headlights and tail lights', 'Pairs of white and red dots moving in lanes, like a city seen from above at dusk.', 'lights'],
+  ['T6', 'T4 + T1 together', 'Warm surface for the overview, cars for life.', 'both'],
+];
+const animated = [];
+function panel(parent, id, name, blurb) {
+  const el = document.createElement('div'); el.className = 'opt';
+  el.innerHTML = `<h3>${id}. ${name}</h3><p>${blurb}</p>`;
+  const c = document.createElement('canvas'); el.appendChild(c); document.getElementById(parent).appendChild(el); return c;
+}
+function start() {
+  drawScene(document.getElementById('classes'), TOWN, 60, { junction: 'cross', load: townLoad });
+  for (const [id, name, blurb, junction] of JUNCTIONS) {
+    const c = panel('junctions', id, name, blurb), o = { junction, load: () => 0 };
+    if (junction === 'lights') animated.push((t) => drawScene(c, CORNER, 72, { ...o, t })); else drawScene(c, CORNER, 72, o);
+  }
+  for (const [id, name, blurb, traffic] of TRAFFIC) {
+    const c = panel('traffic', id, name, blurb);
+    const base = { junction: 'cross', load: townLoad, trucks: nearIndustry };
+    if (traffic === 'both') animated.push((t) => { drawScene(c, TOWN, 30, { ...base, traffic: 'tint', t }); drawTraffic(c.getContext('2d'), TOWN, 30, { ...base, traffic: 'cars', t }); });
+    else if (traffic === 'tint' || traffic === 'queue') drawScene(c, TOWN, 30, { ...base, traffic });
+    else animated.push((t) => drawScene(c, TOWN, 30, { ...base, traffic, t }));
+  }
+  const frozen = new URLSearchParams(location.search).get('t');
+  const loop = (t) => { for (const f of animated) f(frozen !== null ? +frozen : t); if (frozen === null) requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+let pending = 0;
+const done = () => { if (--pending === 0) start(); };
+const load = (src, id) => { pending++; const im = new Image(); im.onload = () => { images[id] = im; done(); }; im.onerror = done; im.src = src; };
+for (const id of new Set(Object.values(BUILD).flat())) load(`sprites/${id}.png`, id);
+for (const id of ['pine-2', 'pine-3', 'pine-4', 'spruce-3']) load(`landscaping/trees/${id}.png`, id);
+</script>
+</body>
+</html>

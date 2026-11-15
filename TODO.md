@@ -14,8 +14,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Waiting on something else
 
-- **Roads and terrain in the clay style**: waiting on the traffic redesign. Note from the engine session: traffic now concentrates on real routes, so street / avenue / highway should look clearly different; there is still no lane, direction or turn data, so intersections need no sim-driven art.
-- **Vehicles in the clay style**: waiting on the traffic redesign. Vehicles will later follow flow maps and get a per-tile direction; hold direction-dependent art until the engine session says that has landed.
+- **Terrain in the clay style** (grass, sand, water, rounded shorelines): deferred by the owner.
 - **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.
 - **Landscaping polish**: on hold. Known issues: identical neighbours (6 variants per sprite), uniform all-tower districts, plazas over shops' painted parking bays, the slate duplex (`res-2-b`) almost never dressed, green-vibe lots too busy.
 - **Night and liveness**: on hold. Window-glow masks for a night mode [paid], a small bounce when a building is placed or levels up.
@@ -26,6 +25,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Decided
 
+- **Roads and traffic:** code-drawn clay roads with crosswalks and stop lines at junctions (J2) and per-tile clay cars for traffic (T1); the wandering cars are gone. Mock: `art/clay-set/roads.html`.
 - **Building taste:** the owner loves brutalist and modernist designs (favourite: `com-3-f`); lean that way for future high-level buildings. Of the brutalist batch, `res-3-h`, `res-3-j`, `com-3-i`, `com-3-j` were kept; the ziggurat and the inverted pyramid were rejected.
 - **Code-drawn fallback sprites and the Shift+S sandbox** are deleted. Before a clay image loads, the flat chunk-layer drawing shows.
 - **Empty zoned lots** stay bare grass with the zone colour, at least for now.

@@ -34,7 +34,7 @@ src/
       AbandonmentSystem, EducationSystem, HealthcareSystem, ZoneGrowthSystem,
       EconomySystem, VibeSystem, PoliticsSystem
   render/
-    CanvasRenderer.ts, Camera.ts, Projection.ts, VehicleLayer.ts,
+    CanvasRenderer.ts, Camera.ts, Projection.ts,
     SpriteTypes.ts, CharacterPalette.ts
     clay/              ClaySprites.ts (image building sprites, baked lot-dressing variants, smoke/flare effects),
                        claySpriteData.ts (generated), groundTones.ts (ground mask + tones),
