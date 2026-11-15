@@ -188,7 +188,7 @@ All layers are flat typed arrays of length `width * height`. Index with `grid.id
 | crime | Uint8Array | 0–255 crime level |
 | police | Uint8Array | 0/1 — police coverage this tick |
 | congestion | Uint8Array | 0–255 road traffic congestion (TransitSystem) |
-| accessibility | Uint8Array | 0–255 reachable complementary zone capacity (TransitSystem) |
+| accessibility | Uint8Array | 0–255 from travel time to the nearest complementary zone: 255 = next door, 0 = `transit.commuteMax` or unreachable (TransitSystem) |
 | abandoned | Uint8Array | 0=normal, 1=abandoned (no income, no growth) |
 | distress | Uint8Array | 0–255 distress accumulator |
 | fireRisk | Uint8Array | 0–255 fire risk level |
@@ -358,6 +358,8 @@ Load-bearing decisions — don't change without good reason.
 
 **Renderer behind an interface:** All world→screen math goes through `Projection`. `Projection.depth()` returns `0` for top-down, `tx+ty` for isometric — this is the isometric swap hook.
 
+**Traffic is flow-based, not agent-based** (`TransitSystem`, tests in `transit.test.ts`). No trips or routes are simulated. Per pass: one Dijkstra flood per destination type (commerce, industry, homes) gives each road tile its travel time to the nearest developed zone of that type, with a tile costing `1 / speedMult`; trips from homes → commerce, homes → industry and industry → commerce are put on each origin's best adjacent road and swept downhill along the flood; congestion = volume / class capacity; accessibility comes from travel time. Highways carry traffic but give zones no access (same rule as growth). Everyone goes to the nearest destination and congestion does not yet feed back into travel time — see `TODO.md`. The vehicles in `VehicleLayer` are cosmetic.
+
 **Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `CanvasRenderer` compares a per-chunk content signature (`_chunkSignature`) and redraws the cached chunk canvas only if it changed. **If `_renderChunk` starts reading a new layer, mix that layer into `_chunkSignature` too**, or the chunk will not update when it changes. Per-frame art (clay sprites, overlays, fire, vehicles) is not cached and is unaffected.
 
 **TypeScript constraints:** `erasableSyntaxOnly: true` — no constructor parameter properties. Use explicit field declarations + assignment in body. `verbatimModuleSyntax` — use `import type` for type-only imports.
@@ -424,6 +426,9 @@ Already in the code — must not be removed:
 ```
 costs:        road=10 (bridge ×3), zoneR=20, zoneC=25, zoneI=25, bulldoze=5
 roadClasses:  street={cost:10,maint:0.04}, avenue={50,0.12}, highway={150,0.35}
+              capacity 20/80/200, speedMult 1.0/1.4/2.0 (both used by TransitSystem)
+transit:      flowInterval=8, tripsRtoC=0.2, tripsRtoI=0.2, tripsItoC=0.3 (per origin dev level),
+              commuteMax=48 street tiles, congestionGrowthPenalty=0.75, accessFloor=0.05
 buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={1500,10}
               police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}
 tax/tick:     zoneR=0.65, zoneC=1.0, zoneI=1.25  (per dev level)

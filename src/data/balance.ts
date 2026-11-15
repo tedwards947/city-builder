@@ -189,22 +189,18 @@ export const BALANCE = {
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
-    // Load generation rates per developed level per zone type.
-    // Higher values → more load per tile → stronger cross-zone congestion signal.
-    rGenRate: 2.5,
-    cAttrRate: 2.5,
-    iAttrRate: 4.0,
+    // Trips put on the road per developed level of the ORIGIN zone tile.
+    // A road tile is full (congestion 255) when the trips passing through it
+    // reach its class capacity (street 20, avenue 80, highway 200).
+    tripsRtoC: 0.2,       // homes → commerce
+    tripsRtoI: 0.2,       // homes → industry
+    tripsItoC: 0.3,       // industry → commerce (freight)
+    // Travel time, in street tiles, at which accessibility reaches 0. A tile of
+    // avenue or highway counts as 1 / speedMult street tiles.
+    commuteMax: 48,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
-    // ── Road-network pathing ─────────────────────────────────────────────────
-    // BFS radius (road hops) for zone-to-road load spreading.
-    // Higher = zones spread traffic to more distant roads; raises cost per tick.
-    accessRadius: 8,
-    // Scales raw road-tile complementary load → 0-255 accessibility byte.
-    // At 2.5× load rates, one adjacent dev-1 complementary zone (~0.5 load/tile)
-    // maps to ~80/255 (31%) accessibility; multiple nearby zones push toward 255.
-    accessNormFactor: 80,
-    // Growth multiplier floor for zone tiles with zero accessibility.
-    // 0.2 = isolated zones still get started, but connectivity is a real drag.
+    // Growth multiplier floor for developed zone tiles with zero accessibility:
+    // cut-off zones still creep along, but connectivity is a real drag.
     accessFloor: 0.05,
   },
   agents: {
