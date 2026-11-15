@@ -36,6 +36,7 @@ import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
+import { BadgeTooltip } from './ui/BadgeTooltip';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
@@ -121,6 +122,7 @@ const trafficTuning = DEBUG
 
 // UI Panels (must be initialized before first startGame call)
 const tileInfoPanel = new TileInfoPanel();
+const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y));
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const demandChart = new DemandChart();
@@ -432,6 +434,7 @@ function frame(now: number): void {
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
+  badgeTooltip.update(currentTool === 'inspect');
   econPanel.update();
   const { rDemand, cDemand, iDemand } = state.world.stats;
   demandChart.update(state.world.tick, rDemand, cDemand, iDemand);

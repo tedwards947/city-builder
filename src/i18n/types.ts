@@ -55,7 +55,17 @@ export interface TranslationSchema {
       sickBelowThreshold: string;
       pollBelowThreshold: string;
       crimeBelowThreshold: string;
+      tripJobs: string;
+      tripShops: string;
+      tripHomes: string;
+      tripNone: string;
+      tripLimit: string;
+      tripGrowth: string;
     };
+    /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
+    badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
+    /** Labels on the trip drawn when a lot is inspected. */
+    route: { jobs: string; shops: string; homes: string; none: string; noHomes: string };
     econ: {
       title: string;
       taxRates: string;
