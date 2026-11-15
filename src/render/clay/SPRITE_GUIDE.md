@@ -30,3 +30,12 @@ Trees on unbuilt land are clay sprites too, from tile size 8px up (below that th
 - Source: `art/clay-set/landscaping/raw/trees-*.png` (4 x 4 sheets on magenta, one species per row). `node art/clay-set/landscaping/trees.mjs` cuts them up, writes the review trees for `art/clay-set/trees.html`, and packs the kept ones (`GAME_TREES` in that script) into `public/sprites/clay/trees.png` + `src/render/clay/wildTreeData.ts`.
 - `wildTrees.ts`: vegetation 1–6 maps to beech, larch, pine, spruce, poplar, cypress. A lone tile gets one tree, a forest edge two on a brick pattern, an interior four on an even grid, with a companion species mixed in now and then. Keep it tidy: even spacing, nearly one size, never mirrored (the owner rejected random scatter and mirrored trees as sloppy). `planWildTrees` is pure and tested (`src/__tests__/wildTrees.test.ts`); clumps are baked per species, variant, density and tile size, so a tile is one `drawImage`.
 - `CanvasRenderer` draws them in the per-frame tile pass (rows top to bottom, so they overlap like buildings), over a darker forest floor (`_drawForestFloor`). Nothing here goes through the chunk cache.
+
+### Roads and traffic
+
+All code-drawn, in `roads.ts` (no images).
+
+- `drawClayRoad` draws one road tile into the chunk layer from its class and its four neighbours' classes: street (narrow, dashed line, pavement), avenue (fills the tile, planted median), highway (dark, barriers). Junctions of three or more arms get zebra crossings and stop lines; a road on water is a bridge (parapets, arches, piers, shadow). A tile draws only inside itself, and `_chunkSignature` mixes in the neighbouring chunks' road classes along the edge.
+- Traffic is shown per tile, with no vehicles travelling the map (the owner removed the wandering cars): each lane is a conveyor of slots and a slot shows a car only where the tile is busy enough. `roadTrafficCars` (pure, tested in `src/__tests__/roads.test.ts`) takes the tile's load (`trafficVolume / roadCapacity`, not capped) and goods share (vans and trucks); cars brake when the road is over capacity. `drawTrafficCars` draws them from small baked pictures in the per-frame pass, from 12px tiles up.
+- Design mock with the alternatives that were considered: `art/clay-set/roads.html` (the owner chose J2 and T1).
+

@@ -214,13 +214,6 @@ export const BALANCE = {
     // cut-off zones still creep along, but connectivity is a real drag.
     accessFloor: 0.05,
   },
-  agents: {
-    maxVehicles:   80,   // hard cap — sim is correct with zero
-    spawnInterval: 0.4,  // seconds between spawn attempts
-    baseSpeed:     1.8,  // tiles per second at zero congestion
-    minTtl:        12,   // seconds
-    maxTtl:        28,   // seconds
-  },
   vegetation: {
     // Probability per grass/sand tile for a "seed" tree (starts a cluster)
     seedProbability: 0.012,

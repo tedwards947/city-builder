@@ -6,11 +6,13 @@ import { resolvePalette, resolveTilePalette, type ColorPalette } from './Charact
 import type { VibeState } from './SpriteTypes';
 import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
+import { drawClayRoad, drawnRoadClass, roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
+import { trafficVolume, roadCapacity } from '../sim/TrafficData';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
   ZONE_NONE, ZONE_R, ZONE_C, ZONE_I,
-  ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
+  ROAD_NONE,
   VEG_NONE,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
@@ -55,6 +57,8 @@ const CHUNK_FIRST_DRAWS_PER_FRAME = 24;   // chunks drawn for the first time per
 const SMOULDER_MS = 20000;
 /** Tile size (px) from which trees are clay sprites; below it they are flat marks in the chunk layer. */
 const CLAY_TREE_MIN_TILE = 8;
+/** Tile size (px) from which roads show cars. */
+const TRAFFIC_MIN_TILE = 12;
 
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
@@ -78,6 +82,9 @@ export class CanvasRenderer {
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
   private _markerQueue: number[] = [];
   private _fireQueue: number[] = [];
+  private _around: number[] = [0, 0, 0, 0];
+  private _rawAround: number[] = [0, 0, 0, 0];
+  private _trafficCars: TrafficCar[] = [];
   /** When each visible tile was last seen burning (ms), for the smoulder afterwards. Render-only. */
   private _lastBurn = new Map<number, number>();
   private _lastBurnWorld: World | null = null;
@@ -213,8 +220,16 @@ export class CanvasRenderer {
 
         ctx.globalAlpha = 1.0;
         ctx.imageSmoothingEnabled = false;
-        // Scale the chunk to exactly match the current zoom/tile scale
-        ctx.drawImage(chunkCanvas, dstX, dstY, dstW, dstH);
+        if (this._chunkTs[chunkId] === ts) {
+          // Drawn at this exact tile size: copy it pixel for pixel. (Stretching
+          // it to dstW x dstH squeezes or doubles one row and column, and which
+          // one changes as the camera pans, so fine lines shimmer.) The spare
+          // pixel on its right and bottom is covered by the next chunk.
+          ctx.drawImage(chunkCanvas, dstX, dstY);
+        } else {
+          // Mid-zoom: scale the chunk to the current tile size.
+          ctx.drawImage(chunkCanvas, dstX, dstY, dstW, dstH);
+        }
       }
     }
 
@@ -223,6 +238,7 @@ export class CanvasRenderer {
     const clayTile = Math.ceil(ts);
     beginClayFrame(clayTile, now);
     beginWildTreeFrame(clayTile, now);
+    beginTrafficFrame(clayTile, now);
     const clayEffects = this._clayEffects;
     clayEffects.length = 0;
     const markerQueue = this._markerQueue;
@@ -341,8 +357,15 @@ export class CanvasRenderer {
           else fireQueue.push(i, sxi, syi);
         }
 
-        if (ts > 20 && road !== ROAD_NONE && congestion > 15) {
-          this._drawRoadVehicles(ctx, world, tx, ty, sxi, syi, ts, congestion, now);
+        if (ts >= TRAFFIC_MIN_TILE && road !== ROAD_NONE && congestion > 8) {
+          // Each road tile shows its own load as cars in its lanes (see clay/roads.ts).
+          const traffic = world.traffic;
+          const volume = traffic ? trafficVolume(traffic, i) : 0;
+          const load = traffic ? volume / roadCapacity(road) : congestion / 255;
+          const cars = this._trafficCars;
+          cars.length = 0;
+          roadTrafficCars(tx, ty, this._drawnRoad(world, tx, ty), this._roadsAround(world, tx, ty), load, volume > 0 ? traffic!.goods.volume[i] / volume : 0, now / 1000, cars);
+          drawTrafficCars(ctx, cars, sxi, syi, clayTile);
         }
       }
 
@@ -547,20 +570,15 @@ export class CanvasRenderer {
       }
     }
 
-    // Roads join to neighbours across the chunk edge, so the ring of tiles
-    // just outside the chunk matters too (road / no road only).
+    // A road tile is drawn from its neighbours' classes, and a neighbour's
+    // drawn class depends on its own neighbours (see drawnRoadClass), so the
+    // two rings of tiles just outside the chunk matter too.
     const R = L.roadClass;
+    const at = (tx: number, ty: number): number => (tx >= 0 && ty >= 0 && tx < width && ty < height ? R[ty * width + tx] : 0);
     let ring = 0;
-    for (let tx = x0; tx < x1; tx++) {
-      ring = (ring << 1 | ring >>> 31) ^ (y0 > 0 && R[(y0 - 1) * width + tx] !== ROAD_NONE ? 1 : 0);
-      ring = (ring << 1 | ring >>> 31) ^ (y1 < height && R[y1 * width + tx] !== ROAD_NONE ? 1 : 0);
-    }
-    // CHUNK_SIZE is 16, so each loop fills exactly one 32-bit word.
-    h = Math.imul(h ^ ring, 0x85ebca6b); h ^= h >>> 13;
-    ring = 0;
-    for (let ty = y0; ty < y1; ty++) {
-      ring = (ring << 1 | ring >>> 31) ^ (x0 > 0 && R[ty * width + x0 - 1] !== ROAD_NONE ? 1 : 0);
-      ring = (ring << 1 | ring >>> 31) ^ (x1 < width && R[ty * width + x1] !== ROAD_NONE ? 1 : 0);
+    for (let d = 1; d <= 2; d++) {
+      for (let tx = x0 - 1; tx <= x1; tx++) ring = (Math.imul(ring, 31) + (at(tx, y0 - d) | at(tx, y1 + d - 1) << 2)) | 0;
+      for (let ty = y0; ty < y1; ty++) ring = (Math.imul(ring, 31) + (at(x0 - d, ty) | at(x1 + d - 1, ty) << 2)) | 0;
     }
     h = Math.imul(h ^ ring, 0x9e3779b1);
     return h ^ (h >>> 15);
@@ -684,7 +702,7 @@ export class CanvasRenderer {
         }
 
         if (road !== ROAD_NONE) {
-          this._drawRoad(chunkCtx, world, tx, ty, sxi, syi, tsi, ts, localP);
+          drawClayRoad(chunkCtx, this._drawnRoad(world, tx, ty), this._roadsAround(world, tx, ty), terrain === TERRAIN_WATER, sxi, syi, Math.ceil(ts));
         }
 
         if (building !== BUILDING_NONE) {
@@ -853,40 +871,6 @@ export class CanvasRenderer {
     }
   }
 
-  private _drawRoadVehicles(ctx: CanvasRenderingContext2D, world: World, tx: number, ty: number, sxi: number, syi: number, ts: number, congestion: number, now: number): void {
-    const carCount = Math.min(6, Math.ceil(congestion / 40));
-    const carSize = Math.max(2, ts * 0.12);
-    ctx.fillStyle = '#4a6a8a';
-    const mid = ts / 2;
-    const seed = tx * 13 + ty * 37;
-    const timeScale = 0.0016;
-    let mask = 0;
-    if (ty > 0 && world.layers.roadClass[world.grid.idx(tx, ty - 1)] !== ROAD_NONE) mask |= 1;
-    if (tx < world.grid.width - 1 && world.layers.roadClass[world.grid.idx(tx + 1, ty)] !== ROAD_NONE) mask |= 2;
-    if (ty < world.grid.height - 1 && world.layers.roadClass[world.grid.idx(tx, ty + 1)] !== ROAD_NONE) mask |= 4;
-    if (tx > 0 && world.layers.roadClass[world.grid.idx(tx - 1, ty)] !== ROAD_NONE) mask |= 8;
-    const arms: number[] = [];
-    if (mask & 1) arms.push(1);
-    if (mask & 2) arms.push(2);
-    if (mask & 4) arms.push(4);
-    if (mask & 8) arms.push(8);
-    if (arms.length === 0) return;
-    for (let c = 0; c < carCount; c++) {
-      const laneVariant = (seed + c) % 2;
-      const arm = arms[(seed + Math.floor(c / 2)) % arms.length];
-      const cycleOffset = (c * 0.25) + (seed * 0.1);
-      let progress = ((now * timeScale) + cycleOffset) % 1.0;
-      if (laneVariant === 1) progress = 1.0 - progress;
-      const laneOffset = ts * 0.15;
-      let carX = sxi + mid, carY = syi + mid;
-      if (arm === 1) { carY = syi + (1 - progress) * mid; carX += laneVariant === 0 ? laneOffset : -laneOffset; }
-      else if (arm === 2) { carX = sxi + mid + progress * mid; carY += laneVariant === 0 ? laneOffset : -laneOffset; }
-      else if (arm === 4) { carY = syi + mid + progress * mid; carX += laneVariant === 0 ? -laneOffset : laneOffset; }
-      else if (arm === 8) { carX = sxi + (1 - progress) * mid; carY += laneVariant === 0 ? -laneOffset : laneOffset; }
-      ctx.fillRect(carX - carSize / 2, carY - carSize / 2, carSize, carSize);
-    }
-  }
-
   private _drawTree(ctx: CanvasRenderingContext2D, vegetation: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette): void {
     const speciesIdx = (vegetation - 1);
     const color = p.treeColors[speciesIdx] || p.treeColors[0];
@@ -905,58 +889,28 @@ export class CanvasRenderer {
     }
   }
 
-  private _drawRoad(ctx: CanvasRenderingContext2D, world: World, tx: number, ty: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette): void {
-    const i = world.grid.idx(tx, ty);
-    const road = world.layers.roadClass[i];
-    let mask = 0;
-    if (ty > 0 && world.layers.roadClass[world.grid.idx(tx, ty - 1)] !== ROAD_NONE) mask |= 1;
-    if (tx < world.grid.width - 1 && world.layers.roadClass[world.grid.idx(tx + 1, ty)] !== ROAD_NONE) mask |= 2;
-    if (ty < world.grid.height - 1 && world.layers.roadClass[world.grid.idx(tx, ty + 1)] !== ROAD_NONE) mask |= 4;
-    if (tx > 0 && world.layers.roadClass[world.grid.idx(tx - 1, ty)] !== ROAD_NONE) mask |= 8;
-    let baseColor = p.road;
-    let lineColor = p.roadEdge;
-    if (road === ROAD_HIGHWAY) { baseColor = p.roadHighway; lineColor = p.roadHighwayLine; }
-    else if (road === ROAD_AVENUE) { baseColor = p.roadAvenue; lineColor = p.roadAvenueEdge; }
-    const roadWidth = Math.floor(ts * 0.75);
-    const off = (ts - roadWidth) / 2;
-    const mid = ts / 2;
+  /** The class the road tile at (tx, ty) is drawn as (ROAD_NONE off the map or where there is no road). */
+  private _drawnRoad(world: World, tx: number, ty: number): number {
+    const R = world.layers.roadClass, { width, height } = world.grid;
+    if (tx < 0 || ty < 0 || tx >= width || ty >= height) return ROAD_NONE;
+    const cls = R[ty * width + tx];
+    if (cls === ROAD_NONE) return ROAD_NONE;
+    const raw = this._rawAround;
+    raw[0] = ty > 0 ? R[(ty - 1) * width + tx] : ROAD_NONE;
+    raw[1] = tx < width - 1 ? R[ty * width + tx + 1] : ROAD_NONE;
+    raw[2] = ty < height - 1 ? R[(ty + 1) * width + tx] : ROAD_NONE;
+    raw[3] = tx > 0 ? R[ty * width + tx - 1] : ROAD_NONE;
+    return drawnRoadClass(cls, raw);
+  }
 
-    // Draw Bridge Underlay if on water
-    if (world.layers.terrain[i] === TERRAIN_WATER) {
-      ctx.fillStyle = '#5d4037'; // Dark wood
-      ctx.fillRect(sxi, syi, tsi, tsi);
-      // Plank detail
-      ctx.strokeStyle = '#3e2723';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 0; x < tsi; x += Math.max(2, ts * 0.2)) {
-        ctx.moveTo(sxi + x, syi);
-        ctx.lineTo(sxi + x, syi + tsi);
-      }
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(sxi + Math.floor(off), syi + Math.floor(off), roadWidth, roadWidth);
-    if (mask & 1) ctx.fillRect(sxi + Math.floor(off), syi, roadWidth, Math.ceil(off) + 1);
-    if (mask & 2) ctx.fillRect(sxi + Math.floor(off) + roadWidth - 1, syi + Math.floor(off), Math.ceil(off) + 1, roadWidth);
-    if (mask & 4) ctx.fillRect(sxi + Math.floor(off), syi + Math.floor(off) + roadWidth - 1, roadWidth, Math.ceil(off) + 1);
-    if (mask & 8) ctx.fillRect(sxi, syi + Math.floor(off), Math.ceil(off) + 1, roadWidth);
-    if (ts > 8) {
-      ctx.strokeStyle = lineColor; ctx.lineWidth = Math.max(1, Math.floor(ts * 0.05)); ctx.lineCap = 'round';
-      if (road === ROAD_STREET) ctx.setLineDash([Math.floor(ts * 0.2), Math.floor(ts * 0.1)]);
-      else ctx.setLineDash([]);
-      ctx.beginPath();
-      if (mask === 5) { ctx.moveTo(sxi + mid, syi); ctx.lineTo(sxi + mid, syi + tsi); }
-      else if (mask === 10) { ctx.moveTo(sxi, syi + mid); ctx.lineTo(sxi + tsi, syi + mid); }
-      else if (mask !== 0) {
-        if (mask & 1) { ctx.moveTo(sxi + mid, syi); ctx.lineTo(sxi + mid, syi + mid); }
-        if (mask & 2) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi + tsi, syi + mid); }
-        if (mask & 4) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi + mid, syi + tsi); }
-        if (mask & 8) { ctx.moveTo(sxi + mid, syi + mid); ctx.lineTo(sxi, syi + mid); }
-      }
-      ctx.stroke(); ctx.setLineDash([]);
-    }
+  /** Drawn road classes of the N, E, S and W neighbours. The array is reused. */
+  private _roadsAround(world: World, tx: number, ty: number): number[] {
+    const out = this._around;
+    out[0] = this._drawnRoad(world, tx, ty - 1);
+    out[1] = this._drawnRoad(world, tx + 1, ty);
+    out[2] = this._drawnRoad(world, tx, ty + 1);
+    out[3] = this._drawnRoad(world, tx - 1, ty);
+    return out;
   }
 
   private _drawZoneBuilding(ctx: CanvasRenderingContext2D, zone: number, dev: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette, isAbandoned: boolean, variant: number): void {

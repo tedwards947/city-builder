@@ -39,7 +39,6 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
-import { VehicleLayer } from './render/VehicleLayer';
 import { TrafficOverlay } from './render/TrafficOverlay';
 import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
 import { DEBUG } from './debug';
@@ -66,7 +65,6 @@ const SERVICE_TOOL_KIND: Partial<Record<Tool, number>> = {
 const canvas       = document.getElementById('canvas') as HTMLCanvasElement;
 const camera       = new Camera(window.innerWidth, window.innerHeight);
 const renderer     = new CanvasRenderer(canvas);
-const vehicleLayer = new VehicleLayer();
 const trafficOverlay = new TrafficOverlay();
 
 function resize(): void {
@@ -148,7 +146,6 @@ function startGame(world: World): void {
   syncSpeedButtons();
   autosave.reset();
   toastPanel.setWorld(world);
-  vehicleLayer.reset();
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
 }
@@ -422,12 +419,7 @@ function formatDate(tick: number): string {
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
 
-let lastFrameTime = 0;
-
 function frame(now: number): void {
-  const dt = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.1) : 0;
-  lastFrameTime = now;
-
   state.scheduler.update(now);
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
@@ -439,8 +431,6 @@ function frame(now: number): void {
   renderer.render(state.world, camera, hoverTile, currentTool, overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
-  vehicleLayer.update(dt, state.world);
-  vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);
   econPanel.update();
   const { rDemand, cDemand, iDemand } = state.world.stats;
