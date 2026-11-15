@@ -504,9 +504,10 @@ Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays,
 
 More than one agent session may be working in this repo at once.
 
-- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> vibecheck`) and merge back into the integration branch (`vibecheck` at the time of writing) when the work is green.
+- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> origin/main`) and bring it back to `main` as a small pull request when the work is green.
 - A worktree starts from a commit, so uncommitted work in another tree is invisible to it. Commit (when the user asks) before splitting work across worktrees.
 - A new worktree has no `node_modules`; run `npm install` in it. `generated_imgs/` is git-ignored and exists only in the main checkout.
+- `TODO.md` holds one ranked backlog per area (GRAPHICS, GAME ENGINE, …). Edit only your own section.
 - Before starting, find the other sessions (`ListAgents`) and ask what files they own. If you must share a tree, agree on file ownership first and stay out of each other's files.
 - Use a different dev-server port per session (`npx vite --port <n> --strictPort`), and delete any temporary harness files you create.
 - Commit only when the user asks, and tell the other sessions before you do so two sessions don't commit the same tree. Never stash, reset or check out over a tree another session is using.

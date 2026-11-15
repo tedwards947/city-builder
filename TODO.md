@@ -26,4 +26,14 @@ Ranked by how much the player notices it, then by cost. Items marked [paid] need
 
 ## GAME ENGINE
 
-_(owned by the game-engine session)_
+Ranked by how much it changes play, then by cost. "Unmeasured" means a suspected cost nobody has timed yet: measure first, then decide.
+
+1. **Traffic step 1: flow-based traffic.** Replace the "zones press on roads within 8 tiles" model in `TransitSystem` with travel-time maps per destination type (to commerce, to industry) and traffic sent downhill along them (homes → shops, homes → industry, industry → shops). Road speed counts, so avenues and highways finally matter. Same output layers (congestion, accessibility), so growth, land value, overlay and saves keep working. Rewrite the traffic tests around small hand-built maps; time it on a large city before and after.
+2. **Traffic step 2: commute effects.** Growth slows as travel time to jobs / customers / workers rises; past a threshold the zone declines a level at a time (decline only for now, no abandonment from commute). Show commute in the tile inspector and the traffic overlay. Check first whether zones can lose a level today outside abandonment.
+3. **Traffic step 3: destination capacity and damping.** Shops and jobs fill up, so one shop cannot absorb a city; congestion feeds back into travel time gradually so routes do not flip-flop between passes. Needs play-testing and tuning.
+4. **Zoom hitch.** Every zoom change over 1% redraws every visible chunk (measured 20 ms at 1.5× up to 96 ms at 0.2× per redraw in headless Chrome), so a continuous zoom redraws repeatedly. Scale the cached chunks while zooming and redraw once it settles, or spread redraws over frames.
+5. **Cars follow the traffic.** Point the cosmetic vehicles at the step-1 travel-time maps so they drive from homes toward shops and industry instead of wandering.
+6. **Sim tick cost on a big city** (unmeasured). Time each system per tick on a full 256×256 city and fix the worst. Known suspects: Power / Water / Sewage mark every chunk dirty on every tick (now only costs a signature check per visible chunk, but should be targeted), and whole-map scans in several systems.
+7. **Per-frame tile loop** (unmeasured). The renderer allocates a vibe object per visible tile per frame and the fallback sprite lookup builds a string key per call.
+8. **Redundant autosave on tab return.** The game saves when the tab is hidden and then again on the first frame back.
+9. **Keep `_chunkSignature` in step with the chunk layer.** Standing rule rather than a task: when graphics work changes what `_renderChunk` draws (graphics items 1 and 2 will), the signature in `CanvasRenderer` must read the same layers, or chunks stop updating.
