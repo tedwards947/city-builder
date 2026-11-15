@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Problem indicator ideas</title>
+<style>
+  :root { --bg: #14171c; --panel: #1d222a; --line: #2f3742; --text: #e6e9ee; --dim: #98a2b0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p.sub { color: var(--dim); margin: 0 0 18px; max-width: 80ch; }
+  .opt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+  .opt h2 { font-size: 17px; margin: 0 0 2px; }
+  .opt p { color: var(--dim); margin: 0 0 10px; font-size: 13px; max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .pair div span { display: block; color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Problem indicator ideas</h1>
+  <p class="sub">The same town and the same problems in every row: a large high-crime area in the east, a smaller one in the south-west, a district that needs a hospital (sick residents) in the north-west, and a few scattered cases. Left: zoomed out, where today's markers swamp the city. Right: zoomed in on the crime area's edge. Tell me a letter or a mix.</p>
+  <div id="list"></div>
+</main>
+<script src="sprites/manifest.js"></script>
+<script>
+const SPRITES = window.SPRITES || {};
+const PLOT_ASPECT = 0.905, COLS = 44, ROWS = 26;
+const hash = (a, b, c = 0) => { let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+// ── Town ────────────────────────────────────────────────────────────────────
+const isRoad = (x, y) => x % 6 === 0 || y % 5 === 0;
+const zoneAt = (x, y) => (isRoad(x, y) ? '' : x > 30 && y > 14 ? 'ind' : (x > 15 && x < 28 && y > 5 && y < 15) ? 'com' : 'res');
+const levelAt = (x, y) => 1 + Math.floor(hash(x, y, 4) * 3);
+const SETS = { res: [['res-1', 'res-1-b', 'res-1-c', 'res-1-d'], ['res-2', 'res-2-b', 'res-2-c', 'res-2-d'], ['res-3', 'res-3-b', 'res-3-f', 'res-3-h']], com: [['com-1', 'com-1-b', 'com-1-c'], ['com-2', 'com-2-b', 'com-2-c'], ['com-3', 'com-3-f', 'com-3-i']], ind: [['ind-1', 'ind-1-b'], ['ind-2', 'ind-2-b'], ['ind-3', 'ind-3-b']] };
+const spriteAt = (x, y) => { const z = zoneAt(x, y); if (!z) return null; const set = SETS[z][levelAt(x, y) - 1]; return set[Math.floor(hash(x, y, 8) * set.length)]; };
+const blob = (x, y, cx, cy, r) => Math.max(0, 1 - Math.hypot(x - cx, y - cy) / r);
+// 0..255, like the game's layers.
+function crimeAt(x, y) {
+  if (!zoneAt(x, y)) return 0;
+  const v = Math.max(blob(x, y, 35, 9, 9) * 1.25, blob(x, y, 9, 21, 5) * 1.1, hash(x, y, 21) > 0.975 ? 0.5 : 0) + (hash(x, y, 22) - 0.5) * 0.25;
+  return Math.max(0, Math.min(255, Math.round(v * 255)));
+}
+function sickAt(x, y) {
+  if (zoneAt(x, y) !== 'res') return 0;
+  const v = Math.max(blob(x, y, 8, 6, 7) * 1.2, hash(x, y, 31) > 0.985 ? 0.6 : 0) + (hash(x, y, 32) - 0.5) * 0.2;
+  return Math.max(0, Math.min(255, Math.round(v * 255)));
+}
+const CRIME_MIN = 40, SICK_MIN = 80; // the game's thresholds
+const RED = '#ff3b30', TEAL = '#2fe0c8';
+
+const images = {};
+function drawTown(ctx, T, x0, y0, w, h) {
+  ctx.fillStyle = '#3a5a3a'; ctx.fillRect(0, 0, w * T, h * T);
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const px = (x - x0) * T, py = (y - y0) * T;
+    if (isRoad(x, y)) { ctx.fillStyle = '#b7b1a4'; ctx.fillRect(px, py, T, T); ctx.fillStyle = '#63676e'; const m = T * 0.14; ctx.fillRect(px + (x % 6 === 0 ? m : 0), py + (y % 5 === 0 ? m : 0), T - (x % 6 === 0 ? 2 * m : 0), T - (y % 5 === 0 ? 2 * m : 0)); }
+  }
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const id = spriteAt(x, y), img = id && images[id], m = id && SPRITES[id]; if (!img || !m) continue;
+    const plotW = m.right - m.left + 1, kx = T / plotW, ky = T / (plotW * PLOT_ASPECT), top = m.bottom + 1 - plotW * PLOT_ASPECT;
+    ctx.drawImage(img, (x - x0) * T - m.left * kx, (y - y0) * T - top * ky, m.w * kx, m.h * ky);
+  }
+}
+/** Groups of touching lots (8 neighbours, bridging roads one tile wide) whose value passes `min`. */
+function clusters(valueAt, min) {
+  const seen = new Set(), out = [];
+  const hit = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && valueAt(x, y) > min;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!hit(x, y) || seen.has(y * COLS + x)) continue;
+    const stack = [[x, y]], tiles = []; seen.add(y * COLS + x);
+    while (stack.length) {
+      const [cx, cy] = stack.pop(); tiles.push([cx, cy]);
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const nx = cx + dx, ny = cy + dy, k = ny * COLS + nx;
+        if (hit(nx, ny) && !seen.has(k)) { seen.add(k); stack.push([nx, ny]); }
+      }
+    }
+    out.push(tiles);
+  }
+  return out;
+}
+
+// ── Icons ───────────────────────────────────────────────────────────────────
+function badge(ctx, x, y, r, colour, kind, count) {
+  ctx.fillStyle = 'rgba(10,12,16,0.35)'; ctx.beginPath(); ctx.arc(x + r * 0.08, y + r * 0.14, r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f4f0e6'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r * 0.82, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff';
+  if (kind === 'health') { const a = r * 0.16, l = r * 0.5; ctx.fillRect(x - a, y - l, a * 2, l * 2); ctx.fillRect(x - l, y - a, l * 2, a * 2); }
+  else { // crime: a little mask-like "!" in a shield
+    ctx.beginPath(); ctx.moveTo(x - r * 0.42, y - r * 0.42); ctx.lineTo(x + r * 0.42, y - r * 0.42); ctx.lineTo(x + r * 0.42, y + r * 0.05); ctx.quadraticCurveTo(x + r * 0.35, y + r * 0.45, x, y + r * 0.58); ctx.quadraticCurveTo(x - r * 0.35, y + r * 0.45, x - r * 0.42, y + r * 0.05); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = colour; ctx.fillRect(x - r * 0.07, y - r * 0.26, r * 0.14, r * 0.36); ctx.beginPath(); ctx.arc(x, y + r * 0.28, r * 0.09, 0, 7); ctx.fill();
+  }
+  if (count > 1 && r > 9) {
+    const t = String(count); ctx.font = `700 ${Math.round(r * 0.62)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(t).width + r * 0.4, bx = x + r * 0.75, by = y - r * 0.75;
+    ctx.fillStyle = '#1b1e24'; ctx.beginPath(); ctx.roundRect(bx - tw / 2, by - r * 0.42, tw, r * 0.84, r * 0.42); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillText(t, bx, by + 1);
+  }
+}
+
+// ── The ideas. Each gets (ctx, T, x0, y0, w, h) after the town is drawn. ────
+const inView = (x, y, x0, y0, w, h) => x >= x0 && y >= y0 && x < x0 + w && y < y0 + h;
+function today(ctx, T, x0, y0, w, h) {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const px = (x - x0) * T, py = (y - y0) * T, c = crimeAt(x, y), s = sickAt(x, y);
+    const back = (bx, by, bw, bh) => { ctx.fillStyle = 'rgba(12,14,18,0.6)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2); };
+    if (c > CRIME_MIN) {
+      const d = Math.max(2, Math.floor(T * 0.18));
+      const dot = (bx, by) => { back(bx, by, d, d); ctx.fillStyle = RED; ctx.fillRect(bx, by, d, d); };
+      dot(px + 1, py + 1); if (c > 120) dot(px + T - d - 1, py + 1); if (c > 200) dot(px + 1, py + T - d - 1);
+    }
+    if (s > SICK_MIN) {
+      const cs = Math.max(2, Math.floor(T * 0.15)), cx = px + T - cs - 1, cy = py + T - cs - 1, arm = Math.max(1, Math.floor(cs * 0.4));
+      back(cx - cs, cy - cs, cs * 2, cs * 2); ctx.fillStyle = TEAL; ctx.fillRect(cx - arm, cy - cs, arm * 2, cs * 2); ctx.fillRect(cx - cs, cy - arm, cs * 2, arm * 2);
+    }
+  }
+}
+function pins(ctx, T, x0, y0, w, h) {
+  const near = T >= 30;
+  for (const [valueAt, min, colour, kind] of [[crimeAt, CRIME_MIN, '#d8453a', 'crime'], [sickAt, SICK_MIN, '#1fa894', 'health']]) {
+    if (near) {
+      // Close up: one small badge per affected lot, only for the serious ones.
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (valueAt(x, y) > min + 60) badge(ctx, (x - x0 + 0.78) * T, (y - y0 + 0.2) * T, T * 0.17, colour, kind, 1);
+    } else {
+      // Far out: one pin per affected district, sized by how many lots it covers.
+      for (const tiles of clusters(valueAt, min)) {
+        const cx = tiles.reduce((a, t) => a + t[0], 0) / tiles.length + 0.5, cy = tiles.reduce((a, t) => a + t[1], 0) / tiles.length + 0.5;
+        if (!inView(cx, cy, x0, y0, w, h)) continue;
+        badge(ctx, (cx - x0) * T, (cy - y0) * T, Math.min(26, 8 + Math.sqrt(tiles.length) * 1.7), colour, kind, tiles.length);
+      }
+    }
+  }
+}
+function haze(ctx, T, x0, y0, w, h) {
+  for (const [valueAt, min, rgb] of [[crimeAt, CRIME_MIN, '230,50,40'], [sickAt, SICK_MIN, '30,200,180']]) {
+    for (let y = y0 - 2; y < y0 + h + 2; y++) for (let x = x0 - 2; x < x0 + w + 2; x++) {
+      const v = x >= 0 && y >= 0 && x < COLS && y < ROWS ? valueAt(x, y) : 0; if (v <= min) continue;
+      const px = (x - x0 + 0.5) * T, py = (y - y0 + 0.5) * T, r = T * 1.5, g = ctx.createRadialGradient(px, py, 0, px, py, r);
+      const a = 0.1 + 0.16 * (v - min) / (255 - min);
+      g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g; ctx.fillRect(px - r, py - r, r * 2, r * 2);
+    }
+  }
+}
+function worstOnly(ctx, T, x0, y0, w, h) {
+  // Today's marks, but only on the worst lot of each 3 x 3 neighbourhood, and a higher bar when zoomed out.
+  const far = T < 30;
+  for (const [valueAt, min, colour, kind] of [[crimeAt, far ? 150 : 90, '#d8453a', 'crime'], [sickAt, far ? 170 : 110, '#1fa894', 'health']]) {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      const v = valueAt(x, y); if (v <= min) continue;
+      let top = true;
+      for (let dy = -1; dy <= 1 && top; dy++) for (let dx = -1; dx <= 1; dx++) { const o = valueAt(x + dx, y + dy); if (o > v || (o === v && (dy < 0 || (dy === 0 && dx < 0)))) { top = false; break; } }
+      if (top) badge(ctx, (x - x0 + 0.5) * T, (y - y0 + 0.3) * T, Math.max(5, T * 0.2), colour, kind, 1);
+    }
+  }
+}
+function outlines(ctx, T, x0, y0, w, h) {
+  for (const [valueAt, min, colour, rgb, kind] of [[crimeAt, CRIME_MIN + 30, '#ff5a4d', '255,70,60', 'crime'], [sickAt, SICK_MIN + 20, '#35e3cb', '40,220,200', 'health']]) {
+    // A district is every tile within one step of an affected lot, so the line runs round whole blocks.
+    const inD = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && valueAt(nx, ny) > min) return true; } return false; };
+    ctx.fillStyle = `rgba(${rgb},0.1)`; ctx.strokeStyle = colour; ctx.lineWidth = Math.max(2, T * 0.07); ctx.lineCap = 'round'; ctx.setLineDash([T * 0.35, T * 0.3]);
+    ctx.beginPath();
+    for (let y = y0 - 1; y <= y0 + h; y++) for (let x = x0 - 1; x <= x0 + w; x++) {
+      if (!inD(x, y)) continue;
+      const px = (x - x0) * T, py = (y - y0) * T;
+      ctx.fillRect(px, py, T, T);
+      if (!inD(x, y - 1)) { ctx.moveTo(px, py); ctx.lineTo(px + T, py); }
+      if (!inD(x, y + 1)) { ctx.moveTo(px, py + T); ctx.lineTo(px + T, py + T); }
+      if (!inD(x - 1, y)) { ctx.moveTo(px, py); ctx.lineTo(px, py + T); }
+      if (!inD(x + 1, y)) { ctx.moveTo(px + T, py); ctx.lineTo(px + T, py + T); }
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    // One tag per district, at its top edge.
+    for (const tiles of clusters(valueAt, min)) {
+      if (tiles.length < 3) continue;
+      const top = tiles.reduce((a, t) => (t[1] < a[1] || (t[1] === a[1] && t[0] < a[0]) ? t : a));
+      if (inView(top[0], top[1], x0, y0, w, h)) badge(ctx, (top[0] - x0 + 0.5) * T, (top[1] - y0 - 0.6) * T, Math.max(8, Math.min(16, T * 0.3)), colour === '#ff5a4d' ? '#d8453a' : '#1fa894', kind, 1);
+    }
+  }
+}
+const IDEAS = [
+  ['Today', 'Red squares for crime (one to three per lot) and a teal cross for sickness, on every affected lot at every zoom.', today],
+  ['A. Pins that merge', 'Zoomed out: one pin per affected district, bigger with more lots, with a count. Zoomed in: a small badge on each seriously affected building. Nothing else on the map.', pins],
+  ['B. Coloured haze', 'No marks at all: a soft red or teal glow hangs over troubled areas, stronger where it is worse. Reads the same at any zoom.', haze],
+  ['C. Only the worst lot', 'A badge only on the worst building in each small neighbourhood, with a higher bar when zoomed out. Like today, but thinned hard.', worstOnly],
+  ['D. Outlined districts', 'A dashed line and faint tint round each troubled district, with one tag. Shows the extent without marking buildings.', outlines],
+  ['E. Haze plus merged pins (B + A)', 'The glow shows where and how bad; a pin names what the problem is.', (...a) => { haze(...a); pins(...a); }],
+];
+
+function start() {
+  const list = document.getElementById('list');
+  for (const [name, blurb, fn] of IDEAS) {
+    const el = document.createElement('div'); el.className = 'opt';
+    el.innerHTML = `<h2>${name}</h2><p>${blurb}</p><div class="pair"><div><span>Zoomed out (whole town)</span></div><div><span>Zoomed in (edge of the eastern crime area)</span></div></div>`;
+    list.appendChild(el);
+    const [a, b] = el.querySelectorAll('.pair > div');
+    for (const [host, T, x0, y0, w, h] of [[a, 13, 0, 0, COLS, ROWS], [b, 44, 24, 4, 13, 8]]) {
+      const c = document.createElement('canvas'); c.width = w * T; c.height = h * T; host.appendChild(c);
+      const ctx = c.getContext('2d'); drawTown(ctx, T, x0, y0, w, h); fn(ctx, T, x0, y0, w, h);
+    }
+  }
+}
+let pending = 0;
+const done = () => { if (--pending === 0) start(); };
+for (const id of new Set(Object.values(SETS).flat(2))) { pending++; const im = new Image(); im.onload = () => { images[id] = im; done(); }; im.onerror = done; im.src = `sprites/${id}.png`; }
+</script>
+</body>
+</html>

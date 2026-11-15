@@ -8,6 +8,7 @@ import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, collec
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { drawClayRoad, drawnRoadClass, roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
 import { trafficVolume, roadCapacity } from '../sim/TrafficData';
+import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster } from './clay/problemPins';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -31,22 +32,6 @@ const _fireOverlayColors: string[] = Array.from({ length: 256 }, (_, v) => {
   const alpha = Math.min(0.7, (v / 255) * 0.9);
   return `rgba(255,128,0,${alpha.toFixed(3)})`;
 });
-const _crimeIndicatorColors: string[] = Array.from({ length: 256 }, (_, v) => {
-  const alpha = Math.min(0.8, (v / 255) * 1.2);
-  return `rgba(255,0,0,${alpha.toFixed(3)})`;
-});
-const _sicknessColors: string[] = Array.from({ length: 256 }, (_, v) => {
-  const alpha = Math.min(0.85, (v / 255) * 1.1);
-  return `rgba(0,200,180,${alpha.toFixed(3)})`;
-});
-const _deathColors: string[] = Array.from({ length: 256 }, (_, v) => {
-  const alpha = Math.min(0.9, (v / BALANCE.healthcare.deathVisualDuration) * 0.9);
-  return `rgba(220,220,240,${alpha.toFixed(3)})`;
-});
-const _deathAccentColors: string[] = Array.from({ length: 256 }, (_, v) => {
-  const alpha = Math.min(0.9, (v / BALANCE.healthcare.deathVisualDuration) * 0.9);
-  return `rgba(180,180,200,${alpha.toFixed(3)})`;
-});
 
 const CHUNK_PX = CHUNK_SIZE * TILE_SIZE;
 // Zoom smoothing (see render()).
@@ -59,6 +44,11 @@ const SMOULDER_MS = 20000;
 const CLAY_TREE_MIN_TILE = 8;
 /** Tile size (px) from which roads show cars. */
 const TRAFFIC_MIN_TILE = 12;
+/** Tile size (px) from which problems show as a badge per building; below it, one pin per district. */
+const PROBLEM_BADGE_MIN_TILE = 30;
+/** Below this tile size, districts of one or two lots get no pin. */
+const PROBLEM_SMALL_PIN_MIN_TILE = 10;
+const PROBLEM_PIN_REFRESH_MS = 400;
 /** Tile size (px) from which roads show every car; below it, half of them. */
 const TRAFFIC_FULL_TILE = 20;
 
@@ -84,6 +74,10 @@ export class CanvasRenderer {
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
   private _markerQueue: number[] = [];
   private _fireQueue: number[] = [];
+  private _pins: ProblemCluster[] = [];
+  private _pinsWorld: World | null = null;
+  private _pinsTick = -1;
+  private _pinsAt = 0;
   private _around: number[] = [0, 0, 0, 0];
   private _rawAround: number[] = [0, 0, 0, 0];
   private _trafficCars: TrafficCar[] = [];
@@ -385,10 +379,29 @@ export class CanvasRenderer {
       else drawClaySmolder(ctx, fx, fy, clayTile, now * 0.001, seed, 1 - (now - this._lastBurn.get(i)!) / SMOULDER_MS);
     }
 
-    for (let q = 0; q < markerQueue.length; q += 3) {
-      const i = markerQueue[q];
-      this._drawLotMarkers(ctx, markerQueue[q + 1], markerQueue[q + 2], tsi, ts, world.layers.zone[i], world.layers.devLevel[i],
-        world.layers.crime[i], world.layers.sickness[i], world.layers.recentDeath[i], world.layers.abandoned[i] !== 0, true);
+    // Problem indicators (see clay/problemPins.ts): zoomed in, a badge on each
+    // seriously affected building; zoomed out, one pin per troubled district.
+    if (ts >= PROBLEM_BADGE_MIN_TILE) {
+      const r = ts * 0.16;
+      for (let q = 0; q < markerQueue.length; q += 3) {
+        const i = markerQueue[q], x = markerQueue[q + 1], y = markerQueue[q + 2];
+        if (crimeProblem(world, i, CRIME_BADGE_MIN)) drawProblemBadge(ctx, x + ts * 0.8, y + ts * 0.2, r, 'crime');
+        if (healthProblem(world, i, SICKNESS_BADGE_MIN)) drawProblemBadge(ctx, x + ts * 0.2, y + ts * 0.2, r, 'health');
+        if (world.layers.recentDeath[i] > 0 && world.layers.zone[i] === ZONE_R) drawProblemBadge(ctx, x + ts * 0.2, y + ts * 0.8, r, 'death');
+      }
+    } else {
+      // Districts are regrouped when the sim has ticked, at most a few times a second.
+      if (this._pinsWorld !== world || (world.tick !== this._pinsTick && now - this._pinsAt > PROBLEM_PIN_REFRESH_MS)) {
+        this._pins = findProblemClusters(world);
+        this._pinsWorld = world; this._pinsTick = world.tick; this._pinsAt = now;
+      }
+      for (const pin of this._pins) {
+        // When tiles are tiny, a lot or two on its own is not worth a pin.
+        if (ts < PROBLEM_SMALL_PIN_MIN_TILE && pin.count < 3) continue;
+        const x = camera.worldToScreenX(pin.x * TILE_SIZE), y = camera.worldToScreenY(pin.y * TILE_SIZE), r = pinRadius(pin.count);
+        if (x < -r || y < -r || x > cw + r || y > ch + r) continue;
+        drawProblemBadge(ctx, x, y, r, pin.kind, pin.count);
+      }
     }
 
     if (camera.zoom >= 1.2) {
@@ -553,7 +566,6 @@ export class CanvasRenderer {
     for (let ty = y0; ty < y1; ty++) {
       for (let i = ty * width + x0, end = ty * width + x1; i < end; i++) {
         const terrain = L.terrain[i], zone = L.zone[i], dev = L.devLevel[i];
-        const zoned = zone !== ZONE_NONE;
         const a = terrain | (zone << 4) | (L.roadClass[i] << 8) | (L.building[i] << 12)
                 | (L.vegetation[i] << 20) | (dev << 24);
         // Same bucketing as resolveTilePalette.
@@ -563,10 +575,9 @@ export class CanvasRenderer {
                 | (L.sewage[i] !== 0 ? 1 << 17 : 0) | (L.services[i] !== 0 ? 1 << 18 : 0)
                 | (L.abandoned[i] !== 0 ? 1 << 19 : 0) | (L.visualVariant[i] << 20);
         const pollution = L.pollution[i] > 8 && terrain !== TERRAIN_WATER ? L.pollution[i] : 0;
-        const crime     = L.crime[i] > 40 && zoned && dev > 0 ? L.crime[i] : 0;
-        const sickness  = L.sickness[i] > 80 && zone === ZONE_R && dev > 0 ? L.sickness[i] : 0;
-        const death     = zone === ZONE_R && dev > 0 ? L.recentDeath[i] : 0;
-        const c = pollution | (crime << 8) | (sickness << 16) | (death << 24);
+        // Crime, sickness and deaths are not drawn into chunks any more (they
+        // are per-frame badges and pins), so they are not part of the signature.
+        const c = pollution;
         h = Math.imul(h ^ a, 0x9e3779b1); h ^= h >>> 15;
         h = Math.imul(h ^ b, 0x85ebca6b); h ^= h >>> 13;
         h = Math.imul(h ^ c, 0xc2b2ae35); h ^= h >>> 16;
@@ -684,9 +695,6 @@ export class CanvasRenderer {
         const sewaged    = world.layers.sewage[i] !== 0;
         const serviced   = world.layers.services[i] !== 0;
         const pollutionV    = world.layers.pollution[i];
-        const crimeV        = world.layers.crime[i];
-        const sicknessV     = world.layers.sickness[i];
-        const recentDeathV  = world.layers.recentDeath[i];
         const isAbandoned   = world.layers.abandoned[i] !== 0;
         const visualVariant = world.layers.visualVariant[i];
 
@@ -821,7 +829,6 @@ export class CanvasRenderer {
           chunkCtx.fillStyle = _pollutionColors[pollutionV];
           chunkCtx.fillRect(sxi, syi, tsi, tsi);
         }
-        this._drawLotMarkers(chunkCtx, sxi, syi, tsi, ts, zone, dev, crimeV, sicknessV, recentDeathV, isAbandoned, false);
       }
     }
   }
@@ -831,49 +838,6 @@ export class CanvasRenderer {
    * (bottom-right) and the recent-death marker (bottom-left) for one lot.
    * `backed` adds a dark backing so they read on top of a clay sprite.
    */
-  private _drawLotMarkers(ctx: CanvasRenderingContext2D, sxi: number, syi: number, tsi: number, ts: number, zone: number, dev: number, crimeV: number, sicknessV: number, recentDeathV: number, isAbandoned: boolean, backed: boolean): void {
-    const back = (x: number, y: number, w: number, h: number): void => {
-      if (!backed) return;
-      ctx.fillStyle = 'rgba(12,14,18,0.6)';
-      ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
-    };
-    if (crimeV > 40 && zone !== ZONE_NONE && dev > 0) {
-      const dotSize = Math.max(2, Math.floor(ts * 0.18));
-      const dot = (x: number, y: number): void => {
-        back(x, y, dotSize, dotSize);
-        ctx.fillStyle = backed ? '#ff3b30' : _crimeIndicatorColors[crimeV];
-        ctx.fillRect(x, y, dotSize, dotSize);
-      };
-      dot(sxi + 1, syi + 1);
-      if (crimeV > 120) dot(sxi + tsi - dotSize - 1, syi + 1);
-      if (crimeV > 200) dot(sxi + 1, syi + tsi - dotSize - 1);
-    }
-    if (sicknessV > 80 && zone === ZONE_R && dev > 0 && !isAbandoned) {
-      const cs = Math.max(2, Math.floor(ts * 0.15));
-      const sicCx = sxi + tsi - cs - 1;
-      const sicCy = syi + tsi - cs - 1;
-      const sicArm = Math.max(1, Math.floor(cs * 0.4));
-      back(sicCx - cs, sicCy - cs, cs * 2, cs * 2);
-      ctx.fillStyle = backed ? '#2fe0c8' : _sicknessColors[sicknessV];
-      ctx.fillRect(sicCx - sicArm, sicCy - cs, sicArm * 2, cs * 2);
-      ctx.fillRect(sicCx - cs, sicCy - sicArm, cs * 2, sicArm * 2);
-    }
-    if (recentDeathV > 0 && zone === ZONE_R && dev > 0) {
-      const ds = Math.max(2, Math.floor(ts * 0.18));
-      const dx = sxi + 1;
-      const dy = syi + tsi - ds - 1;
-      const arm2 = Math.max(1, Math.floor(ds * 0.3));
-      const dCx = dx + Math.floor(ds / 2);
-      const dCy = dy - arm2;
-      back(dx, dCy - arm2, Math.max(ds, arm2 * 3), ds + arm2 * 2);
-      ctx.fillStyle = _deathColors[recentDeathV];
-      ctx.fillRect(dx, dy, ds, ds);
-      ctx.fillStyle = _deathAccentColors[recentDeathV];
-      ctx.fillRect(dCx - arm2, dCy - arm2, arm2 * 2, arm2 * 3);
-      ctx.fillRect(dCx - arm2 * 2, dCy, arm2 * 4, arm2);
-    }
-  }
-
   private _drawTree(ctx: CanvasRenderingContext2D, vegetation: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette): void {
     const speciesIdx = (vegetation - 1);
     const color = p.treeColors[speciesIdx] || p.treeColors[0];
