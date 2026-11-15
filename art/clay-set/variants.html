@@ -42,7 +42,7 @@
 <body>
 <main>
   <h1>Clay variants review</h1>
-  <p class="sub">33 new neutral designs: 1–27 (already kept) and six new towers, 28–33, at the top. Each row is one slot (zone and level): the design already in the game on the left, then the three new ones. Mark Keep or Redo, add a note if you like, then hit Copy feedback at the bottom and paste it to me. Or just tell me the numbers.</p>
+  <p class="sub">Neutral designs 1–39, all reviewed (35 and 37 were rejected and removed). Each row is one slot (zone and level): the design already in the game on the left, then the three new ones. Mark Keep or Redo, add a note if you like, then hit Copy feedback at the bottom and paste it to me. Or just tell me the numbers.</p>
 
   <h2>Mixed street</h2>
   <p class="sub">Every design that exists, shuffled the way the game would place them, so you can judge whether the town still looks same-ish. Only designs not marked Redo are used.</p>
@@ -75,6 +75,9 @@ for (const [z] of ZONES) for (const lv of [1, 2, 3]) for (const v of ['b', 'c', 
 // Second batch: more towers, numbered 28-33.
 const TOWERS = [];
 for (const z of ['res', 'com']) for (const v of ['e', 'f', 'g']) { const it = { n: ITEMS.length + 1, id: `${z}-3-${v}`, zone: z, level: 3, tower: true }; ITEMS.push(it); TOWERS.push(it); }
+// Third batch: brutalist and modernist towers, numbered 34-39.
+const BRUTAL = [];
+for (const z of ['res', 'com']) for (const v of ['h', 'i', 'j']) { const it = { n: ITEMS.length + 1, id: `${z}-3-${v}`, zone: z, level: 3, tower: true }; ITEMS.push(it); BRUTAL.push(it); }
 
 const rows = document.getElementById('rows');
 function card(item, current) {
@@ -108,12 +111,15 @@ function card(item, current) {
   return el;
 }
 const cards = [];
-{
-  const h = document.createElement('h2'); h.textContent = 'New towers (28–33)'; rows.appendChild(h);
-  const p = document.createElement('p'); p.className = 'sub'; p.textContent = 'Six more level 3 designs, not yet reviewed. Residential 28–30, commercial 31–33.'; rows.appendChild(p);
+for (const [title, sub, list] of [
+  ['Brutalist and modernist towers (34–39)', 'Reviewed: 34, 36, 38 and 39 kept; 35 and 37 were rejected and removed.', BRUTAL],
+  ['Towers (28–33)', 'Six more level 3 designs, all kept. Residential 28–30, commercial 31–33.', TOWERS],
+]) {
+  const h = document.createElement('h2'); h.textContent = title; rows.appendChild(h);
+  const p = document.createElement('p'); p.className = 'sub'; p.textContent = sub; rows.appendChild(p);
   for (const z of ['res', 'com']) {
     const row = document.createElement('div'); row.className = 'row';
-    const items = TOWERS.filter((i) => i.zone === z);
+    const items = list.filter((i) => i.zone === z);
     row.appendChild(card(items[0], true));
     for (const it of items) { const c = card(it, false); cards.push(c); row.appendChild(c); }
     rows.appendChild(row);
@@ -155,7 +161,7 @@ const ctx = canvas.getContext('2d');
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function pool(zone, level) {
   const ids = [`${zone}-${level}`];
-  for (const v of ['b', 'c', 'd', 'e', 'f', 'g']) { const id = `${zone}-${level}-${v}`; if (images[id] && (state[id] || {}).v !== 'redo') ids.push(id); }
+  for (const v of ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) { const id = `${zone}-${level}-${v}`; if (images[id] && (state[id] || {}).v !== 'redo') ids.push(id); }
   return ids.filter((id) => images[id]);
 }
 function drawStreet() {
@@ -177,7 +183,7 @@ function drawStreet() {
 }
 let pending = 0;
 for (const id of Object.keys(SPRITES)) {
-  if (!/^(res|com|ind)-\d(-[b-g])?$/.test(id)) continue;
+  if (!/^(res|com|ind)-\d(-[b-j])?$/.test(id)) continue;
   pending++;
   const im = new Image();
   im.onload = () => { images[id] = im; if (--pending === 0) drawStreet(); };

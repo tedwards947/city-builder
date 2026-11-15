@@ -9,8 +9,6 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 ### Next (ranked)
 
 1. **Clay trees.** Wild trees on unbuilt land are still flat shapes next to clay buildings. Needs a design conversation with the owner first (code-drawn clay blobs vs. the generated tree props already used for lot landscaping vs. new tree tiles [paid]; forests vs. single trees; how they meet roads and plots).
-2. **Review the six new towers** (`res-3-e/f/g`, `com-3-e/f/g`; numbers 28–33 on `art/clay-set/variants.html`). They are already in the game; pull any the owner rejects. `res-3-g` is the weakest (slightly turned, faint stone texture).
-3. **Decide the fate of the code-drawn fallback sprites.** About 80 files under `src/render/entities/` plus the Shift+S sandbox now only show for the instant before the clay images load. Delete them (and the sandbox), or keep them as a fallback? Owner decision.
 
 ### Waiting on something else
 
@@ -26,6 +24,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Decided
 
+- **Building taste:** the owner loves brutalist and modernist designs (favourite: `com-3-f`); lean that way for future high-level buildings. Of the brutalist batch, `res-3-h`, `res-3-j`, `com-3-i`, `com-3-j` were kept; the ziggurat and the inverted pyramid were rejected.
+- **Code-drawn fallback sprites and the Shift+S sandbox** are deleted. Before a clay image loads, the flat chunk-layer drawing shows.
 - **Empty zoned lots** stay bare grass with the zone colour, at least for now.
 
 ## GAME ENGINE

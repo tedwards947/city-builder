@@ -39,8 +39,6 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
-import { SpriteSandbox } from './ui/SpriteSandbox';
-import { initSpriteRegistry } from './render/registryLoader';
 import { VehicleLayer } from './render/VehicleLayer';
 import { TrafficOverlay } from './render/TrafficOverlay';
 import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
@@ -53,7 +51,6 @@ import {
 } from './sim/constants';
 
 // Initialize the sprite registry
-initSpriteRegistry();
 
 const SERVICE_TOOL_KIND: Partial<Record<Tool, number>> = {
   police: BUILDING_POLICE,
@@ -129,7 +126,6 @@ const tileInfoPanel = new TileInfoPanel();
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const demandChart = new DemandChart();
-const spriteSandbox = new SpriteSandbox();
 
 const store   = new LocalStore();
 // Old saves without vibe layers get them seeded on load. bootstrapVibes keeps
@@ -359,7 +355,6 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.altKey) return;
 
-  if (e.shiftKey && key === 's') { e.preventDefault(); spriteSandbox.toggle(); return; }
 
   switch (key) {
     case '1': setTool('none'); break;

@@ -9,7 +9,7 @@ A plan and list of todos for graphical enhancements to City Builder.
 * To introduce visual variety and pleasure to the game without using bitmap sprites.
 
 ## Core Requirements
-* **Clay image sprites for buildings:** Zoned and civic buildings are clay-miniature PNGs (`public/sprites/clay`, see `src/render/entities/SPRITE_GUIDE.md`). Roads, terrain, vehicles and effects (smoke, flares, fire) are still drawn with Canvas 2D commands, and the code-drawn building sprites remain as the fallback.
+* **Clay image sprites for buildings:** Zoned and civic buildings are clay-miniature PNGs (`public/sprites/clay`, see `src/render/clay/SPRITE_GUIDE.md`). Roads, terrain, vehicles and effects (smoke, flares, fire) are still drawn with Canvas 2D commands, and the code-drawn building sprites remain as the fallback.
 * **Agent-Driven Content:** An AI agent should be able to "generate" new entity drawing code and present it for review.
 * **Visual Sandbox:** A dedicated view to see all entities in a grid for review/testing.
 * **Metadata-Rich Registry:** Each entity has a unique ID, type (Service, R-Zone, etc.), and tags (vibe-related).
