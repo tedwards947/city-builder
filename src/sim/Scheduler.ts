@@ -43,12 +43,13 @@ export class Scheduler {
     let ticks = 0;
     while (this.accumulator >= this.baseTickMs && ticks < 10) {
       this.accumulator -= this.baseTickMs;
-      this._tick();
+      this.tick();
       ticks++;
     }
   }
 
-  private _tick(): void {
+  /** Run one sim tick now, whatever the clock or speed says (tests and benchmarks). */
+  tick(): void {
     this.world.tick++;
     // One scan of the map for the whole tick; every system shares it.
     this.world.pinIndex();
