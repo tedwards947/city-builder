@@ -126,6 +126,22 @@ grid.markDirty(tx, ty)  // → chunk dirty tracking
 grid.markAllDirty()
 ```
 
+### WorldIndex — never loop over the whole map
+
+A map can be 512×512 with a city on 2% of it. **Systems must not scan every tile every tick** (that cost 100 ms per tick on such a map before it was fixed). `world.index` (`src/sim/WorldIndex.ts`) gives:
+
+```ts
+const { roads, roadCount, zoned, zonedCount } = world.index;   // Int32Array tile indices, in map order
+const area = world.index.area(world, pad);   // rectangle that has EVER been built on (+pad), never shrinks
+```
+
+- Per-tile work on zones or roads: loop the lists. They are in ascending tile order, so `world.rng()` rolls happen in the same order as a whole-map loop would make them.
+- State that only exists on or near built tiles (crime, distress, coverage…): loop `area` row by row. It never shrinks, so a demolished district still winds down.
+- Fields that diffuse beyond the city (pollution, vibes): find where they are live with `FieldBounds.scan()` (`src/sim/FieldBounds.ts`), then work on that rectangle grown by one tile.
+- Whole-layer `.fill()` is fine (native and fast); whole-layer JS loops are not.
+- The Scheduler builds the index once per tick and pins it; outside a tick (tests, tools) every access rebuilds it, so it is never stale. Nothing may add a road, zone or building in the middle of a tick.
+- `worldIndex.test.ts` checks pollution against a plain whole-map reference and the land-value average against a full sum; add the same kind of check when converting or adding a spreading system.
+
 ### Scheduler
 
 `Scheduler` (`src/sim/Scheduler.ts`) drives the sim loop:
@@ -392,6 +408,7 @@ Load-bearing decisions — don't change without good reason.
 
 1. Create `src/sim/systems/MySystem.ts` implementing `System { update(world: World): void }`
 2. Only read layers that are already written by earlier systems (see execution order table above)
+   - Loop over `world.index` lists or `area`, never over every tile (see *WorldIndex* above)
 3. If it emits alert events, add the event + payload type to `CityEvents` in `EventBus.ts`
 4. If it needs cooldown state, add `private _lastAlertTick = -Infinity` as an instance field
 5. Add balance constants to `balance.ts` — no magic numbers in the system
