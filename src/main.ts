@@ -16,7 +16,8 @@ import { VibeSystem } from './sim/systems/VibeSystem';
 import { InputController, roadClassForTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
-import { RoadModeMenu, loadRoadMode } from './ui/RoadModeMenu';
+import { loadRoadMode, saveRoadMode } from './ui/RoadModeMenu';
+import { Toolbar } from './ui/Toolbar';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
 import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
@@ -34,9 +35,7 @@ import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
 import { DEBUG } from './debug';
 import { BALANCE } from './data/balance';
 import {
-  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
-  ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
 } from './sim/constants';
 
 // Initialize the sprite registry
@@ -158,7 +157,7 @@ function notifyRejected(reason: FailReason): void {
 }
 
 // Road tools: 'manual' = drag to draw, 'auto' = click a start, click an end.
-// Set by the menu on the road buttons (see RoadModeMenu, wired up below).
+// Set by the switch in the toolbar's Roads fly-out (wired up below).
 let roadMode: RoadMode = loadRoadMode();
 
 const input = new InputController(
@@ -174,135 +173,45 @@ const input = new InputController(
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 
-document.getElementById('btn-new')!.addEventListener('click',  () => newGameDialog.show());
-document.getElementById('btn-save')!.addEventListener('click', () => saveLoadPanel.showSave());
-document.getElementById('btn-load')!.addEventListener('click', () => saveLoadPanel.showLoad());
-document.getElementById('btn-econ')!.addEventListener('click', () => econPanel.toggle());
-
-const overlayButtons: Record<Exclude<Overlay, 'none'>, HTMLElement | null> = {
-  traffic: document.getElementById('btn-traffic'),
-  crime:   document.getElementById('btn-crime'),
-  fire:    document.getElementById('btn-fire'),
-  vibe:    document.getElementById('btn-vibe'),
-};
+const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, {
+  onTool: (tool) => setTool(tool),
+  onOverlay: (which) => toggleOverlay(which),
+  onAction: (action) => {
+    switch (action) {
+      case 'new':    newGameDialog.show(); break;
+      case 'save':   saveLoadPanel.showSave(); break;
+      case 'load':   saveLoadPanel.showLoad(); break;
+      case 'undo':   state.history.undo(); break;
+      case 'redo':   state.history.redo(); break;
+      case 'budget': {
+        // The budget panel opens beside the stats and toolbar column, however wide that is.
+        const panel = document.getElementById('econ-panel')!;
+        const column = document.getElementById('hud-right')!.getBoundingClientRect();
+        panel.style.right = (window.innerWidth - column.left + 8) + 'px';
+        econPanel.toggle();
+        break;
+      }
+    }
+  },
+  onRoadMode: (mode) => {
+    roadMode = mode;
+    saveRoadMode(mode);
+    input.cancelAutoRoad();   // a half-laid road does not carry over
+  },
+});
 
 /** Toggle one overlay; turning one on turns the others off. */
 function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
   overlay = overlay === which ? 'none' : which;
-  for (const [name, btn] of Object.entries(overlayButtons)) {
-    btn?.classList.toggle('active', name === overlay);
-  }
+  toolbar.setOverlay(overlay);
 }
-for (const [name, btn] of Object.entries(overlayButtons)) {
-  btn?.addEventListener('click', () => toggleOverlay(name as Exclude<Overlay, 'none'>));
-}
-
-// ── Toolbar ───────────────────────────────────────────────────────────────────
 
 function setTool(tool: Tool): void {
   currentTool = tool;
   tileInfoPanel.setVisible(tool === 'inspect');
-  document.querySelectorAll('.tool[data-tool]').forEach(b =>
-    b.classList.toggle('active', (b as HTMLButtonElement).dataset.tool === tool));
+  toolbar.setTool(tool);
   document.getElementById('hint')?.classList.add('hidden');
 }
-
-document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tool = btn.dataset.tool as Tool | 'undo' | 'redo';
-    if (tool === 'undo') { state.history.undo(); return; }
-    if (tool === 'redo') { state.history.redo(); return; }
-    setTool(tool);
-  });
-});
-
-// Hold (or right-click) a road button to choose manual or auto road laying.
-const roadButtons = [...document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]')]
-  .filter(b => roadClassForTool(b.dataset.tool as Tool) !== undefined);
-const roadModeMenu = new RoadModeMenu(
-  document.getElementById('road-mode-menu')!,
-  roadButtons,
-  (mode, btn) => {
-    roadMode = mode;
-    input.cancelAutoRoad();
-    if (btn) setTool(btn.dataset.tool as Tool);   // picking a mode also picks that road tool
-  },
-);
-roadMode = roadModeMenu.current;
-
-// ── Toolbar costs ─────────────────────────────────────────────────────────────
-// Tooltip cost/upkeep come from BALANCE so they can't drift from the sim.
-
-function fmtCost(n: number): string {
-  return '$' + n.toLocaleString('en-US');
-}
-function fmtUpkeep(n: number, perTile: boolean): string {
-  const digits = Number.isInteger(n) ? 0 : 2;
-  return '$' + n.toFixed(digits) + (perTile ? '/tile/tick' : '/tick');
-}
-
-const TOOL_ROAD_CLASS: Partial<Record<Tool, number>> = {
-  road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
-};
-const TOOL_BUILDING_KIND: Partial<Record<Tool, number>> = {
-  power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
-  ...SERVICE_TOOL_KIND,
-};
-const TOOL_FLAT_COST: Partial<Record<Tool, number>> = {
-  zoneR: BALANCE.costs.zoneR, zoneC: BALANCE.costs.zoneC, zoneI: BALANCE.costs.zoneI,
-  bulldoze: BALANCE.costs.bulldoze,
-};
-
-document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]').forEach(btn => {
-  const tool = btn.dataset.tool as Tool;
-  const roadClass = TOOL_ROAD_CLASS[tool];
-  const kind = TOOL_BUILDING_KIND[tool];
-  if (roadClass !== undefined) {
-    const rc = BALANCE.roadClasses[roadClass];
-    btn.dataset.cost   = fmtCost(rc.cost);
-    btn.dataset.upkeep = fmtUpkeep(rc.maintenance, true);
-  } else if (kind !== undefined) {
-    const b = BALANCE.buildings[kind];
-    btn.dataset.cost   = fmtCost(b.cost);
-    btn.dataset.upkeep = fmtUpkeep(b.maintenance, false);
-  } else if (TOOL_FLAT_COST[tool] !== undefined) {
-    btn.dataset.cost = fmtCost(TOOL_FLAT_COST[tool]!);
-  }
-});
-
-// ── Toolbar tooltips ──────────────────────────────────────────────────────────
-
-const tip        = document.getElementById('toolbar-tip')!;
-const tipDesc    = tip.querySelector('.tip-desc')!;
-const tipCost    = tip.querySelector('.tip-cost')!;
-const tipUpkeep  = tip.querySelector('.tip-upkeep')!;
-const tipHint    = tip.querySelector('.tip-hint')!;
-
-function isBuildingTool(btn: HTMLButtonElement): boolean {
-  return TOOL_BUILDING_KIND[btn.dataset.tool as Tool] !== undefined;
-}
-
-document.querySelectorAll<HTMLButtonElement>('#toolbar button').forEach(btn => {
-  const desc = btn.dataset.desc;
-  if (!desc) return;
-  btn.addEventListener('mouseenter', () => {
-    tipDesc.textContent = desc;
-    const cost = btn.dataset.cost;
-    tipCost.textContent = cost ? cost + (isBuildingTool(btn) ? '' : ' / tile') : '';
-    (tipCost as HTMLElement).style.display = cost ? '' : 'none';
-    const upkeep = btn.dataset.upkeep;
-    tipUpkeep.textContent = upkeep ? 'Upkeep: ' + upkeep : '';
-    (tipUpkeep as HTMLElement).style.display = upkeep ? '' : 'none';
-    const isRoad = roadClassForTool(btn.dataset.tool as Tool) !== undefined;
-    tipHint.textContent = isRoad ? t('ui.roadMode.holdHint') : '';
-    (tipHint as HTMLElement).style.display = isRoad ? '' : 'none';
-    const rect = btn.getBoundingClientRect();
-    tip.style.left = Math.min(rect.left + rect.width / 2, window.innerWidth - 160) + 'px';
-    tip.style.transform = 'translateX(-50%)';
-    tip.classList.add('visible');
-  });
-  btn.addEventListener('mouseleave', () => tip.classList.remove('visible'));
-});
 
 // ── Speed buttons ─────────────────────────────────────────────────────────────
 
@@ -429,7 +338,7 @@ function frame(now: number): void {
   const roadClass = roadClassForTool(currentTool);
   if (roadStart && hoverTile && roadClass !== undefined) {
     const plan = planAutoRoad(state.world, autoRoadPath(roadStart, hoverTile), roadClass);
-    roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: fmtCost(plan.cost) };
+    roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US') };
   }
   renderer.render(state.world, camera, {
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview,

@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Toolbar concepts</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 80px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h2 { font-size: 17px; margin: 44px 0 4px; color: #fff; }
+  p { max-width: 860px; color: #a9b6c2; margin-bottom: 8px; }
+  p b { color: #e6edf3; }
+  .switch { display: inline-flex; gap: 4px; margin: 14px 0 0; background: rgba(255,255,255,0.06); padding: 4px; border-radius: 8px; }
+  .switch button { background: none; border: 0; color: #a9b6c2; padding: 6px 12px; border-radius: 6px; font: inherit; cursor: pointer; }
+  .switch button.on { background: #4a7a9a; color: #fff; }
+  .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; max-width: 860px; margin: 6px 0 12px; }
+  .lists ul { list-style: none; }
+  .lists li { padding-left: 16px; position: relative; color: #a9b6c2; }
+  .lists li::before { position: absolute; left: 0; }
+  .pro li::before { content: "+"; color: #7dd87d; }
+  .con li::before { content: "–"; color: #e0a070; }
+
+  /* mock game frame */
+  .frame { position: relative; width: 1000px; height: 800px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12);
+    background:
+      linear-gradient(#5d6066, #5d6066) 0 300px / 100% 22px no-repeat,
+      linear-gradient(#5d6066, #5d6066) 420px 0 / 22px 100% no-repeat,
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 32px),
+      radial-gradient(circle at 30% 40%, #7fae62, #6a9a55 60%, #5c8a4c); }
+  .frame .lot { position: absolute; width: 64px; height: 64px; }
+  .side { position: absolute; top: 10px; right: 10px; width: 172px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .panel { background: rgba(0,0,0,0.62); backdrop-filter: blur(8px); border-radius: 6px; }
+  .stats { width: 100%; padding: 8px 12px; font-size: 13px; text-align: right; line-height: 1.5; }
+  .stats i { font-style: normal; color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .stats b { color: #fff; }
+  .stats .m { color: #7dd87d; }
+  .rci { display: flex; gap: 5px; justify-content: flex-end; align-items: flex-end; height: 34px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); }
+  .rci span { width: 14px; border-radius: 2px 2px 0 0; }
+  .speed { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+  .speed span { background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.15); padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+  .speed span.on { background: #4a7a9a; }
+  .status { position: absolute; left: 10px; bottom: 10px; padding: 6px 12px; font-size: 12px; color: #cde; }
+  .status b { color: #fff; } .status .c { color: #7dd87d; } .status .u { color: #e0b050; }
+
+  /* shared tile */
+  .tile { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: #dfe7ee; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .tile:hover { background: rgba(255,255,255,0.14); }
+  .tile.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
+  .tile svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tile img { width: 36px; height: 36px; object-fit: contain; }
+  .tile.more::after { content: ""; position: absolute; left: 3px; bottom: 3px; border: 3px solid transparent; border-left-color: currentColor; border-bottom-color: currentColor; opacity: .7; }
+  .tile.soon { opacity: .35; border-style: dashed; cursor: default; }
+  .zr { color: #6fd86f; } .zc { color: #8faee0; } .zi { color: #e0b060; }
+  .tile.on.zr, .tile.on.zc, .tile.on.zi { color: #fff; }
+  .sep { height: 1px; background: rgba(255,255,255,0.12); margin: 3px 0; grid-column: 1 / -1; }
+
+  /* A: palette */
+  .A { padding: 6px; display: grid; grid-template-columns: 40px 40px; gap: 4px; position: relative; }
+  .fly { position: absolute; right: calc(100% + 6px); padding: 6px; display: none; white-space: nowrap; }
+  .fly.open { display: block; }
+  .fly h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin: 0 2px 5px; font-weight: 600; }
+  .row { display: flex; align-items: center; gap: 9px; padding: 3px 10px 3px 3px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .row:hover { background: rgba(255,255,255,0.1); }
+  .row.on { background: rgba(74,122,154,0.6); }
+  .row.soon { opacity: .4; cursor: default; }
+  .row .tile { pointer-events: none; width: 34px; height: 34px; }
+  .row .tile img { width: 30px; height: 30px; }
+  .row small { color: #7dd87d; margin-left: auto; padding-left: 14px; }
+
+  .mode { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .seg { display: flex; gap: 3px; }
+  .seg button { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #dfe7ee; border-radius: 6px; padding: 4px 8px; font: 12px/1.3 inherit; font-family: inherit; cursor: pointer; text-align: left; }
+  .seg button.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
+  .seg small { display: block; color: #9ab; font-size: 10px; }
+  .seg button.on small { color: #d5e6f2; }
+
+  /* B: rail + drawer */
+  .B { padding: 5px; display: flex; flex-direction: column; gap: 3px; position: relative; }
+  .cat { width: 54px; padding: 3px 0 2px; border-radius: 6px; border: 1px solid transparent; background: none; color: #dfe7ee; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; font: 10px/1.2 inherit; font-family: inherit; }
+  .cat svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .cat:hover { background: rgba(255,255,255,0.1); }
+  .cat.open { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.2); }
+  .cat.has { color: #9fd0ee; }
+  .drawer { position: absolute; right: calc(100% + 6px); top: 0; padding: 10px; display: none; width: 300px; }
+  .drawer.open { display: block; }
+  .drawer h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin-bottom: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 330px; overflow-y: auto; }
+  .card { border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); border-radius: 8px; padding: 6px 4px 5px; text-align: center; cursor: pointer; font-size: 11px; color: #dfe7ee; line-height: 1.25; }
+  .card:hover { background: rgba(255,255,255,0.13); }
+  .card.on { background: #4a7a9a; border-color: #8cc0e0; }
+  .card.soon { opacity: .35; border-style: dashed; cursor: default; }
+  .card .pic { height: 46px; display: grid; place-items: center; }
+  .card .pic svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .card .pic img { height: 46px; }
+  .card small { display: block; color: #7dd87d; }
+  .card.on small { color: #d6f5d6; }
+
+  /* C: open shelf */
+  .C { padding: 6px; width: 172px; max-height: 670px; overflow-y: auto; }
+  .C h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin: 6px 2px 4px; font-weight: 600; cursor: pointer; user-select: none; }
+  .C h4:first-child { margin-top: 0; }
+  .C h4::before { content: "▾ "; }
+  .C h4.shut::before { content: "▸ "; }
+  .C .grp { display: grid; grid-template-columns: repeat(4, 37px); gap: 4px; }
+  .C .grp.shut { display: none; }
+  .C .tile { width: 37px; height: 37px; }
+  .C .tile img { width: 33px; height: 33px; }
+</style>
+</head>
+<body>
+<h1>Toolbar concepts</h1>
+<p>Three ways to replace the flat row of text buttons with an icon bar under the stats / RCI panel. All three are driven by the same tool list, so a new building is one new entry. The mocks work: click around. Dashed, faded slots are made-up future tools, there only to show where growth goes.</p>
+<p>Icon style applies to all three:</p>
+<div class="switch" id="style">
+  <button data-s="line" class="on">1 · Line icons everywhere</button>
+  <button data-s="clay">2 · Clay thumbnails for buildings</button>
+</div>
+
+<h2>A · Palette with fly-outs (closest to SC2000)</h2>
+<p>Two columns of icon tiles. A tile with a corner tick is a family: click it and its members fly out to the left. The tile then shows the member you last picked, so a second click re-arms it without opening anything.</p>
+<div class="lists"><ul class="pro"><li>Smallest footprint; the map stays clear</li><li>A new tool joins a fly-out; a new family is one more tile</li><li>Most like the game you named</li></ul>
+<ul class="con"><li>Family tiles change picture, which can confuse at first</li><li>Icons alone must carry meaning until you hover</li></ul></div>
+<div class="frame" id="fA"></div>
+
+<h2>B · Category rail with a drawer</h2>
+<p>One column of labelled categories. Clicking one opens a drawer of cards, each with a picture, name and price. The drawer stays open while you build and scrolls when a category gets long.</p>
+<div class="lists"><ul class="pro"><li>Friendliest to new players: names and prices are always visible</li><li>Room for clay thumbnails at a readable size</li><li>Grows furthest: long categories scroll, cards can show locks or stats</li></ul>
+<ul class="con"><li>The open drawer covers more of the map</li><li>Always two clicks to switch family</li></ul></div>
+<div class="frame" id="fB"></div>
+
+<h2>C · Open shelf</h2>
+<p>Every tool is always visible, four across, under small group headings. One click for anything. Headings fold to save room.</p>
+<div class="lists"><ul class="pro"><li>Fastest: nothing is hidden, no fly-outs</li><li>You see the whole game at a glance</li></ul>
+<ul class="con"><li>Tallest; with many more buildings it has to scroll or fold</li><li>Less SC2000, more "tool shed"</li></ul></div>
+<div class="frame" id="fC"></div>
+
+<h2>Common to all three</h2>
+<p><b>New / Save / Load</b> move into a menu tile. <b>Overlays</b> (traffic, crime, fire risk, vibe) become one "layers" family, since only one shows at a time. <b>Budget</b>, <b>undo</b> and <b>redo</b> are single tiles. Hovering any tile shows its name, price and upkeep in the strip at the bottom left (in the game this would be the existing tooltip). Zone icons keep the R / C / I colours from the demand chart.</p>
+
+<script>
+const P = d => `<path d="${d}"/>`;
+const I = {
+  view: P('M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3'),
+  inspect: '<circle cx="10.5" cy="10.5" r="6.5"/>' + P('M15.5 15.5L21 21M10.5 8v.1M10.5 10.5v3'),
+  bulldoze: P('M4 17h10M5 17v-4h8l1 4M7 13V8h4l1 5M14 15h3M17 11v8h3M3 20h12'),
+  roads: P('M9 3L4 21M15 3l5 18M12 4v3M12 10.5v3M12 17v3'),
+  street: P('M2 8h20M2 16h20M4 12h3M10.5 12h3M17 12h3'),
+  avenue: P('M2 5h20M2 19h20M2 12h20M4 8.5h3M10.5 8.5h3M17 8.5h3M4 15.5h3M10.5 15.5h3M17 15.5h3'),
+  highway: P('M2 4h20M2 20h20M2 11h20M2 13h20M4 7.5h3M10.5 7.5h3M17 7.5h3M4 16.5h3M10.5 16.5h3M17 16.5h3'),
+  rail: P('M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10'),
+  bus: P('M5 17V6a2 2 0 012-2h10a2 2 0 012 2v11zM5 12h14M8 17v2M16 17v2M8 14.5h.1M16 14.5h.1'),
+  zones: P('M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z'),
+  res: P('M3 11l9-7 9 7M6 9.5V20h12V9.5M10 20v-5h4v5'),
+  com: P('M5 21V4h9v17M14 9h5v12M3 21h18M8 8h3M8 12h3M8 16h3'),
+  ind: P('M3 21V11l5 3v-3l5 3V4h4v17zM3 21h18'),
+  util: P('M13 2L5 14h6l-1 8 8-12h-6z'),
+  power: P('M7 21c2-6 2-10 0-16h10c-2 6-2 10 0 16zM4 21h16M10 2c-1 1 1 1 0 2M14 2c-1 1 1 1 0 2'),
+  water: P('M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z'),
+  sewage: P('M3 7h8v6h10M3 11h4v6h14M17 20c0-1 1-1.5 1-2.5'),
+  solar: P('M4 20l3-10h10l3 10zM9 10l-1 10M15 10l1 10M5.5 15h13M12 3v3M6 5l1.5 2M18 5l-1.5 2'),
+  civic: P('M3 9l9-5 9 5zM5 9v9M9.7 9v9M14.3 9v9M19 9v9M3 21h18M4 18h16'),
+  police: P('M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8.5l1 2.2 2.4.2-1.8 1.6.6 2.3-2.2-1.3-2.2 1.3.6-2.3-1.8-1.6 2.4-.2z'),
+  fire: P('M12 3c1 4 5 6 5 11a5 5 0 01-10 0c0-2 1-3.5 2-4.5 0 2 .8 3 1.8 3C11 9 10 7 12 3z'),
+  school: P('M2 9l10-5 10 5-10 5zM6 11.5V16c3 3 9 3 12 0v-4.5M22 9v6'),
+  hospital: P('M9 3h6v6h6v6h-6v6H9v-6H3V9h6z'),
+  library: P('M4 5c3-1 5-1 8 1 3-2 5-2 8-1v14c-3-1-5-1-8 1-3-2-5-2-8-1zM12 6v14'),
+  park: P('M12 22v-7M12 15c-5 0-7-3-5-6-1-4 3-6 5-6s6 2 5 6c2 3 0 6-5 6z'),
+  plaza: P('M3 20h18M6 20c0-5 2.5-7 6-7s6 2 6 7M12 13V8M12 8c-2-3-4-1-4 1M12 8c2-3 4-1 4 1'),
+  layers: P('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'),
+  traffic: P('M5 16v-3l2-5h10l2 5v3zM6 13h12M7 16v2M17 16v2'),
+  crime: P('M3 9c6-3 12-3 18 0 0 5-3 7-6 7-1.5 0-2-2-3-2s-1.5 2-3 2c-3 0-6-2-6-7zM7.5 11.5h2M14.5 11.5h2'),
+  vibe: P('M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 3v4M17 5h4'),
+  budget: '<circle cx="12" cy="12" r="9"/>' + P('M14.6 9.3c-.5-1-1.5-1.5-2.6-1.5-1.5 0-2.6.8-2.6 2s1 1.8 2.6 2.1 2.6.9 2.6 2.1-1.1 2-2.6 2c-1.2 0-2.2-.6-2.7-1.6M12 6v12'),
+  undo: P('M9 6L4 11l5 5M4 11h10a5 5 0 010 10h-3'),
+  redo: P('M15 6l5 5-5 5M20 11H10a5 5 0 000 10h3'),
+  menu: P('M4 6h16M4 12h16M4 18h16'),
+  newc: P('M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6'),
+  save: P('M5 3h11l3 3v15H5zM8 3v6h7V3M8 21v-7h8v7'),
+  load: P('M3 6h6l2 3h10v11H3z'),
+};
+// One list drives all three layouts. kind: tool (stays armed) | toggle | act.
+const T = (id, name, icon, o = {}) => ({ id, name, icon, ...o });
+const TREE = [
+  T('view', 'View', 'view', { desc: 'Pan and zoom the map' }),
+  T('inspect', 'Inspect', 'inspect', { desc: "Inspect a tile's details" }),
+  T('bulldoze', 'Clear', 'bulldoze', { desc: 'Demolish a tile' }),
+  { id: 'roads', name: 'Roads', icon: 'roads', items: [
+    T('street', 'Street', 'street', { cost: 10, up: 0.04 }), T('avenue', 'Avenue', 'avenue', { cost: 50, up: 0.12 }),
+    T('highway', 'Highway', 'highway', { cost: 150, up: 0.35 }), T('rail', 'Rail', 'rail', { soon: 1 }), T('bus', 'Bus stop', 'bus', { soon: 1 }) ] },
+  { id: 'zones', name: 'Zones', icon: 'zones', items: [
+    T('res', 'Residential', 'res', { cls: 'zr', img: 'res-1' }), T('com', 'Commercial', 'com', { cls: 'zc', img: 'com-1' }), T('ind', 'Industrial', 'ind', { cls: 'zi', img: 'ind-1' }) ] },
+  { id: 'util', name: 'Utilities', icon: 'util', items: [
+    T('power', 'Power plant', 'power', { cost: 2000, up: 15, img: 'power' }), T('water', 'Water tower', 'water', { cost: 500, up: 6, img: 'water' }),
+    T('sewage', 'Sewage plant', 'sewage', { cost: 1500, up: 10, img: 'sewage' }), T('solar', 'Solar farm', 'solar', { soon: 1 }) ] },
+  { id: 'civic', name: 'Services', icon: 'civic', items: [
+    T('police', 'Police', 'police', { cost: 1200, up: 12, img: 'police' }), T('firest', 'Fire station', 'fire', { cost: 800, up: 10, img: 'fire' }),
+    T('school', 'School', 'school', { cost: 1500, up: 15, img: 'school' }), T('hospital', 'Hospital', 'hospital', { cost: 3000, up: 25, img: 'hospital' }),
+    T('library', 'Library', 'library', { soon: 1 }) ] },
+  { id: 'parks', name: 'Parks', icon: 'park', items: [
+    T('park', 'Park', 'park', { cost: 300, up: 4, img: 'park' }), T('plaza', 'Plaza', 'plaza', { soon: 1 }) ] },
+  'sep',
+  { id: 'layers', name: 'Overlays', icon: 'layers', toggle: 1, items: [
+    T('traffic', 'Traffic', 'traffic'), T('crime', 'Crime', 'crime'), T('firerisk', 'Fire risk', 'fire'), T('vibe', 'Vibe', 'vibe') ] },
+  T('budget', 'Budget', 'budget', { act: 1, desc: 'Tax rates and demand' }),
+  T('undo', 'Undo', 'undo', { act: 1 }), T('redo', 'Redo', 'redo', { act: 1 }),
+  { id: 'menu', name: 'Menu', icon: 'menu', act: 1, items: [ T('new', 'New city', 'newc', { act: 1 }), T('save', 'Save', 'save', { act: 1 }), T('load', 'Load', 'load', { act: 1 }) ] },
+];
+let style = 'line', roadMode = 'auto';
+const svg = k => `<svg viewBox="0 0 24 24">${I[k]}</svg>`;
+const pic = t => style === 'clay' && t.img ? `<img src="sprites/${t.img}.png" alt="">` : svg(t.icon);
+const price = t => t.soon ? 'later' : t.cost ? '$' + t.cost.toLocaleString() : '';
+const el = (tag, cls, html = '') => { const e = document.createElement(tag); e.className = cls; e.innerHTML = html; return e; };
+
+function frame(id, build) {
+  const f = document.getElementById(id);
+  const st = { tool: 'view', layer: null, open: null, last: {} };
+  const draw = () => {
+    f.innerHTML = `<div class="speed"><span>❚❚</span><span class="on">1×</span><span>2×</span><span>3×</span></div>
+      <img class="lot" style="left:340px;top:224px" src="sprites/res-1.png"><img class="lot" style="left:270px;top:224px" src="sprites/res-2.png">
+      <img class="lot" style="left:452px;top:224px" src="sprites/com-1.png"><img class="lot" style="left:340px;top:330px" src="sprites/police.png">
+      <div class="side"><div class="panel stats"><div><i>Money</i> <b class="m">$18,240</b></div><div><i>Population</i> <b>6,664</b></div><div><i>Date</i> <b>Mar 1904</b></div>
+      <div class="rci"><span style="height:26px;background:#6fd86f"></span><span style="height:12px;background:#8faee0"></span><span style="height:19px;background:#e0b060"></span></div></div></div>
+      <div class="panel status"></div>`;
+    f.querySelector('.side').append(build(st, pick, hover, draw));
+    hover(find(st.tool));
+  };
+  const find = id => TREE.flatMap(t => t.items ? [t, ...t.items] : [t]).find(t => t.id === id);
+  const hover = t => { if (!t || t === 'sep') return;
+    f.querySelector('.status').innerHTML = `<b>${t.name}</b>${t.desc ? ' · ' + t.desc : ''}${t.cost ? ` · <span class="c">$${t.cost.toLocaleString()}</span> · <span class="u">upkeep $${t.up}</span>` : ''}${t.soon ? ' · not in the game yet' : ''}`; };
+  const pick = (t, parent) => {
+    if (t.soon) return;
+    if (parent && parent.toggle) st.layer = st.layer === t.id ? null : t.id;
+    else if (!t.act) st.tool = t.id;
+    if (parent) st.last[parent.id] = t.id;
+    draw();
+  };
+  draw();
+  return draw;
+}
+const isOn = (st, t, parent) => parent && parent.toggle ? st.layer === t.id : st.tool === t.id;
+const holds = (st, g) => g.items.some(t => isOn(st, t, g));
+
+// A: palette + fly-outs
+function buildA(st, pick, hover, draw) {
+  const box = el('div', 'panel A');
+  for (const t of TREE) {
+    if (t === 'sep') { box.append(el('div', 'sep')); continue; }
+    if (!t.items) { const b = el('button', 'tile' + (st.tool === t.id ? ' on' : ''), pic(t)); b.onclick = () => { st.open = null; pick(t); }; b.onmouseenter = () => hover(t); box.append(b); continue; }
+    const face = t.items.find(i => i.id === st.last[t.id]) || (t.act ? t : t.items[0]);
+    const shown = t.act || t.toggle && !holds(st, t) ? t : face;
+    const b = el('button', 'tile more ' + (shown.cls || '') + (holds(st, t) ? ' on' : ''), pic(shown));
+    b.onmouseenter = () => hover(shown);
+    b.onclick = () => { st.open = st.open === t.id ? null : t.id; draw(); };
+    box.append(b);
+    if (st.open === t.id) {
+      const fly = el('div', 'panel fly open', `<h4>${t.name}</h4>`);
+      for (const i of t.items) {
+        const r = el('div', 'row' + (isOn(st, i, t) ? ' on' : '') + (i.soon ? ' soon' : ''), `<span class="tile ${i.cls || ''}">${pic(i)}</span>${i.name}<small>${price(i)}</small>`);
+        r.onclick = () => { if (!i.soon) st.open = null; pick(i, t); }; r.onmouseenter = () => hover(i); fly.append(r);
+      }
+      if (t.id === 'roads') {
+        const m = el('div', 'mode', `<h4>How to lay</h4><div class="seg"><button class="${roadMode === 'auto' ? 'on' : ''}">Auto<small>click start, click end</small></button><button class="${roadMode === 'manual' ? 'on' : ''}">Manual<small>drag</small></button></div>`);
+        m.querySelectorAll('button').forEach((x, n) => x.onclick = () => { roadMode = n ? 'manual' : 'auto'; draw(); });
+        fly.append(m);
+      }
+      box.append(fly);
+      requestAnimationFrame(() => { fly.style.top = Math.max(0, Math.min(b.offsetTop, 780 - fly.offsetHeight - box.offsetTop - 40)) + 'px'; });
+    }
+  }
+  return box;
+}
+// B: rail + drawer
+function buildB(st, pick, hover, draw) {
+  const box = el('div', 'panel B');
+  for (const t of TREE) {
+    if (t === 'sep') { box.append(el('div', 'sep')); continue; }
+    const c = el('button', 'cat' + (st.open === t.id ? ' open' : '') + (t.items ? (holds(st, t) ? ' has' : '') : st.tool === t.id ? ' has' : ''), svg(t.icon) + t.name);
+    c.onmouseenter = () => hover(t);
+    c.onclick = () => { if (t.items) { st.open = st.open === t.id ? null : t.id; draw(); } else { st.open = null; pick(t); } };
+    box.append(c);
+    if (t.items && st.open === t.id) {
+      const d = el('div', 'panel drawer open', `<h4>${t.name}</h4>`), cards = el('div', 'cards');
+      for (const i of t.items) {
+        const k = el('div', 'card ' + (isOn(st, i, t) ? ' on' : '') + (i.soon ? ' soon' : ''), `<div class="pic ${i.cls || ''}">${pic(i)}</div>${i.name}<small>${price(i) || '&nbsp;'}</small>`);
+        k.onclick = () => pick(i, t); k.onmouseenter = () => hover(i); cards.append(k);
+      }
+      d.append(cards); box.append(d);
+      requestAnimationFrame(() => { d.style.top = Math.max(0, Math.min(c.offsetTop - 6, 740 - d.offsetHeight - box.offsetTop)) + 'px'; });
+    }
+  }
+  return box;
+}
+// C: open shelf
+const shut = new Set();
+function buildC(st, pick, hover, draw) {
+  const box = el('div', 'panel C');
+  const loose = TREE.filter(t => t !== 'sep' && !t.items);
+  const groups = [{ id: 'basic', name: 'Basics', items: loose.filter(t => !t.act || t.id !== 'budget').concat(loose.filter(t => t.id === 'budget')) }, ...TREE.filter(t => t.items)];
+  for (const g of groups) {
+    const h = el('h4', shut.has(g.id) ? 'shut' : '', g.name), grid = el('div', 'grp' + (shut.has(g.id) ? ' shut' : ''));
+    h.onclick = () => { shut.has(g.id) ? shut.delete(g.id) : shut.add(g.id); draw(); };
+    for (const i of g.items) {
+      const b = el('button', 'tile ' + (i.cls || '') + (isOn(st, i, g) ? ' on' : '') + (i.soon ? ' soon' : ''), pic(i));
+      b.onclick = () => pick(i, g.toggle ? g : null); b.onmouseenter = () => hover(i); grid.append(b);
+    }
+    box.append(h, grid);
+  }
+  return box;
+}
+const redraw = [frame('fA', buildA), frame('fB', buildB), frame('fC', buildC)];
+document.querySelectorAll('#style button').forEach(b => b.onclick = () => {
+  style = b.dataset.s; document.querySelectorAll('#style button').forEach(x => x.classList.toggle('on', x === b)); redraw.forEach(f => f());
+});
+</script>
+</body>
+</html>

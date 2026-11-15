@@ -177,13 +177,21 @@ export interface TranslationSchema {
       clear: string;
       undo: string;
       redo: string;
+      roads: string;
+      zones: string;
+      utilities: string;
+      services: string;
+      parks: string;
+      overlays: string;
+      menu: string;
+      upkeep: string;
     };
     roadMode: {
       manual: string;
       auto: string;
       manualDesc: string;
       autoDesc: string;
-      holdHint: string;
+      title: string;
     };
     toolbarDesc: {
       new: string;
