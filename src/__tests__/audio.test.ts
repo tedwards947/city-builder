@@ -18,6 +18,8 @@ const mockGain = {
     setValueAtTime: vi.fn(),
     linearRampToValueAtTime: vi.fn(),
     exponentialRampToValueAtTime: vi.fn(),
+    setTargetAtTime: vi.fn(),
+    value: 0,
   },
 };
 
@@ -107,6 +109,17 @@ describe('MusicManager', () => {
   it('loops back to first track after the last one', () => {
     for (let i = 0; i < TRACK_COUNT; i++) musicManager.next();
     expect(musicManager.getTrackName()).toBe('Cloudy Sky');
+  });
+
+  it('applies and clamps the volume', () => {
+    musicManager.setVolume(0.5);
+    musicManager.start(); // context created after setVolume: starts at the chosen level
+    expect(mockGain.gain.value).toBeCloseTo(0.06);
+    musicManager.setVolume(2);
+    expect(musicManager.getVolume()).toBe(1);
+    expect(mockGain.gain.setTargetAtTime).toHaveBeenLastCalledWith(0.12, 0, 0.02);
+    musicManager.setVolume(-1);
+    expect(musicManager.getVolume()).toBe(0);
   });
 
   it('plays notes through AudioContext when started', () => {
