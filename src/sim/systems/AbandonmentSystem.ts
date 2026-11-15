@@ -50,7 +50,7 @@ export class AbandonmentSystem {
       }
 
       const crimeSevere = crime[i] >= BALANCE.crime.abandonThreshold;
-      const crimeElevated = crime[i] > BALANCE.crime.growthThreshold;
+      const crimeElevated = crime[i] > BALANCE.crime.distressThreshold;
       const isBurning = fire[i] > 0;
       const fireRiskSevere = fireRisk[i] >= BALANCE.fire.abandonThreshold;
       
@@ -61,7 +61,7 @@ export class AbandonmentSystem {
         const distressAdd = (crimeSevere || isBurning || fireRiskSevere || !hasRoad) ? 2 : 1;
         distress[i] = Math.min(255, distress[i] + distressAdd);
       } else if (crimeElevated) {
-        // Elevated crime (above growth threshold but below abandonment) 
+        // Elevated crime (above distressThreshold but below abandonment)
         // adds distress slowly (only every 2nd system tick on avg).
         if (world.tick % (BALANCE.abandonment.distressInterval * 2) === 0) {
           distress[i] = Math.min(255, distress[i] + 1);

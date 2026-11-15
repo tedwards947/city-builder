@@ -25,8 +25,10 @@ function demandColor(d: number): string {
 export class EconPanel {
   private readonly el: HTMLElement;
   private visible = false;
+  private readonly getWorld: () => World;
 
-  constructor(private readonly getWorld: () => World) {
+  constructor(getWorld: () => World) {
+    this.getWorld = getWorld;
     this.el = document.getElementById('econ-panel')!;
     this._wire();
   }

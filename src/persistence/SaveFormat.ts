@@ -94,6 +94,10 @@ export interface WorldSnapshot {
     sickness:   Uint8Array;
     recentDeath: Uint8Array;
     visualVariant: Uint8Array;
+    // Optional: saves written before the vibe layers existed lack these.
+    vibeEgalitarian?: Uint8Array;
+    vibeGreen?:       Uint8Array;
+    vibePlanned?:     Uint8Array;
   };
 }
 

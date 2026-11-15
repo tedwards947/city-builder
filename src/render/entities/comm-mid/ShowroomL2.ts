@@ -8,9 +8,8 @@ export const ShowroomL2: VectorEntity = {
   id: 'ShowroomL2',
   type: 'ZONE_2_2',
   tags: ['corporate', 'planned', 'modern', 'showroom'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
-    const inset = Math.floor(ts * 0.05);
     
     // 1. Dark Modern Foundation
     ctx.fillStyle = '#1a202c';
@@ -60,7 +59,7 @@ export const ShowroomL2: VectorEntity = {
         ctx.fillStyle = '#ecc94b';
         for (let x = bx; x < bx + bw; x += Math.floor(bw / 4)) {
             ctx.beginPath();
-            ctx.arc(x + Math.floor(bw / 8), by + 2, 1, 0, Math.PI * 2);
+            ctx.arc(x + Math.floor(bw / 8), by + 2, Math.max(0.1, 1), 0, Math.PI * 2);
             ctx.fill();
         }
     }

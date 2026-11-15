@@ -9,7 +9,7 @@ export const OldBrickFactory_01: VectorEntity = {
   id: 'OldBrickFactory_01',
   type: 'ZONE_3_2', // Industrial Level 2
   tags: ['industrial', 'organic', 'brick'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.08));
     

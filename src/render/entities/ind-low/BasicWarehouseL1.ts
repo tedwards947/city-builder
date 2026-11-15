@@ -8,7 +8,7 @@ export const BasicWarehouseL1: VectorEntity = {
   id: 'BasicWarehouseL1',
   type: 'ZONE_3_1', // Industrial Level 1
   tags: ['industrial', 'utilitarian', 'warehouse'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     const bx = inset, by = inset + s * 1.5;

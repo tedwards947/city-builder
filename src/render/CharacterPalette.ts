@@ -195,6 +195,38 @@ export function resolvePalette(
   return palette;
 }
 
+// Global cache for localized tile palettes: Map<"eg:green:planned", ColorPalette>
+const _tilePaletteCache = new Map<string, ColorPalette>();
+
+/**
+ * High-performance palette resolver for localized vibes.
+ * Uses integer bytes (0-255) and a cache to avoid per-tile object creation.
+ */
+export function resolveTilePalette(eg: number, green: number, planned: number, axisMax: number): ColorPalette {
+  // Discretize to reduce cache pressure (5% steps)
+  const deg = Math.round(eg / 12);
+  const dgr = Math.round(green / 12);
+  const dpl = Math.round(planned / 12);
+  
+  const key = `${deg}:${dgr}:${dpl}`;
+  let cached = _tilePaletteCache.get(key);
+  if (cached) return cached;
+
+  // Resolve using the standard (but expensive) logic
+  const palette = resolvePalette({
+    egalitarian: (eg - 128) / 128 * axisMax,
+    green:       (green - 128) / 128 * axisMax,
+    planned:     (planned - 128) / 128 * axisMax
+  }, axisMax);
+
+  // Cap cache size
+  if (_tilePaletteCache.size > 500) {
+    _tilePaletteCache.clear();
+  }
+  _tilePaletteCache.set(key, palette);
+  return palette;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Lerp all fields present in `variant` by weight `t` (0–1) from current palette. */

@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { World } from '../sim/World';
 import { FireSystem } from '../sim/systems/FireSystem';
 import { ServiceSystem } from '../sim/systems/ServiceSystem';
 import { AbandonmentSystem } from '../sim/systems/AbandonmentSystem';
 import {
-  ZONE_R, ZONE_C, ZONE_I,
+  ZONE_R, ZONE_I,
   BUILDING_FIRE,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';

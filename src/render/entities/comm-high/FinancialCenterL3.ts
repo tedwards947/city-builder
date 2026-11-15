@@ -9,9 +9,8 @@ export const FinancialCenterL3: VectorEntity = {
   id: 'FinancialCenterL3',
   type: 'ZONE_2_3',
   tags: ['corporate', 'planned', 'office', 'finance'],
-  draw: (ctx, ts, t, p, vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
-    const inset = Math.floor(ts * 0.05);
     
     // 1. Heavy Metallic Base
     ctx.fillStyle = '#2d3748';
@@ -19,7 +18,6 @@ export const FinancialCenterL3: VectorEntity = {
 
     // 2. Twin Angular Towers
     const bw = Math.floor(ts * 0.35);
-    const bh = Math.floor(ts * 0.8);
     
     // Left Tower (Slanted top)
     ctx.fillStyle = '#718096';

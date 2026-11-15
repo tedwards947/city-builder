@@ -4,6 +4,14 @@
 import { World } from '../sim/World';
 import type { WorldSnapshot } from './SaveFormat';
 
+/**
+ * Interface for a system that can bootstrap vibes during deserialization.
+ * Used to avoid a circular dependency on main.ts.
+ */
+export interface VibeBootstrapper {
+  bootstrapVibes(world: World): void;
+}
+
 export function serialize(world: World): WorldSnapshot {
   const l = world.layers;
   return {
@@ -44,11 +52,14 @@ export function serialize(world: World): WorldSnapshot {
       sickness:   new Uint8Array(l.sickness),
       recentDeath: new Uint8Array(l.recentDeath),
       visualVariant: new Uint8Array(l.visualVariant),
+      vibeEgalitarian: new Uint8Array(l.vibeEgalitarian),
+      vibeGreen:       new Uint8Array(l.vibeGreen),
+      vibePlanned:     new Uint8Array(l.vibePlanned),
     },
   };
 }
 
-export function deserialize(snapshot: WorldSnapshot): World {
+export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstrapper): World {
   // Construct the world with the original seed — terrain is regenerated
   // deterministically, then overwritten by the snapshot (same bytes).
   const world = new World(snapshot.width, snapshot.height, snapshot.seed);
@@ -91,6 +102,21 @@ export function deserialize(snapshot: WorldSnapshot): World {
   l.sickness.set(snapshot.layers.sickness);
   l.recentDeath.set(snapshot.layers.recentDeath);
   l.visualVariant.set(snapshot.layers.visualVariant);
+  
+  // Defensive checks for vibe layers (older saves won't have them)
+  let needsBootstrap = false;
+  if (snapshot.layers.vibeEgalitarian) {
+    l.vibeEgalitarian.set(snapshot.layers.vibeEgalitarian);
+  } else {
+    needsBootstrap = true;
+  }
+  
+  if (snapshot.layers.vibeGreen) l.vibeGreen.set(snapshot.layers.vibeGreen);
+  if (snapshot.layers.vibePlanned) l.vibePlanned.set(snapshot.layers.vibePlanned);
+
+  if (needsBootstrap && bootstrapper) {
+    bootstrapper.bootstrapVibes(world);
+  }
 
   // Sync fire counter after bulk load
   world.recomputeFireCount();

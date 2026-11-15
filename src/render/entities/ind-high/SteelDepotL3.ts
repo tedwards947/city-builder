@@ -9,8 +9,7 @@ export const SteelDepotL3_01: VectorEntity = {
   id: 'SteelDepotL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'utilitarian', 'steel', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
-    const s = ts * 0.1;
+  draw: (ctx, ts, t, _p, _vibe) => {
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
     const steelColor = '#7a8a8a';

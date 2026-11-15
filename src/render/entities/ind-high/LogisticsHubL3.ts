@@ -9,8 +9,7 @@ export const LogisticsHubL3_01: VectorEntity = {
   id: 'LogisticsHubL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'utilitarian', 'corporate', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
-    const s = ts * 0.1;
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
     const concreteColor = '#aaaaaa';

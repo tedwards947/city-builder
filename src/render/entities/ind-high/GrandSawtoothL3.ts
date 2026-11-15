@@ -9,7 +9,7 @@ export const GrandSawtoothL3_01: VectorEntity = {
   id: 'GrandSawtoothL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'organic', 'brick', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
@@ -47,7 +47,7 @@ export const GrandSawtoothL3_01: VectorEntity = {
     for (let i = 0; i < 3; i++) {
         const ax = ts * (0.22 + i * 0.28);
         ctx.beginPath();
-        ctx.arc(ax, ts * 0.6, archRadius, Math.PI, 0);
+        ctx.arc(ax, ts * 0.6, Math.max(0.1, archRadius), Math.PI, 0);
         ctx.lineTo(ax + archRadius, ts * 0.8);
         ctx.lineTo(ax - archRadius, ts * 0.8);
         ctx.fill();

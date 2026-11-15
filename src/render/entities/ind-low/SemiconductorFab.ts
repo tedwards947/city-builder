@@ -10,7 +10,7 @@ export const SemiconductorFab_01: VectorEntity = {
   id: 'SemiconductorFab_01',
   type: 'ZONE_3_2', // Industrial Level 2
   tags: ['industrial', 'high-tech', 'cleanroom', 'semiconductor'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
@@ -24,7 +24,6 @@ export const SemiconductorFab_01: VectorEntity = {
     const panelColor = '#d0d0e0'; // Cool metallic silver/blue
     const darkMetal = '#505060';
     const pipeColor = '#b0b0c0';
-    const lightMetal = '#f0f0ff';
     const accentColor = '#00aaff'; // Tech blue
 
     // 1. Foundation (Massive concrete base for vibration isolation)

@@ -1,7 +1,7 @@
 // EventBus audit tests.
 // Verifies that every alert-worthy event is emitted with the correct payload shape.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { World } from '../sim/World';
 import { NetworkSystem } from '../sim/systems/NetworkSystem';
 import { PowerSystem } from '../sim/systems/PowerSystem';

@@ -4,6 +4,7 @@
 export const BALANCE = {
   costs: {
     road: 10,
+    bridgeMultiplier: 3,
     zoneR: 20,
     zoneC: 25,
     zoneI: 25,
@@ -26,6 +27,10 @@ export const BALANCE = {
     zoneR: 0.65,
     zoneC: 1.0,
     zoneI: 1.25,
+    // Industry does not care about desirability: its tax uses this fixed
+    // multiplier instead of landValue/128. (Industrial tiles pollute themselves
+    // down to ~0 land value, which made them pay almost no tax.)
+    industryLandValueMult: 0.6,
   },
   maintenance: {
     road: 0.04,
@@ -60,8 +65,12 @@ export const BALANCE = {
     smoothing: 0.1,
     // Crime level (0-255) above which R/C zones can't grow.
     growthThreshold: 100,
-    // Crime level (0-255) above which abandonment might trigger.
-    abandonThreshold: 180,
+    // Crime level (0-255) above which a tile slowly accumulates distress.
+    // Sits above unpoliced commercial L2 (~112) so that level is stable.
+    distressThreshold: 130,
+    // Crime level (0-255) at which a tile is in severe distress and abandons fast.
+    // Unpoliced commercial L3 peaks at ~168, so L3 commerce needs police.
+    abandonThreshold: 150,
     // City-wide average crime (0-255) above which a crimeSpike alert fires.
     alertThreshold: 60,
     // Minimum ticks between repeated crimeSpike alerts.
@@ -84,8 +93,12 @@ export const BALANCE = {
     spreadProbability: 0.04,
     // Fire burn duration in ticks.
     burnDuration: 20,
-    // Fire risk (0-255) above which abandonment might trigger.
-    abandonThreshold: 150,
+    // Fire risk (0-255) above which abandonment might trigger. Only heavily
+    // polluted L3 industry without a fire station gets this high (max ~128).
+    abandonThreshold: 110,
+    // Dev levels a building loses when a fire burns out on a tile with no fire
+    // station coverage. Covered tiles are put out before they take damage.
+    damageLevels: 1,
   },
   education: {
     // Education gain per tick if school[i] === 1.
@@ -181,14 +194,11 @@ export const BALANCE = {
     rGenRate: 2.5,
     cAttrRate: 2.5,
     iAttrRate: 4.0,
-    spreadRadius: 4,
-    streetCapacity: 20,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
     // ── Road-network pathing ─────────────────────────────────────────────────
     // BFS radius (road hops) for zone-to-road load spreading.
     // Higher = zones spread traffic to more distant roads; raises cost per tick.
     accessRadius: 8,
-    // Scales raw road-tile complementary load → 0-255 accessibility byte.
     // Scales raw road-tile complementary load → 0-255 accessibility byte.
     // At 2.5× load rates, one adjacent dev-1 complementary zone (~0.5 load/tile)
     // maps to ~80/255 (31%) accessibility; multiple nearby zones push toward 255.
@@ -248,6 +258,23 @@ export const BALANCE = {
     },
   },
 
+  // ── Localized vibes (VibeSystem) ─────────────────────────────────────────────
+  // Vibe layers are bytes: 128 = neutral, 0 / 255 = the two extremes of an axis.
+  vibe: {
+    // Diffusion + decay run every simInterval ticks.
+    simInterval: 4,
+    // Byte units a tile moves per nudge point. The character.nudges values above
+    // are in points: e.g. parkBuilt green 5.0 → +60 (capped), industrialZone
+    // green −3.0 → −60 (capped), residentialZone egalitarian 0.3 → +8.
+    nudgeByteScale: 25,
+    // Cap on a single nudge so one action never saturates a tile.
+    nudgeMaxBytes: 60,
+    // Chance per sim step that a non-neutral tile steps 1 toward 128.
+    // Integer steps gated by a roll — a fractional decay is lost to byte rounding.
+    // 0.25 → a fully saturated, isolated region fades in ~2000 ticks (~250 game-days).
+    decayProbability: 0.25,
+  },
+
   // ── Abandonment ──────────────────────────────────────────────────────────────
   // Zones lose conditions long enough → distress accumulates → abandonment.
   // Abandoned tiles generate no income and cannot grow.
@@ -256,6 +283,16 @@ export const BALANCE = {
   abandonment: {
     distressInterval: 4,    // ticks between distress checks (aligned with growth interval)
     abandonThreshold: 20,   // distress checks without conditions before abandonment (~10 game-days)
+  },
+
+  // ── Budget alerts ────────────────────────────────────────────────────────────
+  // Money below zero blocks everything that costs money except bulldozing
+  // (demolition is how a broke city cuts its upkeep).
+  budget: {
+    // Warn when, at the current net loss, the treasury runs dry within this many game-days.
+    lowFundsWarningDays: 30,
+    // Minimum ticks between repeated low-funds warnings.
+    warningCooldownTicks: 240,
   },
 
   ticksPerDay: 8,

@@ -1,7 +1,8 @@
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
-import { localizeHTML, tArray } from './i18n';
+import { localizeHTML, t, tArray } from './i18n';
+import type { FailReason } from './commands/Command';
 
 localizeHTML();
 
@@ -21,13 +22,15 @@ import { EducationSystem } from './sim/systems/EducationSystem';
 import { ZoneGrowthSystem } from './sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from './sim/systems/EconomySystem';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
-import { CityCharacterSystem } from './sim/systems/CityCharacterSystem';
+import { VibeSystem } from './sim/systems/VibeSystem';
 import { AbandonmentSystem } from './sim/systems/AbandonmentSystem';
 import { HealthcareSystem } from './sim/systems/HealthcareSystem';
 import { InputController } from './input/InputController';
 import type { Tool } from './input/InputController';
+import type { System } from './sim/Scheduler';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
+import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
 import { MusicManager } from './audio/MusicManager';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
@@ -41,7 +44,9 @@ import { initSpriteRegistry } from './render/registryLoader';
 import { VehicleLayer } from './render/VehicleLayer';
 import { BALANCE } from './data/balance';
 import {
+  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
+  ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
 } from './sim/constants';
 
 // Initialize the sprite registry
@@ -78,28 +83,29 @@ resize();
 // ── Mutable game state ────────────────────────────────────────────────────────
 // Single object so closures always see the current world/history/scheduler.
 
-const politicsSystem    = new PoliticsSystem();
-const characterSystem   = new CityCharacterSystem();
-
-const systems = [
-  new NetworkSystem(),
-  new PowerSystem(),
-  new WaterSystem(),
-  new SewageSystem(),
-  new ServiceSystem(),
-  new LandValueSystem(),
-  new PollutionSystem(),
-  new CrimeSystem(),
-  new FireSystem(),
-  new TransitSystem(),
-  new AbandonmentSystem(),
-  new EducationSystem(),
-  new HealthcareSystem(),
-  new ZoneGrowthSystem(),
-  new EconomySystem(),
-  characterSystem,  // event-driven nudges + decay; no layer dependencies
-  politicsSystem,   // runs last: reads coverage layers updated above
-];
+// Systems carry per-game state (alert cooldowns, shortage flags, caches), so
+// every new or loaded world gets a fresh set — see startGame().
+function createSystems(): System[] {
+  return [
+    new NetworkSystem(),
+    new PowerSystem(),
+    new WaterSystem(),
+    new SewageSystem(),
+    new ServiceSystem(),
+    new LandValueSystem(),
+    new PollutionSystem(),
+    new CrimeSystem(),
+    new FireSystem(),
+    new TransitSystem(),
+    new AbandonmentSystem(),
+    new EducationSystem(),
+    new HealthcareSystem(),
+    new ZoneGrowthSystem(),
+    new EconomySystem(),
+    new VibeSystem(),  // spatial vibe simulation
+    new PoliticsSystem(),
+  ];
+}
 
 const state = {
   world:     null as unknown as World,
@@ -115,12 +121,25 @@ const demandChart = new DemandChart();
 const spriteSandbox = new SpriteSandbox();
 
 const store   = new LocalStore();
-const manager = new SaveManager(store); // userId defaults to 'local'
+// Old saves without vibe layers get them seeded on load. bootstrapVibes keeps
+// no state, so a throwaway VibeSystem is enough.
+const manager = new SaveManager(store, 'local', {
+  bootstrapVibes: (world) => new VibeSystem().bootstrapVibes(world),
+});
+const autosave = new Autosave(manager, () => state.world);
+
+function syncSpeedButtons(): void {
+  const speed = state.scheduler.speed;
+  document.querySelectorAll<HTMLButtonElement>('.speed').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.speed ?? '0', 10) === speed));
+}
 
 function startGame(world: World): void {
   state.world     = world;
   state.history   = new CommandHistory(world);
-  state.scheduler = new Scheduler(world, systems);
+  state.scheduler = new Scheduler(world, createSystems());
+  syncSpeedButtons();
+  autosave.reset();
   toastPanel.setWorld(world);
   vehicleLayer.reset();
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
@@ -137,16 +156,33 @@ const newGameDialog = new NewGameDialog((opts) => {
   startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
 });
 
-// Start with the default world.
+// Start with the default world so everything below has a world to point at.
+// If an autosave exists it replaces this as soon as it has loaded (see the
+// bottom of this file); the frame loop does not start until then.
 startGame(new World(256, 256, 42, { vegAmount: 'low' }));
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
 let currentTool: Tool = 'none';
 let hoverTile: { tx: number; ty: number } | null = null;
-let trafficOverlay = false;
-let crimeOverlay   = false;
-let fireOverlay    = false;
+// At most one overlay is shown at a time.
+type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe';
+let overlay: Overlay = 'none';
+
+// A refused click or drag says why, at most once every few seconds per reason
+// (a drag stroke can be refused on every tile it crosses).
+const REJECT_TOAST_MS = 4000;
+const lastRejectToast: Record<string, number> = {};
+function notifyRejected(reason: FailReason): void {
+  const now = performance.now();
+  if (now - (lastRejectToast[reason] ?? -Infinity) < REJECT_TOAST_MS) return;
+  lastRejectToast[reason] = now;
+  toastPanel.showToast(
+    t('ui.toast.cantBuildTitle'),
+    t(reason === 'funds' ? 'ui.toast.noFunds' : 'ui.toast.noPoliticalCapital'),
+    'warning',
+  );
+}
 
 new InputController(
   canvas,
@@ -155,6 +191,7 @@ new InputController(
   () => state.history,
   () => currentTool,
   (tile) => { hoverTile = tile; },
+  (reason) => notifyRejected(reason),
 );
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
@@ -164,40 +201,23 @@ document.getElementById('btn-save')!.addEventListener('click', () => saveLoadPan
 document.getElementById('btn-load')!.addEventListener('click', () => saveLoadPanel.showLoad());
 document.getElementById('btn-econ')!.addEventListener('click', () => econPanel.toggle());
 
-const btnTraffic = document.getElementById('btn-traffic')!;
-function toggleTrafficOverlay(): void {
-  trafficOverlay = !trafficOverlay;
-  if (trafficOverlay) {
-    crimeOverlay = false;
-    btnCrime.classList.remove('active');
-  }
-  btnTraffic.classList.toggle('active', trafficOverlay);
-}
-btnTraffic.addEventListener('click', toggleTrafficOverlay);
+const overlayButtons: Record<Exclude<Overlay, 'none'>, HTMLElement | null> = {
+  traffic: document.getElementById('btn-traffic'),
+  crime:   document.getElementById('btn-crime'),
+  fire:    document.getElementById('btn-fire'),
+  vibe:    document.getElementById('btn-vibe'),
+};
 
-const btnCrime = document.getElementById('btn-crime')!;
-function toggleCrimeOverlay(): void {
-  crimeOverlay = !crimeOverlay;
-  if (crimeOverlay) {
-    trafficOverlay = false;
-    btnTraffic.classList.remove('active');
+/** Toggle one overlay; turning one on turns the others off. */
+function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
+  overlay = overlay === which ? 'none' : which;
+  for (const [name, btn] of Object.entries(overlayButtons)) {
+    btn?.classList.toggle('active', name === overlay);
   }
-  btnCrime.classList.toggle('active', crimeOverlay);
 }
-btnCrime.addEventListener('click', toggleCrimeOverlay);
-
-const btnFire = document.getElementById('btn-fire')!;
-function toggleFireOverlay(): void {
-  fireOverlay = !fireOverlay;
-  if (fireOverlay) {
-    trafficOverlay = false;
-    crimeOverlay   = false;
-    btnTraffic.classList.remove('active');
-    btnCrime.classList.remove('active');
-  }
-  btnFire.classList.toggle('active', fireOverlay);
+for (const [name, btn] of Object.entries(overlayButtons)) {
+  btn?.addEventListener('click', () => toggleOverlay(name as Exclude<Overlay, 'none'>));
 }
-btnFire.addEventListener('click', toggleFireOverlay);
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 
@@ -211,10 +231,51 @@ function setTool(tool: Tool): void {
 
 document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => {
-    const tool = btn.dataset.tool as Tool | 'undo';
+    const tool = btn.dataset.tool as Tool | 'undo' | 'redo';
     if (tool === 'undo') { state.history.undo(); return; }
+    if (tool === 'redo') { state.history.redo(); return; }
     setTool(tool);
   });
+});
+
+// ── Toolbar costs ─────────────────────────────────────────────────────────────
+// Tooltip cost/upkeep come from BALANCE so they can't drift from the sim.
+
+function fmtCost(n: number): string {
+  return '$' + n.toLocaleString('en-US');
+}
+function fmtUpkeep(n: number, perTile: boolean): string {
+  const digits = Number.isInteger(n) ? 0 : 2;
+  return '$' + n.toFixed(digits) + (perTile ? '/tile/tick' : '/tick');
+}
+
+const TOOL_ROAD_CLASS: Partial<Record<Tool, number>> = {
+  road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
+};
+const TOOL_BUILDING_KIND: Partial<Record<Tool, number>> = {
+  power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
+  ...SERVICE_TOOL_KIND,
+};
+const TOOL_FLAT_COST: Partial<Record<Tool, number>> = {
+  zoneR: BALANCE.costs.zoneR, zoneC: BALANCE.costs.zoneC, zoneI: BALANCE.costs.zoneI,
+  bulldoze: BALANCE.costs.bulldoze,
+};
+
+document.querySelectorAll<HTMLButtonElement>('.tool[data-tool]').forEach(btn => {
+  const tool = btn.dataset.tool as Tool;
+  const roadClass = TOOL_ROAD_CLASS[tool];
+  const kind = TOOL_BUILDING_KIND[tool];
+  if (roadClass !== undefined) {
+    const rc = BALANCE.roadClasses[roadClass];
+    btn.dataset.cost   = fmtCost(rc.cost);
+    btn.dataset.upkeep = fmtUpkeep(rc.maintenance, true);
+  } else if (kind !== undefined) {
+    const b = BALANCE.buildings[kind];
+    btn.dataset.cost   = fmtCost(b.cost);
+    btn.dataset.upkeep = fmtUpkeep(b.maintenance, false);
+  } else if (TOOL_FLAT_COST[tool] !== undefined) {
+    btn.dataset.cost = fmtCost(TOOL_FLAT_COST[tool]!);
+  }
 });
 
 // ── Toolbar tooltips ──────────────────────────────────────────────────────────
@@ -224,13 +285,17 @@ const tipDesc    = tip.querySelector('.tip-desc')!;
 const tipCost    = tip.querySelector('.tip-cost')!;
 const tipUpkeep  = tip.querySelector('.tip-upkeep')!;
 
+function isBuildingTool(btn: HTMLButtonElement): boolean {
+  return TOOL_BUILDING_KIND[btn.dataset.tool as Tool] !== undefined;
+}
+
 document.querySelectorAll<HTMLButtonElement>('#toolbar button').forEach(btn => {
   const desc = btn.dataset.desc;
   if (!desc) return;
   btn.addEventListener('mouseenter', () => {
     tipDesc.textContent = desc;
     const cost = btn.dataset.cost;
-    tipCost.textContent = cost ? cost + ' / tile' : '';
+    tipCost.textContent = cost ? cost + (isBuildingTool(btn) ? '' : ' / tile') : '';
     (tipCost as HTMLElement).style.display = cost ? '' : 'none';
     const upkeep = btn.dataset.upkeep;
     tipUpkeep.textContent = upkeep ? 'Upkeep: ' + upkeep : '';
@@ -247,45 +312,70 @@ document.querySelectorAll<HTMLButtonElement>('#toolbar button').forEach(btn => {
 
 document.querySelectorAll<HTMLButtonElement>('.speed').forEach(btn => {
   btn.addEventListener('click', () => {
-    const s = parseInt(btn.dataset.speed ?? '1', 10);
-    state.scheduler.setSpeed(s);
-    document.querySelectorAll('.speed').forEach(b =>
-      b.classList.toggle('active', b === btn));
+    setSpeed(parseInt(btn.dataset.speed ?? '1', 10));
   });
 });
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
+      || target.tagName === 'SELECT' || target.isContentEditable;
+}
+
+function setSpeed(speed: number): void {
+  state.scheduler.setSpeed(speed);
+  syncSpeedButtons();
+}
+
 window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); state.history.undo(); }
-  if (e.shiftKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); spriteSandbox.toggle(); }
-  if (e.key === '1') setTool('none');
-  if (e.key === '2') setTool('road');
-  if (e.key === 'a' || e.key === 'A') setTool('avenue');
-  if (e.key === 'h' || e.key === 'H') setTool('highway');
-  if (e.key === '3') setTool('zoneR');
-  if (e.key === '4') setTool('zoneC');
-  if (e.key === '5') setTool('zoneI');
-  if (e.key === '6') setTool('power');
-  if (e.key === '7') setTool('water');
-  if (e.key === '8') setTool('sewage');
-  if (e.key === '9') setTool('bulldoze');
-  if (e.key === '0') setTool('police');
-  if (e.key === 'q' || e.key === 'Q') setTool('fire');
-  if (e.key === 'w' || e.key === 'W') setTool('school');
-  if (e.key === 'e' || e.key === 'E') setTool('hospital');
-  if (e.key === 'r' || e.key === 'R') setTool('park');
-  if (e.key === 'i' || e.key === 'I') setTool('inspect');
-  if (e.key === 't' || e.key === 'T') toggleTrafficOverlay();
-  if (e.key === 'c' || e.key === 'C') toggleCrimeOverlay();
-  if (e.key === 'f' || e.key === 'F') toggleFireOverlay();
-  if (e.key === ' ') {
-    e.preventDefault();
-    const newSpeed = state.scheduler.speed === 0 ? 1 : 0;
-    state.scheduler.setSpeed(newSpeed);
-    document.querySelectorAll('.speed').forEach(b =>
-      b.classList.toggle('active',
-        parseInt((b as HTMLButtonElement).dataset.speed ?? '0', 10) === newSpeed));
+  // Never steal keys from text fields (seed input, etc.).
+  if (isTypingTarget(e.target)) return;
+
+  const key = e.key.toLowerCase();
+
+  // Undo / redo are the only shortcuts that use Ctrl/Cmd.
+  if (e.ctrlKey || e.metaKey) {
+    if (key === 'z' && !e.altKey) {
+      e.preventDefault();
+      if (e.shiftKey) state.history.redo(); else state.history.undo();
+    } else if (key === 'y' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      state.history.redo();
+    }
+    return; // leave every other Ctrl/Cmd combo (reload, copy, …) to the browser
+  }
+  if (e.altKey) return;
+
+  if (e.shiftKey && key === 's') { e.preventDefault(); spriteSandbox.toggle(); return; }
+
+  switch (key) {
+    case '1': setTool('none'); break;
+    case '2': setTool('road'); break;
+    case 'a': setTool('avenue'); break;
+    case 'h': setTool('highway'); break;
+    case '3': setTool('zoneR'); break;
+    case '4': setTool('zoneC'); break;
+    case '5': setTool('zoneI'); break;
+    case '6': setTool('power'); break;
+    case '7': setTool('water'); break;
+    case '8': setTool('sewage'); break;
+    case '9': setTool('bulldoze'); break;
+    case '0': setTool('police'); break;
+    case 'q': setTool('fire'); break;
+    case 'w': setTool('school'); break;
+    case 'e': setTool('hospital'); break;
+    case 'r': setTool('park'); break;
+    case 'i': setTool('inspect'); break;
+    case 't': toggleOverlay('traffic'); break;
+    case 'c': toggleOverlay('crime'); break;
+    case 'f': toggleOverlay('fire'); break;
+    case 'v': toggleOverlay('vibe'); break;
+    case ' ':
+      e.preventDefault();
+      setSpeed(state.scheduler.speed === 0 ? 1 : 0);
+      break;
   }
 });
 
@@ -297,6 +387,7 @@ const statZoom  = document.getElementById('stat-zoom')!;
 const statPC    = document.getElementById('stat-pc')!;
 const pcBar     = document.getElementById('pc-bar')!;
 const statMoney = document.getElementById('stat-money')!;
+const statDebt  = document.getElementById('stat-debt')!;
 const statPop   = document.getElementById('stat-pop')!;
 const statPower = document.getElementById('stat-power')!;
 const statWater  = document.getElementById('stat-water')!;
@@ -332,11 +423,12 @@ function frame(now: number): void {
   lastFrameTime = now;
 
   state.scheduler.update(now);
+  autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
-  renderer.render(state.world, camera, hoverTile, trafficOverlay, crimeOverlay, fireOverlay, coveragePreview, now);
+  renderer.render(state.world, camera, hoverTile, currentTool, overlay === 'traffic', overlay === 'crime', overlay === 'fire', overlay === 'vibe', coveragePreview, now);
   vehicleLayer.update(dt, state.world);
   vehicleLayer.render(renderer.ctx, camera, state.world.grid);
   tileInfoPanel.update(state.world, hoverTile);
@@ -355,6 +447,7 @@ function frame(now: number): void {
   (pcBar as HTMLElement).style.background = pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   statMoney.textContent = formatMoney(state.world.budget.money);
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
+  statDebt.hidden = state.world.budget.money >= 0;
   statPop.textContent   = state.world.stats.population.toLocaleString();
   statPower.textContent = `${state.world.stats.powerDemand} / ${state.world.stats.powerSupply}`;
   statWater.textContent  = `${state.world.stats.waterDemand} / ${state.world.stats.waterSupply}`;
@@ -364,7 +457,21 @@ function frame(now: number): void {
   statDate.textContent       = formatDate(state.world.tick);
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+
+// ── Autosave ──────────────────────────────────────────────────────────────────
+// Saved every ~60s of unpaused play (autosave.tick in the frame loop) and
+// whenever the tab is hidden or closed.
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void autosave.saveNow();
+});
+window.addEventListener('pagehide', () => { void autosave.saveNow(); });
+
+// Resume the autosaved city if there is one, then start the frame loop.
+manager.loadGame(AUTOSAVE_SLOT)
+  .then(world => { if (world) startGame(world); })
+  .catch(err => console.warn('Could not load autosave:', err))
+  .finally(() => requestAnimationFrame(frame));
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 

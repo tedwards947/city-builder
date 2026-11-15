@@ -1,5 +1,5 @@
 import type { World } from '../World';
-import { ZONE_R, ZONE_NONE } from '../constants';
+import { ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 /**

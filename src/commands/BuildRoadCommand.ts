@@ -1,14 +1,16 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTile, restoreTile } from './Command';
+import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
-import { ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
+import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
 // Builds a new road OR upgrades an existing road to a higher class.
 //
 // Rules:
-//   - Cannot build on water or building tiles.
+//   - Cannot build on building tiles. Building on water makes a bridge (cost × bridgeMultiplier).
+//   - Paving over populated residential displaces residents and costs political
+//     capital, exactly like bulldozing it would.
 //   - Cannot downgrade (current >= target → no-op).
 //   - New road: costs roadClasses[target].cost in full.
 //   - Upgrade: costs roadClasses[target].cost − roadClasses[current].cost (delta only).
@@ -34,23 +36,26 @@ export class BuildRoadCommand extends Command {
   }
 
   execute(world: World): boolean {
-    if (!world.isBuildable(this.tx, this.ty)) return false;
+    const isWater = world.getTerrain(this.tx, this.ty) === TERRAIN_WATER;
+    if (!world.isBuildable(this.tx, this.ty, true)) return false;
 
     const i = world.grid.idx(this.tx, this.ty);
     const current = world.layers.roadClass[i];
     if (current >= this.targetClass) return false; // already same or better class
 
-    const targetCost  = BALANCE.roadClasses[this.targetClass].cost;
-    const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost : 0;
+    const targetCost  = BALANCE.roadClasses[this.targetClass].cost * (isWater ? BALANCE.costs.bridgeMultiplier : 1);
+    const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost * (isWater ? BALANCE.costs.bridgeMultiplier : 1) : 0;
     const cost = targetCost - currentCost;
 
-    if (world.budget.money < cost) return false;
+    if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     // Snapshot for undo
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
     this.affectedZones = [];
-    this.pcCost = 0;
+    // Paving over a populated residential tile displaces its residents.
+    const { displacedPopulation, pcCost: displacementCost } = tileDisruption(world, this.tx, this.ty);
+    this.pcCost = displacementCost;
 
     // 1. Temporarily apply the road change to check for abandonment impact
     const oldClass = world.layers.roadClass[i];
@@ -96,6 +101,7 @@ export class BuildRoadCommand extends Command {
     // 3. Verify we can afford the PC cost
     if (this.pcCost > 0 && world.budget.politicalCapital < this.pcCost) {
       world.layers.roadClass[i] = oldClass; // Revert temp change
+      this.failReason = 'politicalCapital';
       return false;
     }
 
@@ -119,7 +125,7 @@ export class BuildRoadCommand extends Command {
           level: world.layers.devLevel[azi]
         });
       }
-      world.events.emit('roadBuilt', { tx: this.tx, ty: this.ty, cost });
+      world.events.emit('roadBuilt', { tx: this.tx, ty: this.ty, cost, displacedPopulation, pcCost: displacementCost });
     }
     
     return ok;

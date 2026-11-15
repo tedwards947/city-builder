@@ -9,7 +9,7 @@ export const GenericWarehouse_01: VectorEntity = {
   id: 'GenericWarehouse_01',
   type: 'ZONE_3_2', // Industrial Level 2
   tags: ['industrial', 'utilitarian', 'corporate'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
@@ -89,8 +89,8 @@ export const GenericWarehouse_01: VectorEntity = {
     // Tiny fan details on AC units
     ctx.fillStyle = '#444';
     ctx.beginPath();
-    ctx.arc(bx + s + acSize / 2, by - acSize / 2, acSize / 4, 0, Math.PI * 2);
-    ctx.arc(bx + bw - acSize / 2 - s, by - acSize / 2, acSize / 4, 0, Math.PI * 2);
+    ctx.arc(bx + s + acSize / 2, by - acSize / 2, Math.max(0.1, acSize / 4), 0, Math.PI * 2);
+    ctx.arc(bx + bw - acSize / 2 - s, by - acSize / 2, Math.max(0.1, acSize / 4), 0, Math.PI * 2);
     ctx.fill();
 
     // 6. Small Personnel Door

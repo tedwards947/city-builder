@@ -92,12 +92,24 @@ export interface TranslationSchema {
       healthcareCrisisMsg: string;
       buildingAbandonedTitle: string;
       buildingAbandonedMsg: string;
+      fireDamageTitle: string;
+      fireDamageMsg: string;
+      lowFundsTitle: string;
+      lowFundsMsg: string;
+      debtTitle: string;
+      debtMsg: string;
+      debtClearedTitle: string;
+      debtClearedMsg: string;
+      cantBuildTitle: string;
+      noFunds: string;
+      noPoliticalCapital: string;
     };
     hud: {
       tile: string;
       camera: string;
       zoom: string;
       polCapital: string;
+      inDebt: string;
       money: string;
       population: string;
       power: string;
@@ -131,6 +143,7 @@ export interface TranslationSchema {
       traffic: string;
       crime: string;
       fire: string;
+      vibe: string;
       view: string;
       inspect: string;
       street: string;
@@ -149,6 +162,7 @@ export interface TranslationSchema {
       park: string;
       clear: string;
       undo: string;
+      redo: string;
     };
     toolbarDesc: {
       new: string;
@@ -158,6 +172,7 @@ export interface TranslationSchema {
       traffic: string;
       crime: string;
       fire: string;
+      vibe: string;
       view: string;
       inspect: string;
       street: string;
@@ -176,6 +191,7 @@ export interface TranslationSchema {
       park: string;
       clear: string;
       undo: string;
+      redo: string;
     };
   };
   zones: {

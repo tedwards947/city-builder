@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SpriteRegistry } from '../render/SpriteRegistry';
 import type { VectorEntity, VibeState } from '../render/SpriteTypes';
-import type { ColorPalette } from '../render/CharacterPalette';
 
 describe('SpriteRegistry', () => {
   let registry: SpriteRegistry;
-  const mockPalette: ColorPalette = {} as any;
 
   const greenSprite: VectorEntity = {
     id: 'green-sprite',

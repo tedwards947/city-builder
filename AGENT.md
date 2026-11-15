@@ -16,37 +16,49 @@ See the backlog/wishlist at WISHLIST.md
 - Vitest for tests
 - Canvas 2D renderer (MVP); PixiJS later
 - Cloudflare Pages for hosting
-- IndexedDB for local saves; Cloudflare Workers + R2/D1 for cloud saves (future phases)
+- IndexedDB for local saves (manual slots + autosave in slot 0); Cloudflare Workers + R2/D1 for cloud saves (future phases)
 ---
 
 ## Module Structure
 
+The repo root is the project (`package.json`, `index.html`, `src/`).
+
 ```
-city-builder/src/
+src/
   sim/
     World.ts, Grid.ts, Scheduler.ts, EventBus.ts, rng.ts, constants.ts
     systems/
-      NetworkSystem.ts, PowerSystem.ts, WaterSystem.ts, SewageSystem.ts,
-      PollutionSystem.ts, ZoneGrowthSystem.ts, EconomySystem.ts, CrimeSystem.ts
-      (future: ServiceSystem, TransitSystem, PoliticsSystem, CharacterSystem)
+      NetworkSystem, PowerSystem, WaterSystem, SewageSystem, ServiceSystem,
+      LandValueSystem, PollutionSystem, CrimeSystem, FireSystem, TransitSystem,
+      AbandonmentSystem, EducationSystem, HealthcareSystem, ZoneGrowthSystem,
+      EconomySystem, VibeSystem, PoliticsSystem
   render/
-    CanvasRenderer.ts, Camera.ts, Projection.ts
+    CanvasRenderer.ts, Camera.ts, Projection.ts, VehicleLayer.ts,
+    SpriteRegistry.ts, SpriteTypes.ts, registryLoader.ts, CharacterPalette.ts
+    clay/              ClaySprites.ts (image building sprites, baked lot-dressing variants, smoke/flare effects),
+                       claySpriteData.ts (generated), groundTones.ts (ground mask + tones),
+                       lotGround.ts (free-ground analysis), lotDressing.ts (landscaping planner, no DOM),
+                       lotDressingDraw.ts (paints a plan)
+    entities/          code-drawn fallback sprites, one file each (see SPRITE_GUIDE.md there)
+      res-low, comm-low, comm-mid, comm-high, ind-low, ind-high
   input/
-    InputController.ts
+    InputController.ts (pointer/touch, drag-to-paint, panning), dragPath.ts
   commands/
-    Command.ts, PaintZoneCommand.ts, BuildRoadCommand.ts,
-    PlacePowerPlantCommand.ts, PlaceWaterTowerCommand.ts,
-    PlaceSewagePlantCommand.ts, BulldozeCommand.ts, CommandHistory.ts
+    Command.ts (snapshotTile / restoreTile / tileDisruption), CommandHistory.ts,
+    BatchCommand.ts, PaintZoneCommand.ts, BuildRoadCommand.ts, BulldozeCommand.ts,
+    PlaceBuildingCommand.ts + PlacePowerPlant/WaterTower/SewagePlant/ServiceBuilding
   persistence/
-    SaveFormat.ts, Serializer.ts, LocalStore.ts, RemoteStore.ts, SaveManager.ts
+    SaveFormat.ts, Serializer.ts, LocalStore.ts, RemoteStore.ts, SaveManager.ts,
+    Autosave.ts
   ui/
-    NewGameDialog.ts, SaveLoadPanel.ts
+    NewGameDialog, SaveLoadPanel, TileInfoPanel, EconPanel, ToastPanel,
+    DemandChart, MusicPanel, SpriteSandbox
+  audio/               MusicManager.ts, tracks/
+  i18n/                index.ts, types.ts, locales/en.ts
   data/
     balance.ts
   __tests__/
-    Grid.test.ts, rng.test.ts, World.test.ts, commands.test.ts,
-    systems.test.ts, persistence.test.ts, newgame.test.ts, eventbus.test.ts
-  main.ts
+  main.ts              wiring: systems, panels, toolbar, shortcuts, autosave
 index.html
 ```
 
@@ -88,7 +100,7 @@ Command (execute/undo) ──► World (mutates layers + buildings[])
 | `world.buildings` | `BuildingEntity[]` | All placed buildings `{ tx, ty, kind }` |
 | `world.stats` | `Stats` | Aggregates: population, supply/demand, satisfaction, etc. |
 | `world.budget` | `Budget` | `money`, `politicalCapital`, `income`, `expenses`, `taxRates` |
-| `world.character` | `{ egalitarian, green, planned }` | City character axes (Phase 7) |
+| `world.character` | `{ egalitarian, green, planned }` | City-wide character axes; derived by VibeSystem from the average of the vibe layers |
 | `world.events` | `EventBus` | Pub/sub for cross-system signals and UI alerts |
 | `world.roadNetDirty` | `boolean` | Set to `true` when road topology changes; NetworkSystem clears it |
 
@@ -97,10 +109,10 @@ Command (execute/undo) ──► World (mutates layers + buildings[])
 | Method | Description |
 |---|---|
 | `world.setZone(tx, ty, z)` | Paint a zone; resets devLevel/abandoned/distress/vegetation |
-| `world.setRoad(tx, ty, r)` | Place/upgrade/remove road; sets `roadNetDirty` |
-| `world.placeBuilding(tx, ty, kind)` | Place any building; pushes to `world.buildings[]` |
+| `world.setRoad(tx, ty, r)` | Place/upgrade/remove road; sets `roadNetDirty`; resets abandoned/distress |
+| `world.placeBuilding(tx, ty, kind)` | Place any building; pushes to `world.buildings[]`; resets abandoned/distress; sets `roadNetDirty` if it replaces a road |
 | `world.clearTile(tx, ty)` | Bulldoze everything; removes from `world.buildings[]` |
-| `world.isBuildable(tx, ty)` | Returns false for water tiles or tiles occupied by a building |
+| `world.isBuildable(tx, ty, allowWater = false)` | Returns false for water tiles or tiles occupied by a building. Roads pass `allowWater` to build bridges (cost × `BALANCE.costs.bridgeMultiplier`) |
 
 ### Grid
 
@@ -116,7 +128,7 @@ grid.markAllDirty()
 ### Scheduler
 
 `Scheduler` (`src/sim/Scheduler.ts`) drives the sim loop:
-- `update(now)` called each animation frame; accumulates `dt * speed`
+- `update(now)` called each animation frame; accumulates `dt * speed`, with `dt` clamped to `MAX_FRAME_GAP_MS` (250 ms) so time spent in a hidden tab is not simulated (unclamped, it queued minutes of ticks and stalled the game on return)
 - Fires `_tick()` per accumulated interval (caps at 10 catch-up ticks)
 - Each `_tick()`: increments `world.tick`, then calls `sys.update(world)` for every system in order
 - Speed: 0 = paused, 1/2/3 = 1×/2×/3× (`baseTickMs = 500ms → 2 ticks/sec at 1×`)
@@ -126,7 +138,11 @@ grid.markAllDirty()
 
 All systems implement `System { update(world: World): void }`. They are **pure functions over world state** — no dependencies injected, no globals. The only exception is per-system alert-cooldown state (e.g. `private _inShortage`, `private _lastAlertTick`) which is intentional instance state.
 
+Because of that instance state, `createSystems()` in `main.ts` builds a **fresh set of systems for every `startGame`** (New Game and Load). Don't hold system singletons at module level.
+
 #### System execution order (per tick)
+
+The source of truth is `createSystems()` in `src/main.ts`.
 
 | # | System | Writes |
 |---|---|---|
@@ -135,17 +151,17 @@ All systems implement `System { update(world: World): void }`. They are **pure f
 | 3 | WaterSystem | `water[]`, `stats.waterSupply/Demand` |
 | 4 | SewageSystem | `sewage[]`, `stats.sewageSupply/Demand` |
 | 5 | ServiceSystem | `services[]`, `police[]`, `fireStation[]`, `school[]`, `hospital[]` |
-| 6 | EducationSystem | `education[]` (persistent, R zones only) |
-| 7 | LandValueSystem | `landValue[]`, `stats.rDemand/cDemand/iDemand`, `stats.avgLandValue` |
-| 8 | PollutionSystem | `pollution[]` (conserving Laplacian + decay) |
-| 9 | CrimeSystem | `crime[]` |
-| 10 | FireSystem | `fireRisk[]`, `fire[]` |
-| 11 | TransitSystem | `congestion[]`, `accessibility[]`, `stats.avgCongestion` |
-| 12 | AbandonmentSystem | `abandoned[]`, `distress[]` |
+| 6 | LandValueSystem | `landValue[]`, `stats.rDemand/cDemand/iDemand`, `stats.avgLandValue` |
+| 7 | PollutionSystem | `pollution[]` (conserving Laplacian + decay) |
+| 8 | CrimeSystem | `crime[]` |
+| 9 | FireSystem | `fireRisk[]`, `fire[]` |
+| 10 | TransitSystem | `congestion[]`, `accessibility[]`, `stats.avgCongestion` |
+| 11 | AbandonmentSystem | `abandoned[]`, `distress[]` |
+| 12 | EducationSystem | `education[]` (persistent, R zones only) |
 | 13 | HealthcareSystem | `sickness[]`, `recentDeath[]` |
 | 14 | ZoneGrowthSystem | `devLevel[]`, `stats.population` |
 | 15 | EconomySystem | `budget.money/income/expenses` |
-| 16 | CityCharacterSystem | `world.character` axes |
+| 16 | VibeSystem | `vibeEgalitarian[]`, `vibeGreen[]`, `vibePlanned[]`, `world.character` |
 | 17 | PoliticsSystem | `budget.politicalCapital`, `stats.satisfaction` |
 
 ---
@@ -183,6 +199,12 @@ All layers are flat typed arrays of length `width * height`. Index with `grid.id
 | hospital | Uint8Array | 0/1 — hospital coverage this tick |
 | sickness | Uint8Array | 0–255 persistent sickness level (R zones only) |
 | recentDeath | Uint8Array | 0–255 countdown after a death event (visual indicator) |
+| visualVariant | Uint8Array | 0–255 stable lot ID; picks the sprite variant for a tile |
+| vibeEgalitarian | Uint8Array | 0–255, 128 = neutral (VibeSystem; nudged by player actions, diffuses, decays to 128) |
+| vibeGreen | Uint8Array | 0–255, 128 = neutral |
+| vibePlanned | Uint8Array | 0–255, 128 = neutral |
+
+`terrain` water tiles can carry a road (a bridge).
 
 ---
 
@@ -231,7 +253,7 @@ world.stats: {
 
 ## EventBus — alert-worthy events
 
-`world.events` is an `EventBus`. Systems emit events; the UI (toast system, future) subscribes.
+`world.events` is an `EventBus`. Systems emit events; `ToastPanel` subscribes (re-bound to the new world on every `startGame`).
 
 The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every alert-worth event is listed there with its required payload fields.
 
@@ -246,6 +268,9 @@ The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every a
 | `crimeSpike` | CrimeSystem | `avgCrime, threshold, affectedTiles` (cooldown-throttled) |
 | `fireIgnition` | FireSystem | `tx, ty, zone, devLevel` |
 | `fireSpreading` | FireSystem | `tx, ty` |
+| `fireDamage` | FireSystem | `tx, ty, zone, level` (level after the fire) |
+| `budgetWarning` | EconomySystem | `money, daysLeft` (cooldown-throttled) |
+| `debtEntered` / `debtCleared` | EconomySystem | `money` (once on each transition) |
 | `tileAbandoned` | AbandonmentSystem | `tx, ty, zone, level` |
 | `tileDeveloped` | ZoneGrowthSystem | `tx, ty, zone, level` |
 | `deathEvent` | HealthcareSystem | `tx, ty` |
@@ -275,7 +300,9 @@ world.events.emit('myEvent', { tx, ty, ... }); // from a system
 |-----|------|---------|
 | 1 | View (none) | — |
 | i | Inspect | TileInfoPanel (hover info) |
-| 2 | Road | BuildRoadCommand |
+| 2 | Road (street) | BuildRoadCommand |
+| a | Avenue | BuildRoadCommand |
+| h | Highway | BuildRoadCommand |
 | 3 | Res zone | PaintZoneCommand(ZONE_R) |
 | 4 | Com zone | PaintZoneCommand(ZONE_C) |
 | 5 | Ind zone | PaintZoneCommand(ZONE_I) |
@@ -288,6 +315,22 @@ world.events.emit('myEvent', { tx, ty, ... }); // from a system
 | w | School | PlaceServiceBuildingCommand(SCHOOL) |
 | e | Hospital | PlaceServiceBuildingCommand(HOSPITAL) |
 | r | Park | PlaceServiceBuildingCommand(PARK) |
+
+Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overlay (only one overlay at a time); Ctrl/Cmd+Z undo; Ctrl/Cmd+Shift+Z or Ctrl+Y redo; Space pause/resume; Shift+S sprite sandbox. Shortcuts are ignored while typing in an input, and other Ctrl/Cmd/Alt combos are left to the browser.
+
+### Pointer input
+
+- **Drag to paint:** roads drag as an axis-locked straight line; zones and bulldoze paint every tile crossed (`dragPath.ts`). Buildings are tap-only.
+- **One stroke = one undo step:** a drag is wrapped in a `CommandHistory` batch (`BatchCommand`).
+- **Panning:** left-drag with the View, Inspect or any building tool; right/middle drag or two-finger drag with any tool (including paint tools).
+
+### Command rules (enforced in the commands, covered by `commands.test.ts`)
+
+- Repainting a tile with the zone it already has is refused, free of charge. Exception: on an abandoned tile it clears the lot and pays the blight-clearing PC reward once.
+- The zone tool refuses to paint over a road.
+- Money below zero blocks everything that costs money **except bulldozing** (demolition is how a broke city cuts upkeep).
+- A command refused for lack of money or political capital sets `cmd.failReason` (`'funds'` / `'politicalCapital'`); `InputController` passes it to `main.ts`, which shows a throttled toast.
+- Anything that displaces residents (bulldoze, rezone, building or road over a zone) costs political capital via `tileDisruption()` and is blocked if unaffordable. Undo reverses the net PC change.
 
 ---
 
@@ -307,13 +350,15 @@ Load-bearing decisions — don't change without good reason.
 
 **`restoreTile` in Command.ts must be kept in sync** with every new building type — it keeps `world.buildings[]` consistent on undo. When adding a new building type: update `BUILDING_*` constant, add `placeBuilding` / `clearTile` handling in World, add `restoreTile` handling in Command.ts.
 
+**`snapshotTile` / `restoreTile` must cover every player-visible persistent layer.** They currently include abandoned, distress, vegetation and visualVariant as well as zone/road/building/devLevel. A layer missing from the snapshot becomes an undo exploit (precedent: bulldoze + undo revived abandoned buildings for free).
+
 **Seeded deterministic RNG:** Use `mulberry32(seed)` only. Never call `Math.random()` in sim logic.
 
 **Data-driven balance:** All costs, rates, and thresholds live in `balance.ts`. No magic numbers in code.
 
 **Renderer behind an interface:** All world→screen math goes through `Projection`. `Projection.depth()` returns `0` for top-down, `tx+ty` for isometric — this is the isometric swap hook.
 
-**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`.
+**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `CanvasRenderer` compares a per-chunk content signature (`_chunkSignature`) and redraws the cached chunk canvas only if it changed. **If `_renderChunk` starts reading a new layer, mix that layer into `_chunkSignature` too**, or the chunk will not update when it changes. Per-frame art (clay sprites, overlays, fire, vehicles) is not cached and is unaffected.
 
 **TypeScript constraints:** `erasableSyntaxOnly: true` — no constructor parameter properties. Use explicit field declarations + assignment in body. `verbatimModuleSyntax` — use `import type` for type-only imports.
 
@@ -326,8 +371,9 @@ Load-bearing decisions — don't change without good reason.
 1. Add `myLayer: Uint8Array` to the `Layers` interface in `World.ts`
 2. Initialize `myLayer: new Uint8Array(n)` in the World constructor
 3. Create a system that reads/writes it
-4. Register the system in `main.ts` (in the correct order relative to its dependencies)
-5. Update `SaveFormat.ts` / `Serializer.ts` to persist it
+4. Register the system in `createSystems()` in `main.ts` (in the correct order relative to its dependencies)
+5. Update `SaveFormat.ts` / `Serializer.ts` to persist it (make it optional in `WorldSnapshot.layers` so old saves still load)
+6. If the player can change it or see it, add it to `snapshotTile` / `restoreTile`
 
 ### A new building type
 
@@ -337,7 +383,7 @@ Load-bearing decisions — don't change without good reason.
 4. Add a `PlaceBuildingCommand` variant or reuse `PlaceBuildingCommand` with the new constant
 5. Add coverage range to `BALANCE.service.coverageRange` if it's a service building
 6. Update `ServiceSystem` if it needs coverage logic
-7. Add a key binding in `InputController.ts` and toolbar entry
+7. Add a key binding in `main.ts` (keydown switch), a toolbar entry in `index.html`, and strings in `i18n/locales/en.ts`. Tooltip cost/upkeep is read from `BALANCE`; don't hardcode numbers in HTML or locale text
 
 ### A new system
 
@@ -346,7 +392,7 @@ Load-bearing decisions — don't change without good reason.
 3. If it emits alert events, add the event + payload type to `CityEvents` in `EventBus.ts`
 4. If it needs cooldown state, add `private _lastAlertTick = -Infinity` as an instance field
 5. Add balance constants to `balance.ts` — no magic numbers in the system
-6. Register in `main.ts` at the correct position in the system array
+6. Register in `createSystems()` in `main.ts` at the correct position
 7. Write tests in `src/__tests__/systems.test.ts` or a new file
 
 ### A new EventBus alert
@@ -363,8 +409,8 @@ Load-bearing decisions — don't change without good reason.
 Already in the code — must not be removed:
 
 - `roadClass` byte: `ROAD_STREET=1`, `ROAD_AVENUE=2`, `ROAD_HIGHWAY=3`
-- `politicalCapital` on budget: present but unused (Phase 7)
-- `character` object (`{egalitarian, green, planned}`) on world: unused (Phase 7)
+- `politicalCapital` on budget: live — regenerated by PoliticsSystem, spent by disruptive commands
+- `character` object (`{egalitarian, green, planned}`) on world: live — written by VibeSystem, read by the renderer palette
 - Events carry rich context so future systems can react meaningfully
 - Road connected-components graph: transit flow solver will run on this same graph
 - `Projection.depth()` returns 0 for top-down, ready for isometric
@@ -373,46 +419,72 @@ Already in the code — must not be removed:
 
 ## Key Constants
 
-In `city-builder/src/data/balance.ts`:
+`src/data/balance.ts` is the source of truth — read it rather than trusting this snapshot (last synced 2026-11-13):
 
 ```
-costs:        road=10, zoneR=20, zoneC=25, zoneI=25
-buildings:    powerPlant={cost:2000,maint:5}, waterTower={500,2}, sewagePlant={1500,3}
-              police={1200,3}, fire={800,2}, school={1500,4}, hospital={3000,6}, park={300,0.5}
-tax/tick:     zoneR=0.8, zoneC=1.2, zoneI=1.5  (per dev level)
-maintenance:  road=0.01 (per tick)
+costs:        road=10 (bridge ×3), zoneR=20, zoneC=25, zoneI=25, bulldoze=5
+roadClasses:  street={cost:10,maint:0.04}, avenue={50,0.12}, highway={150,0.35}
+buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={1500,10}
+              police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}
+tax/tick:     zoneR=0.65, zoneC=1.0, zoneI=1.25  (per dev level)
+              R/C scale by landValue/128; I uses fixed industryLandValueMult=0.6
 service:      coverageRange: police=12, fire=15, school=4, hospital=6, park=3  (manhattan tiles)
-power:        plantOutput=500, perDevLevel=2, propagationRange=1
-water:        towerOutput=300, perDevLevel=1, propagationRange=1
-sewage:       plantOutput=400, perDevLevel=2, propagationRange=1
-pollution:    industryOutput=30, powerPlantOutput=15, decayRate=0.94,
-              diffusionRate=0.15, growthThreshold=20
-crime:        alertThreshold=60, alertCooldownTicks=40, abandonThreshold=180
-fire:         baseProbability=0.0003, burnDuration=20, spreadProbability=0.04
+power:        plantOutput=350, perDevLevel=2, propagationRange=1
+water:        towerOutput=250, perDevLevel=1, propagationRange=1
+sewage:       plantOutput=300, perDevLevel=2, propagationRange=1
+pollution:    industryOutput=40, powerPlantOutput=30, decayRate=0.97,
+              diffusionRate=0.20, growthThreshold=20
+crime:        growthThreshold=100, distressThreshold=130, abandonThreshold=150,
+              alertThreshold=60, alertCooldownTicks=40
+fire:         baseProbability=0.00015, burnDuration=20, spreadProbability=0.04,
+              abandonThreshold=110, damageLevels=1
 healthcare:   crisisThreshold=100, crisisCooldownTicks=40, growthThreshold=180
 growth:       tickInterval=4, probability=0.08, maxLevel=3
               popPerLevel: {1:4, 2:10, 3:20}
-ticksPerDay:  8, baseTickMs=500, startingMoney=20000
+vibe:         simInterval=4, nudgeByteScale=25, nudgeMaxBytes=60, decayProbability=0.25
+budget:       lowFundsWarningDays=30, warningCooldownTicks=240
+abandonment:  distressInterval=4, abandonThreshold=20
+politics:     max PC=100, bulldozePerPop=3.5, abandonedBuildingReward=2.5
+ticksPerDay:  8, baseTickMs=500, startingMoney=20000, startingPoliticalCapital=100
 ```
 
-Untuned — balance pass needed after more systems land.
+How the stakes work:
+
+- **Debt:** below $0 only bulldozing is allowed. EconomySystem warns ~30 game-days ahead and on entering/leaving debt; the HUD shows a debt badge.
+- **Fire:** a fire that burns out on a tile with no fire station coverage drops the building one level (level 1 becomes an empty lot). Covered tiles are put out before they take damage.
+- **Crime:** peak unpoliced crime is ~56 per level for commercial, ~28 residential, ~20 industrial. Commercial L2 (112) is stable; commercial L3 (168) passes `abandonThreshold` and abandons, so it needs police.
+- **Fire risk:** only heavily polluted L3 industry without a fire station reaches `fire.abandonThreshold`.
+
+Known balance gaps:
+
+- The economy is generous: test cities bank $350k+ by day 500, so debt is rare once a city is established.
+- With police and fire coverage nothing abandons except through lost power, water or road access.
 
 ---
 
 ## Testing
 
-Vitest suite at `city-builder/src/__tests__/`. After any code changes, run tests and confirm all pass before declaring done.
+Vitest suite at `src/__tests__/`. After any code changes, run both and confirm they pass before declaring done:
 
 ```
-cd city-builder && npm test
+npm test            # vitest run
+npx tsc --noEmit    # typecheck; `npm run build` = tsc && vite build
 ```
+
+The typecheck has `noUnusedLocals` / `noUnusedParameters` on, so an unused import or variable breaks the build even though tests pass.
 
 Test files:
 - `systems.test.ts` — per-system behavior (large; add new system tests here or in a new file)
+- `abandonment`, `crime`, `fire`, `education`, `vibes` — one file per system
 - `eventbus.test.ts` — EventBus alert events: emission, payload shape, cooldown deduplication
-- `commands.test.ts` — command execute/undo, restoreTile correctness
-- `persistence.test.ts` — save/load round-trip
-- `World.test.ts`, `Grid.test.ts`, `rng.test.ts`, `newgame.test.ts`
+- `commands.test.ts` — command execute/undo, restoreTile correctness, PC costs, exploit regressions
+- `stakes.test.ts` — debt events and blocking, fire damage, reachable abandonment thresholds, refusal reasons
+- `history-batch.test.ts` — batched strokes, undo/redo
+- `dragPath.test.ts`, `input-drag.test.ts` — drag-to-paint paths and synthetic pointer events
+- `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game
+- `World`, `Grid`, `rng`, `Vegetation`, `graphics`, `i18n`, `audio`, `ToastPanel`
+
+Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays, autosave resume on startup) and real IndexedDB. Check those in a browser.
 
 ---
 
@@ -425,3 +497,16 @@ Test files:
 - Pollution diffusion must be **conserving** (Laplacian step subtracts what it spreads) — additive diffusion causes values to grow unboundedly even with decay.
 - When a user says zones can develop without a resource, check whether the growth gate uses `dev[i] >= N` as a guard — that means the resource is only required for levels ≥ N, which may not be the intended behaviour.
 - **Typed-array accumulation rates must be ≥ 1**, or `Math.floor` truncates them to 0 every tick (sickness bug: `sicknessRate: 0.08` → never accumulated). Prefer integer ±1 increments gated by a probability roll (`if (rng() < prob) layer[i]++`) over fractional additive rates. This also makes accumulation feel organic rather than mechanical — each zone's trajectory diverges. Apply this pattern to any new `Uint8Array` accumulator (sickness, education, etc.).
+
+---
+
+## Multiple sessions / worktrees
+
+More than one agent session may be working in this repo at once.
+
+- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> vibecheck`) and merge back into the integration branch (`vibecheck` at the time of writing) when the work is green.
+- A worktree starts from a commit, so uncommitted work in another tree is invisible to it. Commit (when the user asks) before splitting work across worktrees.
+- A new worktree has no `node_modules`; run `npm install` in it. `generated_imgs/` is git-ignored and exists only in the main checkout.
+- Before starting, find the other sessions (`ListAgents`) and ask what files they own. If you must share a tree, agree on file ownership first and stay out of each other's files.
+- Use a different dev-server port per session (`npx vite --port <n> --strictPort`), and delete any temporary harness files you create.
+- Commit only when the user asks, and tell the other sessions before you do so two sessions don't commit the same tree. Never stash, reset or check out over a tree another session is using.

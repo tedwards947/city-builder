@@ -20,7 +20,6 @@ export const TestHouse: VectorEntity = {
     if (ts < 8) return;
 
     // Roof (slightly animated by 't' for fun, e.g. a slight shimmer)
-    const shimmer = Math.sin(t * 5) * 5;
     ctx.fillStyle = vibe.green > 0 ? '#4a5a4a' : '#5a3a2a'; // Green roofs if city is green!
     ctx.fillRect(bx - 1, by - 1, bw + 2, bh * 0.4);
 
@@ -45,7 +44,7 @@ export const TestHouse: VectorEntity = {
         const drift = Math.sin(t * 10 + i) * 2;
         ctx.fillStyle = `rgba(150, 150, 150, ${alpha * 0.5})`;
         ctx.beginPath();
-        ctx.arc(chimneyX + drift, chimneyY - pt * 10, 2 + pt * 3, 0, Math.PI * 2);
+        ctx.arc(chimneyX + drift, chimneyY - pt * 10, Math.max(0.1, 2 + pt * 3), 0, Math.PI * 2);
         ctx.fill();
       }
     }

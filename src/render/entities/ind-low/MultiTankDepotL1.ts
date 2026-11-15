@@ -8,11 +8,11 @@ export const MultiTankDepotL1: VectorEntity = {
   id: 'MultiTankDepotL1',
   type: 'ZONE_3_1', // Industrial Level 1
   tags: ['industrial', 'utilitarian', 'storage'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.1));
     const tankCount = 3;
-    const tankW = (ts - inset * 2) / tankCount - 2;
+    const tankW = Math.max(0.1, (ts - inset * 2) / tankCount - 2);
 
     const bodyColor = p.buildingI[0];
     const roofColor = '#555';
@@ -20,7 +20,7 @@ export const MultiTankDepotL1: VectorEntity = {
     for (let i = 0; i < tankCount; i++) {
       const tx = inset + i * (tankW + 2);
       const ty = inset + s * 2;
-      const th = ts - ty - inset;
+      const th = Math.max(0.1, ts - ty - inset);
 
       // Tank Body
       ctx.fillStyle = bodyColor;
@@ -29,7 +29,7 @@ export const MultiTankDepotL1: VectorEntity = {
       // Tank Top
       ctx.fillStyle = roofColor;
       ctx.beginPath();
-      ctx.ellipse(tx + tankW / 2, ty, tankW / 2, s * 0.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(tx + tankW / 2, ty, Math.max(0.1, tankW / 2), Math.max(0.1, s * 0.8), 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Horizontal bands

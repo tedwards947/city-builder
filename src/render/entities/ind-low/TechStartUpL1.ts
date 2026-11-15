@@ -9,7 +9,7 @@ export const TechStartUpL1: VectorEntity = {
   id: 'TechStartUpL1',
   type: 'ZONE_3_1', // Industrial Level 1
   tags: ['industrial', 'high-tech', 'corporate'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.08);
     

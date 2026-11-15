@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { World } from '../sim/World';
 import { NetworkSystem } from '../sim/systems/NetworkSystem';
 import { PowerSystem } from '../sim/systems/PowerSystem';
@@ -23,13 +23,13 @@ import { LandValueSystem } from '../sim/systems/LandValueSystem';
 import { BALANCE } from '../data/balance';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
-import { CityCharacterSystem } from '../sim/systems/CityCharacterSystem';
+import { VibeSystem } from '../sim/systems/VibeSystem';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { resolvePalette } from '../render/CharacterPalette';
 import { HealthcareSystem } from '../sim/systems/HealthcareSystem';
-import { BUILDING_HOSPITAL, BUILDING_SCHOOL } from '../sim/constants';
+import { BUILDING_HOSPITAL } from '../sim/constants';
 
 // Use a tiny world so tests are fast and grid positions are predictable.
 // Seed 0 — we manually set up all the tile state we need.
@@ -302,7 +302,6 @@ describe('EconomySystem', () => {
     forceBuildable(w, 0, 0);
     w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
     // devLevel stays 0
-    const before = w.budget.money;
     new EconomySystem().update(w);
     // only maintenance costs apply — no road or plant, so net should be ~0
     expect(w.budget.income).toBe(0);
@@ -1165,16 +1164,34 @@ describe('TransitSystem', () => {
     expect(w.layers.congestion[w.grid.idx(5, 5)]).toBe(0);
   });
 
+  it('recomputes when a road is moved (changes that cancel out in a sum)', () => {
+    const w = makeWorld(16, 16);
+    for (const [x, y] of [[5, 5], [5, 6], [8, 8]] as const) forceBuildable(w, x, y);
+    w.layers.zone[w.grid.idx(5, 5)]      = ZONE_R;
+    w.layers.devLevel[w.grid.idx(5, 5)]  = 3;
+    w.layers.roadClass[w.grid.idx(5, 6)] = ROAD_STREET;
+    const sys = new TransitSystem();
+    w.tick = interval; sys.update(w);
+    expect(w.layers.congestion[w.grid.idx(5, 6)]).toBeGreaterThan(0);
+
+    // Same number of road tiles, different place: the old road is gone.
+    w.layers.roadClass[w.grid.idx(5, 6)] = 0;
+    w.layers.roadClass[w.grid.idx(8, 8)] = ROAD_STREET;
+    w.tick = interval * 2; sys.update(w);
+    expect(w.layers.congestion[w.grid.idx(5, 6)]).toBe(0);
+    expect(w.layers.congestion[w.grid.idx(8, 8)]).toBe(0);
+  });
+
   it('avgCongestion is 0 with no roads', () => {
     const w = makeWorld();
     runAt(w, interval);
     expect(w.stats.avgCongestion).toBe(0);
   });
 
-  it('zone beyond spreadRadius has no effect on road', () => {
+  it('zone not adjacent to a road has no effect on it', () => {
     const w = makeWorld();
-    const r = BALANCE.transit.spreadRadius;
-    // Road at (0,0), zone at (0, r+2) — beyond radius
+    const r = 4;
+    // Road at (0,0), zone at (0, r+2) — not touching it
     forceBuildable(w, 0, 0); forceBuildable(w, 0, r + 2);
     w.layers.roadClass[w.grid.idx(0, 0)]     = ROAD_STREET;
     w.layers.zone[w.grid.idx(0, r + 2)]      = ZONE_R;
@@ -1190,7 +1207,7 @@ describe('TransitSystem', () => {
     // Uint8Array wraps to high congestion.  After the fix (diamond clip),
     // the road at (zx+r, zy+r) is outside the manhattan radius and must be 0.
     const w = makeWorld(16, 16);
-    const r = BALANCE.transit.spreadRadius;
+    const r = 4; // radius of the old distance kernel
     const zx = 0, zy = 0;          // zone origin
     const rx = zx + r, ry = zy + r; // diagonal corner, manhattan dist = 2r
     forceBuildable(w, zx, zy);
@@ -1431,86 +1448,62 @@ describe('PaintZoneCommand political capital', () => {
   });
 });
 
-// ─── CityCharacterSystem ──────────────────────────────────────────────────────
+// ─── VibeSystem ──────────────────────────────────────────────────────────────
 
-describe('CityCharacterSystem', () => {
-  it('starts all axes at 0', () => {
+describe('VibeSystem', () => {
+  it('starts all axes at neutral (128)', () => {
     const w = makeWorld();
-    expect(w.character.egalitarian).toBe(0);
-    expect(w.character.green).toBe(0);
-    expect(w.character.planned).toBe(0);
+    expect(w.layers.vibeGreen[0]).toBe(128);
+    expect(w.layers.vibeEgalitarian[0]).toBe(128);
+    expect(w.layers.vibePlanned[0]).toBe(128);
   });
 
   it('nudges green axis negative when industrial zone is painted', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
-    const sys = new CityCharacterSystem();
+    const sys = new VibeSystem();
     sys.update(w); // register listeners
     new PaintZoneCommand(0, 0, ZONE_I).execute(w);
-    expect(w.character.green).toBeLessThan(0);
+    expect(w.layers.vibeGreen[w.grid.idx(0, 0)]).toBeLessThan(128);
   });
 
   it('nudges green axis positive when park is placed', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
-    const sys = new CityCharacterSystem();
+    const sys = new VibeSystem();
     sys.update(w);
     new PlaceBuildingCommand(0, 0, BUILDING_PARK).execute(w);
-    expect(w.character.green).toBeGreaterThan(0);
-  });
-
-  it('nudges egalitarian axis positive when service building placed', () => {
-    const w = makeWorld();
-    forceBuildable(w, 0, 0);
-    const sys = new CityCharacterSystem();
-    sys.update(w);
-    new PlaceBuildingCommand(0, 0, BUILDING_POLICE).execute(w);
-    expect(w.character.egalitarian).toBeGreaterThan(0);
+    expect(w.layers.vibeGreen[w.grid.idx(0, 0)]).toBeGreaterThan(128);
   });
 
   it('nudges planned axis positive when road is built', () => {
     const w = makeWorld();
     forceBuildable(w, 0, 0);
-    const sys = new CityCharacterSystem();
+    const sys = new VibeSystem();
     sys.update(w);
     w.setRoad(0, 0, ROAD_STREET);
     w.events.emit('roadBuilt', { tx: 0, ty: 0, cost: 10 });
-    expect(w.character.planned).toBeGreaterThan(0);
+    expect(w.layers.vibePlanned[w.grid.idx(0, 0)]).toBeGreaterThan(128);
   });
 
-  it('nudges egalitarian/planned negative when population is displaced', () => {
+  it('decays axes toward neutral each tick', () => {
     const w = makeWorld();
-    forceBuildable(w, 0, 0);
-    w.layers.zone[w.grid.idx(0, 0)] = ZONE_R;
-    w.layers.devLevel[w.grid.idx(0, 0)] = 2;
-    const sys = new CityCharacterSystem();
-    sys.update(w);
-    new BulldozeCommand(0, 0).execute(w);
-    expect(w.character.egalitarian).toBeLessThan(0);
-    expect(w.character.planned).toBeLessThan(0);
-  });
-
-  it('decays axes toward zero each tick', () => {
-    const w = makeWorld();
-    w.character.green = 50;
-    w.character.egalitarian = -30;
-    const sys = new CityCharacterSystem();
-    sys.update(w); // first update registers listeners + decays
-    expect(w.character.green).toBeLessThan(50);
-    expect(w.character.egalitarian).toBeGreaterThan(-30);
-  });
-
-  it('clamps axes to axisMax', () => {
-    const w = makeWorld();
-    w.character.green = BALANCE.character.axisMax - 0.1;
-    const sys = new CityCharacterSystem();
-    sys.update(w); // register listeners
-    // Place many parks to push past the max
-    for (let x = 0; x < 10; x++) {
-      forceBuildable(w, x, 5);
-      new PlaceBuildingCommand(x, 5, BUILDING_PARK).execute(w);
+    w.layers.vibeGreen[0] = 200;
+    const sys = new VibeSystem();
+    // Run multiple updates to see decay (simulation runs every 4 ticks)
+    for (let i = 0; i < 20; i++) {
+      w.tick = i;
+      sys.update(w);
     }
-    expect(w.character.green).toBeLessThanOrEqual(BALANCE.character.axisMax);
+    expect(w.layers.vibeGreen[0]).toBeLessThan(200);
+  });
+
+  it('updates global world.character based on local layers', () => {
+    const w = makeWorld();
+    w.layers.vibeGreen.fill(200);
+    const sys = new VibeSystem();
+    sys.update(w);
+    expect(w.character.green).toBeGreaterThan(0);
   });
 });
 

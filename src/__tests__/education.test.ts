@@ -6,8 +6,8 @@ import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { CrimeSystem } from '../sim/systems/CrimeSystem';
 import {
-  ZONE_R, ZONE_C, ZONE_I,
-  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_SCHOOL,
+  ZONE_R,
+  BUILDING_SCHOOL,
   ROAD_STREET
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';

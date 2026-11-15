@@ -9,7 +9,7 @@ export const GrainElevator_01: VectorEntity = {
   id: 'GrainElevator_01',
   type: 'ZONE_3_2', // Industrial Level 2
   tags: ['industrial', 'agricultural', 'organic'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.max(1, Math.floor(ts * 0.08));
     
@@ -39,7 +39,7 @@ export const GrainElevator_01: VectorEntity = {
       
       // Rounded Silo Top (Domed)
       ctx.beginPath();
-      ctx.ellipse(sx + siloW / 2, siloY, siloW / 2, s * 0.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx + siloW / 2, siloY, Math.max(0.1, siloW / 2), Math.max(0.1, s * 0.6), 0, 0, Math.PI * 2);
       ctx.fill();
       
       // Vertical shading/lines for cylindrical look

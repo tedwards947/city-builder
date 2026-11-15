@@ -23,7 +23,7 @@ export class PollutionSystem {
     const building = world.layers.building;
     const veg      = world.layers.vegetation;
 
-    const { decayRate, diffusionRate, industryOutput, powerPlantOutput, vegDecayMult, vegDecayMultForest } = BALANCE.pollution;
+    const { decayRate, diffusionRate, industryOutput, powerPlantOutput, vegDecayMult } = BALANCE.pollution;
 
     // Snapshot current values so we can do targeted dirty marking later.
     if (this.prevPol.length !== n) this.prevPol = new Uint8Array(n);

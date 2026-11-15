@@ -8,7 +8,7 @@ export const IndustrialHouse: VectorEntity = {
   id: 'res-low-industrial-house',
   type: 'ZONE_1_1', // ZONE_R level 1
   tags: ['industrial', 'residential', 'corporate'],
-  draw(ctx: CanvasRenderingContext2D, ts: number, t: number, p: ColorPalette, vibe: VibeState): void {
+  draw(ctx: CanvasRenderingContext2D, ts: number, t: number, _p: ColorPalette, vibe: VibeState): void {
     const inset = Math.max(1, Math.floor(ts * 0.2));
     const bx = 0 + inset, by = 0 + inset;
     const bw = ts - inset * 2, bh = ts - inset * 2;

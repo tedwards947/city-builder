@@ -8,7 +8,7 @@ export const OldMillL1: VectorEntity = {
   id: 'OldMillL1',
   type: 'ZONE_3_1', // Industrial Level 1
   tags: ['industrial', 'organic', 'brick', 'historic'],
-  draw: (ctx, ts, t, p, _vibe) => {
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const s = ts * 0.1;
     const inset = Math.floor(ts * 0.08);
     const bodyColor = '#b04030';

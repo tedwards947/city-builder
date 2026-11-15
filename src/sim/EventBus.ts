@@ -21,6 +21,12 @@ export type CityEvents = {
   // Fire
   fireIgnition:     { tx: number; ty: number; zone: number; devLevel: number };
   fireSpreading:    { tx: number; ty: number };
+  // A fire burned out without fire station coverage; `level` is the new dev level.
+  fireDamage:       { tx: number; ty: number; zone: number; level: number };
+  // Budget (emitted by EconomySystem)
+  budgetWarning:    { money: number; daysLeft: number }; // cooldown-throttled
+  debtEntered:      { money: number };                   // once, when money drops below 0
+  debtCleared:      { money: number };                   // once, when money is back to >= 0
   // Abandonment (emitted by AbandonmentSystem)
   tileAbandoned:    { tx: number; ty: number; zone: number; level: number };
   // Zone growth (emitted by ZoneGrowthSystem)

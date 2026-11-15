@@ -47,8 +47,8 @@ export const MiniFlareL1: VectorEntity = {
     ctx.fillRect(tx, ty, tw, th);
     // Rounded ends
     ctx.beginPath();
-    ctx.ellipse(tx, ty + th/2, s, th/2, 0, 0, Math.PI * 2);
-    ctx.ellipse(tx + tw, ty + th/2, s, th/2, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx, ty + th/2, Math.max(0.1, s), Math.max(0.1, th/2), 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + tw, ty + th/2, Math.max(0.1, s), Math.max(0.1, th/2), 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 4. Connecting Pipe

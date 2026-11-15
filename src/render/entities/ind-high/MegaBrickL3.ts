@@ -9,8 +9,7 @@ export const MegaBrickL3_01: VectorEntity = {
   id: 'MegaBrickL3_01',
   type: 'ZONE_3_3', // Industrial Level 3
   tags: ['industrial', 'organic', 'brick', 'grand'],
-  draw: (ctx, ts, t, p, _vibe) => {
-    const s = ts * 0.1;
+  draw: (ctx, ts, _t, _p, _vibe) => {
     const inset = Math.max(1, Math.floor(ts * 0.05));
     
     // Colors
@@ -41,7 +40,7 @@ export const MegaBrickL3_01: VectorEntity = {
     const archX = bx + bw * 0.5 - archW / 2;
     ctx.beginPath();
     ctx.moveTo(archX, ts * 0.5);
-    ctx.arc(archX + archW / 2, ts * 0.5, archW / 2, Math.PI, 0);
+    ctx.arc(archX + archW / 2, ts * 0.5, Math.max(0.1, archW / 2), Math.PI, 0);
     ctx.lineTo(archX + archW, ts * 0.7);
     ctx.lineTo(archX, ts * 0.7);
     ctx.fill();

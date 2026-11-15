@@ -24,7 +24,7 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t
     ctx.beginPath();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(100, 100, 100, 1.0)';
-    ctx.arc(x + drift, y - pt * 20, 2 + pt * 5, 0, Math.PI * 2);
+    ctx.arc(x + drift, y - pt * 20, Math.max(0.1, 2 + pt * 5), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1.0;
@@ -35,7 +35,6 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, t
  */
 export function drawRefineryFlame(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
   const pulse = Math.sin(t * 10) * 2;
-  const flicker = Math.sin(t * 20) * 0.2 + 0.8;
   
   // Outer Glow
   const grad = ctx.createRadialGradient(x, y, 1, x, y, 8 + pulse);
@@ -65,8 +64,6 @@ export function drawIndustrialBuilding(
   roofColor: string,
   opts: IndOptions = {}
 ): void {
-  const s = ts * 0.1;
-  const inset = Math.max(1, Math.floor(ts * 0.08));
 
   if (opts.buildingStyle === 'warehouse') {
     drawWarehouse(ctx, ts, t, bodyColor, roofColor, opts);
@@ -157,7 +154,7 @@ function drawFactory(
 function drawWarehouse(
   ctx: CanvasRenderingContext2D,
   ts: number,
-  t: number,
+  _t: number,
   bodyColor: string,
   roofColor: string,
   opts: IndOptions
@@ -271,7 +268,7 @@ function drawPlant(
 function drawStorage(
   ctx: CanvasRenderingContext2D,
   ts: number,
-  t: number,
+  _t: number,
   bodyColor: string,
   roofColor: string,
   opts: IndOptions
@@ -295,7 +292,7 @@ function drawStorage(
     // Tank top
     ctx.fillStyle = roofColor;
     ctx.beginPath();
-    ctx.ellipse(tx + tankW / 2, ty, tankW / 2, s * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(tx + tankW / 2, ty, Math.max(0.1, tankW / 2), Math.max(0.1, s * 0.8), 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Tank details

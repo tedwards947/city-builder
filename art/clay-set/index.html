@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City Builder — Clay Set Review</title>
+<style>
+  :root {
+    --bg: #14181d; --panel: #1d232b; --line: #2e3742; --text: #e6ebf0; --dim: #93a1b0;
+    --accent: #7dd8c0; --warn: #e0b050; --bad: #e07070; --good: #7dd87d;
+    --stage: #6fae5a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 28px 24px 12px; max-width: 1320px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 4px 0; color: var(--dim); max-width: 86ch; }
+  nav { position: sticky; top: 0; z-index: 5; background: rgba(20,24,29,.93); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  nav .inner { max-width: 1320px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  nav a { color: var(--text); text-decoration: none; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+  nav a:hover { border-color: var(--accent); color: var(--accent); }
+  nav .spacer { flex: 1; }
+  nav .count { font-size: 13px; color: var(--dim); }
+  button, select { font: inherit; }
+  button.primary { color: var(--bg); background: var(--accent); border: 0; border-radius: 6px; padding: 6px 14px; font-weight: 600; cursor: pointer; }
+  button.ghost, select { background: transparent; color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  select { color: var(--text); background: var(--panel); }
+  main { max-width: 1320px; margin: 0 auto; padding: 8px 24px 80px; }
+  section { margin-top: 32px; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; scroll-margin-top: 64px; }
+  section h2 { margin: 0; font-size: 21px; }
+  section .blurb { color: var(--dim); margin: 4px 0 16px; max-width: 86ch; }
+  .controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--dim); }
+  .controls label { display: flex; gap: 6px; align-items: center; }
+  .town-wrap { overflow: auto; border-radius: 8px; border: 1px solid var(--line); background: #0d1014; }
+  canvas { display: block; }
+
+  .matrix { display: grid; grid-template-columns: 64px repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
+  .matrix .colhead { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--dim); text-align: center; font-weight: 600; }
+  .matrix .rowhead { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--dim); font-weight: 600; padding-top: 8px; }
+  .civic { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+  .card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #171c22; }
+  .card.redo { border-color: var(--bad); }
+  .card.keep { border-color: var(--good); }
+  .card .stage { background: var(--stage); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: zoom-in; position: relative; }
+  .card .stage img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .card .stage .missing { color: rgba(0,0,0,.55); font-size: 13px; }
+  .card .stage .flag { position: absolute; top: 6px; left: 6px; font-size: 11px; background: rgba(0,0,0,.65); color: var(--warn); padding: 1px 6px; border-radius: 4px; }
+  .card .meta { padding: 6px 8px 8px; }
+  .card .name { font-size: 12.5px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .card .tiny { display: flex; gap: 6px; align-items: flex-end; background: var(--stage); padding: 3px 5px; border-radius: 4px; }
+  .card .tiny img { display: block; }
+  .card .hint { font-size: 12px; color: var(--warn); margin-top: 4px; line-height: 1.3; }
+  .card .btns { display: flex; gap: 6px; margin-top: 6px; }
+  .card .btns button { flex: 1; font-size: 12.5px; padding: 3px 0; border-radius: 5px; border: 1px solid var(--line); background: transparent; color: var(--dim); cursor: pointer; }
+  .card.keep .btns button.k { background: var(--good); color: #10240f; border-color: var(--good); font-weight: 600; }
+  .card.redo .btns button.r { background: var(--bad); color: #2b0f0f; border-color: var(--bad); font-weight: 600; }
+  .card input[type=text] { width: 100%; margin-top: 6px; background: #0d1014; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; font: inherit; font-size: 13px; }
+
+  textarea { width: 100%; min-height: 96px; background: #0d1014; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: inherit; resize: vertical; }
+  .q { margin: 14px 0; }
+  .q > div { font-weight: 600; margin-bottom: 4px; }
+  .q label { margin-right: 16px; cursor: pointer; }
+  #out { margin-top: 12px; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace; background: #0d1014; border: 1px solid var(--line); border-radius: 6px; padding: 10px; display: none; }
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 20; cursor: zoom-out; flex-direction: column; gap: 10px; }
+  #lightbox img { max-width: 92vw; max-height: 86vh; background: var(--stage); border-radius: 8px; }
+  #lightbox .cap { color: var(--dim); font-family: ui-monospace, Menlo, monospace; }
+  @media (max-width: 900px) { .matrix { grid-template-columns: 40px repeat(5, minmax(120px, 1fr)); overflow-x: auto; } .civic { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Clay miniature set</h1>
+  <p>Every zone building at each level, four neighbourhood-vibe variants of each, and the eight utilities and services. Backgrounds are already cut out, so what you see is what the game would draw.</p>
+  <p><b>All 53 sprites are here.</b> The six gritty variants were redone in flat clay style. Amber notes on a card are problems already spotted.</p>
+  <p>Mark each sprite <b>Keep</b> or <b>Redo</b> (with a note on what to change), answer the questions at the bottom, then press <b>Copy feedback</b> and paste it back to Claude. Marks are saved in this browser.</p>
+</header>
+
+<nav><div class="inner">
+  <a href="#town">Mock town</a>
+  <a href="#res">Residential</a>
+  <a href="#com">Commercial</a>
+  <a href="#ind">Industrial</a>
+  <a href="#civic">Utilities &amp; services</a>
+  <a href="#overall">Overall</a>
+  <span class="spacer"></span>
+  <span class="count" id="count"></span>
+  <label class="count">Backdrop
+    <select id="backdrop">
+      <option value="#6fae5a">Grass</option>
+      <option value="#2a2f36">Dark</option>
+      <option value="#e9e9e9">Light</option>
+      <option value="#c9b48a">Dirt</option>
+    </select>
+  </label>
+  <button class="primary" id="copy">Copy feedback</button>
+  <button class="ghost" id="clear">Clear</button>
+</div></nav>
+
+<main>
+  <section id="town">
+    <h2>Mock town</h2>
+    <p class="blurb">The sprites laid out on the game's square grid, drawn back to front the way the renderer would. Roads here are plain grey placeholders (no clay roads exist yet). Switch the vibe to see a whole neighbourhood change character, and shrink the tile size to see how it reads zoomed out.</p>
+    <p class="blurb"><b>Life prototype:</b> the sprites are still images; the smoke, cooling-tower steam and the flare on the heavy plant are drawn by code at marked points. Look at the industrial district on the right and the power plant at its top-right corner. Smoke changes with the vibe: darker and heavier when gritty, faint when green. Toggle the effects and the cadence to compare.</p>
+    <div class="controls">
+      <label>Vibe
+        <select id="town-vibe">
+          <option value="">Neutral</option>
+          <option value="green">Green</option>
+          <option value="gritty">Gritty</option>
+          <option value="communal">Communal</option>
+          <option value="wealthy">Wealthy</option>
+          <option value="mixed">Mixed by district</option>
+        </select>
+      </label>
+      <label>Tile size
+        <input type="range" id="town-size" min="24" max="112" step="8" value="72">
+        <span id="town-size-label">72px</span>
+      </label>
+      <label><input type="checkbox" id="fx-smoke" checked> Smoke, steam and flares</label>
+      <label>Cadence
+        <select id="fx-cadence">
+          <option value="10">Stop-motion (10 fps)</option>
+          <option value="6">Chunkier (6 fps)</option>
+          <option value="0">Smooth</option>
+        </select>
+      </label>
+    </div>
+    <div class="town-wrap"><canvas id="town-canvas"></canvas></div>
+  </section>
+
+  <section id="res"><h2>Residential</h2><p class="blurb">Rows are levels 1 to 3; they should read as one family that grows. Columns are the neutral building and its four vibe variants, which should keep the same shape and change only in character.</p><div class="matrix" data-zone="res"></div></section>
+  <section id="com"><h2>Commercial</h2><p class="blurb">Corner shop, shopping centre, office tower.</p><div class="matrix" data-zone="com"></div></section>
+  <section id="ind"><h2>Industrial</h2><p class="blurb">Workshop, factory, heavy plant.</p><div class="matrix" data-zone="ind"></div></section>
+  <section id="civic"><h2>Utilities and services</h2><p class="blurb">One sprite each. The test is whether you can tell them apart in the tiny previews.</p><div class="civic" id="civic-grid"></div></section>
+
+  <section id="overall">
+    <h2>Overall</h2>
+    <div id="questions"></div>
+    <div class="q"><div>Anything else</div><textarea id="notes-overall" placeholder="Colours, mood, things that feel off across the whole set…"></textarea></div>
+    <div id="out"></div>
+  </section>
+</main>
+
+<div id="lightbox"><img alt=""><div class="cap"></div></div>
+
+<script src="sprites/manifest.js"></script>
+<script>
+const SPRITES = window.SPRITES || {};
+const VIBES = ['', 'green', 'gritty', 'communal', 'wealthy'];
+const VIBE_LABEL = { '': 'Neutral', green: 'Green', gritty: 'Gritty', communal: 'Communal', wealthy: 'Wealthy' };
+const CIVIC = [
+  ['power', 'Power plant'], ['water', 'Water tower'], ['sewage', 'Sewage plant'], ['police', 'Police'],
+  ['fire', 'Fire station'], ['school', 'School'], ['hospital', 'Hospital'], ['park', 'Park'],
+];
+const QUESTIONS = [
+  { id: 'family', q: 'Do levels 1–3 read as one family in each zone?', opts: ['Yes', 'Mostly', 'No (say which zone in notes)'] },
+  { id: 'vibes', q: 'Vibe variants', opts: ['Right amount of difference', 'Too subtle', 'Too different from the base', 'Drop some vibes (say which)'] },
+  { id: 'plots', q: 'The square base plot under each building', opts: ['Keep the plots (diorama tiles)', 'Lose the plot edges so buildings sit on continuous ground', 'Not sure, show me both'] },
+  { id: 'next', q: 'What next', opts: ['Fix the redos, then put these in the game', 'Roads and terrain in clay first', 'More variety per level (2–3 buildings each)'] },
+];
+// What the generating agents flagged, shown as a hint on the card.
+const ISSUES = {
+  'res-1-wealthy': 'glossier and more realistic than the base',
+  'res-2-wealthy': 'roof redrawn taller than the base',
+  'res-3': 'six storeys rather than eight',
+  'res-3-wealthy': 'car does not read as luxury',
+  'com-2': 'five parking bays',
+  'com-3': 'slimmer than the level 2 building; faint outline of the old kerb on the paving',
+  'com-3-green': 'living wall covers a window column; inherits kerb outline',
+  'com-3-gritty': 'inherits kerb outline',
+  'com-3-communal': 'repainted orange and cream; inherits kerb outline',
+  'com-3-wealthy': 'neon band replaces one storey; inherits kerb outline',
+  'ind-1-gritty': 'small chimney added for the smoke',
+  'ind-1-wealthy': 'glossy; possible pink fringe on chrome',
+  'ind-2-wealthy': 'possible pink fringe on chrome',
+  'ind-2-communal': 'roof and chimneys recoloured away from the family palette',
+  'ind-3-gritty': 'smoke comes very close to the top edge',
+  'power': 'stack and cooling tower lean slightly three-quarter',
+  'water': 'tower slightly three-quarter; lattice legs',
+  'sewage': 'bridge arms span half of each tank',
+  'police': 'patrol car is angled',
+  'park': 'benches are angled',
+  'school': 'more orange than yellow',
+};
+const ALL = [];
+for (const z of ['res', 'com', 'ind']) for (const l of [1, 2, 3]) for (const v of VIBES) ALL.push(`${z}-${l}${v ? '-' + v : ''}`);
+for (const [id] of CIVIC) ALL.push(id);
+
+const KEY = 'city-builder-clay-set-v2';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} updateCount(); }
+
+function el(tag, attrs = {}, html = '') {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (html) e.innerHTML = html;
+  return e;
+}
+const src = (id) => `sprites/${id}.png`;
+
+function card(id, label) {
+  const c = el('div', { class: 'card' });
+  const meta = SPRITES[id];
+  const stage = el('div', { class: 'stage' });
+  if (meta) {
+    const img = el('img', { src: src(id), alt: label || id, loading: 'lazy' });
+    stage.appendChild(img);
+    stage.addEventListener('click', () => openLightbox(id));
+    if (meta.touchesTop) stage.appendChild(el('span', { class: 'flag' }, 'touches top edge'));
+  } else {
+    stage.appendChild(el('span', { class: 'missing' }, 'not generated yet'));
+    stage.style.cursor = 'default';
+  }
+  c.appendChild(stage);
+
+  const m = el('div', { class: 'meta' });
+  const name = el('div', { class: 'name' });
+  name.appendChild(el('span', {}, label ? `${label} · ${id}` : id));
+  if (meta) {
+    const tiny = el('span', { class: 'tiny', title: 'At 20, 32 and 48 pixels' });
+    for (const px of [20, 32, 48]) tiny.appendChild(el('img', { src: src(id), width: px, height: px, alt: '' }));
+    name.appendChild(tiny);
+  }
+  m.appendChild(name);
+  if (ISSUES[id]) m.appendChild(el('div', { class: 'hint' }, ISSUES[id]));
+
+  const btns = el('div', { class: 'btns' });
+  const k = el('button', { class: 'k' }, 'Keep');
+  const r = el('button', { class: 'r' }, 'Redo');
+  const apply = () => { c.classList.toggle('keep', state['v-' + id] === 'keep'); c.classList.toggle('redo', state['v-' + id] === 'redo'); };
+  k.addEventListener('click', () => { state['v-' + id] = state['v-' + id] === 'keep' ? '' : 'keep'; apply(); save(); });
+  r.addEventListener('click', () => { state['v-' + id] = state['v-' + id] === 'redo' ? '' : 'redo'; apply(); save(); });
+  btns.appendChild(k); btns.appendChild(r);
+  m.appendChild(btns);
+  const note = el('input', { type: 'text', placeholder: 'note' });
+  note.value = state['n-' + id] || '';
+  note.addEventListener('input', () => { state['n-' + id] = note.value; save(); });
+  m.appendChild(note);
+  c.appendChild(m);
+  apply();
+  return c;
+}
+
+for (const matrix of document.querySelectorAll('.matrix')) {
+  const z = matrix.dataset.zone;
+  matrix.appendChild(el('div'));
+  for (const v of VIBES) matrix.appendChild(el('div', { class: 'colhead' }, VIBE_LABEL[v]));
+  for (const l of [1, 2, 3]) {
+    matrix.appendChild(el('div', { class: 'rowhead' }, 'Level ' + l));
+    for (const v of VIBES) matrix.appendChild(card(`${z}-${l}${v ? '-' + v : ''}`));
+  }
+}
+const civicGrid = document.getElementById('civic-grid');
+for (const [id, label] of CIVIC) civicGrid.appendChild(card(id, label));
+
+// ── Overall questions
+const qBox = document.getElementById('questions');
+for (const q of QUESTIONS) {
+  const box = el('div', { class: 'q' });
+  box.appendChild(el('div', {}, q.q));
+  for (const o of q.opts) {
+    const lab = el('label');
+    const inp = el('input', { type: 'radio', name: 'q-' + q.id, value: o });
+    if (state['q-' + q.id] === o) inp.checked = true;
+    inp.addEventListener('change', () => { state['q-' + q.id] = o; save(); });
+    lab.appendChild(inp); lab.appendChild(document.createTextNode(' ' + o));
+    box.appendChild(lab);
+  }
+  qBox.appendChild(box);
+}
+const overallTa = document.getElementById('notes-overall');
+overallTa.value = state['notes-overall'] || '';
+overallTa.addEventListener('input', () => { state['notes-overall'] = overallTa.value; save(); });
+
+function updateCount() {
+  const have = ALL.filter((id) => SPRITES[id]);
+  const keep = have.filter((id) => state['v-' + id] === 'keep').length;
+  const redo = have.filter((id) => state['v-' + id] === 'redo').length;
+  document.getElementById('count').textContent = `${have.length} of ${ALL.length} sprites · ${keep} keep · ${redo} redo`;
+}
+updateCount();
+
+function feedbackText() {
+  const lines = ['CLAY SET FEEDBACK'];
+  const redo = ALL.filter((id) => state['v-' + id] === 'redo');
+  const keep = ALL.filter((id) => state['v-' + id] === 'keep');
+  const noted = ALL.filter((id) => (state['n-' + id] || '').trim() && state['v-' + id] !== 'redo');
+  lines.push('', `REDO (${redo.length}):`);
+  for (const id of redo) lines.push(`- ${id}: ${(state['n-' + id] || '').trim() || '(no note)'}`);
+  lines.push('', `KEEP (${keep.length}): ${keep.join(', ') || '(none marked)'}`);
+  if (noted.length) { lines.push('', 'OTHER NOTES:'); for (const id of noted) lines.push(`- ${id}: ${state['n-' + id].trim()}`); }
+  const unmarked = ALL.filter((id) => SPRITES[id] && !state['v-' + id]);
+  lines.push('', `UNMARKED (${unmarked.length})${unmarked.length ? ': ' + unmarked.join(', ') : ''}`, '');
+  for (const q of QUESTIONS) lines.push(`${q.q} ${state['q-' + q.id] || '(not answered)'}`);
+  const n = (state['notes-overall'] || '').trim();
+  if (n) lines.push('', 'Overall: ' + n);
+  return lines.join('\n');
+}
+const copyBtn = document.getElementById('copy');
+const out = document.getElementById('out');
+copyBtn.addEventListener('click', async () => {
+  const text = feedbackText();
+  out.textContent = text; out.style.display = 'block';
+  try { await navigator.clipboard.writeText(text); copyBtn.textContent = 'Copied'; }
+  catch { copyBtn.textContent = 'Select the text at the bottom'; out.scrollIntoView({ behavior: 'smooth' }); }
+  setTimeout(() => { copyBtn.textContent = 'Copy feedback'; }, 2500);
+});
+document.getElementById('clear').addEventListener('click', () => {
+  if (!confirm('Clear all marks and notes?')) return;
+  state = {}; save(); location.reload();
+});
+
+// ── Backdrop
+const backdrop = document.getElementById('backdrop');
+backdrop.value = state.backdrop || '#6fae5a';
+function applyBackdrop() { document.documentElement.style.setProperty('--stage', backdrop.value); }
+backdrop.addEventListener('change', () => { state.backdrop = backdrop.value; save(); applyBackdrop(); });
+applyBackdrop();
+
+// ── Lightbox
+const lightbox = document.getElementById('lightbox');
+function openLightbox(id) {
+  lightbox.querySelector('img').src = src(id);
+  lightbox.querySelector('.cap').textContent = id;
+  lightbox.style.display = 'flex';
+}
+lightbox.addEventListener('click', () => { lightbox.style.display = 'none'; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') lightbox.style.display = 'none'; });
+
+// ── Mock town
+// '.' grass, '#' road, r/c/i + level digit = zone lot, two-letter codes = civic.
+// Each cell is two characters.
+const TOWN = [
+  '.. r1 r1 r2 r1 ## c1 c2 c1 ## i1 i2 i1 ..',
+  '.. r2 r1 r1 r3 ## c2 c3 c2 ## i2 i3 i2 pw',
+  '## ## ## ## ## ## ## ## ## ## ## ## ## ##',
+  'pk r1 r2 sc r2 ## c1 po c3 ## i1 i1 i3 sw',
+  '.. r3 r2 r1 r1 ## c2 c1 fi ## i3 i2 i1 ..',
+  '## ## ## ## ## ## ## ## ## ## ## ## ## ##',
+  'wt r1 r1 r2 ho ## c3 c2 c1 ## i2 i1 i2 ..',
+].map((row) => row.split(' '));
+const CIVIC_CODE = { pw: 'power', wt: 'water', sw: 'sewage', po: 'police', fi: 'fire', sc: 'school', ho: 'hospital', pk: 'park' };
+const ZONE_CODE = { r: 'res', c: 'com', i: 'ind' };
+// "Mixed": a different vibe per district, by column band and row band.
+function mixedVibe(x, y) {
+  if (x <= 4) return y <= 1 ? 'wealthy' : y <= 4 ? 'communal' : 'green';
+  if (x <= 8) return y <= 1 ? 'wealthy' : y <= 4 ? '' : 'green';
+  return y <= 1 ? 'gritty' : y <= 4 ? '' : 'green';
+}
+// Plot height as a share of plot width, measured on the anchor sprite.
+const PLOT_ASPECT = 0.905;
+
+const images = {};
+function loadAll() {
+  return Promise.all(Object.keys(SPRITES).map((id) => new Promise((res) => {
+    const img = new Image();
+    img.onload = () => { images[id] = img; res(); };
+    img.onerror = () => res();
+    img.src = src(id);
+  })));
+}
+
+// ── Life: code-drawn effects on top of the still sprites ────────────────────
+// Emitter positions are in sprite pixels (256px frame), hand-placed on the base
+// sprite; vibe variants keep the same silhouette so they share them.
+const EMITTERS = {
+  'ind-1-gritty': [{ kind: 'smoke', x: 159, y: 62 }],
+  'ind-2': [{ kind: 'smoke', x: 118, y: 31 }, { kind: 'smoke', x: 148, y: 29 }],
+  'ind-3': [{ kind: 'smoke', x: 112, y: 14 }, { kind: 'flare', x: 146, y: 13 }, { kind: 'smoke', x: 177, y: 14 }],
+  'power': [{ kind: 'smoke', x: 77, y: 49 }, { kind: 'steam', x: 185, y: 66 }],
+};
+// How a neighbourhood's vibe changes the smoke: [light colour, shade colour, size, puff count]
+const SMOKE_LOOK = {
+  '':       ['#a4a8ae', '#84888f', 1.0, 5],
+  green:    ['#e4e8ea', '#c9cfd3', 0.6, 3],
+  gritty:   ['#5d5f65', '#3f4146', 1.35, 7],
+  communal: ['#a4a8ae', '#84888f', 0.9, 4],
+  wealthy:  ['#c3c7cb', '#a3a8ad', 0.7, 3],
+};
+const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+// One clay puff: a flat blob with a darker underside, like a pressed ball of clay.
+function puff(ctx, x, y, r, light, shade) {
+  if (r <= 0.3) return;
+  ctx.fillStyle = shade;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = light;
+  ctx.beginPath(); ctx.arc(x - r * 0.12, y - r * 0.16, r * 0.82, 0, Math.PI * 2); ctx.fill();
+}
+
+// Puffs are a pure function of time, so there is no particle state to keep:
+// each puff loops from the emitter upward, growing and then shrinking away.
+function drawPlume(ctx, ox, oy, u, t, seed, light, shade, size, count, rise, life) {
+  for (let i = 0; i < count; i++) {
+    const cycle = t / life + i / count + seed;
+    const phase = cycle - Math.floor(cycle);
+    const lap = Math.floor(cycle);
+    const sway = (hash(seed * 1000 + i, lap) - 0.5) * 2;
+    const x = ox + (phase * phase * 14 + sway * 5 * phase) * u;
+    const y = oy - phase * rise * u;
+    const grow = 0.55 + phase * 1.1;
+    const fade = 1 - Math.pow(phase, 3);
+    puff(ctx, x, y, 7 * size * grow * fade * u, light, shade);
+  }
+}
+
+function drawFlare(ctx, ox, oy, u, t, seed) {
+  // A flame that changes shape every step, plus a thin dark plume above it.
+  const step = Math.floor(t * 12);
+  const f = 0.75 + hash(seed * 77, step) * 0.5;
+  const lean = (hash(seed * 91, step) - 0.5) * 5 * u;
+  const h = 26 * f * u, w = 8 * u;
+  const flame = (scale, colour) => {
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.moveTo(ox - w * scale, oy);
+    ctx.quadraticCurveTo(ox - w * scale * 1.2, oy - h * scale * 0.55, ox + lean * scale, oy - h * scale);
+    ctx.quadraticCurveTo(ox + w * scale * 1.2, oy - h * scale * 0.55, ox + w * scale, oy);
+    ctx.closePath(); ctx.fill();
+  };
+  flame(1, '#f2762e'); flame(0.68, '#f9b233'); flame(0.36, '#fff0a8');
+  drawPlume(ctx, ox + lean, oy - h, u, t, seed, '#5d5f65', '#3f4146', 0.55, 4, 44, 2.6);
+}
+
+const canvas = document.getElementById('town-canvas');
+const vibeSel = document.getElementById('town-vibe');
+const sizeInp = document.getElementById('town-size');
+const fxSmoke = document.getElementById('fx-smoke');
+const fxCadence = document.getElementById('fx-cadence');
+let sizedFor = '';
+
+function drawTown(t = 0) {
+  const T = +sizeInp.value;
+  document.getElementById('town-size-label').textContent = T + 'px';
+  const cols = TOWN[0].length, rows = TOWN.length;
+  const padTop = Math.round(T * 1.2); // room for towers and smoke on the top row
+  const dpr = window.devicePixelRatio || 1;
+  const key = `${T}:${dpr}`;
+  if (sizedFor !== key) {
+    sizedFor = key;
+    canvas.width = cols * T * dpr; canvas.height = (rows * T + padTop) * dpr;
+    canvas.style.width = cols * T + 'px'; canvas.style.height = rows * T + padTop + 'px';
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#6fae5a';
+  ctx.fillRect(0, 0, cols * T, rows * T + padTop);
+
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (TOWN[y][x] !== '##') continue;
+    ctx.fillStyle = '#5b6068';
+    ctx.fillRect(x * T, padTop + y * T, T, T);
+    ctx.fillStyle = '#cfd3d8';
+    const horiz = TOWN[y][x - 1] === '##' || TOWN[y][x + 1] === '##';
+    const vert = (TOWN[y - 1] && TOWN[y - 1][x] === '##') || (TOWN[y + 1] && TOWN[y + 1][x] === '##');
+    if (horiz && !vert) ctx.fillRect(x * T + T * 0.3, padTop + y * T + T * 0.48, T * 0.4, T * 0.04);
+    if (vert && !horiz) ctx.fillRect(x * T + T * 0.48, padTop + y * T + T * 0.3, T * 0.04, T * 0.4);
+  }
+
+  const effects = [];
+
+  // Back to front: a tall building overlaps the tile behind (above) it.
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const code = TOWN[y][x];
+    let id = null, vibe = '';
+    if (CIVIC_CODE[code]) id = CIVIC_CODE[code];
+    else if (ZONE_CODE[code[0]]) {
+      vibe = vibeSel.value === 'mixed' ? mixedVibe(x, y) : vibeSel.value;
+      const base = `${ZONE_CODE[code[0]]}-${code[1]}`;
+      id = images[`${base}-${vibe}`] && vibe ? `${base}-${vibe}` : base;
+    }
+    const img = id && images[id], meta = id && SPRITES[id];
+    if (!img || !meta) continue;
+    const plotW = meta.right - meta.left + 1;
+    const s = T / plotW;
+    // Sit the plot's bottom edge on the tile's bottom edge, centred in the tile
+    // (the plot is a little shorter than the tile is tall).
+    const gap = (T - plotW * PLOT_ASPECT * s) / 2;
+    const dx = x * T - meta.left * s;
+    const dy = padTop + (y + 1) * T - gap - (meta.bottom + 1) * s;
+    const cell = y * cols + x;
+    ctx.drawImage(img, dx, dy, meta.w * s, meta.h * s);
+
+    const em = EMITTERS[id] || EMITTERS[id.replace(/-(green|gritty|communal|wealthy)$/, '')];
+    if (em && fxSmoke.checked) em.forEach((e, k) => effects.push({ e, x: dx + e.x * s, y: dy + e.y * s, u: s, seed: hash(cell, k + 1), vibe }));
+  }
+
+  // Effects go on top of everything: smoke rises over the buildings behind.
+  for (const fx of effects) {
+    if (fx.e.kind === 'flare') drawFlare(ctx, fx.x, fx.y, fx.u, t, fx.seed);
+    else if (fx.e.kind === 'steam') drawPlume(ctx, fx.x, fx.y, fx.u, t, fx.seed, '#ffffff', '#dfe5ea', 1.5, 5, 60, 5.5);
+    else {
+      const [light, shade, size, count] = SMOKE_LOOK[fx.vibe] || SMOKE_LOOK[''];
+      drawPlume(ctx, fx.x, fx.y, fx.u, t, fx.seed, light, shade, size, count, 70, 4.5);
+    }
+  }
+}
+
+let lastStep = -1;
+function tick(now) {
+  const fps = +fxCadence.value; // 0 = smooth
+  let t = now / 1000;
+  if (fps > 0) {
+    const step = Math.floor(t * fps);
+    if (step === lastStep) { requestAnimationFrame(tick); return; }
+    lastStep = step;
+    t = step / fps;
+  }
+  drawTown(t);
+  requestAnimationFrame(tick);
+}
+loadAll().then(() => requestAnimationFrame(tick));
+</script>
+</body>
+</html>

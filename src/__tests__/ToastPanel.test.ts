@@ -5,11 +5,11 @@ import { World } from '../sim/World';
 describe('ToastPanel', () => {
   let toastPanel: ToastPanel;
   let world: World;
-  const originalDocument = global.document;
+  const originalDocument = globalThis.document;
 
   beforeEach(() => {
     // Mock basic DOM environment
-    global.document = {
+    globalThis.document = {
       createElement: vi.fn().mockImplementation((tag) => {
         if (tag === 'div') {
           return {
@@ -57,7 +57,7 @@ describe('ToastPanel', () => {
   });
 
   afterEach(() => {
-    global.document = originalDocument;
+    globalThis.document = originalDocument;
     vi.restoreAllMocks();
   });
 

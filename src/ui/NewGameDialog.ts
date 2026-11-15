@@ -20,7 +20,10 @@ export class NewGameDialog {
   private selectedWater: WaterAmount = 'medium';
   private selectedVeg: VegAmount = 'low';
 
-  constructor(private readonly onStart: (opts: NewGameOptions) => void) {
+  private readonly onStart: (opts: NewGameOptions) => void;
+
+  constructor(onStart: (opts: NewGameOptions) => void) {
+    this.onStart = onStart;
     this.el = document.getElementById('new-game-modal')!;
     this._wire();
   }

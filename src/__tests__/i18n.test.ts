@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { t, setLocale } from '../i18n';
+import { t } from '../i18n';
 
 describe('i18n', () => {
   it('should look up simple keys', () => {

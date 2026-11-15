@@ -1,8 +1,11 @@
 import { World } from '../World';
-import { ZONE_NONE, ZONE_R, ZONE_C, ROAD_NONE } from '../constants';
+import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 export class EconomySystem {
+  private _inDebt = false;
+  private _lastWarnTick = -Infinity;
+
   update(world: World): void {
     const { width, height } = world.grid;
     const zone = world.layers.zone;
@@ -25,7 +28,8 @@ export class EconomySystem {
                        : zone[i] === ZONE_C ? taxRates.C
                        : taxRates.I;
         // Land value multiplies income: lv 128 = neutral, 0 = half, 255 = ~2×
-        const lvMult = lv[i] / 128;
+        // Industry uses a fixed multiplier (see BALANCE.tax.industryLandValueMult).
+        const lvMult = zone[i] === ZONE_I ? BALANCE.tax.industryLandValueMult : lv[i] / 128;
         // Education multiplies income for R zones: 0 = 1x, 255 = taxMultiplier
         let eduMult = 1.0;
         if (zone[i] === ZONE_R) {
@@ -51,5 +55,28 @@ export class EconomySystem {
     world.budget.income = income;
     world.budget.expenses = expenses;
     world.stats.population = population;
+
+    // Budget alerts: once on entering / leaving debt, throttled while heading there.
+    const money = world.budget.money;
+    if (money < 0) {
+      if (!this._inDebt) {
+        this._inDebt = true;
+        world.events.emit('debtEntered', { money });
+      }
+      return;
+    }
+    if (this._inDebt) {
+      this._inDebt = false;
+      world.events.emit('debtCleared', { money });
+    }
+    const net = income - expenses;
+    if (net < 0) {
+      const daysLeft = money / -net / BALANCE.ticksPerDay;
+      if (daysLeft < BALANCE.budget.lowFundsWarningDays &&
+          world.tick - this._lastWarnTick >= BALANCE.budget.warningCooldownTicks) {
+        this._lastWarnTick = world.tick;
+        world.events.emit('budgetWarning', { money, daysLeft });
+      }
+    }
   }
 }

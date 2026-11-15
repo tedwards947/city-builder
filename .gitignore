@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Raw image-generation outputs (kept sprites live in art/clay-set/raw)
+generated_imgs/
+
+# Art: superseded style comparison, and review sprites rebuilt by `node art/clay-set/cutout.mjs`
+art/style-review/
+art/clay-set/sprites/
+
+# Landscaping mock: rebuilt by `node art/clay-set/landscaping/bundle.mjs && node art/clay-set/landscaping/build.mjs`
+art/clay-set/landscaping/masks/
+art/clay-set/landscaping/shade/
+art/clay-set/landscaping/props/
+art/clay-set/landscaping/data.js
+art/clay-set/landscaping/lot-dressing.js
