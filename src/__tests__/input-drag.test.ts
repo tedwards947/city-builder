@@ -8,7 +8,11 @@ import { TILE_SIZE } from '../render/Projection';
 import { CommandHistory } from '../commands/CommandHistory';
 import { InputController, isPaintTool } from '../input/InputController';
 import type { Tool } from '../input/InputController';
-import { ROAD_NONE, ROAD_STREET, ZONE_NONE, ZONE_R, BUILDING_PARK, BUILDING_NONE, TERRAIN_WATER } from '../sim/constants';
+import { ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ZONE_NONE, ZONE_R, BUILDING_PARK, BUILDING_NONE, TERRAIN_WATER } from '../sim/constants';
+import { autoRoadPath, planAutoRoad } from '../input/autoRoad';
+import { BALANCE } from '../data/balance';
+
+const STREET_COST = BALANCE.roadClasses[ROAD_STREET].cost;
 
 type Handler = (e: unknown) => void;
 
@@ -233,5 +237,147 @@ describe('InputController drag-to-paint', () => {
     canvas.fire('pointermove', { ...at(0, 0), pointerId: 1 });
     canvas.fire('pointermove', { ...at(6, 0), pointerId: 2 });
     expect(camera.zoom).toBeGreaterThan(zoom);
+  });
+});
+
+describe('InputController auto road mode', () => {
+  let world: World;
+  let history: CommandHistory;
+  let camera: Camera;
+  let canvas: FakeCanvas;
+  let tool: Tool;
+  let mode: 'manual' | 'auto';
+  let input: InputController;
+  let rejected: string[];
+  let o: { tx: number; ty: number };
+  let at: (dx: number, dy: number) => { clientX: number; clientY: number };
+  const click = (dx: number, dy: number, button = 0) => {
+    canvas.fire('pointerdown', { ...at(dx, dy), button });
+    canvas.fire('pointerup',   { ...at(dx, dy), button });
+  };
+
+  beforeEach(() => {
+    world = new World(64, 64, 1);
+    history = new CommandHistory(world);
+    camera = new Camera(800, 600);
+    camera.zoom = 1;
+    canvas = new FakeCanvas();
+    tool = 'road';
+    mode = 'auto';
+    rejected = [];
+    o = dryBlock(world, 12, 12);
+    camera.centerOnTile(o.tx + 6, o.ty + 6);
+    const camX0 = camera.x, camY0 = camera.y;
+    at = (dx, dy) => ({
+      clientX: (o.tx + dx + 0.5) * TILE_SIZE - camX0,
+      clientY: (o.ty + dy + 0.5) * TILE_SIZE - camY0,
+    });
+    input = new InputController(
+      canvas as unknown as HTMLCanvasElement, camera,
+      () => world, () => history, () => tool, () => {},
+      (reason) => rejected.push(reason), () => mode,
+    );
+  });
+
+  it('first click only marks the start; second click builds a right-angled road as one undo step', () => {
+    const before = world.budget.money;
+    click(1, 1);
+    expect(world.getRoad(o.tx + 1, o.ty + 1)).toBe(ROAD_NONE);
+    expect(input.autoRoadStart).toEqual({ tx: o.tx + 1, ty: o.ty + 1 });
+    canvas.fire('pointermove', at(5, 3));          // hovering builds nothing
+    expect(world.budget.money).toBe(before);
+    click(8, 4);
+    // Longer leg (x) first, then down.
+    for (let dx = 1; dx <= 8; dx++) expect(world.getRoad(o.tx + dx, o.ty + 1)).toBe(ROAD_STREET);
+    for (let dy = 1; dy <= 4; dy++) expect(world.getRoad(o.tx + 8, o.ty + dy)).toBe(ROAD_STREET);
+    expect(world.getRoad(o.tx + 1, o.ty + 4)).toBe(ROAD_NONE);
+    expect(input.autoRoadStart).toBeNull();
+    history.undo();
+    expect(world.budget.money).toBe(before);
+    expect(world.getRoad(o.tx + 8, o.ty + 4)).toBe(ROAD_NONE);
+    expect(history.canUndo).toBe(false);
+  });
+
+  it('right-click abandons the road; a right-drag pans and keeps it', () => {
+    click(1, 1);
+    canvas.fire('pointerdown', { ...at(4, 4), button: 2 });
+    canvas.fire('pointermove', { ...at(7, 7), button: 2 });
+    canvas.fire('pointerup',   { ...at(7, 7), button: 2 });
+    expect(input.autoRoadStart).not.toBeNull();
+    click(4, 4, 2);
+    expect(input.autoRoadStart).toBeNull();
+    expect(history.canUndo).toBe(false);
+  });
+
+  it('builds nothing and keeps the start when the money does not cover the whole road', () => {
+    click(1, 1);
+    world.budget.money = STREET_COST * 3;           // enough for 3 of 6 tiles
+    click(6, 1);
+    for (let dx = 1; dx <= 6; dx++) expect(world.getRoad(o.tx + dx, o.ty + 1)).toBe(ROAD_NONE);
+    expect(world.budget.money).toBe(STREET_COST * 3);
+    expect(rejected).toEqual(['funds']);
+    expect(input.autoRoadStart).toEqual({ tx: o.tx + 1, ty: o.ty + 1 });
+    expect(history.canUndo).toBe(false);
+  });
+
+  it('skips a building in the way, and existing road costs nothing', () => {
+    world.placeBuilding(o.tx + 3, o.ty + 1, BUILDING_PARK);
+    world.setRoad(o.tx + 4, o.ty + 1, ROAD_STREET);
+    const before = world.budget.money;
+    click(1, 1);
+    click(6, 1);
+    expect(world.getBuilding(o.tx + 3, o.ty + 1)).toBe(BUILDING_PARK);
+    expect(world.getRoad(o.tx + 6, o.ty + 1)).toBe(ROAD_STREET);
+    expect(before - world.budget.money).toBe(STREET_COST * 4);
+  });
+
+  it('switching tool or mode drops the start; manual mode still drags', () => {
+    click(1, 1);
+    tool = 'avenue';
+    expect(input.autoRoadStart).toBeNull();
+    tool = 'road';
+    click(1, 1);
+    mode = 'manual';
+    expect(input.autoRoadStart).toBeNull();
+    canvas.fire('pointerdown', at(0, 6));
+    canvas.fire('pointermove', at(3, 6));
+    canvas.fire('pointerup',   at(3, 6));
+    for (let dx = 0; dx <= 3; dx++) expect(world.getRoad(o.tx + dx, o.ty + 6)).toBe(ROAD_STREET);
+  });
+
+  it('a drag in auto mode pans instead of building', () => {
+    const camX = camera.x;
+    canvas.fire('pointerdown', at(1, 1));
+    canvas.fire('pointermove', at(5, 1));
+    canvas.fire('pointerup',   at(5, 1));
+    expect(camera.x).not.toBe(camX);
+    expect(input.autoRoadStart).toBeNull();
+  });
+});
+
+describe('auto road route and price', () => {
+  it('is an L with no repeated tile, longer leg first', () => {
+    const path = autoRoadPath({ tx: 2, ty: 2 }, { tx: 4, ty: 7 });
+    expect(path[0]).toEqual({ tx: 2, ty: 2 });
+    expect(path[path.length - 1]).toEqual({ tx: 4, ty: 7 });
+    expect(path).toHaveLength(8);
+    expect(path[5]).toEqual({ tx: 2, ty: 7 });      // the corner: y leg first
+    expect(new Set(path.map(p => p.tx + ',' + p.ty)).size).toBe(8);
+    expect(autoRoadPath({ tx: 3, ty: 3 }, { tx: 3, ty: 3 })).toEqual([{ tx: 3, ty: 3 }]);
+  });
+
+  it('prices new road, upgrades and blocked tiles like the build does', () => {
+    const world = new World(64, 64, 1);
+    const o = dryBlock(world, 8, 2);
+    world.setRoad(o.tx + 1, o.ty, ROAD_STREET);
+    world.placeBuilding(o.tx + 2, o.ty, BUILDING_PARK);
+    const tiles = autoRoadPath({ tx: o.tx, ty: o.ty }, { tx: o.tx + 4, ty: o.ty });
+    const street = planAutoRoad(world, tiles, ROAD_STREET);
+    expect(street).toMatchObject({ cost: STREET_COST * 3, buildCount: 3, blockedCount: 1, affordable: true });
+    const avenue = planAutoRoad(world, tiles, ROAD_AVENUE);
+    const av = BALANCE.roadClasses[ROAD_AVENUE].cost;
+    expect(avenue.cost).toBe(av * 3 + (av - STREET_COST));
+    world.budget.money = avenue.cost - 1;
+    expect(planAutoRoad(world, tiles, ROAD_AVENUE).affordable).toBe(false);
   });
 });
