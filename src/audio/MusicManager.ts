@@ -33,9 +33,13 @@ export function playlistOrder(tracks: Track[]): Track[] {
   return out;
 }
 
+/** Master gain at full volume; the volume slider scales this. */
+const BASE_GAIN = 0.12;
+
 export class MusicManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private volume = 1;
   private currentTrackIndex = 0;
   private tracks: Track[] = [];
   private isPlaying = false;
@@ -91,7 +95,7 @@ export class MusicManager {
       this.ctx = new AudioContextClass();
       this.masterGain = this.ctx!.createGain();
       this.masterGain.connect(this.ctx!.destination);
-      this.masterGain.gain.value = 0.12; 
+      this.masterGain.gain.value = BASE_GAIN * this.volume;
     }
     if (this.ctx!.state === 'suspended') this.ctx!.resume();
   }
@@ -191,4 +195,14 @@ export class MusicManager {
   }
   
   public isCurrentlyPlaying(): boolean { return this.isPlaying; }
+
+  /** Music volume, 0..1. Takes effect immediately, with a short ramp to avoid clicks. */
+  public setVolume(v: number) {
+    this.volume = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 1));
+    if (this.ctx && this.masterGain) {
+      this.masterGain.gain.setTargetAtTime(BASE_GAIN * this.volume, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  public getVolume(): number { return this.volume; }
 }
