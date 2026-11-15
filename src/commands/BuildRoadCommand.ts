@@ -47,7 +47,7 @@ export class BuildRoadCommand extends Command {
     const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost * (isWater ? BALANCE.costs.bridgeMultiplier : 1) : 0;
     const cost = targetCost - currentCost;
 
-    if (world.budget.money < cost) return false;
+    if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     // Snapshot for undo
     this.snap = snapshotTile(world, this.tx, this.ty);
@@ -101,6 +101,7 @@ export class BuildRoadCommand extends Command {
     // 3. Verify we can afford the PC cost
     if (this.pcCost > 0 && world.budget.politicalCapital < this.pcCost) {
       world.layers.roadClass[i] = oldClass; // Revert temp change
+      this.failReason = 'politicalCapital';
       return false;
     }
 

@@ -10,7 +10,7 @@
 
 import type { Camera } from '../render/Camera';
 import type { World } from '../sim/World';
-import type { Command } from '../commands/Command';
+import type { Command, FailReason } from '../commands/Command';
 import type { CommandHistory } from '../commands/CommandHistory';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
@@ -74,6 +74,7 @@ export class InputController {
   private readonly getHistory: () => CommandHistory;
   private readonly getTool: () => Tool;
   private readonly onHover: (tile: { tx: number; ty: number }) => void;
+  private readonly onRejected: ((reason: FailReason) => void) | undefined;
 
   private readonly pointers = new Map<number, { sx: number; sy: number }>();
   private lastSingle: { sx: number; sy: number } | null = null;
@@ -92,6 +93,7 @@ export class InputController {
     getHistory: () => CommandHistory,
     getTool: () => Tool,
     onHover: (tile: { tx: number; ty: number }) => void,
+    onRejected?: (reason: FailReason) => void,
   ) {
     this.canvas = canvas;
     this.camera = camera;
@@ -99,6 +101,7 @@ export class InputController {
     this.getHistory = getHistory;
     this.getTool = getTool;
     this.onHover = onHover;
+    this.onRejected = onRejected;
     canvas.addEventListener('pointerdown',   this._down.bind(this));
     canvas.addEventListener('pointermove',   this._move.bind(this));
     canvas.addEventListener('pointerup',     this._up.bind(this));
@@ -289,7 +292,7 @@ export class InputController {
         if (world.layers.zone[i] === zone) continue;
       }
       const cmd = commandForTool(tool, tx, ty);
-      if (cmd) history.run(cmd);
+      if (cmd) this._run(history, cmd);
     }
   }
 
@@ -309,6 +312,11 @@ export class InputController {
 
   private _applyTool(tx: number, ty: number): void {
     const cmd = commandForTool(this.getTool(), tx, ty);
-    if (cmd) this.getHistory().run(cmd);
+    if (cmd) this._run(this.getHistory(), cmd);
+  }
+
+  /** Runs a command; if it was refused for funds / political capital, tells the UI. */
+  private _run(history: CommandHistory, cmd: Command): void {
+    if (!history.run(cmd) && cmd.failReason) this.onRejected?.(cmd.failReason);
   }
 }

@@ -43,10 +43,10 @@ export class PaintZoneCommand extends Command {
     const cost = this.newZone === ZONE_R ? BALANCE.costs.zoneR
                : this.newZone === ZONE_C ? BALANCE.costs.zoneC
                : BALANCE.costs.zoneI;
-    if (world.budget.money < cost) return false;
+    if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     const { displacedPopulation, pcCost, pcReward } = tileDisruption(world, this.tx, this.ty);
-    if (pcCost > 0 && world.budget.politicalCapital < pcCost) return false;
+    if (pcCost > 0 && world.budget.politicalCapital < pcCost) { this.failReason = 'politicalCapital'; return false; }
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;

@@ -247,12 +247,13 @@ describe('BulldozeCommand', () => {
     expect(ok).toBe(false);
   });
 
-  it('returns false when broke', () => {
+  it('is allowed when broke, and still charges (demolition cuts upkeep in debt)', () => {
     w.setZone(tx, ty, ZONE_R);
-    w.budget.money = 0;
+    w.budget.money = -100;
     const ok = new BulldozeCommand(tx, ty).execute(w);
-    expect(ok).toBe(false);
-    expect(w.getZone(tx, ty)).toBe(ZONE_R);
+    expect(ok).toBe(true);
+    expect(w.getZone(tx, ty)).toBe(ZONE_NONE);
+    expect(w.budget.money).toBe(-100 - BALANCE.costs.bulldoze);
   });
 
   it('undo restores zone and refunds money', () => {

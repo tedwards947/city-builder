@@ -65,8 +65,12 @@ export const BALANCE = {
     smoothing: 0.1,
     // Crime level (0-255) above which R/C zones can't grow.
     growthThreshold: 100,
-    // Crime level (0-255) above which abandonment might trigger.
-    abandonThreshold: 180,
+    // Crime level (0-255) above which a tile slowly accumulates distress.
+    // Sits above unpoliced commercial L2 (~112) so that level is stable.
+    distressThreshold: 130,
+    // Crime level (0-255) at which a tile is in severe distress and abandons fast.
+    // Unpoliced commercial L3 peaks at ~168, so L3 commerce needs police.
+    abandonThreshold: 150,
     // City-wide average crime (0-255) above which a crimeSpike alert fires.
     alertThreshold: 60,
     // Minimum ticks between repeated crimeSpike alerts.
@@ -89,8 +93,12 @@ export const BALANCE = {
     spreadProbability: 0.04,
     // Fire burn duration in ticks.
     burnDuration: 20,
-    // Fire risk (0-255) above which abandonment might trigger.
-    abandonThreshold: 150,
+    // Fire risk (0-255) above which abandonment might trigger. Only heavily
+    // polluted L3 industry without a fire station gets this high (max ~128).
+    abandonThreshold: 110,
+    // Dev levels a building loses when a fire burns out on a tile with no fire
+    // station coverage. Covered tiles are put out before they take damage.
+    damageLevels: 1,
   },
   education: {
     // Education gain per tick if school[i] === 1.
@@ -259,11 +267,11 @@ export const BALANCE = {
     // Diffusion + decay run every simInterval ticks.
     simInterval: 4,
     // Byte units a tile moves per nudge point. The character.nudges values above
-    // are in points: e.g. parkBuilt green 5.0 → +40 (capped), industrialZone
-    // green −3.0 → −30, residentialZone egalitarian 0.3 → +3.
-    nudgeByteScale: 10,
+    // are in points: e.g. parkBuilt green 5.0 → +60 (capped), industrialZone
+    // green −3.0 → −60 (capped), residentialZone egalitarian 0.3 → +8.
+    nudgeByteScale: 25,
     // Cap on a single nudge so one action never saturates a tile.
-    nudgeMaxBytes: 40,
+    nudgeMaxBytes: 60,
     // Chance per sim step that a non-neutral tile steps 1 toward 128.
     // Integer steps gated by a roll — a fractional decay is lost to byte rounding.
     // 0.25 → a fully saturated, isolated region fades in ~2000 ticks (~250 game-days).
@@ -278,6 +286,16 @@ export const BALANCE = {
   abandonment: {
     distressInterval: 4,    // ticks between distress checks (aligned with growth interval)
     abandonThreshold: 20,   // distress checks without conditions before abandonment (~10 game-days)
+  },
+
+  // ── Budget alerts ────────────────────────────────────────────────────────────
+  // Money below zero blocks everything that costs money except bulldozing
+  // (demolition is how a broke city cuts its upkeep).
+  budget: {
+    // Warn when, at the current net loss, the treasury runs dry within this many game-days.
+    lowFundsWarningDays: 30,
+    // Minimum ticks between repeated low-funds warnings.
+    warningCooldownTicks: 240,
   },
 
   ticksPerDay: 8,

@@ -92,12 +92,24 @@ export interface TranslationSchema {
       healthcareCrisisMsg: string;
       buildingAbandonedTitle: string;
       buildingAbandonedMsg: string;
+      fireDamageTitle: string;
+      fireDamageMsg: string;
+      lowFundsTitle: string;
+      lowFundsMsg: string;
+      debtTitle: string;
+      debtMsg: string;
+      debtClearedTitle: string;
+      debtClearedMsg: string;
+      cantBuildTitle: string;
+      noFunds: string;
+      noPoliticalCapital: string;
     };
     hud: {
       tile: string;
       camera: string;
       zoom: string;
       polCapital: string;
+      inDebt: string;
       money: string;
       population: string;
       power: string;

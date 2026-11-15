@@ -7,7 +7,12 @@ import type { World } from '../sim/World';
 import { BUILDING_NONE, ZONE_R } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
+/** Why execute() refused, when the reason is worth telling the player. */
+export type FailReason = 'funds' | 'politicalCapital';
+
 export abstract class Command {
+  /** Set by execute() when it returns false for lack of money or political capital. */
+  failReason: FailReason | null = null;
   abstract execute(world: World): boolean;
   abstract undo(world: World): void;
 }

@@ -26,10 +26,10 @@ export class PlaceBuildingCommand extends Command {
   execute(world: World): boolean {
     if (!world.isBuildable(this.tx, this.ty)) return false;
     const cost = BALANCE.buildings[this.kind]?.cost ?? 0;
-    if (world.budget.money < cost) return false;
+    if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     const { displacedPopulation, pcCost } = tileDisruption(world, this.tx, this.ty);
-    if (pcCost > 0 && world.budget.politicalCapital < pcCost) return false;
+    if (pcCost > 0 && world.budget.politicalCapital < pcCost) { this.failReason = 'politicalCapital'; return false; }
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;

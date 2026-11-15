@@ -19,6 +19,8 @@
     #citystats { text-align: right; }
     #citystats .value.money { color: #7dd87d; }
     #citystats .value.money.negative { color: #e07070; }
+    #stat-debt { color: #e07070; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    #stat-debt[hidden] { display: none; }
     #citystats .value.pc { color: #7dd8c0; }
     #citystats .value.pc.low { color: #e0b050; }
     #citystats .value.pc.critical { color: #e07070; }
@@ -177,7 +179,9 @@
         <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100</span>
         <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
       </div>
-      <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span></div>
+      <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>
+        <div id="stat-debt" data-i18n="ui.hud.inDebt" hidden>In debt · building blocked</div>
+      </div>
       <div><span class="label" data-i18n="ui.hud.population">Population</span> <span class="value" id="stat-pop">0</span></div>
       <div><span class="label" data-i18n="ui.hud.power">Power</span> <span class="value" id="stat-power">0 / 0</span></div>
       <div><span class="label" data-i18n="ui.hud.water">Water</span> <span class="value" id="stat-water">0 / 0</span></div>

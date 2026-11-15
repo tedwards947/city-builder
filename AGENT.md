@@ -35,7 +35,11 @@ src/
   render/
     CanvasRenderer.ts, Camera.ts, Projection.ts, VehicleLayer.ts,
     SpriteRegistry.ts, SpriteTypes.ts, registryLoader.ts, CharacterPalette.ts
-    entities/          procedural sprites, one file each (see SPRITE_GUIDE.md there)
+    clay/              ClaySprites.ts (image building sprites, baked lot-dressing variants, smoke/flare effects),
+                       claySpriteData.ts (generated), groundTones.ts (ground mask + tones),
+                       lotGround.ts (free-ground analysis), lotDressing.ts (landscaping planner, no DOM),
+                       lotDressingDraw.ts (paints a plan)
+    entities/          code-drawn fallback sprites, one file each (see SPRITE_GUIDE.md there)
       res-low, comm-low, comm-mid, comm-high, ind-low, ind-high
   input/
     InputController.ts (pointer/touch, drag-to-paint, panning), dragPath.ts
@@ -264,6 +268,9 @@ The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every a
 | `crimeSpike` | CrimeSystem | `avgCrime, threshold, affectedTiles` (cooldown-throttled) |
 | `fireIgnition` | FireSystem | `tx, ty, zone, devLevel` |
 | `fireSpreading` | FireSystem | `tx, ty` |
+| `fireDamage` | FireSystem | `tx, ty, zone, level` (level after the fire) |
+| `budgetWarning` | EconomySystem | `money, daysLeft` (cooldown-throttled) |
+| `debtEntered` / `debtCleared` | EconomySystem | `money` (once on each transition) |
 | `tileAbandoned` | AbandonmentSystem | `tx, ty, zone, level` |
 | `tileDeveloped` | ZoneGrowthSystem | `tx, ty, zone, level` |
 | `deathEvent` | HealthcareSystem | `tx, ty` |
@@ -321,6 +328,8 @@ Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overl
 
 - Repainting a tile with the zone it already has is refused, free of charge. Exception: on an abandoned tile it clears the lot and pays the blight-clearing PC reward once.
 - The zone tool refuses to paint over a road.
+- Money below zero blocks everything that costs money **except bulldozing** (demolition is how a broke city cuts upkeep).
+- A command refused for lack of money or political capital sets `cmd.failReason` (`'funds'` / `'politicalCapital'`); `InputController` passes it to `main.ts`, which shows a throttled toast.
 - Anything that displaces residents (bulldoze, rezone, building or road over a zone) costs political capital via `tileDisruption()` and is blocked if unaffordable. Undo reverses the net PC change.
 
 ---
@@ -425,24 +434,31 @@ water:        towerOutput=250, perDevLevel=1, propagationRange=1
 sewage:       plantOutput=300, perDevLevel=2, propagationRange=1
 pollution:    industryOutput=40, powerPlantOutput=30, decayRate=0.97,
               diffusionRate=0.20, growthThreshold=20
-crime:        growthThreshold=100, alertThreshold=60, alertCooldownTicks=40, abandonThreshold=180
-fire:         baseProbability=0.00015, burnDuration=20, spreadProbability=0.04, abandonThreshold=150
+crime:        growthThreshold=100, distressThreshold=130, abandonThreshold=150,
+              alertThreshold=60, alertCooldownTicks=40
+fire:         baseProbability=0.00015, burnDuration=20, spreadProbability=0.04,
+              abandonThreshold=110, damageLevels=1
 healthcare:   crisisThreshold=100, crisisCooldownTicks=40, growthThreshold=180
 growth:       tickInterval=4, probability=0.08, maxLevel=3
               popPerLevel: {1:4, 2:10, 3:20}
-vibe:         simInterval=4, nudgeByteScale=10, nudgeMaxBytes=40, decayProbability=0.25
+vibe:         simInterval=4, nudgeByteScale=25, nudgeMaxBytes=60, decayProbability=0.25
+budget:       lowFundsWarningDays=30, warningCooldownTicks=240
 abandonment:  distressInterval=4, abandonThreshold=20
 politics:     max PC=100, bulldozePerPop=3.5, abandonedBuildingReward=2.5
 ticksPerDay:  8, baseTickMs=500, startingMoney=20000, startingPoliticalCapital=100
 ```
 
-Known balance gaps (design decisions still open):
+How the stakes work:
 
-- Negative money has no consequence (no bankruptcy, building is not blocked).
-- `crime.abandonThreshold` (180) and `fire.abandonThreshold` (150) are never reached in practice; crime tops out near 168 and fire risk near 128.
-- Fires are cosmetic: they don't damage or downgrade buildings.
-- Commercial L2+ without police coverage reliably abandons.
-- Vibe nudges are small (one residential paint moves a tile 1–3 of 255); tune `vibe.nudgeByteScale`.
+- **Debt:** below $0 only bulldozing is allowed. EconomySystem warns ~30 game-days ahead and on entering/leaving debt; the HUD shows a debt badge.
+- **Fire:** a fire that burns out on a tile with no fire station coverage drops the building one level (level 1 becomes an empty lot). Covered tiles are put out before they take damage.
+- **Crime:** peak unpoliced crime is ~56 per level for commercial, ~28 residential, ~20 industrial. Commercial L2 (112) is stable; commercial L3 (168) passes `abandonThreshold` and abandons, so it needs police.
+- **Fire risk:** only heavily polluted L3 industry without a fire station reaches `fire.abandonThreshold`.
+
+Known balance gaps:
+
+- The economy is generous: test cities bank $350k+ by day 500, so debt is rare once a city is established.
+- With police and fire coverage nothing abandons except through lost power, water or road access.
 
 ---
 
@@ -462,6 +478,7 @@ Test files:
 - `abandonment`, `crime`, `fire`, `education`, `vibes` — one file per system
 - `eventbus.test.ts` — EventBus alert events: emission, payload shape, cooldown deduplication
 - `commands.test.ts` — command execute/undo, restoreTile correctness, PC costs, exploit regressions
+- `stakes.test.ts` — debt events and blocking, fire damage, reachable abandonment thresholds, refusal reasons
 - `history-batch.test.ts` — batched strokes, undo/redo
 - `dragPath.test.ts`, `input-drag.test.ts` — drag-to-paint paths and synthetic pointer events
 - `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game

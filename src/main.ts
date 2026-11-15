@@ -1,7 +1,8 @@
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
-import { localizeHTML, tArray } from './i18n';
+import { localizeHTML, t, tArray } from './i18n';
+import type { FailReason } from './commands/Command';
 
 localizeHTML();
 
@@ -168,6 +169,21 @@ let hoverTile: { tx: number; ty: number } | null = null;
 type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe';
 let overlay: Overlay = 'none';
 
+// A refused click or drag says why, at most once every few seconds per reason
+// (a drag stroke can be refused on every tile it crosses).
+const REJECT_TOAST_MS = 4000;
+const lastRejectToast: Record<string, number> = {};
+function notifyRejected(reason: FailReason): void {
+  const now = performance.now();
+  if (now - (lastRejectToast[reason] ?? -Infinity) < REJECT_TOAST_MS) return;
+  lastRejectToast[reason] = now;
+  toastPanel.showToast(
+    t('ui.toast.cantBuildTitle'),
+    t(reason === 'funds' ? 'ui.toast.noFunds' : 'ui.toast.noPoliticalCapital'),
+    'warning',
+  );
+}
+
 new InputController(
   canvas,
   camera,
@@ -175,6 +191,7 @@ new InputController(
   () => state.history,
   () => currentTool,
   (tile) => { hoverTile = tile; },
+  (reason) => notifyRejected(reason),
 );
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
@@ -370,6 +387,7 @@ const statZoom  = document.getElementById('stat-zoom')!;
 const statPC    = document.getElementById('stat-pc')!;
 const pcBar     = document.getElementById('pc-bar')!;
 const statMoney = document.getElementById('stat-money')!;
+const statDebt  = document.getElementById('stat-debt')!;
 const statPop   = document.getElementById('stat-pop')!;
 const statPower = document.getElementById('stat-power')!;
 const statWater  = document.getElementById('stat-water')!;
@@ -429,6 +447,7 @@ function frame(now: number): void {
   (pcBar as HTMLElement).style.background = pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   statMoney.textContent = formatMoney(state.world.budget.money);
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
+  statDebt.hidden = state.world.budget.money >= 0;
   statPop.textContent   = state.world.stats.population.toLocaleString();
   statPower.textContent = `${state.world.stats.powerDemand} / ${state.world.stats.powerSupply}`;
   statWater.textContent  = `${state.world.stats.waterDemand} / ${state.world.stats.waterSupply}`;

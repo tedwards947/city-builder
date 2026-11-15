@@ -5,6 +5,7 @@ import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
 import { SpriteRegistry } from './SpriteRegistry';
 import type { VibeState } from './SpriteTypes';
+import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, type ClayEffect } from './clay/ClaySprites';
 import { BALANCE } from '../data/balance';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
@@ -56,10 +57,12 @@ export class CanvasRenderer {
   private _lastTick = -1;
   private _lastChunkCount = 0;
   private _lastZoom = -1;
+  private _clayEffects: ClayEffect[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    loadClaySprites();
   }
 
   render(world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null, currentTool: string = 'none', trafficOverlay = false, crimeOverlay = false, fireOverlay = false, vibeOverlay = false, serviceCoveragePreview: Set<number> | null = null, now = 0): void {
@@ -150,6 +153,9 @@ export class CanvasRenderer {
 
     const hasOverlay = trafficOverlay || crimeOverlay || fireOverlay || vibeOverlay;
     let iterations = 0;
+    const clayTile = Math.ceil(ts);
+    const clayEffects = this._clayEffects;
+    clayEffects.length = 0;
 
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
       for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
@@ -186,9 +192,30 @@ export class CanvasRenderer {
             isNight:     false
         };
 
-        const sprite = SpriteRegistry.instance.findBest(spriteKey, localVibe, visualVariant);
+        // Clay image sprites come first; the code-drawn sprites are the
+        // fallback while images load or where no image exists.
+        const isAbandoned = world.layers.abandoned[i] !== 0;
+        const clay = spriteKey ? pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant) : undefined;
+        const sprite = clay || !spriteKey ? undefined : SpriteRegistry.instance.findBest(spriteKey, localVibe, visualVariant);
 
-        if (sprite) {
+        if (clay) {
+          // The lot ID picks the design (low bits) and the ground tone (higher bits).
+          drawClaySprite(ctx, clay, sxi, syi, clayTile, visualVariant >> 3);
+          if (building === BUILDING_NONE) {
+            // The plot hides the chunk layer's status tints, so repeat them here.
+            let tint: string | null = null;
+            if (isAbandoned) tint = 'rgba(24,18,12,0.38)';
+            else if (world.layers.power[i] === 0) tint = p.noPowerTint;
+            else if (world.layers.water[i] === 0 && dev >= 1) tint = p.noWaterTint;
+            else if (world.layers.sewage[i] === 0 && dev >= 2) tint = p.noSewageTint;
+            else if (world.layers.services[i] === 0 && dev >= 2) tint = p.noServicesTint;
+            if (tint) {
+              ctx.fillStyle = tint;
+              ctx.fillRect(sxi, syi, clayTile, clayTile);
+            }
+          }
+          if (!isAbandoned && ts >= 10) collectClayEffects(clay, sxi, syi, clayTile, i, clayEffects);
+        } else if (sprite) {
           ctx.save();
           ctx.translate(sxi, syi);
           sprite.draw(ctx, ts, now * 0.001, p, localVibe);
@@ -244,6 +271,9 @@ export class CanvasRenderer {
       }
 
     }
+
+    // Smoke, steam and flares rise over everything behind them.
+    if (clayEffects.length > 0) drawClayEffects(ctx, clayEffects, now * 0.001);
 
     if (camera.zoom >= 1.2) {
       ctx.strokeStyle = 'rgba(0,0,0,0.15)';

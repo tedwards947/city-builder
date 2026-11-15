@@ -62,6 +62,21 @@ export class ToastPanel {
     this.handlers['healthcareCrisis'] = (p: CityEvents['healthcareCrisis']) => {
       this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert');
     };
+    this.handlers['fireDamage'] = (p: CityEvents['fireDamage']) => {
+      // p.level is the level after the fire; only report losses of bigger buildings.
+      if (p.level >= 1) {
+        this.showToast(t('ui.toast.fireDamageTitle'), t('ui.toast.fireDamageMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning');
+      }
+    };
+    this.handlers['budgetWarning'] = (p: CityEvents['budgetWarning']) => {
+      this.showToast(t('ui.toast.lowFundsTitle'), t('ui.toast.lowFundsMsg', { days: Math.max(1, Math.round(p.daysLeft)) }), 'warning');
+    };
+    this.handlers['debtEntered'] = () => {
+      this.showToast(t('ui.toast.debtTitle'), t('ui.toast.debtMsg'), 'alert');
+    };
+    this.handlers['debtCleared'] = () => {
+      this.showToast(t('ui.toast.debtClearedTitle'), t('ui.toast.debtClearedMsg'), 'info');
+    };
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam
       if (p.level >= 2) {

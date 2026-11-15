@@ -112,12 +112,28 @@ export const en: TranslationSchema = {
       buildingAbandonedTitle: "Building Abandoned",
       buildingAbandonedMsg:
         "A level {level} building was abandoned at {tx}, {ty}.",
+      fireDamageTitle: "Fire Damage",
+      fireDamageMsg:
+        "Fire gutted a building at {tx}, {ty}; it is down to level {level}. A fire station in range prevents this.",
+      lowFundsTitle: "Funds Running Low",
+      lowFundsMsg:
+        "At this rate the treasury is empty in about {days} days.",
+      debtTitle: "The City Is In Debt",
+      debtMsg:
+        "Nothing new can be built until the budget is back above zero. Demolishing is still allowed, to cut upkeep.",
+      debtClearedTitle: "Debt Cleared",
+      debtClearedMsg: "The treasury is back in the black. Building is unlocked.",
+      cantBuildTitle: "Can't Do That",
+      noFunds: "Not enough money.",
+      noPoliticalCapital:
+        "Not enough political capital to displace these residents.",
     },
     hud: {
       tile: "Tile",
       camera: "Camera",
       zoom: "Zoom",
       polCapital: "Pol. Capital",
+      inDebt: "In debt · building blocked",
       money: "Money",
       population: "Population",
       power: "Power",

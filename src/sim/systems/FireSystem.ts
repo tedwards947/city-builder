@@ -68,6 +68,17 @@ export class FireSystem {
 
         if (fire[i] === 0) {
           world.grid.markDirty(tx, ty);
+          // Burned out with no fire station in range: the building is damaged.
+          if (fireStation[i] === 0 && z !== ZONE_NONE && level > 0) {
+            const newLevel = Math.max(0, level - b.damageLevels);
+            dev[i] = newLevel;
+            if (newLevel === 0) {
+              // Burned to the ground: the lot is empty again (ruins included).
+              world.layers.abandoned[i] = 0;
+              world.layers.distress[i] = 0;
+            }
+            world.events.emit('fireDamage', { tx, ty, zone: z, level: newLevel });
+          }
         }
 
         // 3. Fire Spreading

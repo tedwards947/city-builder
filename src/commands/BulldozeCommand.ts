@@ -25,14 +25,15 @@ export class BulldozeCommand extends Command {
     if (world.layers.zone[i] === ZONE_NONE &&
         world.layers.roadClass[i] === ROAD_NONE &&
         world.layers.building[i] === BUILDING_NONE) return false;
-    if (world.budget.money < BALANCE.costs.bulldoze) return false;
+    // No funds check: demolition is allowed in debt (it is how a broke city
+    // cuts upkeep). It still charges BALANCE.costs.bulldoze.
 
     // Displacing residents from an active zone costs PC; clearing an abandoned
     // building rewards it (clearing blight is popular).
     const { displacedPopulation, pcCost, pcReward } = tileDisruption(world, this.tx, this.ty);
 
     // Check if we can afford the PC cost (if any).
-    if (pcCost > 0 && world.budget.politicalCapital < pcCost) return false;
+    if (pcCost > 0 && world.budget.politicalCapital < pcCost) { this.failReason = 'politicalCapital'; return false; }
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = BALANCE.costs.bulldoze;
