@@ -9,7 +9,7 @@ Buildings are drawn from **clay image sprites**. Until an image has loaded, the 
 - Names: `{res,com,ind}-{1,2,3}`, an optional design letter (`-b`, `-c`, `-d`…; the game picks among a slot's designs by lot ID), plus optional `-green`, `-gritty`, `-communal`, `-wealthy`; civic buildings are `power, water, sewage, police, fire, school, hospital, park` (one look each, no vibe variants).
 - `src/render/clay/ClaySprites.ts` loads them, picks the variant from the tile's local vibe (abandoned buildings always use gritty), and scales the plot to fill the tile. Buildings rise above their plot, so tiles are drawn top row first.
 - Smoke, steam and flares are **not** in the images. They are drawn by code at the points listed in `EMITTERS` in `ClaySprites.ts` (256px sprite coordinates). Keep smoke out of new art and add an emitter instead.
-- Fire is code-drawn too: `drawClayFire` (flames, glow, smoke) while a lot burns and `drawClaySmolder` (soot and thin smoke, 20 s, render-only) after it goes out. Both, and the crime / sickness / death lot markers, are drawn after every sprite so the building in front cannot hide them.
+- Fire is code-drawn too: `drawClayFire` (flames, glow, smoke) while a lot burns and `drawClaySmolder` (soot and thin smoke, 20 s, render-only) after it goes out. Both are drawn after every sprite, so nothing covers them. (Crime, sickness and deaths: see Problem indicators below.)
 - Review page: open `art/clay-set/index.html`.
 
 ### Lot dressing (landscaping)
@@ -38,4 +38,12 @@ All code-drawn, in `roads.ts` (no images).
 - `drawClayRoad` draws one road tile into the chunk layer from its class and its four neighbours' classes: street (narrow, dashed line, pavement), avenue (fills the tile, planted median), highway (dark, barriers). Junctions of three or more arms get zebra crossings and stop lines; a road on water is a bridge (parapets, arches, piers, shadow). A tile draws only inside itself, and `_chunkSignature` mixes in the neighbouring chunks' road classes along the edge.
 - Traffic is shown per tile, with no vehicles travelling the map (the owner removed the wandering cars): each lane is a conveyor of slots and a slot shows a car only where the tile is busy enough. `roadTrafficCars` (pure, tested in `src/__tests__/roads.test.ts`) takes the tile's load (`trafficVolume / roadCapacity`, not capped) and goods share (vans and trucks); cars brake when the road is over capacity. `drawTrafficCars` draws them from small baked pictures in the per-frame pass, from 12px tiles up.
 - Design mock with the alternatives that were considered: `art/clay-set/roads.html` (the owner chose J2 and T1).
+
+### Problem indicators
+
+Crime and sickness are shown by `problemPins.ts`, drawn per frame above everything else (never into chunks).
+
+- Zoomed out (tiles under 30px): one pin per troubled district, sized by how many lots it covers, with a count. `findProblemClusters` groups affected lots (it treats lots up to two tiles apart as one district, so roads do not split it); the renderer regroups after a sim tick, at most every 400 ms. Under 10px tiles, districts of one or two lots get no pin.
+- Zoomed in: a small badge on each seriously affected building (crime top right, health top left), plus a headstone badge for a recent death.
+- The owner chose this over per-lot markers, which swamped the city when zoomed out. Alternatives considered: `art/clay-set/indicators.html`.
 

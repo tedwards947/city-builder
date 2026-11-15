@@ -25,6 +25,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Decided
 
+- **Problem indicators:** merged pins per district when zoomed out, a badge per building when zoomed in (option A on `art/clay-set/indicators.html`). The dark no-power / no-water / no-sewage / no-services tints are unchanged; ask the owner before reworking them.
 - **Roads and traffic:** code-drawn clay roads with crosswalks and stop lines at junctions (J2) and per-tile clay cars for traffic (T1); the wandering cars are gone. Mock: `art/clay-set/roads.html`.
 - **Building taste:** the owner loves brutalist and modernist designs (favourite: `com-3-f`); lean that way for future high-level buildings. Of the brutalist batch, `res-3-h`, `res-3-j`, `com-3-i`, `com-3-j` were kept; the ziggurat and the inverted pyramid were rejected.
 - **Code-drawn fallback sprites and the Shift+S sandbox** are deleted. Before a clay image loads, the flat chunk-layer drawing shows.
