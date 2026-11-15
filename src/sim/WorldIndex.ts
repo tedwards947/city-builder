@@ -30,6 +30,16 @@
 import type { World } from './World';
 import { ROAD_NONE, ZONE_NONE, BUILDING_NONE } from './constants';
 
+/** 32-bit views over byte layers, or null if any of them is not word-aligned. */
+function wordViews(...layers: Uint8Array[]): Uint32Array[] | null {
+  const views: Uint32Array[] = [];
+  for (const a of layers) {
+    if (a.byteOffset % 4 !== 0) return null;
+    views.push(new Uint32Array(a.buffer, a.byteOffset, a.length >> 2));
+  }
+  return views;
+}
+
 export class WorldIndex {
   roads: Int32Array;
   roadCount = 0;
@@ -55,24 +65,31 @@ export class WorldIndex {
     let roadCount = 0, zonedCount = 0;
     let x0 = width, y0 = height, x1 = -1, y1 = -1;
 
-    for (let y = 0; y < height; y++) {
-      const row = y * width;
-      let first = -1, last = -1;
-      for (let x = 0; x < width; x++) {
-        const i = row + x;
-        const rc = roadClass[i], z = zone[i];
-        if (rc === ROAD_NONE && z === ZONE_NONE && building[i] === BUILDING_NONE) continue;
-        if (rc !== ROAD_NONE) roads[roadCount++] = i;
-        if (z !== ZONE_NONE) zoned[zonedCount++] = i;
-        if (first < 0) first = x;
-        last = x;
-      }
-      if (first < 0) continue;
-      if (first < x0) x0 = first;
-      if (last > x1) x1 = last;
+    // Most of the map is empty land, so test four tiles at a time through
+    // 32-bit views and only look closer where something is set.
+    const n = width * height;
+    const words = wordViews(roadClass, zone, building);
+    const wordCount = words ? n >> 2 : 0;
+    const visit = (i: number) => {
+      const rc = roadClass[i], z = zone[i];
+      if (rc === ROAD_NONE && z === ZONE_NONE && building[i] === BUILDING_NONE) return;
+      if (rc !== ROAD_NONE) roads[roadCount++] = i;
+      if (z !== ZONE_NONE) zoned[zonedCount++] = i;
+      const x = i % width, y = (i - x) / width;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
       if (y < y0) y0 = y;
-      y1 = y;
+      y1 = y; // i only increases, so the last row seen is the lowest
+    };
+    if (words) {
+      const [r32, z32, b32] = words;
+      for (let w = 0; w < wordCount; w++) {
+        if ((r32[w] | z32[w] | b32[w]) === 0) continue;
+        const i = w << 2;
+        visit(i); visit(i + 1); visit(i + 2); visit(i + 3);
+      }
     }
+    for (let i = wordCount << 2; i < n; i++) visit(i);
 
     this.roadCount = roadCount;
     this.zonedCount = zonedCount;
