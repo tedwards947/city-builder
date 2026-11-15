@@ -22,3 +22,11 @@ Zone sprites are not drawn as painted: each lot shows one of `CLAY_DRESSING_COUN
 - Trees are the only image props: `public/sprites/clay/props/{tree,pine,tree-autumn,tree-blossom}.png`, cut from `art/clay-set/landscaping/raw` by `node art/clay-set/landscaping/build.mjs`. Variants baked before a tree has loaded are re-baked when it arrives.
 - `-gritty` sprites (and so abandoned buildings) get only a ground tone. Civic buildings get nothing.
 - To try changes outside the game, `art/clay-set/landscaping.html` (blend F) runs this same code: `node art/clay-set/landscaping/bundle.mjs && node art/clay-set/landscaping/build.mjs`, then open the page.
+
+### Wild trees
+
+Trees on unbuilt land are clay sprites too, from tile size 8px up (below that the chunk layer draws flat marks).
+
+- Source: `art/clay-set/landscaping/raw/trees-*.png` (4 x 4 sheets on magenta, one species per row). `node art/clay-set/landscaping/trees.mjs` cuts them up, writes the review trees for `art/clay-set/trees.html`, and packs the kept ones (`GAME_TREES` in that script) into `public/sprites/clay/trees.png` + `src/render/clay/wildTreeData.ts`.
+- `wildTrees.ts`: vegetation 1–6 maps to beech, larch, pine, spruce, poplar, cypress. A lone tile gets one tree, a forest edge two on a brick pattern, an interior four on an even grid, with a companion species mixed in now and then. Keep it tidy: even spacing, nearly one size, never mirrored (the owner rejected random scatter and mirrored trees as sloppy). `planWildTrees` is pure and tested (`src/__tests__/wildTrees.test.ts`); clumps are baked per species, variant, density and tile size, so a tile is one `drawImage`.
+- `CanvasRenderer` draws them in the per-frame tile pass (rows top to bottom, so they overlap like buildings), over a darker forest floor (`_drawForestFloor`). Nothing here goes through the chunk cache.

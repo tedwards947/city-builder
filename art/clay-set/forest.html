@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forest layout options</title>
+<style>
+  :root { --bg: #14171c; --panel: #1d222a; --line: #2f3742; --text: #e6e9ee; --dim: #98a2b0; --pick: #3fae6a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p.sub { color: var(--dim); margin: 0 0 18px; max-width: 76ch; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .opt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .opt h2 { font-size: 17px; margin: 0 0 2px; }
+  .opt p { color: var(--dim); margin: 0 0 10px; font-size: 13px; }
+  canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Forest layout options</h1>
+  <p class="sub">The same map six ways, with the game's grass colour and only the trees you kept. A is what is in the game branch now. Tell me a letter, or a mix ("D but denser").</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script src="landscaping/trees/manifest.js"></script>
+<script src="sprites/manifest.js"></script>
+<script>
+const TREES = window.TREES || {}, SPRITES = window.SPRITES || {};
+const GAME_TREES = { beech: [1, 2, 3, 4], larch: [1, 2, 3, 4], pine: [1, 2, 3, 4], spruce: [1, 2, 3, 4], poplar: [1, 3], cypress: [1, 2, 3, 4] };
+const COMPANION = { beech: 'larch', larch: 'beech', pine: 'spruce', spruce: 'pine', poplar: 'cypress', cypress: 'poplar' };
+const OPTIONS = [
+  { id: 'A', name: 'In the branch now', blurb: 'Clumps of up to three, random positions, random sizes, half the trees mirrored.', flip: true, per: 3, pattern: 'clump', jitter: 1, sizeVar: 0.24, size: 0.85, mix: true },
+  { id: 'B', name: 'Same, nothing mirrored', blurb: 'Every tree faces the way it was sculpted, so the light and lean are consistent.', flip: false, per: 3, pattern: 'clump', jitter: 1, sizeVar: 0.24, size: 0.85, mix: true },
+  { id: 'C', name: 'Tidy stagger', blurb: 'Two per tile on an even brick pattern, barely any wobble, nearly one size, nothing mirrored.', flip: false, per: 2, pattern: 'stagger', jitter: 0.25, sizeVar: 0.08, size: 0.9, mix: true },
+  { id: 'D', name: 'One big tree per tile', blurb: 'A single larger tree centred on each tile, nothing mirrored. The classic city-builder look.', flip: false, per: 1, pattern: 'single', jitter: 0.3, sizeVar: 0.1, size: 1.2, mix: true },
+  { id: 'E', name: 'Dense canopy', blurb: 'Four smaller trees per tile on an even grid, nearly one size, nothing mirrored: reads as a solid wood.', flip: false, per: 4, pattern: 'grid', jitter: 0.3, sizeVar: 0.1, size: 0.75, mix: true },
+  { id: 'F', name: 'Tidy stagger, one species per forest', blurb: 'C, but no second species mixed in.', flip: false, per: 2, pattern: 'stagger', jitter: 0.25, sizeVar: 0.08, size: 0.9, mix: false },
+];
+
+const T = 44, COLS = 13, ROWS = 9, PAD = 26, PLOT_ASPECT = 0.905;
+const hash = (a, b, c = 0) => { let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const FORESTS = [[2.2, 1.8, 2.4, 'pine'], [8.2, 1.4, 2.0, 'beech'], [11.6, 2.4, 1.5, 'larch'], [1.6, 7, 1.9, 'cypress'], [6.2, 7.4, 1.7, 'spruce'], [11, 7.2, 1.9, 'poplar']];
+const BUILDINGS = { '4,4': 'res-1', '5,4': 'res-2-b', '7,4': 'com-1', '8,4': 'res-1-c' };
+const LONE = [[5, 1, 'beech'], [5, 2, 'pine'], [10, 0, 'cypress'], [0, 4, 'spruce'], [10, 4, 'beech'], [12, 4, 'pine'], [3, 6, 'larch'], [8, 6, 'poplar'], [4, 8, 'beech'], [9, 8, 'pine']];
+function tileAt(x, y) {
+  if (y === 5 || x === 6 && y < 5) return 'road';
+  const b = BUILDINGS[`${x},${y}`]; if (b) return b;
+  if (y === 4) return 0;
+  for (const [cx, cy, r, sp] of FORESTS) if (Math.hypot(x - cx, y - cy) + (hash(x, y, 5) - 0.5) * 1.2 < r) return { sp };
+  for (const [lx, ly, sp] of LONE) if (lx === x && ly === y) return { sp, lone: true };
+  return 0;
+}
+const isForest = (x, y) => { const t = tileAt(x, y); return !!t && typeof t === 'object' && !t.lone; };
+const images = {}, buildingImages = {};
+
+function slotPos(o, n, x, y) {
+  if (o.pattern === 'single') return [0.5, 0.82];
+  if (o.pattern === 'stagger') return n === 0 ? [0.25, 0.5] : [0.75, 1.0];
+  if (o.pattern === 'grid') return [0.25 + (n % 2) * 0.5, 0.5 + (n >> 1) * 0.5];
+  const slot = (n + Math.floor(hash(x, y, 3) * 4)) % 4;
+  return [0.28 + (slot % 2) * 0.44, 0.5 + (slot >> 1) * 0.42];
+}
+function drawOption(o, canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#3a5a3a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!isForest(x, y)) continue;
+    const n = isForest(x, y - 1), s = isForest(x, y + 1), w = isForest(x - 1, y), e = isForest(x + 1, y);
+    if (!n && !s && !w && !e) continue;
+    const r = T * 0.45;
+    ctx.roundRect(x * T, PAD + y * T, T, T, [n || w ? 0 : r, n || e ? 0 : r, s || e ? 0 : r, s || w ? 0 : r]);
+  }
+  ctx.fillStyle = 'rgba(38,84,40,0.4)'; ctx.fill();
+  const things = [];
+  const k = o.size * T / 124; // tallest review tree is about 124 px
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const t = tileAt(x, y), px = x * T, py = PAD + y * T;
+    if (t === 'road') { ctx.fillStyle = '#4a4f57'; ctx.fillRect(px, py, T, T); continue; }
+    if (typeof t === 'string') {
+      things.push({ y: py + T - 1, draw: () => {
+        const img = buildingImages[t], m = SPRITES[t]; if (!img || !m) return;
+        const plotW = m.right - m.left + 1, kx = T / plotW, ky = T / (plotW * PLOT_ASPECT), top = m.bottom + 1 - plotW * PLOT_ASPECT;
+        ctx.drawImage(img, px - m.left * kx, py - top * ky, m.w * kx, m.h * ky);
+      } });
+      continue;
+    }
+    if (!t) continue;
+    const count = t.lone ? 1 : o.per;
+    for (let n = 0; n < count; n++) {
+      const sp = o.mix && !t.lone && hash(x, y, 20 + n) < 0.22 ? COMPANION[t.sp] : t.sp;
+      const pool = GAME_TREES[sp].map((i) => `${sp}-${i}`).filter((id) => images[id]); if (!pool.length) continue;
+      const id = pool[Math.floor(hash(x, y, 30 + n) * pool.length)], img = images[id], m = TREES[id];
+      const [ux, uy] = t.lone ? [0.5, 0.82] : slotPos(o, n, x, y);
+      const bx = px + (ux + (hash(x, y, 40 + n) - 0.5) * 0.3 * o.jitter) * T;
+      const by = py + (uy + (hash(x, y, 50 + n) - 0.5) * 0.24 * o.jitter) * T;
+      const s = k * (1 - o.sizeVar / 2 + hash(x, y, 60 + n) * o.sizeVar), w = m.w * s, h = m.h * s, flip = o.flip && hash(x, y, 70 + n) < 0.5;
+      things.push({ y: by, draw: () => {
+        ctx.fillStyle = 'rgba(20,40,20,0.28)';
+        ctx.beginPath(); ctx.ellipse(bx + w * 0.08, by - h * 0.03, w * 0.42, w * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(bx, by); if (flip) ctx.scale(-1, 1);
+        ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore();
+      } });
+    }
+  }
+  things.sort((a, b) => a.y - b.y).forEach((t) => t.draw());
+}
+
+const canvases = [];
+for (const o of OPTIONS) {
+  const el = document.createElement('div'); el.className = 'opt';
+  el.innerHTML = `<h2>${o.id}. ${o.name}</h2><p>${o.blurb}</p>`;
+  const c = document.createElement('canvas'); c.width = COLS * T; c.height = PAD + ROWS * T + 6;
+  el.appendChild(c); document.getElementById('grid').appendChild(el); canvases.push([o, c]);
+}
+let pending = 0;
+const done = () => { if (--pending === 0) canvases.forEach(([o, c]) => drawOption(o, c)); };
+const load = (src, store, id) => { pending++; const im = new Image(); im.onload = () => { store[id] = im; done(); }; im.onerror = done; im.src = src; };
+for (const [sp, ks] of Object.entries(GAME_TREES)) for (const i of ks) load(`landscaping/trees/${sp}-${i}.png`, images, `${sp}-${i}`);
+for (const id of new Set(Object.values(BUILDINGS))) load(`sprites/${id}.png`, buildingImages, id);
+</script>
+</body>
+</html>
