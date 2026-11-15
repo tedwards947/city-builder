@@ -1,6 +1,6 @@
 # Sprite Guide
 
-Buildings are drawn from **clay image sprites**. The older **code-drawn vector sprites** are the fallback while images load, and for anything that has no image.
+Buildings are drawn from **clay image sprites**. Until an image has loaded, the renderer's flat chunk-layer drawing (`_drawZoneBuilding` and the civic blocks in `CanvasRenderer._renderChunk`) shows instead. The old code-drawn vector sprites and the Shift+S sandbox were removed.
 
 ## Clay image sprites
 
@@ -22,33 +22,3 @@ Zone sprites are not drawn as painted: each lot shows one of `CLAY_DRESSING_COUN
 - Trees are the only image props: `public/sprites/clay/props/{tree,pine,tree-autumn,tree-blossom}.png`, cut from `art/clay-set/landscaping/raw` by `node art/clay-set/landscaping/build.mjs`. Variants baked before a tree has loaded are re-baked when it arrives.
 - `-gritty` sprites (and so abandoned buildings) get only a ground tone. Civic buildings get nothing.
 - To try changes outside the game, `art/clay-set/landscaping.html` (blend F) runs this same code: `node art/clay-set/landscaping/bundle.mjs && node art/clay-set/landscaping/build.mjs`, then open the page.
-
-## Vector sprites (fallback)
-
-## Core Interface
-Entities must implement the `VectorEntity` interface found in `src/render/SpriteTypes.ts`.
-
-```ts
-export interface VectorEntity {
-  readonly id: string;      // Unique ID (e.g., 'res-low-modern-01')
-  readonly type: string;    // Mapping key: ZONE_{ID}_{LEVEL} or BUILDING_{ID}
-  readonly tags: string[];  // Vibe tags: 'green', 'industrial', 'egalitarian', etc.
-  draw(
-    ctx: CanvasRenderingContext2D, 
-    ts: number,             // Tile Size (pixels)
-    t: number,              // Animation time (seconds)
-    p: ColorPalette,        // Current city color palette
-    vibe: VibeState         // Current city character
-  ): void;
-}
-```
-
-## Registry Loader
-New entities must be registered in `src/render/registryLoader.ts`:
-```ts
-import { MyNewHouse } from './entities/res-low/MyNewHouse';
-reg.register(MyNewHouse);
-```
-
-## Reviewing
-Use the **Vector Sprite Sandbox** in-game by pressing **`Shift + S`**. It will display all registered sprites in an animated grid.

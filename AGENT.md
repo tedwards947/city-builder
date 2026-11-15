@@ -35,13 +35,11 @@ src/
       EconomySystem, VibeSystem, PoliticsSystem
   render/
     CanvasRenderer.ts, Camera.ts, Projection.ts, VehicleLayer.ts,
-    SpriteRegistry.ts, SpriteTypes.ts, registryLoader.ts, CharacterPalette.ts
+    SpriteTypes.ts, CharacterPalette.ts
     clay/              ClaySprites.ts (image building sprites, baked lot-dressing variants, smoke/flare effects),
                        claySpriteData.ts (generated), groundTones.ts (ground mask + tones),
                        lotGround.ts (free-ground analysis), lotDressing.ts (landscaping planner, no DOM),
-                       lotDressingDraw.ts (paints a plan)
-    entities/          code-drawn fallback sprites, one file each (see SPRITE_GUIDE.md there)
-      res-low, comm-low, comm-mid, comm-high, ind-low, ind-high
+                       lotDressingDraw.ts (paints a plan); see SPRITE_GUIDE.md there
   input/
     InputController.ts (pointer/touch, drag-to-paint, panning), dragPath.ts
   commands/
@@ -53,7 +51,7 @@ src/
     Autosave.ts
   ui/
     NewGameDialog, SaveLoadPanel, TileInfoPanel, EconPanel, ToastPanel,
-    DemandChart, MusicPanel, SpriteSandbox
+    DemandChart, MusicPanel
   audio/               MusicManager.ts, compose.ts, tracks/, variants/, sketches/
   i18n/                index.ts, types.ts, locales/en.ts
   data/
@@ -333,7 +331,7 @@ world.events.emit('myEvent', { tx, ty, ... }); // from a system
 | e | Hospital | PlaceServiceBuildingCommand(HOSPITAL) |
 | r | Park | PlaceServiceBuildingCommand(PARK) |
 
-Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overlay (only one overlay at a time); Ctrl/Cmd+Z undo; Ctrl/Cmd+Shift+Z or Ctrl+Y redo; Space pause/resume; Shift+S sprite sandbox. Shortcuts are ignored while typing in an input, and other Ctrl/Cmd/Alt combos are left to the browser.
+Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overlay (only one overlay at a time); Ctrl/Cmd+Z undo; Ctrl/Cmd+Shift+Z or Ctrl+Y redo; Space pause/resume. Shortcuts are ignored while typing in an input, and other Ctrl/Cmd/Alt combos are left to the browser.
 
 ### Pointer input
 

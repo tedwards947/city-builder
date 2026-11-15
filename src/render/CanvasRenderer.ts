@@ -3,7 +3,6 @@ import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
 import { CHUNK_SIZE } from '../sim/Grid';
 import { resolvePalette, resolveTilePalette, type ColorPalette } from './CharacterPalette';
-import { SpriteRegistry } from './SpriteRegistry';
 import type { VibeState } from './SpriteTypes';
 import { loadClaySprites, pickClaySprite, drawClaySprite, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { BALANCE } from '../data/balance';
@@ -89,12 +88,6 @@ export class CanvasRenderer {
     ctx.fillRect(0, 0, cw, ch);
 
     const p = resolvePalette(world.character, BALANCE.character.axisMax);
-    const vibe: VibeState = {
-      egalitarian: world.character.egalitarian,
-      green: world.character.green,
-      planned: world.character.planned,
-      isNight: false,
-    };
 
     const bounds = camera.visibleTileBounds(world.grid);
 
@@ -161,7 +154,7 @@ export class CanvasRenderer {
         }
         const chunkCtx = this._getOrCreateChunkCtx(chunkId, renderTs);
         if (chunkCtx !== null) {
-          this._renderChunk(chunkCtx, world, cx, cy, p, renderTs, vibe);
+          this._renderChunk(chunkCtx, world, cx, cy, p, renderTs);
           this._chunkSig[chunkId] = sig;
           this._chunkTs[chunkId] = renderTs;
           stale[chunkId] = 0;
@@ -225,8 +218,6 @@ export class CanvasRenderer {
         const syi = Math.floor(sy);
 
         // 1. Draw Sprite (Buildings/Houses)
-        const spriteKey = this._getSpriteKey(zone, building, dev);
-
         // Localized Vibe for sprite selection
         const localVibe: VibeState = {
             egalitarian: (world.layers.vibeEgalitarian[i] - 128) / 128,
@@ -235,11 +226,10 @@ export class CanvasRenderer {
             isNight:     false
         };
 
-        // Clay image sprites come first; the code-drawn sprites are the
-        // fallback while images load or where no image exists.
+        // Clay image sprites. Until they load (or where no image exists) the
+        // chunk layer's flat drawing shows through.
         const isAbandoned = world.layers.abandoned[i] !== 0;
-        const clay = spriteKey ? pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant) : undefined;
-        const sprite = clay || !spriteKey ? undefined : SpriteRegistry.instance.findBest(spriteKey, localVibe, visualVariant);
+        const clay = pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
@@ -261,11 +251,6 @@ export class CanvasRenderer {
           // The plot also hides the chunk layer's crime / sickness / death markers:
           // queue them to be redrawn above every sprite.
           if (building === BUILDING_NONE && dev > 0) markerQueue.push(i, sxi, syi);
-        } else if (sprite) {
-          ctx.save();
-          ctx.translate(sxi, syi);
-          sprite.draw(ctx, ts, now * 0.001, p, localVibe);
-          ctx.restore();
         }
 
         // 2. Draw Overlays
@@ -520,12 +505,6 @@ export class CanvasRenderer {
     return h ^ (h >>> 15);
   }
 
-  private _getSpriteKey(zone: number, building: number, dev: number): string {
-    if (building !== BUILDING_NONE) return `BUILDING_${building}`;
-    if (zone !== ZONE_NONE) return `ZONE_${zone}_${dev}`;
-    return '';
-  }
-
   private _getOrCreateChunkCtx(chunkId: number, ts: number): CanvasRenderingContext2D | null {
     let canvas = this._chunkCanvases[chunkId];
     let ctx = this._chunkCtxs[chunkId];
@@ -553,7 +532,6 @@ export class CanvasRenderer {
     cx: number, cy: number,
     _p: ColorPalette,
     ts: number,
-    vibe: VibeState,
   ): void {
     const tileX0 = cx * CHUNK_SIZE;
     const tileY0 = cy * CHUNK_SIZE;
@@ -634,15 +612,12 @@ export class CanvasRenderer {
         const syi = Math.floor((ty - tileY0) * ts);
         const tsi = Math.ceil(ts) + 1;
 
-        const spriteKey = this._getSpriteKey(zone, building, dev);
-        const sprite = SpriteRegistry.instance.findBest(spriteKey, vibe, visualVariant);
-
         if (vegetation !== VEG_NONE && road === ROAD_NONE && building === BUILDING_NONE && zone === ZONE_NONE) {
 
           this._drawTree(chunkCtx, vegetation, sxi, syi, tsi, ts, localP);
         }
 
-        if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE && !sprite) {
+        if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
           this._drawZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, localP, isAbandoned, visualVariant % 4);
         }
 
@@ -650,7 +625,7 @@ export class CanvasRenderer {
           this._drawRoad(chunkCtx, world, tx, ty, sxi, syi, tsi, ts, localP);
         }
 
-        if (building !== BUILDING_NONE && !sprite) {
+        if (building !== BUILDING_NONE) {
           if (building === BUILDING_POWER_PLANT) {
             chunkCtx.fillStyle = '#3a3a3a';
             chunkCtx.fillRect(sxi, syi, tsi, tsi);

@@ -188,8 +188,8 @@ export function clayVibeFor(vibe: VibeState): ClayVibe {
 
 /**
  * The sprite for a tile (`lotId` picks among the designs for that slot), or undefined if there is none (empty zone, unknown
- * building) or it has not loaded yet; the caller then falls back to the
- * code-drawn sprites.
+ * building) or it has not loaded yet; the chunk layer's flat drawing then
+ * shows instead.
  */
 export function pickClaySprite(zone: number, building: number, dev: number, vibe: VibeState, abandoned: boolean, lotId = 0): ClaySprite | undefined {
   if (sprites.size === 0) return undefined;
