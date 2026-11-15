@@ -3,36 +3,102 @@
 // never saved: it is rebuilt from the layers on the first pass after a load.
 
 import type { World } from './World';
-import { ROAD_NONE, ROAD_HIGHWAY } from './constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
 
 /** One travel-time map: time to the nearest destination, and the way there. */
 export interface TrafficField {
-  dist: Float32Array;    // travel time per road tile, in street tiles; Infinity = unreachable
-  parent: Int32Array;    // next tile toward the destination; -1 at a destination
-  order: Int32Array;     // road tiles in order of increasing dist
+  // Travel time per road tile to the nearest door, in street tiles
+  // (congestion included). Infinity = unreachable.
+  dist: Float32Array;
+  parent: Int32Array;    // next tile on the quickest way there; -1 at a door
+  order: Int32Array;     // road tiles in order of increasing dist (doors first)
   count: number;         // number of valid entries in `order`
+  // Doors: road tiles next to a destination zone. Indexed by road tile.
+  doorCap: Float32Array;   // trips the zones at this door can take; 0 = not a door
+  doorLoad: Float32Array;  // trips that ended at this door on the last iteration
+  /** Total trips wanting this destination type ÷ total door capacity. */
+  demandRatio: number;
+}
+
+/**
+ * A MARKET is one kind of trip: who sends it, who receives it, how many per
+ * level, and how many a destination can take. Each market has its own map,
+ * door capacities, prices and road volumes. To add a kind of trip, add a row
+ * to MARKET_DEFS; the traffic pass, overlay and debug tools all loop over it.
+ */
+export type MarketKey = 'shopping' | 'jobs' | 'goods';
+
+export interface MarketDef {
+  key: MarketKey;
+  origin: number;                                   // zone type that sends the trips
+  dest: number;                                     // zone type that receives them
+  rateKey: 'tripsRtoC' | 'tripsRtoI' | 'tripsCtoI'; // BALANCE.transit: trips per origin level
+  capacityKey: 'shopCapacity' | 'jobCapacity' | 'goodsCapacity'; // BALANCE.transit: trips per destination level
+}
+
+export const MARKET_DEFS: readonly MarketDef[] = [
+  { key: 'shopping', origin: ZONE_R, dest: ZONE_C, rateKey: 'tripsRtoC', capacityKey: 'shopCapacity' },
+  { key: 'jobs',     origin: ZONE_R, dest: ZONE_I, rateKey: 'tripsRtoI', capacityKey: 'jobCapacity' },
+  // Shops fetch their goods: every shop draws from the nearest industry with output to spare.
+  { key: 'goods',    origin: ZONE_C, dest: ZONE_I, rateKey: 'tripsCtoI', capacityKey: 'goodsCapacity' },
+];
+
+/** Trips each origin level sends in this market. */
+export function marketRate(def: MarketDef): number { return BALANCE.transit[def.rateKey]; }
+/** Trips each destination level can take in this market. */
+export function marketCapacity(def: MarketDef): number { return BALANCE.transit[def.capacityKey]; }
+
+export interface TrafficMarket {
+  def: MarketDef;
+  field: TrafficField;     // the way to this market's destinations, with doors and prices
+  // Trips passing through each road tile. Averaged over recent iterations,
+  // so where routes alternate the traffic shows as split.
+  volume: Float32Array;
 }
 
 export interface TrafficData {
   /** Bumped every time the pass is recomputed. */
   version: number;
-  toC: TrafficField;     // to the nearest developed commerce
-  toI: TrafficField;     // to the nearest developed industry
-  toR: TrafficField;     // to the nearest developed homes
-  // Trips passing through each road tile, per flow.
-  volRC: Float32Array;   // homes → commerce (follows toC)
-  volRI: Float32Array;   // homes → industry (follows toI)
-  volIC: Float32Array;   // industry → commerce (follows toC)
+  /** Every market, in MARKET_DEFS order. */
+  markets: TrafficMarket[];
+  // The same markets by name.
+  shopping: TrafficMarket; // homes → commerce
+  jobs: TrafficMarket;     // homes → industry
+  goods: TrafficMarket;    // commerce → industry (shops fetching goods)
+  /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
+  toR: TrafficField;
+  /** False while the pass is still settling toward a stable assignment. */
+  settled: boolean;
+}
+
+export function makeTrafficData(n: number): TrafficData {
+  const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(n), volume: new Float32Array(n) }));
+  const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
+  return {
+    version: 0, markets,
+    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'),
+    toR: makeTrafficField(n), settled: false,
+  };
 }
 
 export function makeTrafficField(n: number): TrafficField {
-  return { dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0 };
+  return {
+    dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
+    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0,
+  };
+}
+
+/** Travel time from a road tile to the nearest destination on `field` (Infinity if none). */
+export function travelTime(field: TrafficField, roadIdx: number): number {
+  return field.dist[roadIdx];
 }
 
 /** Total trips through a road tile. */
 export function trafficVolume(d: TrafficData, i: number): number {
-  return d.volRC[i] + d.volRI[i] + d.volIC[i];
+  let v = 0;
+  for (const m of d.markets) v += m.volume[i];
+  return v;
 }
 
 /** Trips a road tile of this class can carry before it counts as full. */

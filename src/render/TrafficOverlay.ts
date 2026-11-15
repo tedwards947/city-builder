@@ -3,17 +3,19 @@
 //   Roads:  coloured by volume / capacity, and the scale keeps going past
 //           100% so an overloaded road reads differently from a full one.
 //   Zones:  tinted by commute (accessibility): short → long → cut off.
-//   Hover:  a building shows the route its trips take; a road shows the
-//           buildings that feed it and where its traffic goes next.
+//   Hover:  a building shows the route its trips take (homes: to shops and
+//           to work; shops: to the industry they fetch goods from); a road
+//           shows the buildings that feed it and where its traffic goes next.
+//           One colour per market, so new kinds of trip need no changes here.
 //
 // Reads world.traffic (TransitSystem's last pass) and never writes to the sim.
 
 import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
-import { ROAD_NONE, ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
+import { ROAD_NONE, ZONE_NONE } from '../sim/constants';
 import {
-  type TrafficData, type TrafficField,
+  type TrafficData, type TrafficField, type MarketKey, MARKET_DEFS,
   bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume,
 } from '../sim/TrafficData';
 
@@ -38,8 +40,17 @@ const COMMUTE_STOPS: readonly (readonly [number, RGB])[] = [
 ];
 const COMMUTE_ALPHA = 0.5;
 
-const TO_COMMERCE = '#4cc9f0';
-const TO_INDUSTRY = '#ffb703';
+// Trace colour per market (see TrafficData.MARKET_DEFS).
+const MARKET_COLOR: Record<MarketKey, string> = {
+  shopping: '#4cc9f0',
+  jobs: '#ffb703',
+  goods: '#b6f36a',
+};
+const MARKET_LABEL: Record<MarketKey, string> = {
+  shopping: 'Shopping',
+  jobs: 'To work',
+  goods: 'Fetching goods',
+};
 
 function scale(stops: readonly (readonly [number, RGB])[], v: number): string {
   if (v <= stops[0][0]) return rgb(stops[0][1]);
@@ -84,8 +95,8 @@ export function routeFrom(field: TrafficField, start: number): number[] {
 }
 
 export class TrafficOverlay {
-  private _upC = new Uint8Array(0);
-  private _upI = new Uint8Array(0);
+  // Per market: road tiles whose traffic passes the hovered target.
+  private _up: Uint8Array[] = [];
   private _upKey = '';
 
   render(ctx: Ctx, world: World, camera: Camera, hoverTile: { tx: number; ty: number } | null): void {
@@ -145,49 +156,44 @@ export class TrafficOverlay {
     const zone = L.zone[hover];
     const isOrigin = (i: number) => L.devLevel[i] > 0 && L.abandoned[i] === 0;
 
-    // Road tiles whose catchment to show, per map (commerce-bound, industry-bound).
-    const targetsC: number[] = [];
-    const targetsI: number[] = [];
+    const markets = data.markets;
+    // Per market: the road tiles whose catchment to show.
+    const targets: number[][] = markets.map(() => []);
 
     if (L.roadClass[hover] !== ROAD_NONE) {
       // A road: who feeds it, and where its traffic goes from here.
-      if (data.volRC[hover] + data.volIC[hover] > 0) {
-        targetsC.push(hover);
-        this._drawRoute(ctx, camera, width, routeFrom(data.toC, hover), TO_COMMERCE, ts);
-      }
-      if (data.volRI[hover] > 0) {
-        targetsI.push(hover);
-        this._drawRoute(ctx, camera, width, routeFrom(data.toI, hover), TO_INDUSTRY, ts);
-      }
+      markets.forEach((m, k) => {
+        if (m.volume[hover] <= 0) return;
+        targets[k].push(hover);
+        this._drawRoute(ctx, camera, width, routeFrom(m.field, hover), MARKET_COLOR[m.def.key], ts);
+      });
     } else if (zone !== ZONE_NONE && isOrigin(hover)) {
-      // A building: the routes its own trips take…
-      if (zone === ZONE_R || zone === ZONE_I) {
-        this._drawRoute(ctx, camera, width, routeFrom(data.toC, bestAccessRoad(world, hover, data.toC)), TO_COMMERCE, ts);
-      }
-      if (zone === ZONE_R) {
-        this._drawRoute(ctx, camera, width, routeFrom(data.toI, bestAccessRoad(world, hover, data.toI)), TO_INDUSTRY, ts);
-      }
-      // …and, for a destination, who drives to the road tiles at its door.
-      if (zone === ZONE_C || zone === ZONE_I) {
-        const field = zone === ZONE_C ? data.toC : data.toI;
-        for (let k = 0; k < 4; k++) {
-          const ri = neighbourIndex(hover, k, width, height);
-          if (ri >= 0 && field.dist[ri] === 0) (zone === ZONE_C ? targetsC : targetsI).push(ri);
+      markets.forEach((m, k) => {
+        // A building that sends trips: the route they take…
+        if (m.def.origin === zone) {
+          this._drawRoute(ctx, camera, width, routeFrom(m.field, bestAccessRoad(world, hover, m.field)), MARKET_COLOR[m.def.key], ts);
         }
-      }
+        // …and one that receives them: who drives to the road tiles at its door.
+        if (m.def.dest === zone) {
+          for (let d = 0; d < 4; d++) {
+            const ri = neighbourIndex(hover, d, width, height);
+            if (ri >= 0 && m.field.doorCap[ri] > 0) targets[k].push(ri);
+          }
+        }
+      });
     }
-    if (targetsC.length === 0 && targetsI.length === 0) return;
+    if (targets.every(t => t.length === 0)) return;
 
     // Catchments are cached until the hover target or the traffic pass changes.
     const n = width * height;
     const key = `${hover}:${data.version}:${n}`;
     if (key !== this._upKey) {
       this._upKey = key;
-      if (this._upC.length !== n) { this._upC = new Uint8Array(n); this._upI = new Uint8Array(n); }
-      this._markAll(data.toC, targetsC, this._upC);
-      this._markAll(data.toI, targetsI, this._upI);
+      markets.forEach((m, k) => {
+        if (!this._up[k] || this._up[k].length !== n) this._up[k] = new Uint8Array(n);
+        this._markAll(m.field, targets[k], this._up[k]);
+      });
     }
-    const upC = this._upC, upI = this._upI;
 
     const pad = Math.max(1, Math.round(ts * 0.12));
     ctx.lineWidth = Math.max(1.5, ts * 0.12);
@@ -196,15 +202,13 @@ export class TrafficOverlay {
         const i = ty * width + tx;
         const z = L.zone[i];
         if (z === ZONE_NONE || !isOrigin(i)) continue;
-        // Does this building's traffic pass through a target?
+        // Does this building's traffic pass through a target? First market that says yes wins.
         let color: string | null = null;
-        if (targetsC.length > 0 && (z === ZONE_R || z === ZONE_I)) {
-          const r = bestAccessRoad(world, i, data.toC);
-          if (r >= 0 && upC[r] === 1) color = TO_COMMERCE;
-        }
-        if (color === null && targetsI.length > 0 && z === ZONE_R) {
-          const r = bestAccessRoad(world, i, data.toI);
-          if (r >= 0 && upI[r] === 1) color = TO_INDUSTRY;
+        for (let k = 0; k < markets.length && color === null; k++) {
+          const m = markets[k];
+          if (targets[k].length === 0 || m.def.origin !== z) continue;
+          const r = bestAccessRoad(world, i, m.field);
+          if (r >= 0 && this._up[k][r] === 1) color = MARKET_COLOR[m.def.key];
         }
         if (color === null) continue;
         const sx = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx)));
@@ -282,7 +286,7 @@ export class TrafficOverlay {
       ['Commute', [
         [scale(COMMUTE_STOPS, 1), 'Short'], [scale(COMMUTE_STOPS, 0.5), 'Long'], [scale(COMMUTE_STOPS, 0), 'Cut off'],
       ]],
-      ['Hover', [[TO_COMMERCE, 'To commerce'], [TO_INDUSTRY, 'To industry']]],
+      ['Hover', MARKET_DEFS.map((def): [string, string] => [MARKET_COLOR[def.key], MARKET_LABEL[def.key]])],
     ];
     ctx.font = '11px sans-serif';
     ctx.textBaseline = 'middle';

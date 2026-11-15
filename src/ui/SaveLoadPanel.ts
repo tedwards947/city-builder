@@ -2,6 +2,7 @@ import type { SaveManager } from '../persistence/SaveManager';
 import type { World } from '../sim/World';
 import type { SlotInfo } from '../persistence/SaveFormat';
 import { t } from '../i18n';
+import { SAVE_FILE_EXTENSION, saveFileName } from '../persistence/SaveFile';
 
 const TOTAL_SLOTS = 5;
 
@@ -24,6 +25,9 @@ export class SaveLoadPanel {
   private readonly slotsEl: HTMLElement;
   private readonly titleEl: HTMLElement;
   private mode: 'save' | 'load' = 'save';
+  private readonly exportBtn: HTMLButtonElement;
+  private readonly importBtn: HTMLButtonElement;
+  private readonly fileInput: HTMLInputElement;
 
   private readonly manager: SaveManager;
   private readonly getWorld: () => World;
@@ -41,12 +45,70 @@ export class SaveLoadPanel {
     this.slotsEl  = document.getElementById('sl-slots')!;
     this.titleEl  = document.getElementById('sl-title')!;
 
-    this.el.querySelector('#sl-cancel')!.addEventListener('click', () => this.hide());
+    const cancel = this.el.querySelector('#sl-cancel')!;
+    cancel.addEventListener('click', () => this.hide());
     this.el.addEventListener('click', (e) => { if (e.target === this.el) this.hide(); });
+
+    // Save to / load from a file, next to Cancel: Export in save mode,
+    // Import in load mode.
+    this.exportBtn = document.createElement('button');
+    this.exportBtn.className = 'btn';
+    this.exportBtn.textContent = t('ui.saveLoad.exportFile');
+    this.exportBtn.addEventListener('click', () => this._export());
+
+    this.importBtn = document.createElement('button');
+    this.importBtn.className = 'btn';
+    this.importBtn.textContent = t('ui.saveLoad.importFile');
+    this.fileInput = document.createElement('input');
+    this.fileInput.type = 'file';
+    this.fileInput.accept = `${SAVE_FILE_EXTENSION},.json,application/json`;
+    this.fileInput.style.display = 'none';
+    this.importBtn.addEventListener('click', () => this.fileInput.click());
+    this.fileInput.addEventListener('change', () => {
+      const file = this.fileInput.files?.[0];
+      this.fileInput.value = ''; // so picking the same file again still fires
+      if (file) void this._import(file);
+    });
+
+    cancel.before(this.exportBtn, this.importBtn, this.fileInput);
+    this._syncFileButtons();
+  }
+
+  private _syncFileButtons(): void {
+    this.exportBtn.style.display = this.mode === 'save' ? '' : 'none';
+    this.importBtn.style.display = this.mode === 'load' ? '' : 'none';
+  }
+
+  /** Download the current city as a save file. */
+  private _export(): void {
+    const name = prompt(t('ui.saveLoad.exportNamePrompt'), 'My City');
+    if (name === null) return; // cancelled
+    const text = this.manager.exportGame(this.getWorld(), name || 'My City');
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = saveFileName(name || 'My City');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    this.hide();
+  }
+
+  /** Load a city from a save file the player picked. */
+  private async _import(file: File): Promise<void> {
+    try {
+      const world = this.manager.importGame(await file.text());
+      this.hide();
+      this.onLoad(world);
+    } catch (err) {
+      alert(t('ui.saveLoad.importFailed', { reason: err instanceof Error ? err.message : String(err) }));
+    }
   }
 
   showSave(): void {
     this.mode = 'save';
+    this._syncFileButtons();
     this.titleEl.textContent = t('ui.saveLoad.saveGame');
     this.hide(); // ensure fresh render
     this._render().then(() => this.el.classList.remove('hidden'));
@@ -54,6 +116,7 @@ export class SaveLoadPanel {
 
   showLoad(): void {
     this.mode = 'load';
+    this._syncFileButtons();
     this.titleEl.textContent = t('ui.saveLoad.loadGame');
     this._render().then(() => this.el.classList.remove('hidden'));
   }

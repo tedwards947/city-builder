@@ -194,7 +194,18 @@ export const BALANCE = {
     // reach its class capacity (street 20, avenue 80, highway 200).
     tripsRtoC: 0.33,      // homes → commerce
     tripsRtoI: 0.34,      // homes → industry
-    tripsItoC: 0.38,      // industry → commerce (freight)
+    tripsCtoI: 0.38,      // commerce → industry: shops fetching goods, per COMMERCE level
+    // Trips a destination can take per developed level. Trips go to the
+    // nearest destination; when it is full the overflow goes on to others with
+    // room close by, and what still does not fit shows as over capacity.
+    shopCapacity: 2,      // per commerce level
+    jobCapacity: 2,       // per industry level
+    goodsCapacity: 2,     // goods trips each industry level can supply
+    // A road tile gets slower once its load passes `freeFlow` × capacity:
+    // travel time × (1 + congestionDelay × (load − freeFlow)), so a full road
+    // (load 1.0) takes 1.5× as long. Traffic then prefers emptier routes.
+    freeFlow: 0.5,
+    congestionDelay: 1,
     // Travel time, in street tiles, at which accessibility reaches 0. A tile of
     // avenue or highway counts as 1 / speedMult street tiles.
     commuteMax: 48,
