@@ -427,7 +427,7 @@ Already in the code — must not be removed:
 costs:        road=10 (bridge ×3), zoneR=20, zoneC=25, zoneI=25, bulldoze=5
 roadClasses:  street={cost:10,maint:0.04}, avenue={50,0.12}, highway={150,0.35}
               capacity 20/80/200, speedMult 1.0/1.4/2.0 (both used by TransitSystem)
-transit:      flowInterval=8, tripsRtoC=0.2, tripsRtoI=0.2, tripsItoC=0.3 (per origin dev level),
+transit:      flowInterval=8, tripsRtoC=0.33, tripsRtoI=0.34, tripsItoC=0.38 (per origin dev level),
               commuteMax=48 street tiles, congestionGrowthPenalty=0.75, accessFloor=0.05
 buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={1500,10}
               police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}

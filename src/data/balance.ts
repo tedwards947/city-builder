@@ -192,9 +192,9 @@ export const BALANCE = {
     // Trips put on the road per developed level of the ORIGIN zone tile.
     // A road tile is full (congestion 255) when the trips passing through it
     // reach its class capacity (street 20, avenue 80, highway 200).
-    tripsRtoC: 0.2,       // homes → commerce
-    tripsRtoI: 0.2,       // homes → industry
-    tripsItoC: 0.3,       // industry → commerce (freight)
+    tripsRtoC: 0.33,      // homes → commerce
+    tripsRtoI: 0.34,      // homes → industry
+    tripsItoC: 0.38,      // industry → commerce (freight)
     // Travel time, in street tiles, at which accessibility reaches 0. A tile of
     // avenue or highway counts as 1 / speedMult street tiles.
     commuteMax: 48,
