@@ -54,9 +54,16 @@ export class CanvasRenderer {
 
   private _chunkCanvases: (HTMLCanvasElement | null)[] = [];
   private _chunkCtxs: (CanvasRenderingContext2D | null)[] = [];
-  private _lastTick = -1;
   private _lastChunkCount = 0;
   private _lastZoom = -1;
+  // Static-layer cache state, one entry per chunk. A chunk canvas is current
+  // when it was drawn at `_chunkRenderTs` and its content signature (see
+  // `_chunkSignature`) still matches the world.
+  private _chunkSig = new Int32Array(0);
+  private _chunkTs = new Float64Array(0);     // tile size the canvas was drawn at; 0 = never
+  private _chunkStale = new Uint8Array(0);    // 1 = marked dirty since last checked
+  private _chunkRenderTs = 0;                 // tile size chunks are currently drawn at
+  private _lastGrid: World['grid'] | null = null;
   private _clayEffects: ClayEffect[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
@@ -81,23 +88,27 @@ export class CanvasRenderer {
       isNight: false,
     };
 
-    if (world.tick !== this._lastTick) {
-      this._lastTick = world.tick;
-      world.grid.markAllDirty();
-    }
-    
     const bounds = camera.visibleTileBounds(world.grid);
 
     const ts = TILE_SIZE * camera.zoom;
     const tsi = Math.ceil(ts) + 1;
 
-    // Only invalidate all chunks if zoom changes significantly (> 1%)
+    // Chunks are redrawn at a new tile size only when zoom changes
+    // significantly (> 1%); in between, the cached canvases are scaled.
     if (Math.abs(camera.zoom - this._lastZoom) > 0.01) {
       this._lastZoom = camera.zoom;
-      world.grid.markAllDirty();
+      this._chunkRenderTs = ts;
     }
     const totalChunks = world.grid.chunkCols * world.grid.chunkRows;
+    if (world.grid !== this._lastGrid) {
+      // A different world (new game / load): nothing cached is valid.
+      this._lastGrid = world.grid;
+      this._chunkTs.fill(0);
+    }
     if (totalChunks !== this._lastChunkCount) {
+      this._chunkSig = new Int32Array(totalChunks);
+      this._chunkTs = new Float64Array(totalChunks);
+      this._chunkStale = new Uint8Array(totalChunks);
       // Create new arrays of the correct size
       const newCanvases = new Array(totalChunks).fill(null);
       const newCtxs = new Array(totalChunks).fill(null);
@@ -112,8 +123,16 @@ export class CanvasRenderer {
       this._chunkCanvases = newCanvases;
       this._chunkCtxs = newCtxs;
       this._lastChunkCount = totalChunks;
-      world.grid.markAllDirty();
     }
+
+    // Take ownership of the grid's dirty marks. They persist per chunk until
+    // that chunk is next on screen, so off-screen changes are not lost.
+    const stale = this._chunkStale;
+    if (world.grid.dirtyChunks.size > 0) {
+      for (const id of world.grid.dirtyChunks) stale[id] = 1;
+      world.grid.dirtyChunks.clear();
+    }
+    const renderTs = this._chunkRenderTs;
 
     const cxMin = (bounds.x0 / CHUNK_SIZE) | 0;
     const cyMin = (bounds.y0 / CHUNK_SIZE) | 0;
@@ -123,10 +142,21 @@ export class CanvasRenderer {
     for (let cy = cyMin; cy <= cyMax; cy++) {
       for (let cx = cxMin; cx <= cxMax; cx++) {
         const chunkId = cy * world.grid.chunkCols + cx;
-        if (!world.grid.dirtyChunks.has(chunkId)) continue;
-        const chunkCtx = this._getOrCreateChunkCtx(chunkId, ts);
+        const sized = this._chunkTs[chunkId] === renderTs;
+        if (sized && stale[chunkId] === 0) continue;
+        // Systems mark every chunk dirty on most ticks, so "dirty" only means
+        // "check": redraw only if what the chunk draws actually changed.
+        const sig = this._chunkSignature(world, cx, cy);
+        if (sized && sig === this._chunkSig[chunkId]) {
+          stale[chunkId] = 0;
+          continue;
+        }
+        const chunkCtx = this._getOrCreateChunkCtx(chunkId, renderTs);
         if (chunkCtx !== null) {
-          this._renderChunk(chunkCtx, world, cx, cy, p, ts, vibe);
+          this._renderChunk(chunkCtx, world, cx, cy, p, renderTs, vibe);
+          this._chunkSig[chunkId] = sig;
+          this._chunkTs[chunkId] = renderTs;
+          stale[chunkId] = 0;
         }
       }
     }
@@ -397,8 +427,61 @@ export class CanvasRenderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 2;
     ctx.strokeRect(tlsx, tlsy, brsx - tlsx, brsy - tlsy);
+  }
 
-    world.grid.dirtyChunks.clear();
+  /**
+   * Hash of everything `_renderChunk` reads for one chunk. Values are reduced
+   * to what is actually drawn (palette buckets, marker thresholds), so sim
+   * noise that does not change the picture does not change the signature.
+   * KEEP IN SYNC with `_renderChunk`: a layer read there must be mixed in here.
+   */
+  private _chunkSignature(world: World, cx: number, cy: number): number {
+    const L = world.layers;
+    const { width, height } = world.grid;
+    const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
+    const x1 = Math.min(x0 + CHUNK_SIZE, width), y1 = Math.min(y0 + CHUNK_SIZE, height);
+    let h = 0x811c9dc5 | 0;
+
+    for (let ty = y0; ty < y1; ty++) {
+      for (let i = ty * width + x0, end = ty * width + x1; i < end; i++) {
+        const terrain = L.terrain[i], zone = L.zone[i], dev = L.devLevel[i];
+        const zoned = zone !== ZONE_NONE;
+        const a = terrain | (zone << 4) | (L.roadClass[i] << 8) | (L.building[i] << 12)
+                | (L.vegetation[i] << 20) | (dev << 24);
+        // Same bucketing as resolveTilePalette.
+        const b = Math.round(L.vibeEgalitarian[i] / 12) | (Math.round(L.vibeGreen[i] / 12) << 5)
+                | (Math.round(L.vibePlanned[i] / 12) << 10)
+                | (L.power[i] !== 0 ? 1 << 15 : 0) | (L.water[i] !== 0 ? 1 << 16 : 0)
+                | (L.sewage[i] !== 0 ? 1 << 17 : 0) | (L.services[i] !== 0 ? 1 << 18 : 0)
+                | (L.abandoned[i] !== 0 ? 1 << 19 : 0) | (L.visualVariant[i] << 20);
+        const pollution = L.pollution[i] > 8 && terrain !== TERRAIN_WATER ? L.pollution[i] : 0;
+        const crime     = L.crime[i] > 40 && zoned && dev > 0 ? L.crime[i] : 0;
+        const sickness  = L.sickness[i] > 80 && zone === ZONE_R && dev > 0 ? L.sickness[i] : 0;
+        const death     = zone === ZONE_R && dev > 0 ? L.recentDeath[i] : 0;
+        const c = pollution | (crime << 8) | (sickness << 16) | (death << 24);
+        h = Math.imul(h ^ a, 0x9e3779b1); h ^= h >>> 15;
+        h = Math.imul(h ^ b, 0x85ebca6b); h ^= h >>> 13;
+        h = Math.imul(h ^ c, 0xc2b2ae35); h ^= h >>> 16;
+      }
+    }
+
+    // Roads join to neighbours across the chunk edge, so the ring of tiles
+    // just outside the chunk matters too (road / no road only).
+    const R = L.roadClass;
+    let ring = 0;
+    for (let tx = x0; tx < x1; tx++) {
+      ring = (ring << 1 | ring >>> 31) ^ (y0 > 0 && R[(y0 - 1) * width + tx] !== ROAD_NONE ? 1 : 0);
+      ring = (ring << 1 | ring >>> 31) ^ (y1 < height && R[y1 * width + tx] !== ROAD_NONE ? 1 : 0);
+    }
+    // CHUNK_SIZE is 16, so each loop fills exactly one 32-bit word.
+    h = Math.imul(h ^ ring, 0x85ebca6b); h ^= h >>> 13;
+    ring = 0;
+    for (let ty = y0; ty < y1; ty++) {
+      ring = (ring << 1 | ring >>> 31) ^ (x0 > 0 && R[ty * width + x0 - 1] !== ROAD_NONE ? 1 : 0);
+      ring = (ring << 1 | ring >>> 31) ^ (x1 < width && R[ty * width + x1] !== ROAD_NONE ? 1 : 0);
+    }
+    h = Math.imul(h ^ ring, 0x9e3779b1);
+    return h ^ (h >>> 15);
   }
 
   private _getSpriteKey(zone: number, building: number, dev: number): string {

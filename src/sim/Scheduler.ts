@@ -8,6 +8,9 @@ export interface System {
   update(world: World): void;
 }
 
+/** Longest real-time gap between frames that is credited to the sim. */
+export const MAX_FRAME_GAP_MS = 250;
+
 export class Scheduler {
   private readonly world: World;
   private readonly systems: System[];
@@ -29,7 +32,11 @@ export class Scheduler {
   }
 
   update(now: number): void {
-    const dt = now - this.lastTime;
+    // Clamp the frame gap. requestAnimationFrame stops while the tab is hidden,
+    // so the first frame back sees the whole absence as one dt; unclamped, that
+    // queues minutes of ticks which then drain at 10 per frame and stall
+    // rendering. Time spent hidden (or in a long hitch) is simply not simulated.
+    const dt = Math.min(now - this.lastTime, MAX_FRAME_GAP_MS);
     this.lastTime = now;
     if (this.speed === 0) return;
     this.accumulator += dt * this.speed;

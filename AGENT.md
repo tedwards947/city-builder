@@ -128,7 +128,7 @@ grid.markAllDirty()
 ### Scheduler
 
 `Scheduler` (`src/sim/Scheduler.ts`) drives the sim loop:
-- `update(now)` called each animation frame; accumulates `dt * speed`
+- `update(now)` called each animation frame; accumulates `dt * speed`, with `dt` clamped to `MAX_FRAME_GAP_MS` (250 ms) so time spent in a hidden tab is not simulated (unclamped, it queued minutes of ticks and stalled the game on return)
 - Fires `_tick()` per accumulated interval (caps at 10 catch-up ticks)
 - Each `_tick()`: increments `world.tick`, then calls `sys.update(world)` for every system in order
 - Speed: 0 = paused, 1/2/3 = 1×/2×/3× (`baseTickMs = 500ms → 2 ticks/sec at 1×`)
@@ -358,7 +358,7 @@ Load-bearing decisions — don't change without good reason.
 
 **Renderer behind an interface:** All world→screen math goes through `Projection`. `Projection.depth()` returns `0` for top-down, `tx+ty` for isometric — this is the isometric swap hook.
 
-**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`.
+**Chunked dirty tracking:** 16×16 tile chunks. Mutations call `grid.markDirty(tx, ty)`. A dirty mark means "check this chunk", not "redraw it": `CanvasRenderer` compares a per-chunk content signature (`_chunkSignature`) and redraws the cached chunk canvas only if it changed. **If `_renderChunk` starts reading a new layer, mix that layer into `_chunkSignature` too**, or the chunk will not update when it changes. Per-frame art (clay sprites, overlays, fire, vehicles) is not cached and is unaffected.
 
 **TypeScript constraints:** `erasableSyntaxOnly: true` — no constructor parameter properties. Use explicit field declarations + assignment in body. `verbatimModuleSyntax` — use `import type` for type-only imports.
 
@@ -497,3 +497,16 @@ Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays,
 - Pollution diffusion must be **conserving** (Laplacian step subtracts what it spreads) — additive diffusion causes values to grow unboundedly even with decay.
 - When a user says zones can develop without a resource, check whether the growth gate uses `dev[i] >= N` as a guard — that means the resource is only required for levels ≥ N, which may not be the intended behaviour.
 - **Typed-array accumulation rates must be ≥ 1**, or `Math.floor` truncates them to 0 every tick (sickness bug: `sicknessRate: 0.08` → never accumulated). Prefer integer ±1 increments gated by a probability roll (`if (rng() < prob) layer[i]++`) over fractional additive rates. This also makes accumulation feel organic rather than mechanical — each zone's trajectory diverges. Apply this pattern to any new `Uint8Array` accumulator (sickness, education, etc.).
+
+---
+
+## Multiple sessions / worktrees
+
+More than one agent session may be working in this repo at once.
+
+- **One worktree and branch per session.** Don't share a working tree: use a git worktree (in Claude Code, the `EnterWorktree` tool; otherwise `git worktree add ../city-builder-<topic> -b <topic> vibecheck`) and merge back into the integration branch (`vibecheck` at the time of writing) when the work is green.
+- A worktree starts from a commit, so uncommitted work in another tree is invisible to it. Commit (when the user asks) before splitting work across worktrees.
+- A new worktree has no `node_modules`; run `npm install` in it. `generated_imgs/` is git-ignored and exists only in the main checkout.
+- Before starting, find the other sessions (`ListAgents`) and ask what files they own. If you must share a tree, agree on file ownership first and stay out of each other's files.
+- Use a different dev-server port per session (`npx vite --port <n> --strictPort`), and delete any temporary harness files you create.
+- Commit only when the user asks, and tell the other sessions before you do so two sessions don't commit the same tree. Never stash, reset or check out over a tree another session is using.

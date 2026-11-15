@@ -194,14 +194,11 @@ export const BALANCE = {
     rGenRate: 2.5,
     cAttrRate: 2.5,
     iAttrRate: 4.0,
-    spreadRadius: 4,
-    streetCapacity: 20,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
     // ── Road-network pathing ─────────────────────────────────────────────────
     // BFS radius (road hops) for zone-to-road load spreading.
     // Higher = zones spread traffic to more distant roads; raises cost per tick.
     accessRadius: 8,
-    // Scales raw road-tile complementary load → 0-255 accessibility byte.
     // Scales raw road-tile complementary load → 0-255 accessibility byte.
     // At 2.5× load rates, one adjacent dev-1 complementary zone (~0.5 load/tile)
     // maps to ~80/255 (31%) accessibility; multiple nearby zones push toward 255.

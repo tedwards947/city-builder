@@ -27,7 +27,7 @@
 // Runs every transit.flowInterval ticks (slower cadence than zone growth).
 
 import { World } from '../World';
-import { ROAD_NONE, ZONE_NONE, ZONE_R, ZONE_C } from '../constants';
+import { ROAD_NONE, ROAD_STREET, ZONE_NONE, ZONE_R, ZONE_C } from '../constants';
 import { BALANCE } from '../../data/balance';
 
 // Capacity lookup indexed by road class byte (built once, constant at runtime).
@@ -48,10 +48,9 @@ export class TransitSystem {
   private _queue: Int32Array | null = null;
   private _qdepth: Uint8Array | null = null;
   private _gen = 0;
-  // Layer checksums — if zone+dev+roadClass haven't changed since the last
-  // full BFS pass, skip re-computation entirely.
-  private _lastZoneDevSum = -1;
-  private _lastRoadSum = -1;
+  // Hash of zone+dev+roadClass at the last full pass — if it is unchanged,
+  // the BFS passes are skipped. NaN = never computed.
+  private _lastInputHash = NaN;
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
@@ -67,23 +66,23 @@ export class TransitSystem {
       this._queue      = new Int32Array(n);
       this._qdepth     = new Uint8Array(n);
       this._gen        = 0;
-      this._lastZoneDevSum = -1;
-      this._lastRoadSum    = -1;
+      this._lastInputHash = NaN;
     }
 
     // Skip the expensive BFS passes when roads and zones are unchanged.
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
     const dev       = world.layers.devLevel;
+    // The hash is position-dependent: a plain sum misses changes that cancel
+    // out (a road moved, one zone growing as another shrinks).
     {
-      let zdSum = 0, rdSum = 0;
+      let h = 0x811c9dc5 | 0;
       for (let i = 0; i < n; i++) {
-        zdSum += zone[i] * 4 + dev[i];
-        rdSum += roadClass[i];
+        h = Math.imul(h ^ (zone[i] | (dev[i] << 8) | (roadClass[i] << 16)), 0x9e3779b1);
+        h ^= h >>> 15;
       }
-      if (zdSum === this._lastZoneDevSum && rdSum === this._lastRoadSum) return;
-      this._lastZoneDevSum = zdSum;
-      this._lastRoadSum    = rdSum;
+      if (h === this._lastInputHash) return;
+      this._lastInputHash = h;
     }
 
     const rLoad      = this._rLoad!;
@@ -216,7 +215,7 @@ export class TransitSystem {
       }
       const rl = rLoad[i], cl = cLoad[i], il = iLoad[i];
       const flow = (rl + cl + il) + rl * (cl + il) + il * cl;
-      const cap  = CLASS_CAPACITY[roadClass[i]] || BALANCE.transit.streetCapacity;
+      const cap  = CLASS_CAPACITY[roadClass[i]] || CLASS_CAPACITY[ROAD_STREET];
       const c    = Math.min(255, Math.round(flow / cap * 255));
       congestion[i] = c;
       totalCong += c;

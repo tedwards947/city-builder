@@ -1164,16 +1164,34 @@ describe('TransitSystem', () => {
     expect(w.layers.congestion[w.grid.idx(5, 5)]).toBe(0);
   });
 
+  it('recomputes when a road is moved (changes that cancel out in a sum)', () => {
+    const w = makeWorld(16, 16);
+    for (const [x, y] of [[5, 5], [5, 6], [8, 8]] as const) forceBuildable(w, x, y);
+    w.layers.zone[w.grid.idx(5, 5)]      = ZONE_R;
+    w.layers.devLevel[w.grid.idx(5, 5)]  = 3;
+    w.layers.roadClass[w.grid.idx(5, 6)] = ROAD_STREET;
+    const sys = new TransitSystem();
+    w.tick = interval; sys.update(w);
+    expect(w.layers.congestion[w.grid.idx(5, 6)]).toBeGreaterThan(0);
+
+    // Same number of road tiles, different place: the old road is gone.
+    w.layers.roadClass[w.grid.idx(5, 6)] = 0;
+    w.layers.roadClass[w.grid.idx(8, 8)] = ROAD_STREET;
+    w.tick = interval * 2; sys.update(w);
+    expect(w.layers.congestion[w.grid.idx(5, 6)]).toBe(0);
+    expect(w.layers.congestion[w.grid.idx(8, 8)]).toBe(0);
+  });
+
   it('avgCongestion is 0 with no roads', () => {
     const w = makeWorld();
     runAt(w, interval);
     expect(w.stats.avgCongestion).toBe(0);
   });
 
-  it('zone beyond spreadRadius has no effect on road', () => {
+  it('zone not adjacent to a road has no effect on it', () => {
     const w = makeWorld();
-    const r = BALANCE.transit.spreadRadius;
-    // Road at (0,0), zone at (0, r+2) — beyond radius
+    const r = 4;
+    // Road at (0,0), zone at (0, r+2) — not touching it
     forceBuildable(w, 0, 0); forceBuildable(w, 0, r + 2);
     w.layers.roadClass[w.grid.idx(0, 0)]     = ROAD_STREET;
     w.layers.zone[w.grid.idx(0, r + 2)]      = ZONE_R;
@@ -1189,7 +1207,7 @@ describe('TransitSystem', () => {
     // Uint8Array wraps to high congestion.  After the fix (diamond clip),
     // the road at (zx+r, zy+r) is outside the manhattan radius and must be 0.
     const w = makeWorld(16, 16);
-    const r = BALANCE.transit.spreadRadius;
+    const r = 4; // radius of the old distance kernel
     const zx = 0, zy = 0;          // zone origin
     const rx = zx + r, ry = zy + r; // diagonal corner, manhattan dist = 2r
     forceBuildable(w, zx, zy);
