@@ -16,6 +16,15 @@ export function pcDelta(delta: number): string {
   return (delta < 0 ? '−' : '+') + PC_SYMBOL + ' ' + pcAmount(delta);
 }
 
+/**
+ * The passive rate beside the HUD figure, per game day: "+1.6/day", "−0.8/day".
+ * Empty when PC is not moving (at the cap, or nothing to report).
+ */
+export function pcRate(perDay: number): string {
+  if (Math.abs(perDay) < 0.05) return '';
+  return (perDay < 0 ? '−' : '+') + Math.abs(perDay).toFixed(1) + '/day';
+}
+
 /** The HUD figure: "62 / 100". Never shows a negative or a rounded-up amount. */
 export function pcOfCap(pc: number, cap: number): string {
   return Math.max(0, Math.floor(pc)) + ' / ' + Math.round(cap);

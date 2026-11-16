@@ -26,6 +26,11 @@
     #citystats .value.pc.low { color: #e0b050; }
     #citystats .value.pc.critical { color: #e07070; }
     #citystats .value.pc.over { color: #c9fff1; }
+    #citystats .value.pc.draining { color: #e07070; }
+    #stat-pc-rate { font-size: 10px; margin-left: 5px; color: #8aa; }
+    #stat-pc-rate.draining { color: #e07070; }
+    #stat-pc-rate:empty { display: none; }
+    #pc-bar.draining { background: repeating-linear-gradient(-45deg, #e07070 0 4px, #8a3a3a 4px 8px) !important; }
     #pc-bar.over { box-shadow: 0 0 6px #7dffe0; }
     /* Floating political-capital totals (src/ui/PcFloat.ts) */
     #pc-floats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -233,7 +238,7 @@
     <div id="hud-right">
     <div id="citystats">
       <div>
-        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span>
+        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span><span id="stat-pc-rate"></span>
         <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>
