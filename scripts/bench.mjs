@@ -40,7 +40,8 @@ const spread = (s) => `median ${ms(s.median)}   95% ${ms(s.p95)}   worst ${ms(s.
 function printTick(title, r) {
   console.log(`\n${title}  (${r.ticks} ticks)`);
   console.log(`  a tick             ${spread(r)}`);
-  console.log(`  first tick         ${ms(r.firstTickMs)}`);
+  console.log(`  load warm-up       ${ms(r.loadWarmupMs)}   (traffic, before the first frame)`);
+  console.log(`  first 8 ticks      ${ms(r.firstTicksWorstMs)}   (worst)`);
   console.log('  by system (average per tick):');
   for (const s of r.systems.filter((s) => s.ms >= 0.01).slice(0, 8)) {
     console.log(`    ${s.name.padEnd(20)} ${s.ms.toFixed(2).padStart(6)} ms`);

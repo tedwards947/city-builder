@@ -118,6 +118,10 @@ function startGame(world: World): void {
   // Systems carry per-game state, so every new or loaded world gets a fresh set.
   const sim = createSystems();
   state.transit = sim.transit;
+  // Settle traffic now, while the city is loading, rather than on the first
+  // traffic tick: that pass is the costliest of the game (~20 ms on a big
+  // city), and roads show their traffic from the first frame.
+  sim.transit.recompute(world);
   state.scheduler = new Scheduler(world, sim.systems);
   syncSpeedButtons();
   autosave.reset();
