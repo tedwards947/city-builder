@@ -52,7 +52,11 @@ function run() {
   return { world, scheduler };
 }
 
-describe('the whole simulation on the test city', () => {
+// Each test runs the test city for hundreds of ticks (about a second here).
+// A busy machine can be twenty times slower (19 s was seen with several
+// sessions running), and a timeout
+// would read as "the simulation changed", so the limit is generous.
+describe('the whole simulation on the test city', { timeout: 120_000 }, () => {
   it('gives the stored result, tick for tick', () => {
     const { world, scheduler } = run();
     for (const until of [1, 50, 200, 400]) {
