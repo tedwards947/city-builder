@@ -354,9 +354,15 @@ function frame(now: number): void {
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
   statDebt.hidden = state.world.budget.money >= 0;
   statPop.textContent   = state.world.stats.population.toLocaleString();
-  statPower.textContent = `${state.world.stats.powerDemand} / ${state.world.stats.powerSupply}`;
-  statWater.textContent  = `${state.world.stats.waterDemand} / ${state.world.stats.waterSupply}`;
-  statSewage.textContent   = `${state.world.stats.sewageDemand} / ${state.world.stats.sewageSupply}`;
+  // Demand / supply; red while demand outruns supply.
+  const utility = (el: HTMLElement, demand: number, supply: number) => {
+    el.textContent = `${demand} / ${supply}`;
+    el.classList.toggle('short', demand > supply);
+  };
+  const stats = state.world.stats;
+  utility(statPower, stats.powerDemand, stats.powerSupply);
+  utility(statWater, stats.waterDemand, stats.waterSupply);
+  utility(statSewage, stats.sewageDemand, stats.sewageSupply);
   statServices.textContent   = `${state.world.stats.servicesCoveredZones}`;
   statCongestion.textContent = `${state.world.stats.avgCongestion}`;
   statDate.textContent       = formatDate(state.world.tick);
