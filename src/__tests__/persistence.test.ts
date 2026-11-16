@@ -267,7 +267,7 @@ describe('Migration', () => {
     };
 
     const migrated = migrate(v5);
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(SAVE_VERSION);
     expect(migrated.snapshot.stats.avgCongestion).toBe(0);
     expect(migrated.snapshot.stats.satisfaction).toBe(1);
     expect(migrated.snapshot.layers.crime).toBeDefined();
@@ -328,8 +328,41 @@ describe('Migration', () => {
     };
 
     const migrated = migrate(v7);
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(SAVE_VERSION);
     expect(migrated.snapshot.layers.visualVariant).toBeDefined();
     expect(migrated.snapshot.layers.visualVariant.length).toBe(100);
+    // v8 → v9: politics is added, with no population yet.
+    expect(migrated.snapshot.politics).toEqual({ peakPopulation: 0, regen: 0 });
+  });
+
+  it('upgrades v8 to v9 crediting the city for the people it already has', () => {
+    const w = new World(16, 16, 1);
+    w.stats.population = 12_345;
+    const { politics: _dropped, ...v8Snapshot } = serialize(w);
+    const v8: any = {
+      version: 8, userId: 'test', slot: 1,
+      meta: { name: 'Test', savedAt: 0, tick: 0, population: 12_345, money: 0 },
+      snapshot: v8Snapshot,
+    };
+    const migrated = migrate(v8);
+    expect(migrated.version).toBe(9);
+    expect(migrated.snapshot.politics).toEqual({ peakPopulation: 12_345, regen: 0 });
+    const loaded = deserialize(migrated.snapshot);
+    expect(loaded.politics.peakPopulation).toBe(12_345);
+  });
+});
+
+describe('politics state', () => {
+  it('round-trips through a save', () => {
+    const w = new World(16, 16, 1);
+    w.politics.peakPopulation = 2600;
+    w.politics.regen = -0.25;
+    const loaded = deserialize(serialize(w));
+    expect(loaded.politics).toEqual({ peakPopulation: 2600, regen: -0.25 });
+    expect(loaded.politics).not.toBe(w.politics);
+  });
+
+  it('a new city starts with nothing credited', () => {
+    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0 });
   });
 });

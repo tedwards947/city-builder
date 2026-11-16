@@ -144,7 +144,13 @@ export class PoliticsSystem {
     const cfg = BALANCE.politicalCapital;
     const sat = this.satisfaction(world);
     const regen = cfg.baseRegen + sat * cfg.satisfactionRegenBonus;
+    const before = world.budget.politicalCapital;
     regenPc(world, regen);
+    world.politics.regen = world.budget.politicalCapital - before;
+    // Remember the largest population seen, so milestones never pay twice.
+    if (world.stats.population > world.politics.peakPopulation) {
+      world.politics.peakPopulation = world.stats.population;
+    }
     // Expose satisfaction on stats so HUD and other systems can read it
     // without recomputing.
     world.stats.satisfaction = sat;

@@ -75,6 +75,21 @@ export interface Stats {
   satisfaction: number;   // 0–1 weighted citizen satisfaction (updated by PoliticsSystem)
 }
 
+/** Political state that is not the PC balance itself (that is `budget.politicalCapital`). Saved. */
+export interface Politics {
+  /**
+   * The highest population the city has been credited for. Population
+   * milestones pay out only for thresholds above it, then raise it, so each
+   * fires once however the population moves or the list of thresholds changes.
+   */
+  peakPopulation: number;
+  /**
+   * The change passive regeneration made to PC on the last tick: positive
+   * while gaining, negative while draining, 0 at the cap. For the HUD.
+   */
+  regen: number;
+}
+
 // Unified entity type for every placed building (utilities and services alike).
 export interface BuildingEntity {
   tx: number;
@@ -113,6 +128,7 @@ export class World {
   readonly stats: Stats;
   // City-wide character axes, derived by VibeSystem from the vibe layers.
   readonly character: { egalitarian: number; green: number; planned: number };
+  readonly politics: Politics;
   buildings: BuildingEntity[];
   readonly events: EventBus;
   roadNetDirty: boolean;
@@ -196,6 +212,7 @@ export class World {
     };
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
+    this.politics = { peakPopulation: 0, regen: 0 };
     this.buildings = [];
     this.events = new EventBus();
     this.roadNetDirty = true;

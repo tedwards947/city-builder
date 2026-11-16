@@ -1176,6 +1176,31 @@ describe('PoliticsSystem', () => {
     expect(w.budget.politicalCapital).toBeLessThanOrEqual(BALANCE.politicalCapital.max);
   });
 
+  it('records the change regeneration made: the rate while gaining, 0 at the cap', () => {
+    const w = makeWorld();
+    w.budget.politicalCapital = 10;
+    new PoliticsSystem().update(w);
+    expect(w.politics.regen).toBeCloseTo(w.budget.politicalCapital - 10);
+    expect(w.politics.regen).toBeGreaterThan(0);
+    w.budget.politicalCapital = BALANCE.politicalCapital.max;
+    new PoliticsSystem().update(w);
+    expect(w.politics.regen).toBe(0);
+  });
+
+  it('remembers the largest population seen, and never lowers it', () => {
+    const w = makeWorld();
+    const sys = new PoliticsSystem();
+    w.stats.population = 800;
+    sys.update(w);
+    expect(w.politics.peakPopulation).toBe(800);
+    w.stats.population = 300;
+    sys.update(w);
+    expect(w.politics.peakPopulation).toBe(800);
+    w.stats.population = 1200;
+    sys.update(w);
+    expect(w.politics.peakPopulation).toBe(1200);
+  });
+
   it('satisfaction is 1 when city has no developed zones (neutral early game)', () => {
     const w = makeWorld();
     const sys = new PoliticsSystem();
