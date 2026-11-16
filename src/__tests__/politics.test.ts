@@ -5,7 +5,7 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { pcCap, changePc, regenPc } from '../sim/politics';
+import { pcCap, changePc, regenPc, regenRate } from '../sim/politics';
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home } from './pcTestWorld';
@@ -71,6 +71,34 @@ describe('politics: the PC write point', () => {
     expect(changePc(w, -30, 'displacement')).toBe(-30);
     expect(changePc(w, 30, 'displacement', { undo: true })).toBe(30);
     expect(w.budget.politicalCapital).toBe(pcCap(w) + 10);
+  });
+
+  it('regenRate with the shipped numbers never drains: 0.1 at worst, 0.4 at best', () => {
+    expect(BALANCE.politicalCapital.neutralSatisfaction).toBe(0);
+    expect(regenRate(0)).toBeCloseTo(0.1);
+    expect(regenRate(1)).toBeCloseTo(0.4);
+  });
+
+  it('regenRate is zero at the neutral point, positive above it, negative below', () => {
+    const cfg = { baseRegen: 0, satisfactionRegenBonus: 0.5, neutralSatisfaction: 0.6 };
+    expect(regenRate(0.6, cfg)).toBe(0);
+    expect(regenRate(1, cfg)).toBeCloseTo(0.2);
+    expect(regenRate(0.2, cfg)).toBeCloseTo(-0.2);
+  });
+
+  it('a negative regenPc drains PC, over the cap too, but never below 0', () => {
+    w.budget.politicalCapital = 10;
+    regenPc(w, -0.25);
+    expect(w.budget.politicalCapital).toBe(9.75);
+    w.budget.politicalCapital = pcCap(w) + 20;
+    regenPc(w, -0.5);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 19.5);
+    w.budget.politicalCapital = 0.1;
+    regenPc(w, -0.25);
+    expect(w.budget.politicalCapital).toBe(0);
+    regenPc(w, -0.25);
+    expect(w.budget.politicalCapital).toBe(0);
+    expect(seen).toEqual([]);
   });
 
   it('regenPc leaves PC that is over the cap alone', () => {

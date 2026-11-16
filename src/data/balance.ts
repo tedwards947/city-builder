@@ -310,11 +310,17 @@ export const BALANCE = {
     // Extra cap per resident, so a bigger city can hold more (0.01 = +1 per
     // 100 people). SWITCHED OFF at 0 until the Political Capital numbers pass.
     capPerResident: 0,
-    // Passive regen per tick regardless of satisfaction.
+    // Passive change per tick:
+    //   baseRegen + (satisfaction − neutralSatisfaction) × satisfactionRegenBonus
+    // A positive result stops at the cap; a negative one drains PC, down to 0.
+    // With the numbers below it runs from 0.1 (miserable city) to 0.4 (happy city).
     baseRegen: 0.1,
-    // Additional regen per tick at 100% satisfaction (scales linearly).
-    // Total regen range: 0.1 (miserable city) → 0.4 (happy city).
     satisfactionRegenBonus: 0.3,
+    // The satisfaction (0–1) at which the satisfaction part is zero: above it
+    // the city earns, below it the city loses. SWITCHED OFF at 0 (with a
+    // positive baseRegen nothing ever drains) until the Political Capital
+    // numbers pass; the plan is a neutral point around 0.6 and baseRegen 0.
+    neutralSatisfaction: 0,
     // Named satisfaction factors with weights (must sum to 1.0).
     // Keys are matched by name to SatisfactionFactor.name in PoliticsSystem.
     // Add new factors here + implement compute() in PoliticsSystem.defaultFactors().
