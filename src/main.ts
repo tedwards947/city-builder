@@ -32,6 +32,7 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcHudRate } from './ui/pcFormat';
+import { DOCK_CHANGED } from './ui/debugDock';
 import { pcCap, overCapFadePerDay } from './sim/politics';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
 import { MilestoneBanner } from './ui/MilestoneBanner';
@@ -289,6 +290,13 @@ function besideHud(): number {
   const edge = document.getElementById('debug-dock') ?? document.getElementById('hud-right')!;
   return window.innerWidth - edge.getBoundingClientRect().left + 8;
 }
+
+// The debug dock changes width when it folds: keep an open panel beside it, not under it.
+window.addEventListener(DOCK_CHANGED, () => {
+  const right = besideHud() + 'px';
+  for (const id of ['econ-panel', 'ordinance-panel', 'request-log']) { const el = document.getElementById(id); if (el) el.style.right = right; }
+  toastsMovedFor = '';
+});
 
 const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneMode, {
   onTool: (tool) => setTool(tool),

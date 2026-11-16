@@ -9,7 +9,7 @@ import { BALANCE } from '../data/balance';
 import { isServiceKind } from '../sim/serviceValue';
 import { ECON_PRESETS, type EconPreset } from './econPresets';
 import { applyValues } from './pcPresets';
-import { debugDock } from './debugDock';
+import { debugDock, panelFold } from './debugDock';
 import { balanceInputs, fold } from './tuningWidgets';
 
 type Tree = Record<string, unknown>;
@@ -55,9 +55,7 @@ export class EconomyTuningPanel {
 
     const body = document.createElement('div');
     panel.appendChild(body);
-    const setTitle = () => { title.textContent = `Economy (debug) ${body.style.display === 'none' ? '▸' : '▾'}`; };
-    title.addEventListener('click', () => { body.style.display = body.style.display === 'none' ? '' : 'none'; setTitle(); });
-    setTitle();
+    panelFold(title, 'Economy (debug)', 'economy', [this.readoutEl, body], true);
 
     const picker = document.createElement('div');
     picker.style.cssText = `display:grid;grid-template-columns:repeat(${ECON_PRESETS.length},1fr);gap:3px;`;

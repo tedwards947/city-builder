@@ -6,7 +6,7 @@
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { trafficTotals } from './trafficDebug';
-import { debugDock } from './debugDock';
+import { debugDock, panelFold } from './debugDock';
 
 interface Knob {
   label: string;
@@ -91,11 +91,7 @@ export class TrafficTuningPanel {
     this.totalsEl = document.createElement('div');
     this.totalsEl.style.cssText = 'margin-bottom:6px;color:#dde;';
     el.appendChild(this.totalsEl);
-    title.addEventListener('click', () => {
-      const open = el.style.display === 'none';
-      el.style.display = open ? '' : 'none';
-      title.textContent = `Traffic tuning (debug) ${open ? '▾' : '▸'}`;
-    });
+    panelFold(title, 'Traffic tuning (debug)', 'traffic', [el], false);
 
     for (const [groupName, knobs] of GROUPS) {
       const h = document.createElement('div');
