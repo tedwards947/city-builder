@@ -130,7 +130,9 @@ export interface TranslationSchema {
       pcFull: string;
       pcBonus: string;
       pcShort: string;
-      pcLast: string;
+      pcIntoDebt: string;
+      pcInDebt: string;
+      pcDebt: string;
       pcRibbon: string;
       pcClosing: string;
       inDebt: string;

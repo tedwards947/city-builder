@@ -25,7 +25,11 @@ export function pcRate(perDay: number): string {
   return (perDay < 0 ? '−' : '+') + Math.abs(perDay).toFixed(1) + '/day';
 }
 
-/** The HUD figure: "62 / 100". Never shows a negative or a rounded-up amount. */
+/**
+ * The HUD figure: "62 / 100", or "−12 / 100" in political debt. Rounds down,
+ * so it never overstates what the city has or understates what it owes.
+ */
 export function pcOfCap(pc: number, cap: number): string {
-  return Math.max(0, Math.floor(pc)) + ' / ' + Math.round(cap);
+  const whole = Math.floor(pc);
+  return (whole < 0 ? '−' + -whole : String(whole)) + ' / ' + Math.round(cap);
 }

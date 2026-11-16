@@ -232,7 +232,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
 function pcTag(q: PcQuote): { text: string; ok: boolean; note?: string } | undefined {
   const text = pcLabel(q);
   if (!text || isQuietNuisance(q)) return undefined;   // neighbours objecting to a zone: the tint says it
-  return { text, ok: q.affordable, note: pcNote(q) };
+  return { text, ok: q.affordable, note: pcNote(q, state.world) };
 }
 
 /** The homes a plan would upset, tinted; the plan's own tag carries the price. */
@@ -426,7 +426,13 @@ function frame(now: number): void {
   // The passive rate per game day. An unhappy city drains: red figure, striped bar.
   const pcPerDay = state.world.politics.regen * BALANCE.ticksPerDay;
   const draining = pcPerDay < -0.05;
-  statPCRate.textContent = pcRate(pcPerDay) || (pcOver ? t('ui.hud.pcBonus') : Math.floor(pc) >= pcMax ? t('ui.hud.pcFull') : '');
+  // Political debt (below 0, from closing services): everything that costs PC is refused until it is paid off.
+  const inDebt = pc < 0;
+  const rateText = pcRate(pcPerDay) || (pcOver ? t('ui.hud.pcBonus') : Math.floor(pc) >= pcMax ? t('ui.hud.pcFull') : '');
+  statPCRate.textContent = inDebt ? (t('ui.hud.pcDebt') + ' ' + rateText).trim() : rateText;
+  statPC.classList.toggle('debt', inDebt);
+  statPCRate.classList.toggle('debt', inDebt);
+  pcBar.parentElement!.classList.toggle('debt', inDebt);
   statPCRate.classList.toggle('draining', draining);
   statPC.classList.toggle('draining', draining);
   pcBar.classList.toggle('draining', draining);

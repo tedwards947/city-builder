@@ -24,9 +24,11 @@ describe('political capital formatting', () => {
     expect(pcRate(0.01)).toBe('');
   });
 
-  it('shows the HUD figure without rounding up or going negative', () => {
+  it('shows the HUD figure rounded down, negative in political debt', () => {
     expect(pcOfCap(61.9, 100)).toBe('61 / 100');
-    expect(pcOfCap(-0.4, 100)).toBe('0 / 100');
+    expect(pcOfCap(0, 100)).toBe('0 / 100');
+    expect(pcOfCap(-0.4, 100)).toBe('−1 / 100');
+    expect(pcOfCap(-12, 100)).toBe('−12 / 100');
     expect(pcOfCap(112.2, 100)).toBe('112 / 100');
   });
 });
