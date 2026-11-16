@@ -25,6 +25,13 @@
     #citystats .value.pc { color: #7dd8c0; }
     #citystats .value.pc.low { color: #e0b050; }
     #citystats .value.pc.critical { color: #e07070; }
+    #citystats .value.pc.over { color: #c9fff1; }
+    #pc-bar.over { box-shadow: 0 0 6px #7dffe0; }
+    /* Floating political-capital totals (src/ui/PcFloat.ts) */
+    #pc-floats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .pc-float { position: absolute; transform: translate(-50%, -100%); font-weight: 800; font-size: 16px; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 2px #000; animation: pc-rise 1.9s ease-out forwards; }
+    .pc-float.pos { color: #9ff3dc; } .pc-float.neg { color: #ff9a9a; }
+    @keyframes pc-rise { 0% { opacity: 0; margin-top: 6px; } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -34px; } }
     #pc-bar-bg { width: 100%; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; margin-top: 2px; }
     #pc-bar { height: 3px; border-radius: 2px; background: #7dd8c0; transition: width 0.3s, background 0.3s; }
     #demand-chart-wrap { margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; }
@@ -226,7 +233,7 @@
     <div id="hud-right">
     <div id="citystats">
       <div>
-        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100</span>
+        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span>
         <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>

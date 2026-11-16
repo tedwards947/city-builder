@@ -30,6 +30,9 @@ import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
+import { PcFloat } from './ui/PcFloat';
+import { pcOfCap } from './ui/pcFormat';
+import { pcCap } from './sim/politics';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
@@ -92,6 +95,7 @@ const tileInfoPanel = new TileInfoPanel();
 const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y));
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
+const pcFloat = new PcFloat(document.getElementById('game')!, camera);
 const demandChart = new DemandChart();
 
 const store   = new LocalStore();
@@ -118,6 +122,7 @@ function startGame(world: World): void {
   syncSpeedButtons();
   autosave.reset();
   toastPanel.setWorld(world);
+  pcFloat.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
 }
@@ -371,12 +376,17 @@ function frame(now: number): void {
   statCam.textContent   = `${Math.round(camera.x)}, ${Math.round(camera.y)}`;
   statZoom.textContent  = camera.zoom.toFixed(2) + '×';
   const pc = state.world.budget.politicalCapital;
-  const pcMax = BALANCE.politicalCapital.max;
-  statPC.textContent = Math.floor(pc).toString();
+  // Shown as "pc / cap". One-off bonuses can lift it past the cap: the bar
+  // stays full and the figure brightens.
+  const pcMax = pcCap(state.world);
+  const pcOver = Math.floor(pc) > pcMax;
+  statPC.textContent = pcOfCap(pc, pcMax);
   statPC.classList.toggle('critical', pc < pcMax * 0.2);
   statPC.classList.toggle('low',      pc >= pcMax * 0.2 && pc < pcMax * 0.5);
+  statPC.classList.toggle('over',     pcOver);
+  pcBar.classList.toggle('over', pcOver);
   (pcBar as HTMLElement).style.width = Math.max(0, Math.min(100, (pc / pcMax) * 100)).toFixed(1) + '%';
-  (pcBar as HTMLElement).style.background = pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
+  (pcBar as HTMLElement).style.background = pcOver ? '#c9fff1' : pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   statMoney.textContent = formatMoney(state.world.budget.money);
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
   statDebt.hidden = state.world.budget.money >= 0;
