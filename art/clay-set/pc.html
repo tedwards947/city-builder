@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Political capital mocks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; --red: #e07070; --amber: #e0b050; --money: #7dd87d; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin: 22px 0 8px; }
+  p { max-width: 880px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  nav { margin: 10px 0; display: flex; gap: 14px; flex-wrap: wrap; } nav a { color: var(--pc); text-decoration: none; }
+  .rowf { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 340px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  .q { color: #8aa; font-size: 12px; }
+  .d { color: var(--pc); font-weight: 600; } .d::before { content: "◆ "; font-size: .8em; }
+  .d.neg { color: var(--red); } .d.pos { color: var(--pc); }
+
+  /* HUD */
+  .hud { width: 226px; white-space: nowrap; background: rgba(0,0,0,0.62); border-radius: 6px; padding: 8px 12px; font-size: 13px; text-align: right; line-height: 1.5; }
+  .hud i { font-style: normal; color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .hud b { color: #fff; } .hud .m { color: var(--money); }
+  .hud .st { text-align: left; font-size: 10px; color: #8aa; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .bar { position: relative; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.15); margin: 2px 0 3px; }
+  .bar span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--pc); }
+  .bar .over { left: auto; right: -9px; width: 7px; background: #c9fff1; box-shadow: 0 0 6px #7dffe0; }
+  .bar.drain span:first-child { background: repeating-linear-gradient(-45deg, var(--red) 0 4px, #8a3a3a 4px 8px); }
+  .rate { font-size: 10px; margin-left: 4px; } .seg { display: flex; gap: 2px; margin: 3px 0; } .seg span { flex: 1; height: 5px; border-radius: 1px; background: rgba(255,255,255,0.15); }
+
+  /* map scenes */
+  .scene { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12);
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 44px), repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 44px), #6a9a55; }
+  .scene > * { position: absolute; }
+  .spr { width: 44px; height: 44px; } .ghost { opacity: .75; filter: drop-shadow(0 0 3px #fff); } .dim { filter: grayscale(.6) brightness(.8); }
+  .road { background: #5d6066; }
+  .zone { background: rgba(224,176,96,0.45); outline: 1px dashed #e0b060; }
+  .ring { border-radius: 50%; pointer-events: none; }
+  .ring.line { border: 2px dashed var(--pc); } .ring.line.bad { border-color: var(--red); }
+  .ring.wash { background: radial-gradient(circle, rgba(224,112,112,0.55), rgba(224,112,112,0.18) 60%, transparent 71%); }
+  .ring.good { background: radial-gradient(circle, rgba(125,216,192,0.5), rgba(125,216,192,0.15) 60%, transparent 71%); }
+  .tag { transform: translate(-50%, -50%); background: rgba(10,18,28,0.92); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 2px 8px; font-size: 12px; white-space: nowrap; color: #fff; }
+  .tag.bad { border-color: var(--red); } .tag .m { color: var(--money); } .tag small { color: #9ab; display: block; font-size: 10px; }
+  .chip { transform: translate(-50%, -50%); background: var(--red); color: #fff; border-radius: 8px; font-size: 10px; font-weight: 700; padding: 0 5px; line-height: 15px; }
+  .chip.good { background: var(--pcd); } .chip.w2 { opacity: .8; } .chip.w1 { opacity: .55; }
+  .hl { width: 44px; height: 44px; outline: 2px solid var(--red); outline-offset: -3px; border-radius: 6px; } .hl.good { outline-color: var(--pc); }
+  .cur { width: 44px; height: 44px; outline: 2px solid #fff; outline-offset: -1px; } .cur.bad { outline-color: var(--red); background: rgba(224,112,112,0.3); }
+  .float { transform: translate(-50%, -50%); font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px #000, 0 0 2px #000; animation: rise 2.2s ease-out infinite; }
+  .float.pos { color: #9ff3dc; } .float.neg { color: #ff9a9a; } .float.sm { font-size: 11px; }
+  @keyframes rise { 0% { opacity: 0; margin-top: 8px; } 15% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -30px; } }
+  .pin { transform: translate(-50%, -100%); width: 34px; height: 34px; border-radius: 50% 50% 50% 4px; rotate: -45deg; background: var(--pcd); border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 2px 5px rgba(0,0,0,.5); }
+  .pin > * { rotate: 45deg; } .pin svg, .ico svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .pin .days { position: absolute; right: -9px; top: -9px; background: #fff; color: #06261f; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 0 4px; line-height: 14px; }
+  .pin.urgent { background: #c9772a; } .pin.done { background: #3a9a4a; } .pin.fail { background: #777; }
+  .badge { transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; background: var(--pcd); border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .badge svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .badge .cd { position: absolute; inset: -5px; border-radius: 50%; background: conic-gradient(#fff var(--a), transparent 0); -webkit-mask: radial-gradient(circle, transparent 14px, #000 15px); mask: radial-gradient(circle, transparent 14px, #000 15px); }
+  .badge.prob { background: #d99a1c; } .badge.big { width: 34px; height: 34px; } .badge .n { position: absolute; right: -8px; bottom: -6px; background: #fff; color: #222; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 0 4px; line-height: 14px; }
+
+  /* panels, toasts, toolbar */
+  .panel { background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .panel h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin-bottom: 8px; font-weight: 600; }
+  .toast { width: 250px; background: rgba(0,0,0,0.85); border-left: 3px solid var(--pc); border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 6px; }
+  .toast b { display: block; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; color: var(--pc); }
+  .toast.warning { border-left-color: var(--amber); } .toast.warning b { color: var(--amber); }
+  .banner { width: 520px; text-align: center; padding: 14px; border-radius: 10px; background: linear-gradient(90deg, rgba(47,156,134,0), rgba(47,156,134,0.9) 20% 80%, rgba(47,156,134,0)); color: #fff; font-size: 17px; font-weight: 700; }
+  .banner small { display: block; font-weight: 400; font-size: 12px; opacity: .9; }
+  .ord { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 14px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+  .ord b { color: #fff; font-size: 13px; } .ord small { grid-column: 1; color: #9ab; } .ord .cost { text-align: right; line-height: 1.3; grid-row: span 2; } .ord .cost small { display: block; }
+  .tog { grid-row: span 2; width: 34px; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.18); position: relative; }
+  .tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #dde; }
+  .tog.on { background: var(--pcd); } .tog.on::after { left: 18px; background: #fff; }
+  .ord.off-poor { opacity: .5; } .ord.susp b::after { content: " · suspended"; color: var(--amber); font-weight: 400; font-size: 11px; } .ord.susp .tog { background: #8a6a2a; }
+  .tiles { display: grid; grid-template-columns: 40px 40px; gap: 4px; padding: 6px; background: rgba(0,0,0,0.6); border-radius: 6px; }
+  .tile { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); display: grid; place-items: center; color: #dfe7ee; }
+  .tile.on { background: #4a7a9a; border-color: #8cc0e0; } .tile svg, .frow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .frow { display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 6px; font-size: 13px; color: #dfe7ee; }
+  .frow .p { margin-left: auto; padding-left: 18px; color: var(--money); font-size: 12px; } .frow .p .d { margin-left: 8px; font-weight: 400; }
+  .frow.lock { opacity: .45; } .frow.poor .d { color: var(--red); }
+  .tip { display: inline-block; background: rgba(10,18,28,0.95); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; line-height: 1.45; }
+  .tip b { color: #fff; display: block; } .tip .c { color: var(--money); font-weight: 600; font-size: 11px; } .tip .u { color: var(--amber); font-size: 11px; } .tip .h { color: #8a9bb0; font-size: 11px; } .tip .pcl { color: var(--pc); font-size: 11px; font-weight: 600; }
+  .pane { width: 230px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.7; }
+  .pane .t { font-size: 14px; font-weight: 600; color: #dde; } .pane .k { color: #9ab; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+  .code.ok { background: #4fbf7a; color: #06200f; } .code.ok::before { content: "✓ "; }
+  .passed { opacity: .38; }
+  .code.new { background: #ffd166; } .code.new::after { content: " NEW"; font-size: 9px; }
+  .tint { width: 44px; height: 44px; background: var(--red); border-radius: 6px; mix-blend-mode: multiply; }
+  .frown { transform: translate(-50%, -50%); width: 17px; height: 17px; border-radius: 50%; background: var(--red); border: 1.5px solid #fff; display: grid; place-items: center; }
+  .frown svg { width: 11px; height: 11px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
+  .ring.c1 { border: 2px solid rgba(224,112,112,0.95); } .ring.c2 { border: 2px dashed rgba(224,112,112,0.7); } .ring.c3 { border: 2px dotted rgba(224,112,112,0.5); }
+  .ring.cov { background: rgba(255,255,255,0.22); border: 2px solid rgba(255,255,255,0.7); }
+  .zone.bad { background: rgba(224,112,112,0.5); outline-color: var(--red); }
+  .heat { background: var(--red); width: 44px; height: 44px; }
+  .frow .hint { margin-left: 8px; color: var(--pc); font-size: 11px; }
+  /* feedback form (same pattern as variants.html: saved in this browser, copied out as text) */
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 360px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  figure.yes .scene, figure.yes > .panel, figure.yes > .tip, figure.yes > .pane { outline: 2px solid #4fbf7a; outline-offset: 2px; }
+  figure.no { opacity: .55; }
+  textarea { width: 100%; max-width: 880px; min-height: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; color: #dde; padding: 8px; font: inherit; display: block; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Political capital mocks</h1>
+<p><b>Decided.</b> The owner has picked; chosen options carry a green ✓ and the rest are faded and kept for the record.</p>
+<p><b>HUD:</b> A2. <b>Unpopular buildings:</b> B9's three fall-off rings with B7's red tint on the homes that object; B4 (red before the click when refused); B5 (empty land reads 0). <b>Industrial zone drag:</b> B10 + B11 together: homes tint as the drag nears them, the total floats up on release, and the zone and label go red only when PC would run short. <b>Services:</b> C7, C2, C3, C6, and the inspect lines C4, C5. <b>Feedback:</b> D2 (one total per action), D5 (milestone banner and toast). <b>Ordinances:</b> E1, E2, E3. <b>Requests:</b> F2, F4, F5, no urgent state. <b>Toolbar:</b> G3, G4, G5. PC amounts are written <span class="d">12</span>: teal with a diamond.</p>
+<p class="q">Numbers, ordinance names and request kinds are made up to fill the pictures. The Yes / No controls still work if anything needs revisiting.</p>
+<div class="fb" id="fb-symbol"></div>
+<nav><a href="#A">A · HUD</a><a href="#B">B · Placing something unpopular</a><a href="#C">C · Services: opening, closing, moving</a><a href="#D">D · Feedback</a><a href="#E">E · Ordinances</a><a href="#F">F · Requests</a><a href="#G">G · Toolbar</a></nav>
+
+<h2 id="A">A · The PC line in the stats panel</h2>
+<p>Each option is shown in five states: normal, low, draining (unhappy city losing PC), at the cap, and over the cap after a one-off bonus.</p>
+<div id="hudA"></div>
+
+<h2 id="B">B · Placing something unpopular near homes</h2>
+<p>A power plant about to be placed. The price at the cursor shows money and PC; the question is how to show <b>who objects</b>. B4 and B5 apply to whichever you pick.</p>
+<div class="rowf" id="sceneB"></div>
+
+<h2 id="C">C · Services: opening, closing, moving</h2>
+<div class="rowf" id="sceneC"></div>
+<h3>Inspect pane lines <span class="q">(should the pane explain PC for the lot you hover?)</span></h3>
+<div class="rowf">
+  <figure><div class="pane"><div class="t">School</div><div class="k">Political capital</div>Closing it would cost <span class="d neg">14</span><br><span style="color:#9ab">62 residents rely on it; 9 have another school in reach.</span></div><figcaption><span class="code">C4</span>On a service building: what closing costs and why.</figcaption></figure>
+  <figure><div class="pane"><div class="t">Residential · level 2</div><div class="k">Political capital</div>Demolishing displaces 8 residents: <span class="d neg">28</span><br><span style="color:#9ab">Would object to industry or a plant within 6 tiles.</span></div><figcaption><span class="code">C5</span>On a home: what displacing it costs.</figcaption></figure>
+</div>
+
+<h2 id="D">D · Feedback when PC changes</h2>
+<h3>Floating text on the map <span class="q">(animated; a bulldoze drag over 6 homes is the hard case)</span></h3>
+<div class="rowf" id="sceneD"></div>
+<h3>Toasts</h3>
+<div class="rowf">
+  <div><div class="toast"><b>Ribbon cutting</b>The new park is a hit with 41 residents. <span class="d pos">+9</span></div>
+  <div class="toast"><b>Request met</b>The neighbourhood got its park in time. <span class="d pos">+12</span></div>
+  <div class="toast warning"><b>Request missed</b>Residents gave up waiting for a park. <span class="d neg">−4</span></div>
+  <div class="toast warning"><b>Not enough political capital</b>That would cost <span class="d neg">28</span>; you have <span class="d">11</span>.</div></div>
+  <figure><div class="toast"><b>5,000 residents</b>The city is growing up. <span class="d pos">+25</span></div><figcaption><span class="code">D4</span>Milestone as a normal toast.</figcaption></figure>
+  <figure><div class="banner">5,000 residents<small>The city is growing up · <span class="d" style="color:#fff">+25</span></small></div><figcaption><span class="code">D5</span>Milestone as a banner across the top for a few seconds (plus the toast).</figcaption></figure>
+</div>
+
+<h2 id="E">E · Ordinances</h2>
+<p>Its own toolbar tile (the scroll icon), opening a panel beside the stats column the way Budget does. The ordinances listed are placeholders.</p>
+<div class="rowf">
+  <figure><div class="tiles" id="tilesE"></div><figcaption><span class="code">E1</span>The tile, next to Budget.</figcaption></figure>
+  <figure><div class="panel" style="width:330px"><h4>Ordinances <span style="float:right;text-transform:none;letter-spacing:0">upkeep <span class="d">0.4</span> / day</span></h4>
+    <div class="ord"><b>Free public transport</b><span class="cost"><span class="d">20</span><small>then <span class="d">0.3</span> / day</small></span><span class="tog"></span><small>Shorter commutes count for more.</small></div>
+    <div class="ord"><b>Night-time noise limits</b><span class="cost"><span class="d">10</span><small>then <span class="d">0.1</span> / day</small></span><span class="tog on"></span><small>Homes object less to shops nearby.</small></div>
+    <div class="ord off-poor"><b>Clean air act</b><span class="cost"><span class="d neg">60</span><small>then <span class="d">0.5</span> / day</small></span><span class="tog"></span><small>Industry pollutes less, grows slower. Not enough PC.</small></div>
+    <div class="ord susp"><b>Neighbourhood watch</b><span class="cost"><span class="d">15</span><small>then <span class="d">0.3</span> / day</small></span><span class="tog on"></span><small>Lower crime near homes. Paused while PC is at 0.</small></div>
+  </div><figcaption><span class="code">E2</span>The panel. Four row states: off, on, can't afford (dimmed, red price), and suspended because PC ran out (if that is the rule). The header shows what the active ones cost per day.</figcaption></figure>
+  <figure><div class="panel" style="width:250px"><h4>Enact free public transport?</h4><div style="line-height:1.6">Costs <span class="d">20</span> now and <span class="d">0.3</span> a day.<br><span style="color:#9ab">This can't be undone. Repealing later refunds nothing.</span></div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><span style="padding:5px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2)">Cancel</span><span style="padding:5px 12px;border-radius:6px;background:var(--pcd);color:#fff;font-weight:600">Enact</span></div></div><figcaption><span class="code">E3</span>A confirm step when you flip a toggle, since undo does not cover ordinances. Repealing would ask the same way ("you get nothing back"). Optional: without it the toggle acts at once.</figcaption></figure>
+</div>
+
+<h2 id="F">F · Resident requests</h2>
+<p>A request points at an area, with no street name. The pin shows what they want and how many days are left.</p>
+<div class="rowf" id="sceneF"></div>
+
+<h2 id="G">G · PC prices in the toolbar</h2>
+<div class="rowf">
+  <figure><div class="panel" style="width:330px;white-space:nowrap"><h4>Utilities</h4><div id="flyG"></div></div><figcaption><span class="code">G4</span>Replaces G1. No PC prices in the rows, because nothing has a fixed PC cost. Rows that can upset neighbours (power plant, sewage plant, industrial zoning) carry a small "◆ near homes" hint.</figcaption></figure>
+  <figure><div class="tip"><b>Power plant</b>Place a coal power plant (350 MW output)<div class="c">$2,000</div><div class="pcl">◆ only if homes are within 6 tiles</div><div class="h">The price shows at the cursor. Build away from homes and it's free.</div><div class="u">Upkeep: $15/tick</div><div class="h">Shortcut: 6</div></div><figcaption><span class="code">G5</span>Replaces G2. The tooltip says when PC applies and how to avoid it; the real number appears at the cursor (section B).</figcaption></figure>
+  <figure><div class="tip"><b>Park</b>Place a park (3-tile range)<div class="c">$300</div><div class="pcl">Earns ◆ where residents gain a park</div><div class="u">Upkeep: $4/tick</div><div class="h">Shortcut: R</div></div><figcaption><span class="code">G3</span>Tooltip for a service that earns PC.</figcaption></figure>
+</div>
+
+<h2 id="else">Anything else?</h2>
+<textarea id="overall" placeholder="Overall thoughts: anything missing, anything that feels like too much, wording you'd change?"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+const TS = 44, P = d => `<path d="${d}"/>`;
+const IC = {
+  park: P('M12 22v-7M12 15c-5 0-7-3-5-6-1-4 3-6 5-6s6 2 5 6c2 3 0 6-5 6z'),
+  school: P('M2 9l10-5 10 5-10 5zM6 11.5V16c3 3 9 3 12 0v-4.5'),
+  tick: P('M5 12l5 5 9-10'), cross: P('M6 6l12 12M18 6L6 18'), bolt: P('M13 2L5 14h6l-1 8 8-12h-6z'),
+  scroll: P('M7 4h11a2 2 0 012 2v1h-4M7 4a2 2 0 00-2 2v12a2 2 0 002 2h9a2 2 0 002-2V7M7 4a2 2 0 012 2v0M9 10h6M9 14h6'),
+  budget: '<circle cx="12" cy="12" r="9"/>' + P('M14.6 9.3c-.5-1-1.5-1.5-2.6-1.5-1.5 0-2.6.8-2.6 2s1 1.8 2.6 2.1 2.6.9 2.6 2.1-1.1 2-2.6 2c-1.2 0-2.2-.6-2.7-1.6M12 6v12'),
+  layers: P('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'), undo: P('M9 6L4 11l5 5M4 11h10a5 5 0 010 10h-3'),
+  power: P('M7 21c2-6 2-10 0-16h10c-2 6-2 10 0 16zM4 21h16'), water: P('M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z'),
+  sewage: P('M3 7h8v6h10M3 11h4v6h14'), lock: P('M6 11h12v9H6zM9 11V8a3 3 0 016 0v3'), stadium: P('M3 9c0-2 4-4 9-4s9 2 9 4v6c0 2-4 4-9 4s-9-2-9-4zM3 9c0 2 4 4 9 4s9-2 9-4'),
+};
+const svg = k => `<svg viewBox="0 0 24 24">${IC[k]}</svg>`;
+const pc = (n, cls = '') => `<span class="d ${cls}">${n}</span>`;
+const at = (x, y) => `left:${x * TS}px;top:${y * TS}px`;
+const mid = (x, y) => `left:${(x + .5) * TS}px;top:${(y + .5) * TS}px`;
+const spr = (n, x, y, c = '') => `<img class="spr ${c}" src="sprites/${n}.png" style="${at(x, y)}">`;
+const road = (x, y, w, h) => `<div class="road" style="${at(x, y)};width:${w * TS}px;height:${h * TS}px"></div>`;
+const ring = (x, y, r, c) => `<div class="ring ${c}" style="${at(x + .5 - r, y + .5 - r)};width:${2 * r * TS}px;height:${2 * r * TS}px"></div>`;
+const tag = (x, y, h, c = '') => `<div class="tag ${c}" style="${mid(x, y)}">${h}</div>`;
+const chip = (x, y, h, c = '') => `<div class="chip ${c}" style="${mid(x, y - .42)}">${h}</div>`;
+const hl = (x, y, c = '') => `<div class="hl ${c}" style="${at(x, y)}"></div>`;
+const cur = (x, y, c = '') => `<div class="cur ${c}" style="${at(x, y)}"></div>`;
+const flo = (x, y, h, c, delay = 0) => `<div class="float ${c}" style="${mid(x, y - .3)};animation-delay:${delay}s">${h}</div>`;
+const NEW = [];
+const fig = (code, w, h, parts, cap) => `<figure><div class="scene" style="width:${w * TS}px;height:${h * TS}px">${parts.join('')}</div><figcaption><span class="code ${NEW.includes(code) ? 'new' : ''}">${code}</span>${cap}</figcaption></figure>`;
+const tint = (x, y, a) => `<div class="tint" style="${at(x, y)};opacity:${a}"></div>`;
+const frown = (x, y) => `<div class="frown" style="${mid(x + .32, y - .32)}"><svg viewBox="0 0 12 12"><path d="M3 8.5c1.5-2 4.5-2 6 0M4 4v.1M8 4v.1"/></svg></div>`;
+// a little neighbourhood: homes along a street
+const HOMES = [[0,1],[1,1],[2,1],[3,1],[4,1],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3]];
+const town = (dim = []) => [road(0, 2, 8, 1), ...HOMES.map(([x, y], i) => spr(i % 3 ? 'res-1' : 'res-2', x, y, dim.includes(i) ? 'dim' : ''))];
+const dist = ([x, y], cx, cy) => Math.hypot(x - cx, y - cy);
+
+// A: HUD
+const STATES = [['Normal', 62, 140, .2], ['Low', 18, 140, .1], ['Draining', 41, 140, -.3], ['At the cap', 140, 140, 0], ['Over the cap', 165, 140, 0]];
+function hud(kind, [name, v, cap, rate]) {
+  const low = v < cap * .2, col = rate < 0 ? 'var(--red)' : low ? 'var(--amber)' : v > cap ? '#c9fff1' : 'var(--pc)';
+  const pct = Math.min(100, v / cap * 100);
+  const r = rate ? `<span class="rate" style="color:${rate < 0 ? 'var(--red)' : '#8aa'}">${rate > 0 ? '+' : '−'}${Math.abs(rate)}/day</span>` : v > cap ? `<span class="rate" style="color:#c9fff1">bonus</span>` : `<span class="rate" style="color:#8aa">full</span>`;
+  const arrow = rate < 0 ? '<span style="color:var(--red)">▼ </span>' : rate > 0 ? '<span style="color:#8aa">▲ </span>' : '';
+  let line;
+  if (kind === 1) line = `<div><i>Pol. capital</i> <b style="color:${col}">${v} / ${cap}</b><div class="bar ${rate < 0 ? 'drain' : ''}"><span style="width:${pct}%;background:${rate < 0 ? '' : col}"></span>${v > cap ? '<span class="over"></span>' : ''}</div></div>`;
+  if (kind === 2) line = `<div><i>Pol. capital</i> <b style="color:${col}">${v} / ${cap}</b>${r}<div class="bar ${rate < 0 ? 'drain' : ''}"><span style="width:${pct}%;background:${rate < 0 ? '' : col}"></span>${v > cap ? '<span class="over"></span>' : ''}</div></div>`;
+  if (kind === 3) line = `<div><i>Pol. capital</i> ${arrow}<b style="color:${col}">◆ ${v}</b> <span style="color:#8aa;font-size:11px">of ${cap}</span></div>`;
+  if (kind === 4) { const n = 10, f = Math.round(Math.min(1, v / cap) * n); line = `<div><i>Pol. capital</i> ${arrow}<b style="color:${col}">${v} / ${cap}</b><div class="seg">${Array.from({ length: n }, (_, i) => `<span style="${i < f ? 'background:' + col : ''}"></span>`).join('')}${v > cap ? '<span style="background:#c9fff1;box-shadow:0 0 6px #7dffe0;flex:.5"></span>' : ''}</div></div>`; }
+  return `<div class="hud"><div class="st">${name}</div>${line}<div><i>Money</i> <b class="m">$18.2k</b></div><div><i>Population</i> <b>4,012</b></div></div>`;
+}
+const HUDS = [[1, 'A1', 'Number and bar. Today\'s look, with the bar scaled to the cap. Draining: red number and a striped red bar. Over the cap: brighter number and a glowing nub past the end of the bar.'],
+  [2, 'A2', 'Same, plus the rate in small print (+0.2/day, −0.3/day, "full", "bonus").'],
+  [3, 'A3', 'No bar: a diamond amount "of" the cap, like money, with an up or down arrow for the trend. Quietest.'],
+  [4, 'A4', 'Ten pips instead of a smooth bar, with an arrow for the trend. Reads as "a currency in chunks".']];
+document.getElementById('hudA').innerHTML = HUDS.map(([k, code, cap]) => `<h3><span class="code">${code}</span><span style="text-transform:none;letter-spacing:0">${cap}</span></h3><div class="rowf">${STATES.map(s => hud(k, s)).join('')}</div>`).join('');
+
+// B: nuisance placement at (6,2)... plant sits off the street
+const PX = 6, PY = 0, R = 3.6;
+const near = HOMES.map((h, i) => [h, i, dist(h, PX, PY)]).filter(([, , d]) => d <= R);
+const price = (n, bad) => tag(PX, PY + 1.05, `<span class="m">$2,000</span> · ${pc(n, bad ? 'neg' : '')}${bad ? '<small>not enough political capital</small>' : ''}`, bad ? 'bad' : '');
+const plant = c => [spr('power', PX, PY, 'ghost'), cur(PX, PY, c)];
+document.getElementById('sceneB').innerHTML = [
+  fig('B1', 8, 5, [...town(), ring(PX, PY, R, 'line'), ...plant(), price(18)], 'A dashed ring shows how far the objection reaches. Simple, but it doesn\'t say that closer homes mind more.'),
+  fig('B2', 8, 5, [ring(PX, PY, R, 'wash'), ...town(), ...plant(), price(18)], 'A red wash that fades with distance. Shows the fall-off; can muddy the map colours.'),
+  fig('B3', 8, 5, [...town(), ...near.flatMap(([[x, y], , d]) => [hl(x, y), chip(x, y, '−' + (d < 2.3 ? 4 : d < 3 ? 2 : 1), d < 2.3 ? '' : d < 3 ? 'w2' : 'w1')]), ...plant(), price(18)], 'No ring: each home that objects is outlined with what it adds. Most precise; busiest when there are many homes (chips would merge when zoomed out).'),
+  fig('B4', 8, 5, [...town(), ring(PX, PY, R, 'line bad'), ...plant('bad'), price(18, true)], 'Can\'t afford it: the cursor, ring and PC price go red before you click, with the reason. (Today you only find out from the toast.)'),
+  fig('B5', 8, 5, [road(0, 2, 8, 1), spr('res-1', 0, 1), ...plant(), tag(PX, PY + 1.05, `<span class="m">$2,000</span> · ${pc(0)}<small>no homes near</small>`)], 'Empty land: the PC price reads 0, so you learn that distance is the way to avoid it.'),
+  fig('B7', 8, 5, [...town(), ...near.map(([[x, y], , d]) => tint(x, y, d < 2.3 ? .75 : d < 3 ? .5 : .28)), ring(PX, PY, R, 'line'), ...plant(), price(18)], 'The ring, plus each objecting home tinted red: darker means it minds more. No numbers, so it still reads when zoomed out.'),
+  fig('B8', 8, 5, [...town(), ring(PX, PY, R, 'line'), ...near.map(([[x, y]]) => frown(x, y)), ...plant(), tag(PX, PY + 1.05, `<span class="m">$2,000</span> · ${pc(18)}<small>${near.length} homes object</small>`)], 'The ring, a small frown on every home that objects, and the count in the price label. Says "who" and "how many", not "how much each".'),
+  fig('B9', 8, 5, [...town(), ring(PX, PY, R * .45, 'c1'), ring(PX, PY, R * .72, 'c2'), ring(PX, PY, R, 'c3'), ...plant(), price(18)], 'Three contour rings: solid where homes mind most, dashed, then dotted at the edge. Shows the fall-off without touching the homes.'),
+  fig('B6', 8, 5, [...town(), `<div class="zone" style="${at(5, 0)};width:${3 * TS}px;height:${2 * TS}px"></div>`, cur(7, 1), ...HOMES.filter(h => dist(h, 5, 1) < 2.3).flatMap(([x, y]) => [hl(x, y)]), tag(5.4, 2.5, `<span class="m">$150</span> · ${pc(7)}<small>6 tiles · 3 homes object</small>`)], 'Dragging out industrial zoning: the PC total runs up tile by tile beside the money total, and drops as you drag away from the homes.'),
+  ...(() => {
+    const zone = c => `<div class="zone ${c}" style="${at(5, 0)};width:${3 * TS}px;height:${2 * TS}px"></div>`;
+    const zh = HOMES.map(h => [h, Math.min(dist(h, 5, 0), dist(h, 5, 1))]).filter(([, d]) => d < 2.3);
+    const tints = zh.map(([[x, y], d]) => tint(x, y, d < 1.2 ? .75 : d < 1.9 ? .5 : .28));
+    const tiles = [[5, 0, .55], [5, 1, .7], [6, 1, .3], [6, 0, .2]].map(([x, y, a]) => `<div class="heat" style="${at(x, y)};opacity:${a}"></div>`);
+    return [
+      fig('B10', 8, 5, [...town(), zone(''), ...tints, cur(7, 1), tag(5.4, 2.5, `<span class="m">$150</span><small>6 tiles</small>`), flo(6, .6, '−◆7', 'neg', .4)], 'No running PC number. As the drag nears homes they tint red (the same tint as placing a plant), so you see who minds. The total appears once, as the floating number when you let go.'),
+      fig('B11', 8, 5, [...town(), zone('bad'), ...tints, cur(7, 1, 'bad'), tag(5.4, 2.5, `<span class="m">$150</span><small>not enough political capital</small>`, 'bad')], 'Quiet until it matters: the label shows money only, as today. If the drag would cost more PC than you have, the zone and label turn red and say so (letting go then does nothing). Shown here in the red state.'),
+      fig('B12', 8, 5, [...town(), zone(''), ...tiles, cur(7, 1), `<div class="chip" style="${mid(5, -.05)};background:var(--pcd);font-size:11px;line-height:18px;padding:0 7px">◆ 7</div>`, tag(5.4, 2.5, `<span class="m">$150</span><small>6 tiles</small>`)], 'The cost is drawn on the zone itself: the tiles that upset neighbours are shaded red, darker where it costs more, with one PC chip on the corner of the zone. Money stays in its own label.'),
+    ];
+  })(),
+].join('');
+
+// C: services
+const SX = 2, SY = 4;
+const gain = HOMES.map((h, i) => [h, i, dist(h, SX, SY)]).filter(([, , d]) => d <= 3.2);
+document.getElementById('sceneC').innerHTML = [
+  fig('C1', 8, 6, [ring(SX, SY, 3.2, 'good'), ...town(), spr('park', SX, SY, 'ghost'), cur(SX, SY), ...gain.map(([[x, y]]) => hl(x, y, 'good')), tag(SX + 2.2, SY + .9, `<span class="m">$300</span> · ${pc('+9', 'pos')}<small>ribbon cutting: 7 homes gain a park</small>`)], 'Opening a service: the homes that gain are outlined and the reward shows at the cursor.'),
+  fig('C7', 8, 6, [ring(SX, SY, 3.2, 'cov'), ...town(), spr('park', SX, SY, 'ghost'), cur(SX, SY), tag(SX + 2.2, SY + .9, `<span class="m">$300</span> · ${pc('+9', 'pos')}<small>ribbon cutting</small>`)], 'Replaces C1: today\'s coverage preview already shows who is in range, so this only adds the reward to the price at the cursor. No home outlines.'),
+  fig('C2', 8, 6, [...town(), spr('school', SX, SY), cur(SX, SY, 'bad'), ...gain.map(([[x, y]]) => hl(x, y)), tag(SX + 2.2, SY + .9, `Close: ${pc('−14', 'neg')}<small>7 homes lose their only school</small>`, 'bad')], 'Bulldozer over a school: the cost of closing it, before you click.'),
+  fig('C3', 8, 6, [...town(), spr('school', SX, SY), spr('school', 5, 4), cur(SX, SY, 'bad'), tag(SX + 2.2, SY + .9, `Close: ${pc('−2', 'neg')}<small>most homes keep the other school</small>`)], 'Moving a service: with a second school in reach, closing the first is cheap, and the label says why.'),
+  fig('C6', 8, 6, [...town(), spr('school', SX, SY), cur(SX, SY, 'bad'), ...gain.map(([[x, y]]) => hl(x, y)), tag(SX + 2.4, SY + .9, `Close: ${pc('−5', 'neg')} <span style="color:#9ab;text-decoration:line-through">14</span><small>takes the last of your political capital</small>`, 'bad')], 'Closing is never refused. When it costs more than you have (14, with 5 left) it takes what is left and says so. Demolishing occupied homes is still refused, as in B4.'),
+].join('');
+
+// D: floating text
+const DRAG = [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1]];
+const base = [road(0, 2, 7, 1), ...HOMES.filter(([x, y]) => y === 3).map(([x, y]) => spr('res-1', x, y))];
+document.getElementById('sceneD').innerHTML = [
+  fig('D1', 7, 4, [...base, ...DRAG.map(([x, y], i) => flo(x, y, '−◆4', 'neg sm', i * .12)), spr('park', 6, 3), flo(6, 3, '+◆9', 'pos')], 'Text on everything: one small "−4" per demolished home, and rewards. Lively, but a long drag makes a lot of them.'),
+  fig('D2', 7, 4, [...base, flo(2, 1, '−◆20', 'neg', .3), spr('park', 6, 3), flo(6, 3, '+◆9', 'pos')], 'One total per action: the drag shows a single "−20" in the middle when you let go. Rewards as before.'),
+  fig('D3', 7, 4, [...base, spr('park', 6, 3), flo(6, 3, '+◆9', 'pos')], 'Rewards only (ribbon cuttings, requests). Spending shows in the HUD and the cursor price, not on the map.'),
+].join('');
+
+// E: toolbar tiles
+document.getElementById('tilesE').innerHTML = ['layers', 'budget', 'scroll', 'undo'].map(k => `<div class="tile ${k === 'scroll' ? 'on' : ''}">${svg(k)}</div>`).join('');
+
+// F: requests
+const pin = (x, y, icon, days, c = '') => `<div class="pin ${c}" style="${mid(x, y - .1)}"><span class="ico">${svg(icon)}</span>${days ? `<span class="days">${days}d</span>` : ''}</div>`;
+const badge = (x, y, icon, a, c = '', n = '') => `<div class="badge ${c}" style="${mid(x, y)}">${a ? `<span class="cd" style="--a:${a}"></span>` : ''}${svg(icon)}${n ? `<span class="n">${n}</span>` : ''}</div>`;
+document.getElementById('sceneF').innerHTML = [
+  fig('F1', 8, 5, [...town(), pin(2, .9, 'park', 10), badge(5.2, 3.2, 'bolt', '', 'prob')], 'A map-pin shape with what they want and the days left. Clearly different from the round problem badges (the amber bolt, for comparison).'),
+  fig('F2', 8, 5, [...town(), badge(2, .6, 'park', '260deg'), badge(5.2, 3.2, 'bolt', '', 'prob')], 'A round teal badge like the problem badges, with a white ring that empties as the deadline nears. Consistent, less distinct.'),
+  fig('F3', 8, 5, [...town(), pin(2, .9, 'park', 2, 'urgent'), tag(4.6, -.1, `Residents here want a park<small>2 days left · meets it: ${pc('+12', 'pos')} · misses it: ${pc('−4', 'neg')}</small>`)], 'Nearly out of time: the pin turns orange. Hovering it (inspect tool) explains the request and what is at stake.'),
+  fig('F4', 8, 5, [...town(), spr('park', 2, 0), pin(2, .9, 'tick', '', 'done'), flo(2, 0, '+◆12', 'pos'), pin(5.5, 3.9, 'cross', '', 'fail')], 'Met: the pin turns into a green tick for a moment with the reward. Missed: a grey cross, then it fades. Both also send a toast.'),
+  fig('F5', 8, 5, [...town([0,1,2,3,4,5,6,7,8,9,10]), badge(2, 1.6, 'park', '200deg', 'big', '3'), badge(5.3, 3.2, 'bolt', '', 'prob big', '12')], 'Zoomed out: requests in a district merge into one pin with a count, as problem pins do, showing the nearest deadline.'),
+].join('');
+
+// G: fly-out rows
+document.getElementById('flyG').innerHTML = [
+  ['power', 'Power plant', '$2,000', true], ['water', 'Water tower', '$500', false], ['sewage', 'Sewage plant', '$1,500', true],
+].map(([i, n, m, nimby]) => `<div class="frow">${svg(i)}<span>${n}${nimby ? '<span class="hint">◆ near homes</span>' : ''}</span><span class="p">${m}</span></div>`).join('');
+
+// ── Final picks ──────────────────────────────────────────────────────────────
+const FINAL = new Set('A2 B9 B7 B4 B5 B10 B11 C7 C2 C3 C4 C5 C6 D2 D5 E1 E2 E3 F2 F4 F5 G3 G4 G5'.split(' '));
+for (const c of document.querySelectorAll('figure .code, h3 .code')) {
+  const ok = FINAL.has(c.textContent.trim());
+  c.classList.toggle('ok', ok);
+  if (ok) continue;
+  const fig = c.closest('figure');
+  if (fig) fig.classList.add('passed');
+  else { const h = c.closest('h3'); h.classList.add('passed'); h.nextElementSibling.classList.add('passed'); }
+}
+
+// ── Feedback form ────────────────────────────────────────────────────────────
+const KEY = 'city-builder-pc-mocks-v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { state = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function control(id, host, mark, yes = 'Yes', no = 'No') {
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = host.classList.contains('fb') ? host : document.createElement('div');
+  box.className = 'fb';
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls;
+    b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk(yes, 'yes', 'y'), n = mk(no, 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || '';
+  note.oninput = () => { st.note = note.value; save(); };
+  box.append(note);
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no');
+    if (mark) { mark.classList.toggle('yes', st.v === 'yes'); mark.classList.toggle('no', st.v === 'no'); } tally(); };
+  if (box !== host) host.after(box);
+  return paint;
+}
+const paints = [];
+for (const c of document.querySelectorAll('figure .code, h3 .code')) {
+  const id = c.textContent.trim(); CODES.push(id);
+  const fig = c.closest('figure');
+  // In a figure the control goes under the caption; the HUD options (A1–A4) are headings above a row.
+  paints.push(fig ? control(id, fig.querySelector('figcaption'), fig) : control(id, c.closest('h3'), null));
+}
+paints.push(control('symbol', document.getElementById('fb-symbol'), null, 'Keep ◆', 'Change it'));
+function tally() {
+  const v = CODES.map(id => (state[id] || {}).v);
+  document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`;
+}
+paints.forEach(p => p());
+const overall = document.getElementById('overall');
+overall.value = state._overall || '';
+overall.oninput = () => { state._overall = overall.value; save(); };
+document.getElementById('copy').onclick = async () => {
+  const line = (id, label = id) => { const s = state[id] || {}; return `${label}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; };
+  const text = ['Political capital mocks feedback', ...CODES.map(id => line(id)), line('symbol', 'Teal diamond symbol (yes = keep)'), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
