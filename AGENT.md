@@ -507,7 +507,7 @@ Vitest suite at `src/__tests__/`. After any code changes, run both and confirm t
 
 ```
 npm test            # vitest run
-npx tsc --noEmit    # typecheck; `npm run build` = tsc && vite build
+npm run typecheck   # tsc --noEmit; `npm run build` = tsc && vite build
 ```
 
 The typecheck has `noUnusedLocals` / `noUnusedParameters` on, so an unused import or variable breaks the build even though tests pass.
