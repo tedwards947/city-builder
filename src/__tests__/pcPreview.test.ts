@@ -94,7 +94,7 @@ describe('political capital preview at the pointer', () => {
     const last = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
     expect(last.ok).toBe(true);           // a closure is never refused
     expect(last.label).toBe('◆ 60');     // charged in full: the rest becomes debt
-    expect(last.note).toBe('takes the last of your political capital');
+    expect(last.note).toBe('leaves you ◆ 59 in political debt');
   });
 
   it('keeps industrial zoning quiet: tint only, the price only when short', () => {
@@ -117,6 +117,17 @@ describe('political capital preview at the pointer', () => {
   it('words a milestone', () => {
     expect(milestoneText(5000, 25)).toEqual({ title: '5,000 residents', body: 'The city is growing up · +◆ 25' });
     expect(milestoneText(1000, 0).body).toBe('The city is growing up');
+  });
+
+  it('says the city is in political debt when that is why an action is refused', () => {
+    const w = landWorld();
+    home(w, 5, 5);
+    w.budget.politicalCapital = -5;
+    const p = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 5 })!;
+    expect(p.ok).toBe(false);
+    expect(p.note).toBe('in political debt');
+    w.budget.politicalCapital = 1;
+    expect(hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 5 })!.note).toBe('not enough political capital');
   });
 
   it('maps tools to engine actions', () => {

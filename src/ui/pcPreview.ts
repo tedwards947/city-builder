@@ -57,12 +57,13 @@ export function pcLabel(q: PcQuote, showZero = false): string {
 
 /**
  * The line under a quote's price that says what is going on, or undefined:
- * why it is refused, that a closure takes the last of the city's PC, that the
+ * why it is refused (the city is in political debt, or simply short), that a
+ * closure would leave the city in debt (closures are never refused), that the
  * reward is a ribbon cutting, or that the cost is for closing a service.
  */
-export function pcNote(q: PcQuote): string | undefined {
-  if (!q.affordable) return t('ui.hud.pcShort');
-  if (q.shortfall > 0) return t('ui.hud.pcLast');
+export function pcNote(q: PcQuote, world: World): string | undefined {
+  if (!q.affordable) return t(world.budget.politicalCapital < 0 ? 'ui.hud.pcInDebt' : 'ui.hud.pcShort');
+  if (q.shortfall > 0) return t('ui.hud.pcIntoDebt', { pc: PC_SYMBOL + ' ' + pcAmount(q.shortfall) });
   if (q.parts.some(p => p.reason === 'serviceOpened')) return t('ui.hud.pcRibbon');
   if (q.parts.some(p => p.reason === 'serviceClosed')) return t('ui.hud.pcClosing');
   return undefined;
@@ -104,5 +105,5 @@ export function hoverPcPreview(
   const q = pcQuote(world, action, nuisance, service);
   if (q.cost === 0 && q.reward === 0 && rings.length === 0) return null;
   const quiet = action.type === 'zone' && isQuietNuisance(q);
-  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable, note: quiet ? undefined : pcNote(q) };
+  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable, note: quiet ? undefined : pcNote(q, world) };
 }
