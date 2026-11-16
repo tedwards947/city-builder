@@ -1176,6 +1176,20 @@ describe('PoliticsSystem', () => {
     expect(w.budget.politicalCapital).toBeLessThanOrEqual(BALANCE.politicalCapital.max);
   });
 
+  it('records each factor of the last satisfaction, with its weight', () => {
+    const w = makeWorld();
+    const sys = new PoliticsSystem();
+    sys.update(w);
+    expect(sys.lastFactors.map(f => f.name)).toEqual(['servicesCoverage', 'powerCoverage', 'waterCoverage', 'crime']);
+    for (const f of sys.lastFactors) {
+      expect(f.value).toBeGreaterThanOrEqual(0);
+      expect(f.value).toBeLessThanOrEqual(1);
+      expect(f.weight).toBe(BALANCE.politicalCapital.satisfactionWeights[f.name]);
+    }
+    sys.update(w);
+    expect(sys.lastFactors.length).toBe(4);   // replaced each time, not appended
+  });
+
   it('keeps PC that is over the cap, tick after tick', () => {
     const w = makeWorld();
     w.budget.politicalCapital = BALANCE.politicalCapital.max + 40;

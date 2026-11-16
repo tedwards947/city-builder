@@ -11,7 +11,7 @@
 import type { World } from '../World';
 import { ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
-import { regenPc } from '../politics';
+import { regenPc, regenRate } from '../politics';
 
 // ── Satisfaction factor interface ─────────────────────────────────────────────
 
@@ -105,6 +105,11 @@ const crimeFactor: SatisfactionFactor = {
 export class PoliticsSystem {
   /** Ordered list of satisfaction factors. Add/remove to extend the system. */
   readonly factors: SatisfactionFactor[];
+  /**
+   * Each factor's value (0–1) and weight from the last `satisfaction()` call,
+   * in the order of `factors`. For debug panels: reading it recomputes nothing.
+   */
+  readonly lastFactors: { name: string; value: number; weight: number }[] = [];
 
   constructor(factors?: SatisfactionFactor[]) {
     this.factors = factors ?? PoliticsSystem.defaultFactors();
@@ -131,19 +136,21 @@ export class PoliticsSystem {
     const weights = BALANCE.politicalCapital.satisfactionWeights;
     let weightedSum = 0;
     let weightTotal = 0;
+    this.lastFactors.length = 0;
     for (const factor of this.factors) {
       const w = weights[factor.name] ?? 0;
       if (w === 0) continue;
-      weightedSum += factor.compute(world) * w;
+      const value = factor.compute(world);
+      this.lastFactors.push({ name: factor.name, value, weight: w });
+      weightedSum += value * w;
       weightTotal += w;
     }
     return weightTotal > 0 ? weightedSum / weightTotal : 0;
   }
 
   update(world: World): void {
-    const cfg = BALANCE.politicalCapital;
     const sat = this.satisfaction(world);
-    const regen = cfg.baseRegen + sat * cfg.satisfactionRegenBonus;
+    const regen = regenRate(sat);
     const before = world.budget.politicalCapital;
     regenPc(world, regen);
     world.politics.regen = world.budget.politicalCapital - before;

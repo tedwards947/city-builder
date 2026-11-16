@@ -78,13 +78,29 @@ export function changePc(world: World, delta: number, reason: PcReason, info: Pc
 }
 
 /**
+ * The passive change to PC per tick at a given satisfaction (0–1): positive
+ * above the neutral point, negative below it (if the numbers allow).
+ */
+export function regenRate(
+  satisfaction: number,
+  cfg: { baseRegen: number; satisfactionRegenBonus: number; neutralSatisfaction: number } = BALANCE.politicalCapital,
+): number {
+  return cfg.baseRegen + (satisfaction - cfg.neutralSatisfaction) * cfg.satisfactionRegenBonus;
+}
+
+/**
  * Apply one tick of passive regeneration. A gain stops at the cap, and does
- * nothing to PC that is already over it. No event: it happens every tick,
- * and the HUD reads the value directly.
+ * nothing to PC that is already over it. A loss drains PC (over the cap too)
+ * but never below 0. No event: it happens every tick, and the HUD reads the
+ * value directly.
  */
 export function regenPc(world: World, amount: number): void {
-  const cap = pcCap(world);
   const pc = world.budget.politicalCapital;
+  if (amount < 0) {
+    world.budget.politicalCapital = Math.max(0, pc + amount);
+    return;
+  }
+  const cap = pcCap(world);
   if (pc >= cap) return;
   world.budget.politicalCapital = Math.min(cap, pc + amount);
 }
