@@ -1,0 +1,11 @@
+# Keeps the GitHub Actions used by CI up to date: one grouped PR a month at
+# most. npm dependencies are left alone on purpose (update them by hand).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
