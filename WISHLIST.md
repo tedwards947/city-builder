@@ -38,7 +38,23 @@
 
 ### Figure out Political Capital
 
-Should we evolve it or just kill it? it's a dead mechanic at this point. Should it be replaced by neighborhood culture and vibes? or not.
+Decision: keep it, and keep it **one simple number**. Core pillar: PC is what stops you bulldozing whole neighborhoods — building the city should be thoughtful. The problem today is it has one source (satisfaction) and one sink (displacement), so it feels like a gate, not a resource.
+
+> 📄 **Design proposal: [PC_DESIGN.md](PC_DESIGN.md)** — rules agreed with the designer; needs engine + graphics review before building. The list below is the original candidate set (the neighborhood initiative tool is parked).
+
+**New sinks**
+- [ ] NIMBY placement cost: power plants, sewage plants, I zones cost PC scaled by nearby developed residential pop
+- [ ] Closing services costs PC: bulldozing a school / hospital / park / police / fire station
+- [ ] Big projects cost money + PC (stadium, airport, power plants, landmarks) — `pcCost` on building defs
+- [ ] Neighborhood initiative tool: spend PC to nudge local vibe ("make this block greener") — reuses VibeSystem's spatial nudge
+- [ ] Ordinances: toggles with upfront or per-day PC cost (curfew, clean air act, rent control…) — needs a small policy registry + panel
+
+**New sources**
+- [ ] Ribbon cuttings: one-off PC when a park or service building opens
+- [ ] Population milestones: PC bursts at 1k / 5k / 10k…
+- [ ] Citizen requests: toast like "Elm St. wants a park within 10 days" → PC on success
+
+Inspiration: Democracy 4 (PC buys policy), Caesar III (favor / requests), Against the Storm (orders → reputation), Anno 1800 (influence sinks), Cities: Skylines 2 (owner-occupied demolition costs more).
 
 ### Improve traffic / flow
 
