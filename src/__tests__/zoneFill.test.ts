@@ -223,11 +223,30 @@ describe('InputController zone fill mode', () => {
     expect(history.canUndo).toBe(false);
   });
 
-  it('zones nothing when the money does not cover it all', () => {
-    world.budget.money = BALANCE.costs.zoneR * 3;
+  it('zones nothing when the money does not cover it all (when zoning has a price)', () => {
+    const costs = BALANCE.costs as { zoneR: number };
+    costs.zoneR = 20;                                  // zoning ships free; price it for this test
+    try {
+      world.budget.money = 60;
+      click(6, 4);
+      for (let dx = 0; dx < 12; dx++) expect(world.getZone(o.tx + dx, o.ty + 4)).toBe(ZONE_NONE);
+      expect(world.budget.money).toBe(60);
+      expect(rejected).toEqual(['funds']);
+    } finally {
+      costs.zoneR = 0;
+    }
+  });
+
+  it('zoning is free: a fill with no money costs nothing, but a city in debt cannot zone', () => {
+    expect(BALANCE.costs.zoneR).toBe(0);
+    world.budget.money = 0;
     click(6, 4);
-    for (let dx = 0; dx < 12; dx++) expect(world.getZone(o.tx + dx, o.ty + 4)).toBe(ZONE_NONE);
-    expect(world.budget.money).toBe(BALANCE.costs.zoneR * 3);
+    for (let dx = 0; dx < 12; dx++) expect(world.getZone(o.tx + dx, o.ty + 4)).toBe(ZONE_R);
+    expect(world.budget.money).toBe(0);
+    expect(rejected).toEqual([]);
+    world.budget.money = -500;
+    click(6, 8);
+    expect(world.getZone(o.tx + 6, o.ty + 8)).toBe(ZONE_NONE);
     expect(rejected).toEqual(['funds']);
   });
 

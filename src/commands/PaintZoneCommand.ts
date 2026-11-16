@@ -45,6 +45,7 @@ export class PaintZoneCommand extends Command {
     const cost = this.newZone === ZONE_R ? BALANCE.costs.zoneR
                : this.newZone === ZONE_C ? BALANCE.costs.zoneC
                : BALANCE.costs.zoneI;
+    // Zoning is free, so this only bites in debt: a city in the red cannot zone.
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     const { displacedPopulation, pcCost, pcReward } = tileDisruption(world, this.tx, this.ty);

@@ -63,7 +63,7 @@ describe('CommandHistory batching', () => {
     h.endBatch();
     expect(h.canUndo).toBe(false);
 
-    w.budget.money = 0;
+    w.budget.money = -1;   // in debt: zoning is refused
     h.beginBatch();
     expect(h.run(new PaintZoneCommand(t.tx, t.ty, ZONE_R))).toBe(false);
     h.endBatch();
@@ -162,7 +162,7 @@ describe('CommandHistory redo', () => {
 
     h.run(new PaintZoneCommand(t.tx, t.ty, ZONE_R));
     h.undo();
-    w.budget.money = 0; // can no longer afford it
+    w.budget.money = -1; // in debt: it no longer applies
     h.redo();
     expect(w.getZone(t.tx, t.ty)).toBe(ZONE_NONE);
     expect(h.canUndo).toBe(false);

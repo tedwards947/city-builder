@@ -474,7 +474,7 @@ Already in the code — must not be removed:
 `src/data/balance.ts` is the source of truth — read it rather than trusting this snapshot (last synced 2026-11-13):
 
 ```
-costs:        road=10 (bridge ×3), zoneR=20, zoneC=25, zoneI=25, bulldoze=5
+costs:        road=10 (bridge ×3), zoneR=0, zoneC=0, zoneI=0 (zoning is free in money), bulldoze=5
 roadClasses:  street={cost:10,maint:0.04}, avenue={50,0.12}, highway={150,0.35}
               capacity 20/80/200, speedMult 1.0/1.4/2.0 (both used by TransitSystem)
 transit:      flowInterval=8, tripsRtoC=0.33, tripsRtoI=0.34, tripsCtoI=0.38 (per origin dev level),
