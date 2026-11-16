@@ -3,6 +3,7 @@ import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   ORDINANCES, ORDINANCE_IDS, ORDINANCE_MODIFIERS, enactOrdinance, repealOrdinance, ordinanceModifier, ordinanceState,
+  upkeepScale, dailyUpkeepOf,
   enactBlocker, ordinancesEnabled,
 } from '../sim/ordinances';
 import { OrdinanceSystem } from '../sim/systems/OrdinanceSystem';
@@ -113,6 +114,30 @@ describe('OrdinanceSystem', () => {
     w.tick = 2 * BALANCE.ticksPerDay; sys.update(w);
     expect(w.budget.politicalCapital).toBe(0);                // took the last 2, not 3
     expect(ordinanceState(w, 'freeTransit')).toBe('suspended');
+  });
+
+  it('PC upkeep scales with the cap, like regeneration; money upkeep does not', () => {
+    table.freeTransit.dailyUpkeep = 0.5;
+    table.freeTransit.dailyMoney = 50;
+    const pc = BALANCE.politicalCapital as { capPerResident: number };
+    const w = world(100);
+    enactOrdinance(w, 'freeTransit');
+    // Base cap: the factor is exactly 1.
+    expect(upkeepScale(w)).toBe(1);
+    expect(dailyUpkeepOf(w, 'freeTransit')).toBe(0.5);
+    pc.capPerResident = 0.01;
+    try {
+      w.stats.population = 10_000;                            // cap 200
+      expect(upkeepScale(w)).toBe(2);
+      expect(dailyUpkeepOf(w, 'freeTransit')).toBe(1);
+      const money = w.budget.money;
+      w.budget.politicalCapital = 100;
+      w.tick = BALANCE.ticksPerDay; new OrdinanceSystem().update(w);
+      expect(w.budget.politicalCapital).toBe(99);
+      expect(w.budget.money).toBe(money - 50);
+    } finally {
+      pc.capPerResident = 0;
+    }
   });
 
   it('suspends at PC 0 or below (no effect, no upkeep) and resumes above 0', () => {
