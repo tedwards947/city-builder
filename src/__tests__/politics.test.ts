@@ -5,7 +5,7 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { pcCap, changePc, regenPc, regenRate } from '../sim/politics';
+import { pcCap, changePc, regenPc, regenRate, regenPerTick } from '../sim/politics';
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home } from './pcTestWorld';
@@ -84,6 +84,28 @@ describe('politics: the PC write point', () => {
     expect(regenRate(0.6, cfg)).toBe(0);
     expect(regenRate(1, cfg)).toBeCloseTo(0.2);
     expect(regenRate(0.2, cfg)).toBeCloseTo(-0.2);
+  });
+
+  it('regenPerTick is the plain rate while the cap is the base cap', () => {
+    w.stats.population = 40_000;                     // capPerResident is 0, so the cap does not move
+    expect(regenPerTick(w, 1)).toBe(regenRate(1));
+    expect(regenPerTick(w, 0.3)).toBe(regenRate(0.3));
+  });
+
+  it('regenPerTick scales with the cap, so a refill takes the same time at any size', () => {
+    const pc = BALANCE.politicalCapital as { capPerResident: number };
+    pc.capPerResident = 0.01;
+    try {
+      const small = regenPerTick(w, 1);              // cap 100
+      w.stats.population = 10_000;                   // cap 200
+      expect(pcCap(w)).toBe(200);
+      expect(regenPerTick(w, 1)).toBeCloseTo(small * 2);
+      expect(pcCap(w) / regenPerTick(w, 1)).toBeCloseTo(100 / small);   // ticks from empty to full
+      // A drain scales the same way.
+      expect(regenPerTick(w, 0)).toBeCloseTo(regenRate(0) * 2);
+    } finally {
+      pc.capPerResident = 0;
+    }
   });
 
   it('a negative regenPc drains PC, over the cap too, but never below 0', () => {

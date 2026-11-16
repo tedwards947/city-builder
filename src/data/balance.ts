@@ -311,7 +311,10 @@ export const BALANCE = {
     // 100 people). SWITCHED OFF at 0 until the Political Capital numbers pass.
     capPerResident: 0,
     // Passive change per tick:
-    //   baseRegen + (satisfaction − neutralSatisfaction) × satisfactionRegenBonus
+    //   (baseRegen + (satisfaction − neutralSatisfaction) × satisfactionRegenBonus)
+    //     × (cap ÷ max)
+    // The last factor makes a bigger city (a bigger cap) fill or drain
+    // proportionally faster, so empty-to-full takes the same time at any size.
     // A positive result stops at the cap; a negative one drains PC, down to 0.
     // With the numbers below it runs from 0.1 (miserable city) to 0.4 (happy city).
     baseRegen: 0.1,
