@@ -66,6 +66,9 @@ export interface WorldSnapshot {
   politics: {
     peakPopulation: number;
     regen: number;
+    // Added after v9 without a version bump: missing in older saves, which
+    // load with no ordinances.
+    ordinances?: { active: string[]; suspended: string[] };
   };
   buildings: { tx: number; ty: number; kind: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.

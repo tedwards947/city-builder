@@ -357,12 +357,26 @@ describe('politics state', () => {
     const w = new World(16, 16, 1);
     w.politics.peakPopulation = 2600;
     w.politics.regen = -0.25;
+    w.politics.ordinances.active.push('curfew', 'freeTransit');
+    w.politics.ordinances.suspended.push('freeTransit');
     const loaded = deserialize(serialize(w));
-    expect(loaded.politics).toEqual({ peakPopulation: 2600, regen: -0.25 });
+    expect(loaded.politics).toEqual({
+      peakPopulation: 2600, regen: -0.25,
+      ordinances: { active: ['curfew', 'freeTransit'], suspended: ['freeTransit'] },
+    });
     expect(loaded.politics).not.toBe(w.politics);
+    expect(loaded.politics.ordinances.active).not.toBe(w.politics.ordinances.active);
   });
 
   it('a new city starts with nothing credited', () => {
-    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0 });
+    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] } });
+  });
+
+  it('a v9 save from before ordinances loads with none', () => {
+    const w = new World(16, 16, 1);
+    const snap = serialize(w);
+    const { ordinances: _dropped, ...oldPolitics } = snap.politics;
+    const loaded = deserialize({ ...snap, politics: oldPolitics });
+    expect(loaded.politics.ordinances).toEqual({ active: [], suspended: [] });
   });
 });

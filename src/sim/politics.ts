@@ -24,7 +24,17 @@ export type PcReason =
   | 'nuisance'        // something unpopular (industry, a power or sewage plant) was put near homes
   | 'serviceOpened'   // a service building opened: the residents it covers are pleased
   | 'serviceClosed'   // a service building closed: the residents it covered object
-  | 'milestone';      // the population reached a milestone for the first time
+  | 'milestone'       // the population reached a milestone for the first time
+  | 'ordinanceEnacted' // the player enacted an ordinance (src/sim/ordinances.ts)
+  | 'ordinanceUpkeep'; // a day's upkeep for the active ordinances
+
+/**
+ * Changes the simulation makes on its own, not part of the player's current
+ * action, even when they land in the middle of a drag: CommandHistory leaves
+ * them out of pcAction. (Enacting an ordinance is a player action, but it is
+ * not a command, so it is left out too.)
+ */
+export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep'];
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */

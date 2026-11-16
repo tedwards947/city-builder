@@ -358,6 +358,25 @@ export const BALANCE = {
     // cap. Each pays once per city, however the population moves afterwards.
     // SWITCHED OFF: the list is empty until the Political Capital numbers pass.
     milestones: [] as { population: number; reward: number }[],
+    // Ordinances (src/sim/ordinances.ts): a lump of PC to enact, a daily PC
+    // (and for some, money) upkeep, and multipliers the sim systems read
+    // through ordinanceModifier(). 1 = no effect. SWITCHED OFF: every cost
+    // is 0 and every multiplier 1 until the numbers are play-tested.
+    // "Established" (Heritage Protection's establishedLandValue and
+    // establishedDemolitionCost) is not defined yet: which tiles count is an
+    // open design question for the owner and the PM. Until it is decided,
+    // nothing reads those two names.
+    ordinances: {
+      neighbourhoodWatch: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1 } }, // Crime −15%; PC upkeep only
+      curfew: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1, commercialIncome: 1 } }, // Crime −30%; shop income −10%
+      cleanAirAct: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { industrialPollution: 1, industrialGrowth: 1 } }, // Industrial pollution −30%; industry grows slower
+      businessIncentives: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { commercialDemand: 1, industrialDemand: 1, commercialIncome: 1, industrialIncome: 1 } }, // Shop and industry demand up; their tax income down
+      freeTransit: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { trafficTrips: 1 } }, // Less traffic; money upkeep too
+      fastTrackPermits: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { growth: 1, pollution: 1, crime: 1 } }, // Zones grow faster; a bit more pollution and crime
+      rentControl: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { abandonmentFromLandValue: 1, vibeEgalitarian: 1, landValueGrowth: 1 } }, // Homes don't abandon over land value, vibe more egalitarian; land value grows slower
+      eminentDomain: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { displacementCost: 1, satisfaction: 1 } }, // Displacing residents costs half the PC; satisfaction drops
+      heritageProtection: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { establishedLandValue: 1, establishedDemolitionCost: 1 } }, // Established neighbourhoods gain land value; very expensive to demolish
+    } as Record<string, { enactCost: number; dailyUpkeep: number; dailyMoney: number; modifiers: Record<string, number> }>,
     // Opening a service building earns PC for the residents it covers; closing
     // one costs what they lose (see sim/serviceValue.ts).
     // SWITCHED OFF: every value is 0 until the Political Capital numbers pass.

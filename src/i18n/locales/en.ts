@@ -28,6 +28,17 @@ export const en: TranslationSchema = {
       "Dec",
     ],
   },
+  ordinances: {
+    neighbourhoodWatch: { name: 'Neighbourhood Watch', desc: 'Residents keep an eye on their streets. Crime falls; costs only political capital to keep up.' },
+    curfew: { name: 'Curfew', desc: 'Everyone off the streets after dark. Crime falls sharply, but shops earn less.' },
+    cleanAirAct: { name: 'Clean Air Act', desc: 'Factories must clean their smoke. Industrial pollution falls, but industry grows slower.' },
+    businessIncentives: { name: 'Business Incentives', desc: 'Tax breaks for business. Shops and industry are more in demand, but pay less tax.' },
+    freeTransit: { name: 'Free Transit', desc: 'Free buses for all. Less traffic on the roads, but it costs money every day.' },
+    fastTrackPermits: { name: 'Fast-Track Permits', desc: 'Planning permission in a day. Zones grow faster, with a little more pollution and crime.' },
+    rentControl: { name: 'Rent Control', desc: "Rents are capped. Homes don't empty when land value rises and the city feels fairer, but land value grows slower." },
+    eminentDomain: { name: 'Eminent Domain', desc: 'The city may take land it needs. Displacing residents costs half the political capital, but people are less satisfied.' },
+    heritageProtection: { name: 'Heritage Protection', desc: 'Old neighbourhoods are protected. They gain land value, but become very expensive to demolish.' },
+  },
   ui: {
     tileInfo: {
       coords: "({tx}, {ty})",
