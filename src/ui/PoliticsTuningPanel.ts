@@ -13,7 +13,7 @@ import { BALANCE } from '../data/balance';
 import { pcCap, regenPerTick, overCapFadePerDay } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
-import { debugDock } from './debugDock';
+import { debugDock, panelFold } from './debugDock';
 import { balanceInputs, fold, smallButton } from './tuningWidgets';
 import { REQUEST_KINDS, requestConfig, planRequest, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 
@@ -106,9 +106,7 @@ export class PoliticsTuningPanel {
     // then Shortcuts and Advanced folded away. The title folds it all.
     const body = document.createElement('div');
     panel.appendChild(body);
-    const setTitle = () => { title.textContent = `Political capital (debug) ${body.style.display === 'none' ? '▸' : '▾'}`; };
-    title.addEventListener('click', () => { body.style.display = body.style.display === 'none' ? '' : 'none'; setTitle(); });
-    setTitle();
+    panelFold(title, 'Political capital (debug)', 'politics', [this.readoutEl, body], true);
 
     const picker = document.createElement('div');
     picker.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
