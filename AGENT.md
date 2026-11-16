@@ -508,7 +508,7 @@ Vitest suite at `src/__tests__/`. After any code changes, run both and confirm t
 
 ```
 npm test            # vitest run
-npx tsc --noEmit    # typecheck; `npm run build` = tsc && vite build
+npm run typecheck   # tsc --noEmit; `npm run build` = tsc && vite build
 ```
 
 The typecheck has `noUnusedLocals` / `noUnusedParameters` on, so an unused import or variable breaks the build even though tests pass.
@@ -536,6 +536,7 @@ Prints the time of a sim tick (in Node and in Chrome, with the cost of each syst
 - The `picture` values are the same on every run of the same code on the same city. Use them to prove a rendering refactor changed no pixels; if you meant to change the look, they will differ and that is fine.
 - The frame times are drawn on the CPU so that they repeat from run to run (within about 10%); they are not what a player's GPU does, so compare them with each other, not with 16.7 ms.
 - A big exported city tells you more than the built-in one. The code is in `src/bench/` and `scripts/bench.mjs`; it is not part of the game build.
+- CI runs the Node part on the built-in city for every PR and puts the numbers in the job summary. It fails only on a large slowdown (limits in `scripts/bench-check.mjs`), so measure smaller changes yourself.
 
 Test files:
 - `systems.test.ts` — per-system behavior (large; add new system tests here or in a new file)

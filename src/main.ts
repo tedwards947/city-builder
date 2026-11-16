@@ -33,6 +33,10 @@ import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcRate } from './ui/pcFormat';
 import { pcCap } from './sim/politics';
+import { hoverPcPreview, nuisanceTints, pcLabel } from './ui/pcPreview';
+import type { PcPreview } from './ui/pcPreview';
+import type { PcQuote } from './sim/politics';
+import { toolPrice, buildingKindForTool } from './ui/Toolbar';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
@@ -221,6 +225,19 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
   },
 });
 
+/** The PC part of a plan's price tag: nothing if PC does not come into it. */
+function pcTag(q: PcQuote): { text: string; ok: boolean; note?: string } | undefined {
+  const text = pcLabel(q);
+  if (!text) return undefined;
+  return { text, ok: q.affordable, note: q.affordable ? undefined : t('ui.hud.pcShort') };
+}
+
+/** The homes a plan would upset, tinted; the plan's own tag carries the price. */
+function planPcPreview(at: { tx: number; ty: number }, q: PcQuote): PcPreview | null {
+  const tints = nuisanceTints(q);
+  return tints.length ? { at, rings: [], tints, label: '', ok: q.affordable } : null;
+}
+
 /** Toggle one overlay; turning one on turns the others off. */
 function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
   overlay = overlay === which ? 'none' : which;
@@ -349,6 +366,9 @@ function frame(now: number): void {
     : null;
   // Auto road mode: the road that a click would build now, and its price.
   // Zone fill mode: the lots a click would zone now, and their price.
+  // Political capital at the pointer. A plan (zone fill, auto road) carries its
+  // own merged quote; otherwise it is quoted for the one tile under the pointer.
+  let pcPreview: PcPreview | null = null;
   let zonePreview: ZonePreview | null = null;
   const fillZone = zoneMode === 'fill' ? zoneForTool(currentTool) : undefined;
   if (fillZone !== undefined && hoverTile) {
@@ -357,16 +377,27 @@ function frame(now: number): void {
       tiles: plan.tiles, ok: plan.affordable, at: hoverTile,
       color: ZONE_PREVIEW_COLOR[fillZone] ?? '#fff',
       label: '$' + plan.cost.toLocaleString('en-US'),
+      pc: pcTag(plan.pc),
     };
+    pcPreview = planPcPreview(hoverTile, plan.pc);
   }
   let roadPreview: RoadPreview | null = null;
   const roadStart = input.autoRoadStart;
   const roadClass = roadClassForTool(currentTool);
   if (roadStart && hoverTile && roadClass !== undefined) {
     const plan = planAutoRoad(state.world, autoRoadPath(roadStart, hoverTile), roadClass);
-    roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US') };
+    roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US'), pc: pcTag(plan.pc) };
+    pcPreview = planPcPreview(hoverTile, plan.pc);
+  }
+  if (!zonePreview && !roadPreview && hoverTile) {
+    pcPreview = hoverPcPreview(state.world, currentTool, hoverTile);
+    if (pcPreview) {
+      if (buildingKindForTool(currentTool) !== undefined) pcPreview.money = toolPrice(currentTool).cost;
+      if (!pcPreview.ok) pcPreview.note = t('ui.hud.pcShort');
+    }
   }
   renderer.render(state.world, camera, {
+    pcPreview,
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
