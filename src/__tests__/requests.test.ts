@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { ZONE_R, BUILDING_PARK } from '../sim/constants';
+import { ZONE_R, BUILDING_PARK, TERRAIN_GRASS } from '../sim/constants';
 import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress } from '../sim/requests';
 import { RequestSystem } from '../sim/systems/RequestSystem';
 
@@ -17,6 +17,7 @@ afterEach(() => {
 function city(): World {
   const w = new World(24, 24, 7);
   const L = w.layers;
+  L.terrain.fill(TERRAIN_GRASS);                                 // no water where the test builds
   for (let y = 3; y < 8; y++) {
     for (const x0 of [1, 13]) {
       for (let x = x0; x < x0 + 5; x++) {
@@ -26,10 +27,14 @@ function city(): World {
       }
     }
   }
-  w.buildings.push({ tx: 3, ty: 5, kind: BUILDING_PARK }, { tx: 15, ty: 5, kind: BUILDING_PARK });
+  // A street along row 8 under both blocks; a park on it under each block's middle (coverage runs along roads).
+  for (let x = 0; x < 24; x++) w.setRoad(x, 8, 1);
+  w.placeBuilding(3, 9, BUILDING_PARK);
+  w.placeBuilding(15, 9, BUILDING_PARK);
   w.budget.politicalCapital = 50;
   return w;
 }
+function noParks(w: World): void { w.clearTile(3, 9); w.clearTile(15, 9); }
 function runDays(w: World, sys: RequestSystem, days: number): void {
   for (let d = 0; d < days * BALANCE.ticksPerDay; d++) { w.tick++; sys.update(w); }
 }
@@ -46,8 +51,8 @@ describe('request registry', () => {
     const areas = neighbourhoods(w);
     expect(areas).toEqual([{ x0: 1, y0: 3, x1: 5, y1: 7 }, { x0: 13, y0: 3, x1: 17, y1: 7 }]);
     const park = REQUEST_KINDS.find((k) => k.id === 'park')!;
-    expect(park.need(w, areas[0])).toBeCloseTo(4 / 25);     // only the corners are out of reach
-    w.buildings.splice(0, 1);                                   // the left park goes
+    expect(park.need(w, areas[0])).toBeCloseTo(20 / 25);    // road coverage: only the row of homes on the park's street
+    w.clearTile(3, 9);                                          // the left park goes
     expect(park.need(w, areas[0])).toBe(1);
     w.layers.abandoned[5 * 24 + 15] = 1;
     expect(REQUEST_KINDS.find((k) => k.id === 'blight')!.need(w, areas[1])).toBeCloseTo(1 / 25);
@@ -57,8 +62,10 @@ describe('request registry', () => {
 describe('RequestSystem', () => {
   it('opens nothing and draws no randomness while switched off', () => {
     const w = city();
-    w.buildings.length = 0;
-    const next = new World(24, 24, 7).rng();
+    noParks(w);
+    const twin = city();
+    noParks(twin);
+    const next = twin.rng();                                     // the same city, never run
     runDays(w, new RequestSystem(), 30);
     expect(w.politics.requests).toEqual([]);
     expect(w.rng()).toBe(next);
@@ -66,9 +73,10 @@ describe('RequestSystem', () => {
 
   it('asks where the need is, then rewards meeting it', () => {
     Object.assign(cfg, { spawnEveryDays: 1, randomness: 0 });
-    Object.assign(cfg.kinds.park, { days: 10, reward: 15, penalty: 5 });
+    // A park on the street serves only the row beside it (need 0.8), so: ask only with no park at all, met by one.
+    Object.assign(cfg.kinds.park, { days: 10, reward: 15, penalty: 5, askAt: 0.9, metAt: 0.85 });
     const w = city();
-    const leftPark = w.buildings.splice(0, 1)[0];               // only the left neighbourhood lacks a park
+    w.clearTile(3, 9);                                          // only the left neighbourhood lacks a park
     const log: string[] = [];
     for (const e of ['requestOpened', 'requestMet', 'requestFailed'] as const) w.events.on(e, (p) => log.push(`${e}:${p.kind}:${p.x0}`));
     const sys = new RequestSystem();
@@ -76,7 +84,7 @@ describe('RequestSystem', () => {
     expect(w.politics.requests).toHaveLength(1);
     expect(w.politics.requests[0]).toMatchObject({ id: 1, kind: 'park', x0: 1, x1: 5 });
     expect(isMet(w, w.politics.requests[0])).toBe(false);
-    w.buildings.push(leftPark);
+    w.placeBuilding(3, 9, BUILDING_PARK);
     runDays(w, sys, 1);
     expect(w.politics.requests).toEqual([]);
     expect(w.budget.politicalCapital).toBe(65);
@@ -87,7 +95,7 @@ describe('RequestSystem', () => {
     Object.assign(cfg, { spawnEveryDays: 1, maxOpen: 1 });
     Object.assign(cfg.kinds.park, { days: 3, penalty: 8 });
     const w = city();
-    w.buildings.length = 0;                                     // both neighbourhoods lack a park
+    noParks(w);                                     // both neighbourhoods lack a park
     w.budget.politicalCapital = 5;
     const sys = new RequestSystem();
     runDays(w, sys, 2);
@@ -100,7 +108,7 @@ describe('RequestSystem', () => {
   it('picks the same request for the same seed', () => {
     Object.assign(cfg.kinds.park, { days: 10 });
     const w1 = city(), w2 = city();
-    w1.buildings.length = 0; w2.buildings.length = 0;
+    noParks(w1); noParks(w2);
     const p1 = pickRequest(w1, w1.rng);
     expect(p1).not.toBeNull();
     expect(p1).toEqual(pickRequest(w2, w2.rng));
@@ -134,7 +142,7 @@ describe('picking', () => {
     Object.assign(cfg.kinds.park, { days: 10 });
     Object.assign(cfg.kinds.blight, { days: 10 });
     const w = city();
-    w.buildings.length = 0;                                      // park need 1 in both neighbourhoods
+    noParks(w);                                      // park need 1 in both neighbourhoods
     for (const x of [13, 14]) w.layers.abandoned[5 * 24 + x] = 1; // blight 2/25 = 0.08 on the right…
     for (const x of [15, 16, 17]) w.layers.abandoned[6 * 24 + x] = 1; // …now 5/25 = 0.2, above askAt 0.1
     const counts: Record<string, number> = {};
@@ -153,7 +161,7 @@ describe('picking', () => {
 
   it('skips kinds whose days are 0 (switched off)', () => {
     const w = city();
-    w.buildings.length = 0;                                      // park need 1…
+    noParks(w);                                      // park need 1…
     w.layers.police.fill(0);                                     // …and police need 1
     Object.assign(cfg.kinds.park, { days: 6 });                  // only park is switched on
     for (let k = 0; k < 50; k++) expect(pickRequest(w, w.rng)?.kind).toBe('park');
@@ -164,7 +172,7 @@ describe('debug helpers', () => {
   it('open the neediest neighbourhood for a kind, then meet or fail it by hand', () => {
     Object.assign(cfg.kinds.park, { reward: 10, penalty: 4 });
     const w = city();
-    w.buildings.splice(1, 1);                                    // the right neighbourhood loses its park
+    w.clearTile(15, 9);                                          // the right neighbourhood loses its park
     const area = neediestFor(w, 'park')!;
     expect(area.x0).toBe(13);
     const log: string[] = [];
