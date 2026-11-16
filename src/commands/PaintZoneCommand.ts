@@ -5,7 +5,7 @@ import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ROAD_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { pcQuote, chargeQuote, refundCharges } from '../sim/politics';
+import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 // Paints a zone onto a tile.
 //
@@ -24,7 +24,7 @@ export class PaintZoneCommand extends Command {
   private snap: TileSnapshot | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
-  private pcCharges: PcCharges = [];
+  private pcCharges: PcCharges = NO_PC_CHARGES;
 
   constructor(tx: number, ty: number, newZone: number) {
     super();

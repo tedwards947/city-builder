@@ -5,7 +5,7 @@ import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { pcQuote, chargeQuote, refundCharges, zonesCutOffByHighway } from '../sim/politics';
+import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges, zonesCutOffByHighway } from '../sim/politics';
 
 // Builds a new road OR upgrades an existing road to a higher class.
 //
@@ -43,7 +43,7 @@ export class BuildRoadCommand extends Command {
   private snap: TileSnapshot | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
-  private pcCharges: PcCharges = [];
+  private pcCharges: PcCharges = NO_PC_CHARGES;
   private affectedZones: Array<{ tx: number; ty: number; snap: TileSnapshot }> = [];
 
   constructor(tx: number, ty: number, targetClass = ROAD_STREET) {

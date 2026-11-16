@@ -4,7 +4,7 @@ import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { pcQuote, chargeQuote, refundCharges } from '../sim/politics';
+import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 // Places a utility or service building.
 // Building over populated residential displaces residents and costs political
@@ -17,7 +17,7 @@ export class PlaceBuildingCommand extends Command {
   private snap: TileSnapshot | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
-  private pcCharges: PcCharges = [];
+  private pcCharges: PcCharges = NO_PC_CHARGES;
 
   constructor(tx: number, ty: number, kind: number) {
     super();

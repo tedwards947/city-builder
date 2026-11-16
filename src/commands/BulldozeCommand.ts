@@ -5,7 +5,7 @@ import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ROAD_NONE, BUILDING_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { pcQuote, chargeQuote, refundCharges } from '../sim/politics';
+import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 export class BulldozeCommand extends Command {
   private readonly tx: number;
@@ -13,7 +13,7 @@ export class BulldozeCommand extends Command {
   private snap: TileSnapshot | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
-  private pcCharges: PcCharges = [];
+  private pcCharges: PcCharges = NO_PC_CHARGES;
 
   constructor(tx: number, ty: number) {
     super();
