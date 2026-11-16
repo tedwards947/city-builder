@@ -189,6 +189,7 @@ export class Toolbar {
   private open: string | null = null;
   /** The member each family last had picked (its tile shows that one). */
   private readonly last = new Map<string, string>();
+  private shownSig = '';
 
   constructor(root: HTMLElement, roadMode: RoadMode, zoneMode: ZoneMode, hooks: ToolbarHooks) {
     this.root = root;
@@ -201,6 +202,17 @@ export class Toolbar {
     document.addEventListener('pointerdown', (e) => {
       if (this.open && !this.root.contains(e.target as Node)) { this.open = null; this.render(); }
     });
+    this.render();
+  }
+
+  /**
+   * Call every frame: redraws if an item's `shown` answer changed (a feature
+   * switched on or off while the game runs), and otherwise does nothing.
+   */
+  syncShown(): void {
+    const sig = TOOLBAR.map(e => e !== 'sep' && !isFamily(e) && e.shown ? (e.shown() ? '1' : '0') : '').join('');
+    if (sig === this.shownSig) return;
+    this.shownSig = sig;
     this.render();
   }
 
