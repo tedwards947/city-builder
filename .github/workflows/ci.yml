@@ -1,5 +1,6 @@
-# Runs on every pull request and on main: the type-check, the tests and a
-# production build. A red cross on a PR means do not merge it yet.
+# Runs on every pull request and on main: the type-check, the tests, a
+# production build and a sim speed check (numbers in the job summary; fails
+# only on a large slowdown). A red cross on a PR means do not merge it yet.
 name: CI
 
 on:
@@ -31,3 +32,7 @@ jobs:
         run: npm test
       - name: Build
         run: npx vite build
+      - name: Sim speed
+        run: |
+          npm run -s bench -- --no-browser --json > bench.json
+          node scripts/bench-check.mjs bench.json
