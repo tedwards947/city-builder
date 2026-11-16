@@ -159,6 +159,10 @@ export interface TranslationSchema {
       startGame: string;
       cancel: string;
     };
+    milestone: {
+      title: string;
+      body: string;
+    };
     toolbar: {
       new: string;
       save: string;

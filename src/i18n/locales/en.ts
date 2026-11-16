@@ -191,6 +191,10 @@ export const en: TranslationSchema = {
       startGame: "Start Game",
       cancel: "Cancel",
     },
+    milestone: {
+      title: "{n} residents",
+      body: "The city is growing up",
+    },
     toolbar: {
       new: "New city",
       save: "Save",
