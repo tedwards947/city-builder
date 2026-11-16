@@ -37,6 +37,10 @@ export type CityEvents = {
   // tile, and a refused auto road / zone fill emits changes and then their
   // reversals: for one message per player action, use pcAction instead.
   pcChanged:        { delta: number; reason: string; tx?: number; ty?: number; undo: boolean };
+  // The city's population reached a milestone for the first time and was
+  // paid `reward` political capital (emitted by PoliticsSystem; also a
+  // pcChanged with reason 'milestone', which pcAction does not include).
+  populationMilestone: { population: number; reward: number };
   // The net political-capital change of one finished player action (emitted
   // by CommandHistory): a single click, a whole drag / auto road / zone fill,
   // or one undo or redo step. Nothing is emitted for a net change of zero or

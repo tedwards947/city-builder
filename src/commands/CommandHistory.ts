@@ -20,6 +20,9 @@ export class CommandHistory {
   constructor(world: World) {
     this.world = world;
     world.events.on('pcChanged', p => {
+      // A milestone is paid by the simulation, not by the player's action,
+      // even if it lands in the middle of a drag.
+      if (p.reason === 'milestone') return;
       this.pcDelta += p.delta as number;
       if (p.tx !== undefined) { this.pcTx = p.tx as number; this.pcTy = p.ty as number; }
     });

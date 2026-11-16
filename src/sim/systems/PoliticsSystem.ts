@@ -11,7 +11,7 @@
 import type { World } from '../World';
 import { ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
-import { regenPc, regenRate } from '../politics';
+import { regenPc, regenRate, payMilestones } from '../politics';
 
 // ── Satisfaction factor interface ─────────────────────────────────────────────
 
@@ -154,10 +154,9 @@ export class PoliticsSystem {
     const before = world.budget.politicalCapital;
     regenPc(world, regen);
     world.politics.regen = world.budget.politicalCapital - before;
-    // Remember the largest population seen, so milestones never pay twice.
-    if (world.stats.population > world.politics.peakPopulation) {
-      world.politics.peakPopulation = world.stats.population;
-    }
+    // Pay any population milestone newly reached, and remember the largest
+    // population seen so none pays twice.
+    payMilestones(world);
     // Expose satisfaction on stats so HUD and other systems can read it
     // without recomputing.
     world.stats.satisfaction = sat;

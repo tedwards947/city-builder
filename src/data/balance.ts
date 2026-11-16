@@ -353,6 +353,11 @@ export const BALANCE = {
       // PC per resident at weight 1, by building kind (1 = power plant, 3 = sewage plant).
       buildingPerResident: { 1: 0, 3: 0 } as Record<number, number>,
     },
+    // One-off PC rewards the first time the city's population reaches each
+    // threshold, e.g. { population: 1000, reward: 20 }. They may go over the
+    // cap. Each pays once per city, however the population moves afterwards.
+    // SWITCHED OFF: the list is empty until the Political Capital numbers pass.
+    milestones: [] as { population: number; reward: number }[],
     // Opening a service building earns PC for the residents it covers; closing
     // one costs what they lose (see sim/serviceValue.ts).
     // SWITCHED OFF: every value is 0 until the Political Capital numbers pass.
