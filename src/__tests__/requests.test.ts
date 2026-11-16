@@ -1,8 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { ZONE_R, BUILDING_PARK, TERRAIN_GRASS } from '../sim/constants';
-import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress } from '../sim/requests';
+import { ZONE_R, BUILDING_PARK, BUILDING_SCHOOL, TERRAIN_GRASS } from '../sim/constants';
+import { ServiceSystem } from '../sim/systems/ServiceSystem';
+import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress, planRequest } from '../sim/requests';
 import { RequestSystem } from '../sim/systems/RequestSystem';
 
 const cfg = requestConfig();
@@ -82,7 +83,7 @@ describe('RequestSystem', () => {
     const sys = new RequestSystem();
     runDays(w, sys, 1);
     expect(w.politics.requests).toHaveLength(1);
-    expect(w.politics.requests[0]).toMatchObject({ id: 1, kind: 'park', x0: 1, x1: 5 });
+    expect(w.politics.requests[0]).toMatchObject({ id: 1, kind: 'park', y1: 7 });
     expect(isMet(w, w.politics.requests[0])).toBe(false);
     w.placeBuilding(3, 9, BUILDING_PARK);
     runDays(w, sys, 1);
@@ -236,3 +237,47 @@ describe('met rule and progress', () => {
   });
 });
 
+
+describe('road-shaped clusters (coverage kinds)', () => {
+  /**
+   * One 12×12 cell, two separate road branches: a street along row 3 with
+   * homes on row 2, and a street along row 9 with homes on row 8 (x 1–8 each).
+   * The streets don't meet, so a school on one branch can't reach the other.
+   */
+  function twoBranches(): World {
+    const w = new World(24, 24, 3);
+    w.layers.terrain.fill(TERRAIN_GRASS);
+    for (const row of [3, 9]) for (let x = 0; x < 10; x++) w.setRoad(x, row, 1);
+    for (const row of [2, 8]) for (let x = 1; x <= 8; x++) {
+      const i = row * 24 + x;
+      w.layers.zone[i] = ZONE_R; w.layers.devLevel[i] = 1;
+    }
+    return w;
+  }
+  const rowOf = (i: number) => Math.floor(i / 24);
+
+  it('asks only for the homes the seed can reach by road, not the whole box', () => {
+    Object.assign(cfg.kinds.school, { days: 20 });
+    const w = twoBranches();
+    const plan = planRequest(w, 'school', neighbourhoods(w)[0], w.rng)!;
+    expect(plan.homes!.length).toBe(8);                          // one branch, not 16
+    const row = rowOf(plan.seed!);
+    expect(plan.homes!.every((i) => rowOf(i) === row)).toBe(true);
+    expect(plan.area).toEqual({ x0: 1, y0: row, x1: 8, y1: row });
+    expect(plan.need).toBe(1);
+  });
+
+  it('is met by one school beside the seed’s road', () => {
+    Object.assign(cfg.kinds.school, { days: 20, reward: 10 });
+    const w = twoBranches();
+    const plan = planRequest(w, 'school', neighbourhoods(w)[0], w.rng)!;
+    const req = openRequest(w, 'school', plan.area, 20, plan.need, plan);
+    expect(isMet(w, req)).toBe(false);
+    // A school across the street from the seed, touching the same road.
+    const sx = plan.seed! % 24, sy = rowOf(plan.seed!) + 2;
+    expect(w.placeBuilding(sx, sy, BUILDING_SCHOOL)).toBe(true);
+    new ServiceSystem().update(w);
+    expect(isMet(w, req)).toBe(true);
+    expect(requestProgress(w, req)).toMatchObject({ met: true, units: 8, homes: plan.homes });
+  });
+});
