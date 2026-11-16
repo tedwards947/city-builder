@@ -4,14 +4,23 @@ import { ORDINANCES, enactOrdinance } from '../sim/ordinances';
 import type { OrdinanceDef } from '../sim/ordinances';
 import { landWorld } from './pcTestWorld';
 
-const def = (numbers: Partial<OrdinanceDef['numbers']>): OrdinanceDef =>
-  ({ ...ORDINANCES[0], numbers: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: {}, ...numbers } });
+/** Set an ordinance's numbers for one test; returns a function that puts them back. */
+function withNumbers(id: number, numbers: Partial<OrdinanceDef['numbers']>): () => void {
+  const target = ORDINANCES[id].numbers as OrdinanceDef['numbers'];
+  const was = { ...target };
+  Object.assign(target, numbers);
+  return () => { Object.assign(target, was); };
+}
 
 describe('ordinance panel', () => {
   it('prices an ordinance: what it costs to enact and to keep', () => {
-    expect(ordinancePrice(def({ enactCost: 20, dailyUpkeep: 0.3 }))).toEqual({ enact: '◆ 20', keep: '◆ 0.3 / day' });
-    expect(ordinancePrice(def({ enactCost: 15, dailyUpkeep: 0.2, dailyMoney: 40 }))).toEqual({ enact: '◆ 15', keep: '◆ 0.2 + $40 / day' });
-    expect(ordinancePrice(def({ enactCost: 10 }))).toEqual({ enact: '◆ 10', keep: '' });
+    const w = landWorld();   // cap 100: upkeep is charged as the table says
+    let undo = withNumbers(0, { enactCost: 20, dailyUpkeep: 0.3 });
+    try { expect(ordinancePrice(w, ORDINANCES[0])).toEqual({ enact: '◆ 20', keep: '◆ 0.3 / day' }); } finally { undo(); }
+    undo = withNumbers(0, { enactCost: 15, dailyUpkeep: 0.2, dailyMoney: 40 });
+    try { expect(ordinancePrice(w, ORDINANCES[0])).toEqual({ enact: '◆ 15', keep: '◆ 0.2 + $40 / day' }); } finally { undo(); }
+    undo = withNumbers(0, { enactCost: 10 });
+    try { expect(ordinancePrice(w, ORDINANCES[0])).toEqual({ enact: '◆ 10', keep: '' }); } finally { undo(); }
   });
 
   it('adds up the upkeep of active ordinances, leaving out suspended ones', () => {

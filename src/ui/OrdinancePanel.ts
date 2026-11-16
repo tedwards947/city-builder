@@ -5,7 +5,7 @@
 
 import type { World } from '../sim/World';
 import {
-  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance, ordinancesEnabled, enactBlocker,
+  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance, ordinancesEnabled, enactBlocker, dailyUpkeepOf,
 } from '../sim/ordinances';
 import type { OrdinanceDef, OrdinanceId, OrdinanceState } from '../sim/ordinances';
 import { t } from '../i18n';
@@ -24,12 +24,17 @@ export function ordinancesShown(): boolean {
 export function ordinanceUpkeep(world: World): number {
   const { active, suspended } = world.politics.ordinances;
   return ORDINANCES.filter(o => active.includes(o.id) && !suspended.includes(o.id))
-    .reduce((sum, o) => sum + o.numbers.dailyUpkeep, 0);
+    .reduce((sum, o) => sum + dailyUpkeepOf(world, o.id), 0);
 }
 
-/** "◆ 20", then what it costs to keep: "◆ 0.3 / day" and any money. */
-export function ordinancePrice(o: OrdinanceDef): { enact: string; keep: string } {
-  const { enactCost, dailyUpkeep, dailyMoney } = o.numbers;
+/**
+ * "◆ 20", then what it costs to keep: "◆ 0.3 / day" and any money. The PC
+ * upkeep is what this city is actually charged (it scales with the cap), so
+ * it comes from the engine, not the table.
+ */
+export function ordinancePrice(world: World, o: OrdinanceDef): { enact: string; keep: string } {
+  const { enactCost, dailyMoney } = o.numbers;
+  const dailyUpkeep = dailyUpkeepOf(world, o.id);
   const keep: string[] = [];
   if (dailyUpkeep > 0) keep.push(PC_SYMBOL + ' ' + pcAmount(dailyUpkeep));
   if (dailyMoney > 0) keep.push('$' + dailyMoney.toLocaleString('en-US'));
@@ -113,7 +118,7 @@ export class OrdinancePanel {
       } else if (state === 'suspended') {
         text.append(el('small', 'ord-why', t('ui.ordinances.suspendedNote')));
       }
-      const price = ordinancePrice(o);
+      const price = ordinancePrice(world, o);
       const cost = el('div', 'ord-cost');
       cost.append(el('span', 'ord-pc', price.enact));
       if (price.keep) cost.append(el('small', '', t('ui.ordinances.then') + ' ' + price.keep));
@@ -136,7 +141,7 @@ export class OrdinancePanel {
   /** The "are you sure?" box under a row. Enacting and repealing cannot be undone. */
   private confirmBox(world: World, o: OrdinanceDef, on: boolean): HTMLElement {
     const box = el('div', 'ord-confirm');
-    const price = ordinancePrice(o);
+    const price = ordinancePrice(world, o);
     const name = t(o.nameKey);
     box.append(el('b', '', t(on ? 'ui.ordinances.askRepeal' : 'ui.ordinances.askEnact', { name })));
     box.append(el('div', '', on
