@@ -1,7 +1,7 @@
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
-import type { RoadPreview } from './render/CanvasRenderer';
+import type { RoadPreview, ZonePreview } from './render/CanvasRenderer';
 import { localizeHTML, t, tArray } from './i18n';
 import type { FailReason } from './commands/Command';
 
@@ -13,9 +13,12 @@ import { createSystems } from './sim/createSystems';
 import { computeServiceCoverage } from './sim/systems/ServiceSystem';
 import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
-import { InputController, roadClassForTool } from './input/InputController';
+import { InputController, roadClassForTool, zoneForTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
+import { planZoneFill } from './input/zoneFill';
+import type { ZoneMode } from './input/zoneFill';
+import { loadZoneMode, saveZoneMode } from './ui/zoneMode';
 import { loadRoadMode, saveRoadMode } from './ui/RoadModeMenu';
 import { Toolbar, toolbarItems } from './ui/Toolbar';
 import { LocalStore } from './persistence/LocalStore';
@@ -36,6 +39,7 @@ import { DEBUG } from './debug';
 import { BALANCE } from './data/balance';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
+  ZONE_R, ZONE_C, ZONE_I,
 } from './sim/constants';
 
 // Initialize the sprite registry
@@ -159,6 +163,9 @@ function notifyRejected(reason: FailReason): void {
 // Road tools: 'manual' = drag to draw, 'auto' = click a start, click an end.
 // Set by the switch in the toolbar's Roads fly-out (wired up below).
 let roadMode: RoadMode = loadRoadMode();
+// Zone tools: 'drag' = paint tile by tile, 'fill' = click beside a road to zone
+// the lots along it. Set by the switch in the toolbar's Zones fly-out.
+let zoneMode: ZoneMode = loadZoneMode();
 
 const input = new InputController(
   canvas,
@@ -169,11 +176,12 @@ const input = new InputController(
   (tile) => { hoverTile = tile; },
   (reason) => notifyRejected(reason),
   () => roadMode,
+  () => zoneMode,
 );
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 
-const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, {
+const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneMode, {
   onTool: (tool) => setTool(tool),
   onOverlay: (which) => toggleOverlay(which),
   onAction: (action) => {
@@ -197,6 +205,10 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, {
     roadMode = mode;
     saveRoadMode(mode);
     input.cancelAutoRoad();   // a half-laid road does not carry over
+  },
+  onZoneMode: (mode) => {
+    zoneMode = mode;
+    saveZoneMode(mode);
   },
 });
 
@@ -310,6 +322,10 @@ function formatDate(tick: number): string {
   return (months[month - 1] ?? '???') + ' ' + day + ', ' + year;
 }
 
+const ZONE_PREVIEW_COLOR: Record<number, string> = {
+  [ZONE_R]: '#6fd86f', [ZONE_C]: '#8faee0', [ZONE_I]: '#e0b060',
+};
+
 // ── Main loop ─────────────────────────────────────────────────────────────────
 
 function frame(now: number): void {
@@ -322,6 +338,17 @@ function frame(now: number): void {
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
   // Auto road mode: the road that a click would build now, and its price.
+  // Zone fill mode: the lots a click would zone now, and their price.
+  let zonePreview: ZonePreview | null = null;
+  const fillZone = zoneMode === 'fill' ? zoneForTool(currentTool) : undefined;
+  if (fillZone !== undefined && hoverTile) {
+    const plan = planZoneFill(state.world, hoverTile, fillZone);
+    zonePreview = {
+      tiles: plan.tiles, ok: plan.affordable, at: hoverTile,
+      color: ZONE_PREVIEW_COLOR[fillZone] ?? '#fff',
+      label: '$' + plan.cost.toLocaleString('en-US'),
+    };
+  }
   let roadPreview: RoadPreview | null = null;
   const roadStart = input.autoRoadStart;
   const roadClass = roadClassForTool(currentTool);
@@ -330,7 +357,7 @@ function frame(now: number): void {
     roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US') };
   }
   renderer.render(state.world, camera, {
-    hoverTile, tool: currentTool, coveragePreview, now, roadPreview,
+    hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);

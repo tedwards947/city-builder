@@ -226,6 +226,13 @@ export const en: TranslationSchema = {
       autoDesc: "Click start, click end",
       title: "How to lay",
     },
+    zoneMode: {
+      drag: "Drag",
+      fill: "Fill",
+      dragDesc: "Paint tile by tile",
+      fillDesc: "Click beside a road",
+      title: "How to zone",
+    },
     toolbarDesc: {
       new: "Start a new city",
       save: "Save your city",

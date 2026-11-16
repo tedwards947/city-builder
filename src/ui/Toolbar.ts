@@ -7,7 +7,8 @@
 // a family; to add a family, add an entry.
 
 import type { Tool, RoadMode } from '../input/InputController';
-import { roadClassForTool } from '../input/InputController';
+import { roadClassForTool, zoneForTool } from '../input/InputController';
+import type { ZoneMode } from '../input/zoneFill';
 import { BALANCE } from '../data/balance';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
@@ -139,6 +140,7 @@ export interface ToolbarHooks {
   onOverlay(overlay: ToolbarOverlay): void;
   onAction(action: ToolbarAction): void;
   onRoadMode(mode: RoadMode): void;
+  onZoneMode(mode: ZoneMode): void;
 }
 
 const isFamily = (e: ToolbarEntry): e is ToolbarFamily => e !== 'sep' && 'family' in e;
@@ -157,14 +159,16 @@ export class Toolbar {
   private tool: Tool = 'none';
   private overlay: ToolbarOverlay | 'none' = 'none';
   private roadMode: RoadMode;
+  private zoneMode: ZoneMode;
   /** The family whose fly-out is open, if any. */
   private open: string | null = null;
   /** The member each family last had picked (its tile shows that one). */
   private readonly last = new Map<string, string>();
 
-  constructor(root: HTMLElement, roadMode: RoadMode, hooks: ToolbarHooks) {
+  constructor(root: HTMLElement, roadMode: RoadMode, zoneMode: ZoneMode, hooks: ToolbarHooks) {
     this.root = root;
     this.roadMode = roadMode;
+    this.zoneMode = zoneMode;
     this.hooks = hooks;
     this.tip = node('div', 'tb-tip');
     document.body.append(this.tip);
@@ -269,6 +273,7 @@ export class Toolbar {
       fly.append(row);
     }
     if (f.family === 'roads') fly.append(this.roadModeSwitch());
+    if (f.family === 'zones') fly.append(this.zoneModeSwitch());
 
     // Line up with the tile, but stay on screen.
     requestAnimationFrame(() => {
@@ -303,9 +308,34 @@ export class Toolbar {
     return box;
   }
 
+  /** Drag / fill zoning, one setting for all three zone tools. */
+  private zoneModeSwitch(): HTMLElement {
+    const box = node('div', 'tb-mode');
+    box.appendChild(node('div', 'tb-head')).textContent = t('ui.zoneMode.title');
+    const seg = box.appendChild(node('div', 'tb-seg'));
+    const options: Array<[ZoneMode, string, string]> = [
+      ['drag', t('ui.zoneMode.drag'), t('ui.zoneMode.dragDesc')],
+      ['fill', t('ui.zoneMode.fill'), t('ui.zoneMode.fillDesc')],
+    ];
+    for (const [mode, label, desc] of options) {
+      const b = node('button', mode === this.zoneMode ? 'on' : '');
+      b.type = 'button';
+      b.textContent = label;
+      b.appendChild(node('small', '')).textContent = desc;
+      b.addEventListener('click', () => {
+        this.zoneMode = mode;
+        this.hooks.onZoneMode(mode);
+        this.render();   // the fly-out stays open: the player still has a zone to pick
+      });
+      seg.append(b);
+    }
+    return box;
+  }
+
   private itemTip(item: ToolbarItem): TipText {
     const price = item.tool !== undefined ? toolPrice(item.tool) : {};
     const isRoad = item.tool !== undefined && roadClassForTool(item.tool) !== undefined;
+    const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
     return {
       name: t('ui.toolbar.' + item.key),
       desc: t('ui.toolbarDesc.' + item.key),
@@ -315,6 +345,8 @@ export class Toolbar {
       hint: isRoad
         ? (this.roadMode === 'auto' ? t('ui.roadMode.auto') + ': ' + t('ui.roadMode.autoDesc')
                                     : t('ui.roadMode.manual') + ': ' + t('ui.roadMode.manualDesc'))
+        : isZone
+        ? t('ui.zoneMode.' + this.zoneMode) + ': ' + t('ui.zoneMode.' + this.zoneMode + 'Desc')
         : undefined,
     };
   }

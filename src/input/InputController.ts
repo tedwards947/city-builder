@@ -6,6 +6,8 @@
 //   Road tools, auto mode    tap → start; tap again → build an L-shaped road to
 //                            that tile (one undo step, all or nothing);
 //                            right-click or cancelAutoRoad() → abandon; drag → pan
+//   Zone tools, fill mode    tap → zone the lots along that side of the road
+//                            (one undo step, all or nothing); drag → pan
 //   Building tools           tap → place one; drag → pan
 //   Wheel / pinch            zoom
 //
@@ -24,6 +26,8 @@ import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
 import { wheelZoomFactor } from './wheelZoom';
 import { autoRoadPath } from './autoRoad';
+import { planZoneFill } from './zoneFill';
+import type { ZoneMode } from './zoneFill';
 
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
@@ -45,6 +49,11 @@ const BUILDING_TOOL_KIND: Partial<Record<Tool, number>> = {
 /** The road class a tool builds, or undefined if it is not a road tool. */
 export function roadClassForTool(tool: Tool): number | undefined {
   return ROAD_TOOL_CLASS[tool];
+}
+
+/** The zone a tool paints, or undefined if it is not a zone tool. */
+export function zoneForTool(tool: Tool): number | undefined {
+  return ZONE_TOOL_ZONE[tool];
 }
 
 /** Tools that paint along a drag instead of panning. */
@@ -89,6 +98,7 @@ export class InputController {
   private readonly onHover: (tile: { tx: number; ty: number }) => void;
   private readonly onRejected: ((reason: FailReason) => void) | undefined;
   private readonly getRoadMode: () => RoadMode;
+  private readonly getZoneMode: () => ZoneMode;
 
   private readonly pointers = new Map<number, { sx: number; sy: number }>();
   private lastSingle: { sx: number; sy: number } | null = null;
@@ -112,6 +122,7 @@ export class InputController {
     onHover: (tile: { tx: number; ty: number }) => void,
     onRejected?: (reason: FailReason) => void,
     getRoadMode: () => RoadMode = () => 'manual',
+    getZoneMode: () => ZoneMode = () => 'drag',
   ) {
     this.canvas = canvas;
     this.camera = camera;
@@ -121,6 +132,7 @@ export class InputController {
     this.onHover = onHover;
     this.onRejected = onRejected;
     this.getRoadMode = getRoadMode;
+    this.getZoneMode = getZoneMode;
     canvas.addEventListener('pointerdown',   this._down.bind(this));
     canvas.addEventListener('pointermove',   this._move.bind(this));
     canvas.addEventListener('pointerup',     this._up.bind(this));
@@ -151,8 +163,8 @@ export class InputController {
       this.downButton = e.button;
       if (!primary) {
         this.gesture = 'pan';
-      } else if (this._autoRoadTool(tool)) {
-        this.gesture = 'tap';       // a click sets the start or the end; a drag pans
+      } else if (this._autoRoadTool(tool) || this._zoneFillTool(tool)) {
+        this.gesture = 'tap';       // a click acts (road start / end, zone fill); a drag pans
       } else if (isPaintTool(tool)) {
         this.gesture = 'paint';
         this._beginStroke(tool, this.camera.screenToTile(p.sx, p.sy));
@@ -222,6 +234,7 @@ export class InputController {
         const tile = this.camera.screenToTile(p.sx, p.sy);
         if (this.getWorld().grid.inBounds(tile.tx, tile.ty)) {
           if (this._autoRoadTool(this.getTool())) this._autoRoadClick(tile);
+          else if (this._zoneFillTool(this.getTool())) this._zoneFillClick(tile);
           else this._applyTool(tile.tx, tile.ty);
         }
       } else if (this.gesture === 'pan' && !this.isDragging && this.downButton === 2) {
@@ -319,6 +332,35 @@ export class InputController {
     }
     history.endBatch();
     this.autoStart = null;
+  }
+
+  // ── Zone fill mode ──────────────────────────────────────────────────────────
+
+  private _zoneFillTool(tool: Tool): boolean {
+    return tool in ZONE_TOOL_ZONE && this.getZoneMode() === 'fill';
+  }
+
+  /** Zone every lot the fill reaches from `tile`, as one undo step, or none of them. */
+  private _zoneFillClick(tile: TilePos): void {
+    const tool = this.getTool();
+    const zone = ZONE_TOOL_ZONE[tool];
+    if (zone === undefined) return;
+    const plan = planZoneFill(this.getWorld(), tile, zone);
+    if (plan.tiles.length === 0) return;
+    const history = this.getHistory();
+    history.beginBatch();
+    let refused: FailReason | undefined;
+    for (const { tx, ty } of plan.tiles) {
+      const cmd = commandForTool(tool, tx, ty);
+      if (!cmd) continue;
+      if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
+    }
+    if (refused) {
+      history.cancelBatch();
+      this.onRejected?.(refused);
+      return;
+    }
+    history.endBatch();
   }
 
   // ── Drag-paint strokes ──────────────────────────────────────────────────────
