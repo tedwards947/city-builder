@@ -2,7 +2,11 @@
 // button. Only the keys listed are changed; the rest keep their current
 // value. balance.ts itself stays at the shipped numbers until a numbers-on PR.
 
-/** The play-test starting numbers the owner accepted (engine session's revised set, 2026-11-16). */
+/**
+ * The play-test starting numbers the owner accepted (engine session's revised
+ * set, 2026-11-16): PC, ordinances (switched on) and resident requests
+ * (a new one every 10 days; reward 10, penalty 5).
+ */
 export const PROPOSED_PC = {
   max: 100,
   capPerResident: 0.01,
@@ -19,6 +23,30 @@ export const PROPOSED_PC = {
     perResident: { 4: 0.004, 5: 0.003, 6: 0.01, 7: 0.012, 8: 0.01 },
     repeatFactor: 0.5,
     closureMultiplier: 3,
+  },
+  establishedYears: 1.5,
+  ordinancesEnabled: true,
+  ordinances: {
+    neighbourhoodWatch: { enactCost: 15, dailyUpkeep: 0.15, dailyMoney: 0, modifiers: { crime: 0.85 } },
+    curfew: { enactCost: 25, dailyUpkeep: 0.3, dailyMoney: 0, modifiers: { crime: 0.7, commercialIncome: 0.9 } },
+    cleanAirAct: { enactCost: 30, dailyUpkeep: 0.25, dailyMoney: 0, modifiers: { industrialPollution: 0.25, industrialGrowth: 0.8 } },
+    businessIncentives: { enactCost: 25, dailyUpkeep: 0.2, dailyMoney: 0,
+      modifiers: { commercialDemand: 1.25, industrialDemand: 1.25, commercialIncome: 0.85, industrialIncome: 0.85 } },
+    freeTransit: { enactCost: 30, dailyUpkeep: 0.2, dailyMoney: 500, modifiers: { trafficTrips: 0.8 } },
+    fastTrackPermits: { enactCost: 20, dailyUpkeep: 0.2, dailyMoney: 0, modifiers: { growth: 1.5, pollution: 1.1, crime: 1.1 } },
+    eminentDomain: { enactCost: 40, dailyUpkeep: 0.4, dailyMoney: 0, modifiers: { displacementCost: 0.5, satisfaction: 0.9 } },
+    heritageProtection: { enactCost: 30, dailyUpkeep: 0.2, dailyMoney: 0, modifiers: { establishedLandValue: 1.2, establishedDemolitionCost: 3 } },
+  },
+  requests: {
+    spawnEveryDays: 10,
+    kinds: {
+      park: { days: 20, reward: 10, penalty: 5 },
+      schoolOrHospital: { days: 20, reward: 10, penalty: 5 },
+      policeOrFire: { days: 20, reward: 10, penalty: 5 },
+      utilities: { days: 20, reward: 10, penalty: 5 },
+      trafficJam: { days: 20, reward: 10, penalty: 5 },
+      blight: { days: 20, reward: 10, penalty: 5 },
+    },
   },
   milestones: [
     { population: 1000, reward: 20 },
