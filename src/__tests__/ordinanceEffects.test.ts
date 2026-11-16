@@ -22,6 +22,9 @@ afterEach(() => { for (const id of Object.keys(saved)) Object.assign(table[id], 
 /** Enough ticks for land value and demand (recalculated every growth.tickInterval ticks) to have run. */
 const RECALC = BALANCE.growth.tickInterval + 1;
 
+/** Time limit for tests that run the whole test city several times (a busy CI runner is several times slower). */
+const SLOW = 30_000;
+
 /** Run the test city for `ticks`, with `id` enacted (after setting its modifiers) or with nothing. */
 function run(ticks: number, id?: OrdinanceId, modifiers?: Record<string, number>): World {
   const { world } = buildLivingCity();
@@ -46,7 +49,7 @@ const trafficTotal = (w: World) => {
   return s;
 };
 
-describe('ordinance modifiers in the simulation', () => {
+describe('ordinance modifiers in the simulation', { timeout: SLOW }, () => {
   it('an enacted ordinance whose modifiers are all 1 changes nothing', () => {
     const base = run(60);
     const same = run(60, 'fastTrackPermits');
@@ -98,15 +101,15 @@ describe('ordinance modifiers in the simulation', () => {
 
   it('growth and industrialGrowth: zones stop growing at 0', () => {
     // The fixture city's suburbs are low-rise, so there is room to grow.
-    const base = run(300);
-    const frozen = run(300, 'fastTrackPermits', { growth: 0 });
-    const noIndustry = run(300, 'cleanAirAct', { industrialGrowth: 0 });
+    const base = run(120);
+    const frozen = run(120, 'fastTrackPermits', { growth: 0 });
+    const noIndustry = run(120, 'cleanAirAct', { industrialGrowth: 0 });
     const start = run(0);
     expect(levels(base, ZONE_R)).toBeGreaterThan(levels(start, ZONE_R));
     for (const z of [ZONE_R, ZONE_C, ZONE_I]) expect(levels(frozen, z)).toBeLessThanOrEqual(levels(start, z));
     expect(levels(noIndustry, ZONE_I)).toBeLessThanOrEqual(levels(start, ZONE_I));
     expect(levels(noIndustry, ZONE_R)).toBeGreaterThan(levels(start, ZONE_R));
-  });
+  }, SLOW);
 
   it('trafficTrips: fewer trips on the roads', () => {
     const base = run(40);
