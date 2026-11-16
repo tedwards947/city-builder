@@ -8,6 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
@@ -53,7 +54,8 @@ export interface RenderOptions {
   areaHighlights?: readonly AreaHighlight[];
 }
 
-export interface AreaHighlight { x0: number; y0: number; x1: number; y1: number; alpha: number }
+/** `tiles`, when given, is what gets outlined (a cluster of homes); otherwise the rectangle. */
+export interface AreaHighlight { x0: number; y0: number; x1: number; y1: number; alpha: number; tiles?: readonly TilePoint[] }
 
 export interface ZonePreview {
   tiles: ReadonlyArray<{ tx: number; ty: number }>;
@@ -498,12 +500,25 @@ export class CanvasRenderer {
     ctx.save();
     ctx.globalAlpha = Math.min(1, h.alpha);
     ctx.fillStyle = 'rgba(125,216,192,0.14)';
-    ctx.fillRect(x, y, w, hh);
     ctx.lineWidth = 2.5;
     ctx.setLineDash([9, 6]);
     ctx.strokeStyle = '#9ff3dc';
-    ctx.strokeRect(x + 0.5, y + 0.5, w, hh);
+    if (h.tiles && h.tiles.length > 0) {
+      const X = (tx: number) => Math.round(camera.worldToScreenX(tx * TILE_SIZE)), Y = (ty: number) => Math.round(camera.worldToScreenY(ty * TILE_SIZE));
+      for (const t of h.tiles) ctx.fillRect(X(t.x), Y(t.y), X(t.x + 1) - X(t.x), Y(t.y + 1) - Y(t.y));
+      this._strokeTileSet(ctx, h.tiles, X, Y);
+    } else {
+      ctx.fillRect(x, y, w, hh);
+      ctx.strokeRect(x + 0.5, y + 0.5, w, hh);
+    }
     ctx.restore();
+  }
+
+  /** Strokes the outline of a set of tiles with the current line style. */
+  private _strokeTileSet(ctx: CanvasRenderingContext2D, tiles: readonly TilePoint[], X: (tx: number) => number, Y: (ty: number) => number): void {
+    ctx.beginPath();
+    for (const e of tileSetEdges(tiles)) { ctx.moveTo(X(e.x0) + 0.5, Y(e.y0) + 0.5); ctx.lineTo(X(e.x1) + 0.5, Y(e.y1) + 0.5); }
+    ctx.stroke();
   }
 
   /**
@@ -519,11 +534,14 @@ export class CanvasRenderer {
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 5]);
     ctx.strokeStyle = 'rgba(125,216,192,0.55)';
+    const gridWidth = world.grid.width;
     for (const r of requests) {
-      ctx.strokeRect(Math.round(X(r.x0)) + 0.5, Math.round(Y(r.y0)) + 0.5, Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
+      const tiles = clusterTiles(r, gridWidth);
+      if (tiles) this._strokeTileSet(ctx, tiles, tx => Math.round(X(tx)), ty => Math.round(Y(ty)));
+      else ctx.strokeRect(Math.round(X(r.x0)) + 0.5, Math.round(Y(r.y0)) + 0.5, Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
     }
     ctx.setLineDash([]);
-    this._requestBadges = layoutRequestBadges(requests, world.tick, (tx, ty) => ({ x: X(tx), y: Y(ty) }));
+    this._requestBadges = layoutRequestBadges(requests, world.tick, (tx, ty) => ({ x: X(tx), y: Y(ty) }), undefined, gridWidth);
     // A request badge that would sit on a problem badge or pin steps aside, to the right.
     const taken = this._badges;
     for (const b of this._requestBadges) {
