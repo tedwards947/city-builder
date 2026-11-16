@@ -217,6 +217,7 @@ export const en: TranslationSchema = {
       overlays: "Overlays",
       menu: "Menu",
       upkeep: "Upkeep:",
+      shortcut: "Shortcut:",
     },
     roadMode: {
       manual: "Manual",

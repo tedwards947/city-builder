@@ -40,6 +40,8 @@
     #hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
     #toolbar { position: relative; pointer-events: auto; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); border-radius: 6px; padding: 6px; display: grid; grid-template-columns: repeat(2, 40px); gap: 4px; }
     @media (max-height: 760px) { #toolbar { grid-template-columns: repeat(4, 40px); } }
+    /* Too short to stack under the stats (a phone on its side): sit beside them instead. */
+    @media (max-height: 560px) { #hud-right { flex-direction: row-reverse; align-items: flex-start; } #toolbar { grid-template-columns: repeat(2, 40px); } }
     .tb-tile { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: #dfe7ee; cursor: pointer; display: grid; place-items: center; padding: 0; transition: background 0.12s; }
     .tb-tile:hover { background: rgba(255,255,255,0.14); }
     .tb-tile:active { transform: scale(0.95); }
@@ -106,6 +108,7 @@
     .tb-tip-desc { color: #cde; }
     .tb-tip-cost { color: #7dd87d; font-weight: 600; margin-top: 2px; font-size: 11px; }
     .tb-tip-upkeep { color: #e0b050; margin-top: 1px; font-size: 11px; }
+    .tb-tip-key { color: #8a9bb0; margin-top: 3px; font-size: 11px; }
     .tb-tip-hint { color: #8a9bb0; margin-top: 3px; font-size: 11px; }
 
     /* ── Tile info panel ── */

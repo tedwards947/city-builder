@@ -185,6 +185,7 @@ export interface TranslationSchema {
       overlays: string;
       menu: string;
       upkeep: string;
+      shortcut: string;
     };
     roadMode: {
       manual: string;

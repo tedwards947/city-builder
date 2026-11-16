@@ -17,7 +17,7 @@ import { InputController, roadClassForTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
 import { loadRoadMode, saveRoadMode } from './ui/RoadModeMenu';
-import { Toolbar } from './ui/Toolbar';
+import { Toolbar, toolbarItems } from './ui/Toolbar';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
 import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
@@ -257,33 +257,15 @@ window.addEventListener('keydown', (e) => {
   if (e.altKey) return;
 
 
-  switch (key) {
-    case '1': setTool('none'); break;
-    case '2': setTool('road'); break;
-    case 'a': setTool('avenue'); break;
-    case 'h': setTool('highway'); break;
-    case '3': setTool('zoneR'); break;
-    case '4': setTool('zoneC'); break;
-    case '5': setTool('zoneI'); break;
-    case '6': setTool('power'); break;
-    case '7': setTool('water'); break;
-    case '8': setTool('sewage'); break;
-    case '9': setTool('bulldoze'); break;
-    case '0': setTool('police'); break;
-    case 'q': setTool('fire'); break;
-    case 'w': setTool('school'); break;
-    case 'e': setTool('hospital'); break;
-    case 'r': setTool('park'); break;
-    case 'i': setTool('inspect'); break;
-    case 't': toggleOverlay('traffic'); break;
-    case 'c': toggleOverlay('crime'); break;
-    case 'f': toggleOverlay('fire'); break;
-    case 'v': toggleOverlay('vibe'); break;
-    case ' ':
-      e.preventDefault();
-      setSpeed(state.scheduler.speed === 0 ? 1 : 0);
-      break;
+  if (key === ' ') {
+    e.preventDefault();
+    setSpeed(state.scheduler.speed === 0 ? 1 : 0);
+    return;
   }
+  // Tool and overlay keys come from the toolbar list, so the tooltips cannot lie.
+  const item = toolbarItems().find(i => i.hotkey === key);
+  if (item?.tool !== undefined) setTool(item.tool);
+  else if (item?.overlay !== undefined) toggleOverlay(item.overlay);
 });
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
