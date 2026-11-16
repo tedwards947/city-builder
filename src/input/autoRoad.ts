@@ -8,6 +8,8 @@
 
 import type { World } from '../sim/World';
 import { roadBuildCost } from '../commands/BuildRoadCommand';
+import { pcQuoteMany } from '../sim/politics';
+import type { PcQuote } from '../sim/politics';
 import { tilesBetween } from './dragPath';
 import type { TilePos } from './dragPath';
 
@@ -35,6 +37,12 @@ export interface AutoRoadPlan {
   blockedCount: number;
   /** Whether the city has the money for it right now. */
   affordable: boolean;
+  /**
+   * The political capital the whole road would cost (homes paved over or cut
+   * off by a highway), with `pc.affordable` false if the click would be
+   * refused for it. An estimate where one tile changes what the next costs.
+   */
+  pc: PcQuote;
 }
 
 /** What building `tiles` as `roadClass` would do and cost. Reads the world, changes nothing. */
@@ -45,5 +53,6 @@ export function planAutoRoad(world: World, tiles: TilePos[], roadClass: number):
     if (c === null) blockedCount++;
     else if (c > 0) { cost += c; buildCount++; }
   }
-  return { tiles, cost, buildCount, blockedCount, affordable: world.budget.money >= cost };
+  const pc = pcQuoteMany(world, tiles.map(({ tx, ty }) => ({ type: 'road' as const, tx, ty, roadClass })));
+  return { tiles, cost, buildCount, blockedCount, affordable: world.budget.money >= cost, pc };
 }

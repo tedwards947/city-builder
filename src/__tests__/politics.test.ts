@@ -8,23 +8,10 @@ import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { pcCap, changePc, regenPc } from '../sim/politics';
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { landWorld, home } from './pcTestWorld';
 
 interface PcEvent { delta: number; reason: string; tx?: number; ty?: number; undo: boolean }
 interface PcAction { delta: number; tx?: number; ty?: number; undo: boolean }
-
-/** A world with every tile land, so tests can build anywhere. */
-function landWorld(): World {
-  const w = new World(32, 32, 999);
-  w.layers.terrain.fill(0);
-  w.layers.vegetation.fill(0);
-  return w;
-}
-
-/** An occupied home of the given level at (tx, ty). */
-function home(w: World, tx: number, ty: number, level = 2): void {
-  w.setZone(tx, ty, ZONE_R);
-  w.layers.devLevel[w.grid.idx(tx, ty)] = level;
-}
 
 function listen(w: World): PcEvent[] {
   const seen: PcEvent[] = [];

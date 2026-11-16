@@ -1,9 +1,10 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
 import { snapshotTile, restoreTile, tileDisruption } from './Command';
+import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { changePc } from '../sim/politics';
+import { pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 // Places a utility or service building.
 // Building over populated residential displaces residents and costs political
@@ -15,8 +16,8 @@ export class PlaceBuildingCommand extends Command {
   private readonly kind: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  // Change to political capital applied at execute (negative = cost, positive = reward).
-  private pcDelta = 0;
+  // Political capital changes applied at execute.
+  private pcCharges: PcCharges = [];
 
   constructor(tx: number, ty: number, kind: number) {
     super();
@@ -31,13 +32,13 @@ export class PlaceBuildingCommand extends Command {
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
     const { displacedPopulation, pcCost } = tileDisruption(world, this.tx, this.ty);
-    if (pcCost > 0 && world.budget.politicalCapital < pcCost) { this.failReason = 'politicalCapital'; return false; }
+    const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind });
+    if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
-    this.pcDelta = -pcCost;
     world.budget.money -= this.cost;
-    changePc(world, this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty });
+    this.pcCharges = chargeQuote(world, quote, this.tx, this.ty);
     const ok = world.placeBuilding(this.tx, this.ty, this.kind);
     if (ok) world.events.emit('buildingPlaced', {
       tx: this.tx, ty: this.ty, kind: this.kind, cost: this.cost,
@@ -49,6 +50,6 @@ export class PlaceBuildingCommand extends Command {
   undo(world: World): void {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
-    changePc(world, -this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty, undo: true });
+    refundCharges(world, this.pcCharges, this.tx, this.ty);
   }
 }

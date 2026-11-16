@@ -4,8 +4,7 @@
 // This gives us undo for free and will give us replays later.
 
 import type { World } from '../sim/World';
-import { BUILDING_NONE, ZONE_R } from '../sim/constants';
-import { BALANCE } from '../data/balance';
+import { BUILDING_NONE } from '../sim/constants';
 
 /** Why execute() refused, when the reason is worth telling the player. */
 export type FailReason = 'funds' | 'politicalCapital';
@@ -66,34 +65,7 @@ export function restoreTile(world: World, tx: number, ty: number, snap: TileSnap
   world.grid.markDirty(tx, ty);
 }
 
-export interface Disruption {
-  /** Residents who lose their home if this tile's zone is removed. */
-  displacedPopulation: number;
-  /** Political capital charged for that displacement. */
-  pcCost: number;
-  /** Political capital granted for clearing an abandoned (blighted) building. */
-  pcReward: number;
-}
-
-/**
- * Political consequences of wiping whatever currently stands on a tile.
- * Shared by every command that can destroy a zone building (bulldoze, repaint,
- * road, building placement) so the political-capital gate cannot be bypassed.
- *   - Populated, non-abandoned residential → displacement cost.
- *   - Abandoned developed tile of any zone → blight-clearing reward.
- */
-export function tileDisruption(world: World, tx: number, ty: number): Disruption {
-  const i = world.grid.idx(tx, ty);
-  const costs = BALANCE.politicalCapital.disruptionCosts;
-  const isAbandoned = world.layers.abandoned[i] !== 0;
-  const dev = world.layers.devLevel[i];
-  const displacedPopulation =
-    !isAbandoned && world.layers.zone[i] === ZONE_R
-      ? (BALANCE.growth.popPerLevel[dev] ?? 0)
-      : 0;
-  return {
-    displacedPopulation,
-    pcCost: displacedPopulation * costs.bulldozePerPop,
-    pcReward: isAbandoned && dev > 0 ? dev * costs.abandonedBuildingReward : 0,
-  };
-}
+// The political cost of wiping a tile lives with the rest of the political
+// capital rules; re-exported here for the commands and tests that import it.
+export { tileDisruption } from '../sim/politics';
+export type { Disruption } from '../sim/politics';
