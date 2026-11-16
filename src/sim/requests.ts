@@ -20,6 +20,7 @@ import { BALANCE } from '../data/balance';
 import { ZONE_R, BUILDING_PARK } from './constants';
 import { trafficVolume, roadCapacity } from './TrafficData';
 import { changePc } from './politics';
+import { coveredBy } from './serviceValue';
 
 export interface Rect { x0: number; y0: number; x1: number; y1: number }
 
@@ -75,11 +76,9 @@ function shareLacking(world: World, a: Rect, lacks: (i: number, x: number, y: nu
 }
 
 function parkNeed(world: World, a: Rect): number {
-  const reach = BALANCE.service.coverageRange[BUILDING_PARK];
-  // Only parks near the area can reach it.
-  const parks = world.buildings.filter((b) => b.kind === BUILDING_PARK
-    && b.tx >= a.x0 - reach && b.tx <= a.x1 + reach && b.ty >= a.y0 - reach && b.ty <= a.y1 + reach);
-  return shareLacking(world, a, (_i, x, y) => !parks.some((p) => Math.abs(p.tx - x) + Math.abs(p.ty - y) <= reach));
+  // The sim's own park coverage along streets and avenues (cached until the map changes).
+  const parks = coveredBy(world, BUILDING_PARK);
+  return shareLacking(world, a, (i) => !parks.has(i));
 }
 
 /** Share of the area's homes outside one service's coverage layer (the sim's own road coverage). */
