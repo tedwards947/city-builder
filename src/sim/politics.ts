@@ -29,34 +29,64 @@ export interface PcChangeInfo {
   undo?: boolean;
 }
 
-/** The most political capital passive regeneration can reach. */
-export function pcCap(_world: World): number {
-  return BALANCE.politicalCapital.max;
+/**
+ * The cap on political capital: a base plus an amount per resident. Passive
+ * regeneration and the rewards in STOPS_AT_CAP stop here; other one-off
+ * rewards may take PC over it, and PC already over it is never taken away
+ * (not even when the population, and so the cap, falls).
+ */
+export function pcCap(
+  world: World,
+  cfg: { max: number; capPerResident: number } = BALANCE.politicalCapital,
+): number {
+  return cfg.max + world.stats.population * cfg.capPerResident;
+}
+
+/** Rewards that fill PC up to the cap but never past it. */
+const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
+
+/** How much of a reward that stops at the cap there is room for right now. */
+function roomBelowCap(world: World): number {
+  return Math.max(0, pcCap(world) - world.budget.politicalCapital);
 }
 
 /**
  * Add `delta` to political capital (negative for a cost) and tell listeners.
- * Emits `pcChanged`; see CityEvents for the payload. A zero delta does nothing.
- * CommandHistory adds these up into one `pcAction` per finished player action.
+ * A reward whose reason is in STOPS_AT_CAP is cut down to the room below the
+ * cap. Returns the change actually made, which is what undo must reverse.
+ * Emits `pcChanged` (see CityEvents) unless nothing changed. CommandHistory
+ * adds these up into one `pcAction` per finished player action.
  */
-export function changePc(world: World, delta: number, reason: PcReason, info: PcChangeInfo = {}): void {
-  if (delta === 0) return;
-  world.budget.politicalCapital += delta;
+export function changePc(world: World, delta: number, reason: PcReason, info: PcChangeInfo = {}): number {
+  const before = world.budget.politicalCapital;
+  let after = before + delta;
+  if (delta > 0 && info.undo !== true && STOPS_AT_CAP.includes(reason)) {
+    const cap = pcCap(world);
+    if (after > cap) after = Math.max(before, cap);
+  }
+  const applied = after === before + delta ? delta : after - before;
+  if (applied === 0) return 0;
+  world.budget.politicalCapital = after;
   world.events.emit('pcChanged', {
-    delta,
+    delta: applied,
     reason,
     tx: info.tx,
     ty: info.ty,
     undo: info.undo === true,
   });
+  return applied;
 }
 
 /**
- * Apply one tick of passive regeneration, stopping at the cap. No event: it
- * happens every tick, and the HUD reads the value directly.
+ * Apply one tick of passive regeneration. A gain stops at the cap, and does
+ * nothing to PC that is already over it. No event: it happens every tick,
+ * and the HUD reads the value directly.
  */
 export function regenPc(world: World, amount: number): void {
-  world.budget.politicalCapital = Math.min(pcCap(world), world.budget.politicalCapital + amount);
+  const cap = pcCap(world);
+  const pc = world.budget.politicalCapital;
+  if (pc >= cap) return;
+  world.budget.politicalCapital = Math.min(cap, pc + amount);
 }
 
 // ── Displacement ─────────────────────────────────────────────────────────────
@@ -195,7 +225,23 @@ function emptyQuote(): PcQuote {
 function addPart(q: PcQuote, reason: PcReason, tx: number, ty: number, amount: number, strength = 1): void {
   if (amount === 0) return;
   q.parts.push({ reason, tx, ty, amount, strength });
-  if (amount < 0) q.cost += -amount; else q.reward += amount;
+}
+
+/**
+ * Work out a quote's cost, reward and affordability from its parts. Rewards
+ * that stop at the cap count only up to the room there is now (the parts
+ * keep their full amounts: they say who is pleased, not what is banked).
+ */
+function totalUp(world: World, q: PcQuote): void {
+  let cost = 0, free = 0, capped = 0;
+  for (const p of q.parts) {
+    if (p.amount < 0) cost += -p.amount;
+    else if (STOPS_AT_CAP.includes(p.reason)) capped += p.amount;
+    else free += p.amount;
+  }
+  q.cost = cost;
+  q.reward = capped > 0 ? free + Math.min(capped, roomBelowCap(world)) : free;
+  q.affordable = canAfford(world, cost);
 }
 
 /** An action is refused when it has a cost the city cannot cover. Rewards do not offset it. */
@@ -282,7 +328,7 @@ export function pcQuote(
     }
   }
 
-  q.affordable = canAfford(world, q.cost);
+  totalUp(world, q);
   return q;
 }
 
@@ -322,10 +368,7 @@ export function pcQuoteMany(
       }
     }
   }
-  for (const p of total.parts) {
-    if (p.amount < 0) total.cost += -p.amount; else total.reward += p.amount;
-  }
-  total.affordable = canAfford(world, total.cost);
+  totalUp(world, total);
   return total;
 }
 
@@ -342,8 +385,13 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
     const have = charges.find(c => c[0] === p.reason);
     if (have) have[1] += p.amount; else charges.push([p.reason, p.amount]);
   }
-  for (const [reason, delta] of charges) changePc(world, delta, reason, { tx, ty });
-  return charges;
+  // Keep what was actually applied: a reward may have been cut at the cap.
+  const applied: PcCharges = [];
+  for (const [reason, delta] of charges) {
+    const got = changePc(world, delta, reason, { tx, ty });
+    if (got !== 0) applied.push([reason, got]);
+  }
+  return applied;
 }
 
 /** Undo `chargeQuote`: reverse each change, last first. */

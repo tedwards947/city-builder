@@ -304,7 +304,12 @@ export const BALANCE = {
   // PC regenerates each tick based on citizen satisfaction.
   // Disruptive player actions drain it. The cap is enforced by PoliticsSystem.
   politicalCapital: {
+    // The cap at no population. Passive regeneration and the blight-clearing
+    // reward stop at the cap; other one-off rewards may go over it.
     max: 100,
+    // Extra cap per resident, so a bigger city can hold more (0.01 = +1 per
+    // 100 people). SWITCHED OFF at 0 until the Political Capital numbers pass.
+    capPerResident: 0,
     // Passive regen per tick regardless of satisfaction.
     baseRegen: 0.1,
     // Additional regen per tick at 100% satisfaction (scales linearly).
