@@ -3,6 +3,7 @@ import type { TileSnapshot } from './Command';
 import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
+import { changePc } from '../sim/politics';
 
 // Places a utility or service building.
 // Building over populated residential displaces residents and costs political
@@ -14,7 +15,8 @@ export class PlaceBuildingCommand extends Command {
   private readonly kind: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  private pcCost = 0;
+  // Change to political capital applied at execute (negative = cost, positive = reward).
+  private pcDelta = 0;
 
   constructor(tx: number, ty: number, kind: number) {
     super();
@@ -33,9 +35,9 @@ export class PlaceBuildingCommand extends Command {
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
-    this.pcCost = pcCost;
+    this.pcDelta = -pcCost;
     world.budget.money -= this.cost;
-    world.budget.politicalCapital -= this.pcCost;
+    changePc(world, this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty });
     const ok = world.placeBuilding(this.tx, this.ty, this.kind);
     if (ok) world.events.emit('buildingPlaced', {
       tx: this.tx, ty: this.ty, kind: this.kind, cost: this.cost,
@@ -47,6 +49,6 @@ export class PlaceBuildingCommand extends Command {
   undo(world: World): void {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
-    world.budget.politicalCapital += this.pcCost;
+    changePc(world, -this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty, undo: true });
   }
 }

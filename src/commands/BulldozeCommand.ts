@@ -4,13 +4,14 @@ import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ROAD_NONE, BUILDING_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { changePc } from '../sim/politics';
 
 export class BulldozeCommand extends Command {
   private readonly tx: number;
   private readonly ty: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  // Net political-capital change applied at execute (positive = cost, negative = reward).
+  // Change to political capital applied at execute (negative = cost, positive = reward).
   private pcDelta = 0;
 
   constructor(tx: number, ty: number) {
@@ -37,11 +38,11 @@ export class BulldozeCommand extends Command {
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = BALANCE.costs.bulldoze;
-    this.pcDelta = pcCost - pcReward;
+    this.pcDelta = pcReward - pcCost;
 
     world.budget.money -= this.cost;
     // The cap is enforced by PoliticsSystem on its next tick.
-    world.budget.politicalCapital -= this.pcDelta;
+    changePc(world, this.pcDelta, pcCost > 0 ? 'displacement' : 'blightCleared', { tx: this.tx, ty: this.ty });
 
     const ok = world.clearTile(this.tx, this.ty);
     if (ok) world.events.emit('tileCleared', {
@@ -60,6 +61,6 @@ export class BulldozeCommand extends Command {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
     // Reverses both costs and rewards.
-    world.budget.politicalCapital += this.pcDelta;
+    changePc(world, -this.pcDelta, this.pcDelta < 0 ? 'displacement' : 'blightCleared', { tx: this.tx, ty: this.ty, undo: true });
   }
 }

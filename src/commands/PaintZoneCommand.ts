@@ -4,6 +4,7 @@ import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ROAD_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { changePc } from '../sim/politics';
 
 // Paints a zone onto a tile.
 //
@@ -21,7 +22,7 @@ export class PaintZoneCommand extends Command {
   private readonly newZone: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  // Net political-capital change applied at execute (positive = cost, negative = reward).
+  // Change to political capital applied at execute (negative = cost, positive = reward).
   private pcDelta = 0;
 
   constructor(tx: number, ty: number, newZone: number) {
@@ -50,10 +51,10 @@ export class PaintZoneCommand extends Command {
 
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
-    this.pcDelta = pcCost - pcReward;
+    this.pcDelta = pcReward - pcCost;
 
     world.budget.money -= cost;
-    world.budget.politicalCapital -= this.pcDelta;
+    changePc(world, this.pcDelta, pcCost > 0 ? 'displacement' : 'blightCleared', { tx: this.tx, ty: this.ty });
 
     // setZone only resets dev/abandoned/distress when the zone changes, so a
     // same-zone repaint of a ruin is cleared to an empty lot first.
@@ -74,6 +75,6 @@ export class PaintZoneCommand extends Command {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
     // Reverses both costs and rewards.
-    world.budget.politicalCapital += this.pcDelta;
+    changePc(world, -this.pcDelta, this.pcDelta < 0 ? 'displacement' : 'blightCleared', { tx: this.tx, ty: this.ty, undo: true });
   }
 }
