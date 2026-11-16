@@ -35,6 +35,8 @@ const LABELS: Record<string, string> = {
   industrialPerResident: 'Industry, per resident',
   buildingPerResident: 'Building, per resident',
   milestones: 'Milestones',
+  ordinancesEnabled: 'Ordinances switched on',
+  ordinances: 'Ordinances',
   service: 'Services',
   perResident: 'Opening, per resident',
   repeatFactor: 'Repeat factor',
@@ -153,6 +155,8 @@ export class PoliticsTuningPanel {
       const value = tree[key];
       if (typeof value === 'number') {
         parent.appendChild(this.numberRow(label(key), () => tree[key] as number, (v) => { tree[key] = v; }));
+      } else if (typeof value === 'boolean') {
+        parent.appendChild(this.checkboxRow(label(key), () => tree[key] as boolean, (v) => { tree[key] = v; }));
       } else if (Array.isArray(value)) {
         parent.appendChild(this.heading(label(key), depth));
         parent.appendChild(this.listSection(key, value as Tree[]));
@@ -212,6 +216,20 @@ export class PoliticsTuningPanel {
     const name = document.createElement('span');
     name.textContent = text;
     line.append(name, this.numberInput(get, set, 70));
+    return line;
+  }
+
+  private checkboxRow(text: string, get: () => boolean, set: (v: boolean) => void): HTMLElement {
+    const line = document.createElement('label');
+    line.style.cssText = 'display:grid;grid-template-columns:1fr 70px;align-items:center;gap:6px;cursor:pointer;';
+    const name = document.createElement('span');
+    name.textContent = text;
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = get();
+    box.style.justifySelf = 'start';
+    box.addEventListener('change', () => { set(box.checked); this.renderReadout(); });
+    line.append(name, box);
     return line;
   }
 

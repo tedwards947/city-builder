@@ -366,6 +366,9 @@ export const BALANCE = {
     // establishedDemolitionCost) is not defined yet: which tiles count is an
     // open design question for the owner and the PM. Until it is decided,
     // nothing reads those two names.
+    // Off until the ordinance numbers are play-tested: the toolbar tile and
+    // panel stay hidden while this is false (ordinancesEnabled()).
+    ordinancesEnabled: false,
     ordinances: {
       neighbourhoodWatch: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1 } }, // Crime −15%; PC upkeep only
       curfew: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1, commercialIncome: 1 } }, // Crime −30%; shop income −10%
