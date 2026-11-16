@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { BALANCE } from '../data/balance';
-import { PROPOSED_PC, applyValues } from '../ui/pcPresets';
+import { PC_VARIANTS, applyValues } from '../ui/pcPresets';
+
+const PROPOSED_PC = PC_VARIANTS.find((v) => v.id === 'B')!.values;
 
 type Tree = Record<string, unknown>;
 
@@ -11,10 +13,12 @@ function paths(t: Tree, prefix = ''): string[] {
 }
 
 describe('PC tuning presets', () => {
-  it('only names settings that exist in BALANCE.politicalCapital', () => {
-    for (const path of paths(PROPOSED_PC as unknown as Tree)) {
+  it('has the four variants, each naming only settings that exist in BALANCE.politicalCapital', () => {
+    expect(PC_VARIANTS.map((v) => v.id)).toEqual(['A', 'B', 'C', 'D']);
+    for (const path of PC_VARIANTS.flatMap((v) => paths(v.values as Tree).map((p) => `${v.id}:${p}`))) {
+      const [, keyPath] = path.split(':');
       let node: unknown = BALANCE.politicalCapital;
-      for (const part of path.split('.')) node = (node as Tree)?.[part];
+      for (const part of keyPath.split('.')) node = (node as Tree)?.[part];
       expect(node, path).not.toBeUndefined();
     }
   });
@@ -26,7 +30,7 @@ describe('PC tuning presets', () => {
     applyValues(target, structuredClone(PROPOSED_PC) as unknown as Tree);
     expect(target.milestones).toBe(milestones);
     expect((target.nuisance as Tree).bands).toBe(bands);
-    expect(target.milestones).toEqual(PROPOSED_PC.milestones);
+    expect(target.milestones).toEqual((PROPOSED_PC as Tree).milestones);
     expect(target.neutralSatisfaction).toBe(0.75);
     expect(((target.service as Tree).perResident as Tree)[7]).toBe(0.012);
     expect((target.satisfactionWeights as Tree).crime).toBe(BALANCE.politicalCapital.satisfactionWeights.crime);

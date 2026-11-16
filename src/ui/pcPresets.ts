@@ -1,13 +1,8 @@
-// Political Capital number sets for the debug tuning panel's "Load proposed"
-// button. Only the keys listed are changed; the rest keep their current
+// Political Capital number sets for the debug tuning panel's variant picker. Only the keys listed are changed; the rest keep their current
 // value. balance.ts itself stays at the shipped numbers until a numbers-on PR.
 
-/**
- * The play-test starting numbers the owner accepted (engine session's revised
- * set, 2026-11-16): PC, ordinances (switched on) and resident requests
- * (a new one every 10 days; reward 10, penalty 5).
- */
-export const PROPOSED_PC = {
+/** The play-test starting set the owner accepted on 2026-11-16 (variant B until the engine's four sets land). */
+const ACCEPTED_SET = {
   max: 100,
   capPerResident: 0.01,
   baseRegen: 0,
@@ -57,6 +52,29 @@ export const PROPOSED_PC = {
     { population: 50000, reward: 150 },
   ],
 };
+
+export type PcVariantId = 'A' | 'B' | 'C' | 'D';
+
+export interface PcVariant {
+  id: PcVariantId;
+  name: string;
+  /** One line for the panel. */
+  desc: string;
+  /** A partial BALANCE.politicalCapital tree, applied over the shipped numbers. */
+  values: Record<string, unknown>;
+}
+
+/**
+ * The four play-test variants on the panel's picker. Choosing one resets to
+ * the shipped numbers, then applies its values. The engine session designs
+ * and dry-runs the sets; until they land, each is the accepted set (TODO).
+ */
+export const PC_VARIANTS: readonly PcVariant[] = [
+  { id: 'A', name: 'Gentle', desc: 'TODO (engine): forgiving numbers', values: ACCEPTED_SET },
+  { id: 'B', name: 'Balanced', desc: 'The accepted play-test starting set', values: ACCEPTED_SET },
+  { id: 'C', name: 'Strict planner', desc: 'TODO (engine): costly disruption', values: ACCEPTED_SET },
+  { id: 'D', name: 'Political', desc: 'TODO (engine): ordinances and requests matter most', values: ACCEPTED_SET },
+];
 
 type Tree = Record<string, unknown>;
 const isTree = (v: unknown): v is Tree => typeof v === 'object' && v !== null;

@@ -101,7 +101,7 @@ const trafficTuning = DEBUG
   ? new TrafficTuningPanel(() => state.world, () => state.transit.recompute(state.world))
   : null;
 const politicsTuning = DEBUG
-  ? new PoliticsTuningPanel(() => state.world, () => state.politics)
+  ? new PoliticsTuningPanel(() => state.world, () => state.politics, (n) => { for (let k = 0; k < n; k++) state.scheduler.tick(); })
   : null;
 
 // UI Panels (must be initialized before first startGame call)

@@ -83,16 +83,14 @@ export class TrafficTuningPanel {
     title.style.cssText = 'font-weight:bold;color:#9ad;margin-bottom:4px;cursor:pointer;';
     panel.appendChild(title);
 
-    this.totalsEl = document.createElement('div');
-    this.totalsEl.style.cssText = 'margin-bottom:6px;color:#dde;';
-    panel.appendChild(this.totalsEl);
-
-    // Everything below the totals goes into `el`, which folds away when the
-    // title is clicked.
-    // Starts folded, so the debug dock stays short.
+    // Everything, totals included, goes into `el`, which folds away when the
+    // title is clicked. Starts folded, so the debug dock stays short.
     const el = document.createElement('div');
     el.style.display = 'none';
     panel.appendChild(el);
+    this.totalsEl = document.createElement('div');
+    this.totalsEl.style.cssText = 'margin-bottom:6px;color:#dde;';
+    el.appendChild(this.totalsEl);
     title.addEventListener('click', () => {
       const open = el.style.display === 'none';
       el.style.display = open ? '' : 'none';
