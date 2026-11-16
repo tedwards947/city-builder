@@ -40,6 +40,7 @@ import { RequestFeedback, requestText } from './ui/RequestFeedback';
 import { RequestLog, requestLogState } from './ui/RequestLog';
 import { progressView } from './ui/requestInfo';
 import type { AreaHighlight } from './render/CanvasRenderer';
+import { clusterTiles, type ClusterFields, type TilePoint } from './render/clay/tileOutline';
 import { REQUEST_COLOUR } from './render/clay/requestBadges';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
@@ -242,10 +243,10 @@ const ordinancePanel = new OrdinancePanel(document.getElementById('game')!, () =
 // Jumping to a place: a toast about somewhere, or a quest-log row, moves the
 // camera there, and the place is outlined and blinks for a moment.
 const ARRIVAL_MS = 2600;
-let arrival: { x0: number; y0: number; x1: number; y1: number; at: number } | null = null;
-function focusArea(place: { x0: number; y0: number; x1: number; y1: number }): void {
+let arrival: { x0: number; y0: number; x1: number; y1: number; at: number; tiles?: TilePoint[] } | null = null;
+function focusArea(place: { x0: number; y0: number; x1: number; y1: number } & ClusterFields): void {
   camera.focusOn(place.x0, place.y0, place.x1, place.y1);
-  arrival = { x0: place.x0, y0: place.y0, x1: place.x1, y1: place.y1, at: performance.now() };
+  arrival = { x0: place.x0, y0: place.y0, x1: place.x1, y1: place.y1, at: performance.now(), tiles: clusterTiles(place, state.world.grid.width) ?? undefined };
 }
 toastPanel.onGo = focusArea;
 const requestLog = new RequestLog(document.getElementById('game')!, () => state.world, (req) => focusArea(req));
@@ -268,7 +269,7 @@ function areaHighlights(now: number): AreaHighlight[] {
   }
   if (currentTool === 'inspect' && pointer.inside) {
     const b = renderer.requestAt(pointer.x, pointer.y);
-    if (b) out.push({ x0: b.request.x0, y0: b.request.y0, x1: b.request.x1, y1: b.request.y1, alpha: 1 });
+    if (b) out.push({ x0: b.request.x0, y0: b.request.y0, x1: b.request.x1, y1: b.request.y1, alpha: 1, tiles: clusterTiles(b.request, state.world.grid.width) ?? undefined });
   }
   return out;
 }

@@ -5,6 +5,7 @@
 // tick or a cross stands in its place for a moment.
 
 import type { OpenRequest } from '../../sim/requests';
+import { seedTile } from './tileOutline';
 
 export const REQUEST_COLOUR = '#2f9c86';
 const MET_COLOUR = '#3a9a4a', MISSED_COLOUR = '#7a7f87';
@@ -32,7 +33,8 @@ export function timeLeft(req: OpenRequest, tick: number): number {
 }
 
 /**
- * Where to draw the badges: one at the centre of each request's area, merging
+ * Where to draw the badges: one on the home that asked (given `gridWidth`, for
+ * a request that names one), otherwise at the centre of the request's area, merging
  * any that would overlap on screen. `toScreen` maps tile coordinates to pixels.
  */
 export function layoutRequestBadges(
@@ -40,12 +42,14 @@ export function layoutRequestBadges(
   tick: number,
   toScreen: (tx: number, ty: number) => { x: number; y: number },
   r = REQUEST_BADGE_R,
+  gridWidth = 0,
 ): RequestBadge[] {
   const out: RequestBadge[] = [];
   // Soonest deadline first, so a merged badge shows the most urgent request.
   const sorted = [...requests].sort((a, b) => a.deadlineTick - b.deadlineTick);
   for (const request of sorted) {
-    const { x, y } = toScreen((request.x0 + request.x1 + 1) / 2, (request.y0 + request.y1 + 1) / 2);
+    const seed = seedTile(request, gridWidth);
+    const { x, y } = seed ? toScreen(seed.x + 0.5, seed.y + 0.5) : toScreen((request.x0 + request.x1 + 1) / 2, (request.y0 + request.y1 + 1) / 2);
     const near = out.find(b => Math.hypot(b.x - x, b.y - y) < (b.r + r) * 0.9);
     if (near) { near.count++; near.r = r + 2; continue; }
     out.push({ x, y, r, request, left: timeLeft(request, tick), count: 1 });
