@@ -231,6 +231,17 @@ export const en: TranslationSchema = {
       repeal: "Repeal",
       cancel: "Cancel",
     },
+    requests: {
+      want: "Residents want: {what}",
+      daysLeft: "{n} days left",
+      ifMet: "met: {pc}",
+      ifMissed: "missed: {pc}",
+      more: "and {n} more here",
+      met: "Request met",
+      metBody: "The neighbourhood got what it asked for ({what}).",
+      missed: "Request missed",
+      missedBody: "Residents gave up waiting ({what}).",
+    },
     milestone: {
       title: "{n} residents",
       body: "The city is growing up",

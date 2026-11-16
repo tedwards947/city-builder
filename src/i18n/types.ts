@@ -182,6 +182,17 @@ export interface TranslationSchema {
       repeal: string;
       cancel: string;
     };
+    requests: {
+      want: string;
+      daysLeft: string;
+      ifMet: string;
+      ifMissed: string;
+      more: string;
+      met: string;
+      metBody: string;
+      missed: string;
+      missedBody: string;
+    };
     milestone: {
       title: string;
       body: string;
