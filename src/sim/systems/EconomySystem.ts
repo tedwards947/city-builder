@@ -1,6 +1,7 @@
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { isServiceKind } from '../serviceValue';
 import { ordinanceModifier } from '../ordinances';
 
 export class EconomySystem {
@@ -17,6 +18,9 @@ export class EconomySystem {
     // Ordinances (Curfew, Business Incentives) scale tax income from shops and industry.
     const shopIncome = ordinanceModifier(world, 'commercialIncome');
     const industryIncome = ordinanceModifier(world, 'industrialIncome');
+    // Homes and shops: lvMult = floor + (1 − floor) × lv/128 (floor 0 = plain lv/128, shipped).
+    const lvFloor = BALANCE.tax.landValueFloor;
+    const serviceMult = BALANCE.maintenance.serviceMult;
     let income = 0;
     let population = 0;
     let roadMaintenance = 0;
@@ -34,7 +38,7 @@ export class EconomySystem {
                        : taxRates.I;
         // Land value multiplies income: lv 128 = neutral, 0 = half, 255 = ~2×
         // Industry uses a fixed multiplier (see BALANCE.tax.industryLandValueMult).
-        const lvMult = zone[i] === ZONE_I ? BALANCE.tax.industryLandValueMult : lv[i] / 128;
+        const lvMult = zone[i] === ZONE_I ? BALANCE.tax.industryLandValueMult : lvFloor + (1 - lvFloor) * (lv[i] / 128);
         // Education multiplies income for R zones: 0 = 1x, 255 = taxMultiplier
         let eduMult = 1.0;
         if (zone[i] === ZONE_R) {
@@ -57,8 +61,9 @@ export class EconomySystem {
         roadMaintenance += BALANCE.roadClasses[roadClass[i]]?.maintenance ?? 0;
       }
     }
+    // Service buildings (police, fire, school, hospital, park) scale by maintenance.serviceMult.
     const buildingMaintenance = world.buildings.reduce(
-      (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0), 0);
+      (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0) * (isServiceKind(b.kind) ? serviceMult : 1), 0);
     const expenses = roadMaintenance + buildingMaintenance;
     world.budget.money += income - expenses;
     world.budget.income = income;
