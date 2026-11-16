@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hoverPcPreview, pcActionForTool, pcLabel } from '../ui/pcPreview';
+import { milestoneText } from '../ui/MilestoneBanner';
 import { landWorld, home, homes, displacementCost, TEST_NUISANCE } from './pcTestWorld';
 import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
@@ -94,6 +95,28 @@ describe('political capital preview at the pointer', () => {
     expect(last.ok).toBe(true);           // a closure is never refused
     expect(last.label).toBe('◆ 60');     // charged in full: the rest becomes debt
     expect(last.note).toBe('takes the last of your political capital');
+  });
+
+  it('keeps industrial zoning quiet: tint only, the price only when short', () => {
+    const w = landWorld();
+    home(w, 17, 16);
+    const p = hoverPcPreview(w, 'zoneI', { tx: 16, ty: 16 }, TEST_NUISANCE)!;
+    expect(p.rings).toEqual([]);
+    expect(p.tints).toHaveLength(1);
+    expect(p.label).toBe('');
+    expect(p.note).toBeUndefined();
+    w.budget.politicalCapital = 0.5;
+    const short = hoverPcPreview(w, 'zoneI', { tx: 16, ty: 16 }, TEST_NUISANCE)!;
+    expect(short.ok).toBe(false);
+    expect(short.label).not.toBe('');
+    expect(short.note).toBe('not enough political capital');
+    // Empty land, nobody near: nothing at all.
+    expect(hoverPcPreview(w, 'zoneI', { tx: 2, ty: 2 }, TEST_NUISANCE)).toBeNull();
+  });
+
+  it('words a milestone', () => {
+    expect(milestoneText(5000, 25)).toEqual({ title: '5,000 residents', body: 'The city is growing up · +◆ 25' });
+    expect(milestoneText(1000, 0).body).toBe('The city is growing up');
   });
 
   it('maps tools to engine actions', () => {
