@@ -17,7 +17,7 @@
 // frame walks the roads once for the hovered tile and no more.
 
 import type { World } from './World';
-import { ZONE_R } from './constants';
+import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY } from './constants';
 import { BALANCE } from '../data/balance';
 import { computeServiceCoverage } from './systems/ServiceSystem';
 
@@ -77,6 +77,53 @@ function kindCoverage(world: World, kind: number): KindCoverage {
   const fresh = { edits: world.grid.edits, range, counts, own };
   byKind.set(kind, fresh);
   return fresh;
+}
+
+/**
+ * How many standing buildings of `kind` cover each tile (tile index → count;
+ * a tile that is not covered is absent). The simulation's own coverage, along
+ * streets and avenues, so anything that asks "is this home served?" agrees
+ * with the coverage preview. Remembered until the map next changes: do not
+ * keep the map across ticks, ask again.
+ */
+export function coveredBy(world: World, kind: number): ReadonlyMap<number, number> {
+  return kindCoverage(world, kind).counts;
+}
+
+/** What a service building of `kind` placed at (tx, ty) would reach. */
+export interface ServiceReach {
+  /**
+   * Whether the spot touches a street or avenue. If not, the building is not
+   * connected: it serves only its own tile, which is to say nobody. A highway
+   * does not count.
+   */
+  touchesRoad: boolean;
+  /** Occupied homes it would cover. */
+  homesCovered: number;
+}
+
+/** Whether (tx, ty) or one of its four neighbours is a street or avenue: what a service building needs to reach anyone. */
+export function touchesAccessRoad(world: World, tx: number, ty: number): boolean {
+  const { grid, layers } = world;
+  for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+    const x = tx + dx, y = ty + dy;
+    if (!grid.inBounds(x, y)) continue;
+    const rc = layers.roadClass[grid.idx(x, y)];
+    if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) return true;
+  }
+  return false;
+}
+
+/** What a `kind` building at (tx, ty) would reach, for a placement warning or an inspect line. */
+export function serviceReach(world: World, tx: number, ty: number, kind: number): ServiceReach {
+  let homesCovered = 0;
+  for (const i of computeServiceCoverage(world, tx, ty, kind)) if (residentsAt(world, i) > 0) homesCovered++;
+  return { touchesRoad: touchesAccessRoad(world, tx, ty), homesCovered };
+}
+
+/** Whether `kind` is a building that serves homes by coverage (police, fire, school, hospital, park). */
+export function isServiceKind(kind: number): boolean {
+  return BALANCE.service.coverageRange[kind] !== undefined;
 }
 
 /** Residents of an occupied, non-abandoned home on tile `i`; 0 for anything else. */
