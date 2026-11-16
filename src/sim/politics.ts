@@ -62,7 +62,8 @@ export function pcCap(
 }
 
 /** Rewards that fill PC up to the cap but never past it. */
-const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared', 'requestMet'];
+// Met-request rewards may go over the cap, like ribbon cuttings and milestones (owner, 2026-11-16).
+const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
 
 /**
  * Costs that are never refused: they are charged in full even when the city

@@ -225,5 +225,14 @@ describe('met rule and progress', () => {
     expect(p.coveredAtOpen).toBeCloseTo(0.2);
     expect(p.coveredNeeded).toBeCloseTo(0.6);                    // 1 − max(0.1, 0.8 / 2)
   });
+
+  it('pays a met request in full, even over the cap', () => {
+    Object.assign(cfg.kinds.park, { reward: 15 });
+    const w = city();
+    w.budget.politicalCapital = 98;                              // cap is 100 in a new city
+    const req = openRequest(w, 'park', neighbourhoods(w)[0], 5, 1);
+    meetRequest(w, req);
+    expect(w.budget.politicalCapital).toBe(113);
+  });
 });
 
