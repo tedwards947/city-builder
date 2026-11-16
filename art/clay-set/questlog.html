@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quest log mocks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; --red: #e07070; --amber: #e0b050; --money: #7dd87d; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin: 22px 0 8px; }
+  p { max-width: 880px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  nav { margin: 10px 0; display: flex; gap: 14px; flex-wrap: wrap; } nav a { color: var(--pc); text-decoration: none; }
+  .rowf { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 340px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  .q { color: #8aa; font-size: 12px; }
+  .d { color: var(--pc); font-weight: 600; } .d::before { content: "◆ "; font-size: .8em; }
+  .d.neg { color: var(--red); } .d.pos { color: var(--pc); }
+
+  /* HUD */
+  .hud { width: 226px; white-space: nowrap; background: rgba(0,0,0,0.62); border-radius: 6px; padding: 8px 12px; font-size: 13px; text-align: right; line-height: 1.5; }
+  .hud i { font-style: normal; color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .hud b { color: #fff; } .hud .m { color: var(--money); }
+  .hud .st { text-align: left; font-size: 10px; color: #8aa; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .bar { position: relative; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.15); margin: 2px 0 3px; }
+  .bar span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--pc); }
+  .bar .over { left: auto; right: -9px; width: 7px; background: #c9fff1; box-shadow: 0 0 6px #7dffe0; }
+  .bar.drain span:first-child { background: repeating-linear-gradient(-45deg, var(--red) 0 4px, #8a3a3a 4px 8px); }
+  .rate { font-size: 10px; margin-left: 4px; } .seg { display: flex; gap: 2px; margin: 3px 0; } .seg span { flex: 1; height: 5px; border-radius: 1px; background: rgba(255,255,255,0.15); }
+
+  /* map scenes */
+  .scene { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12);
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 44px), repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 44px), #6a9a55; }
+  .scene > * { position: absolute; }
+  .spr { width: 44px; height: 44px; } .ghost { opacity: .75; filter: drop-shadow(0 0 3px #fff); } .dim { filter: grayscale(.6) brightness(.8); }
+  .road { background: #5d6066; }
+  .zone { background: rgba(224,176,96,0.45); outline: 1px dashed #e0b060; }
+  .ring { border-radius: 50%; pointer-events: none; }
+  .ring.line { border: 2px dashed var(--pc); } .ring.line.bad { border-color: var(--red); }
+  .ring.wash { background: radial-gradient(circle, rgba(224,112,112,0.55), rgba(224,112,112,0.18) 60%, transparent 71%); }
+  .ring.good { background: radial-gradient(circle, rgba(125,216,192,0.5), rgba(125,216,192,0.15) 60%, transparent 71%); }
+  .tag { transform: translate(-50%, -50%); background: rgba(10,18,28,0.92); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 2px 8px; font-size: 12px; white-space: nowrap; color: #fff; }
+  .tag.bad { border-color: var(--red); } .tag .m { color: var(--money); } .tag small { color: #9ab; display: block; font-size: 10px; }
+  .chip { transform: translate(-50%, -50%); background: var(--red); color: #fff; border-radius: 8px; font-size: 10px; font-weight: 700; padding: 0 5px; line-height: 15px; }
+  .chip.good { background: var(--pcd); } .chip.w2 { opacity: .8; } .chip.w1 { opacity: .55; }
+  .hl { width: 44px; height: 44px; outline: 2px solid var(--red); outline-offset: -3px; border-radius: 6px; } .hl.good { outline-color: var(--pc); }
+  .cur { width: 44px; height: 44px; outline: 2px solid #fff; outline-offset: -1px; } .cur.bad { outline-color: var(--red); background: rgba(224,112,112,0.3); }
+  .float { transform: translate(-50%, -50%); font-weight: 800; font-size: 15px; text-shadow: 0 1px 3px #000, 0 0 2px #000; animation: rise 2.2s ease-out infinite; }
+  .float.pos { color: #9ff3dc; } .float.neg { color: #ff9a9a; } .float.sm { font-size: 11px; }
+  @keyframes rise { 0% { opacity: 0; margin-top: 8px; } 15% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -30px; } }
+  .pin { transform: translate(-50%, -100%); width: 34px; height: 34px; border-radius: 50% 50% 50% 4px; rotate: -45deg; background: var(--pcd); border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 2px 5px rgba(0,0,0,.5); }
+  .pin > * { rotate: 45deg; } .pin svg, .ico svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .pin .days { position: absolute; right: -9px; top: -9px; background: #fff; color: #06261f; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 0 4px; line-height: 14px; }
+  .pin.urgent { background: #c9772a; } .pin.done { background: #3a9a4a; } .pin.fail { background: #777; }
+  .badge { transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; background: var(--pcd); border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .badge svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .badge .cd { position: absolute; inset: -5px; border-radius: 50%; background: conic-gradient(#fff var(--a), transparent 0); -webkit-mask: radial-gradient(circle, transparent 14px, #000 15px); mask: radial-gradient(circle, transparent 14px, #000 15px); }
+  .badge.prob { background: #d99a1c; } .badge.big { width: 34px; height: 34px; } .badge .n { position: absolute; right: -8px; bottom: -6px; background: #fff; color: #222; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 0 4px; line-height: 14px; }
+
+  /* panels, toasts, toolbar */
+  .panel { background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .panel h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin-bottom: 8px; font-weight: 600; }
+  .toast { width: 250px; background: rgba(0,0,0,0.85); border-left: 3px solid var(--pc); border-radius: 4px; padding: 8px 12px; font-size: 12px; margin-bottom: 6px; }
+  .toast b { display: block; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; color: var(--pc); }
+  .toast.warning { border-left-color: var(--amber); } .toast.warning b { color: var(--amber); }
+  .banner { width: 520px; text-align: center; padding: 14px; border-radius: 10px; background: linear-gradient(90deg, rgba(47,156,134,0), rgba(47,156,134,0.9) 20% 80%, rgba(47,156,134,0)); color: #fff; font-size: 17px; font-weight: 700; }
+  .banner small { display: block; font-weight: 400; font-size: 12px; opacity: .9; }
+  .ord { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 14px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+  .ord b { color: #fff; font-size: 13px; } .ord small { grid-column: 1; color: #9ab; } .ord .cost { text-align: right; line-height: 1.3; grid-row: span 2; } .ord .cost small { display: block; }
+  .tog { grid-row: span 2; width: 34px; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.18); position: relative; }
+  .tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #dde; }
+  .tog.on { background: var(--pcd); } .tog.on::after { left: 18px; background: #fff; }
+  .ord.off-poor { opacity: .5; } .ord.susp b::after { content: " · suspended"; color: var(--amber); font-weight: 400; font-size: 11px; } .ord.susp .tog { background: #8a6a2a; }
+  .tiles { display: grid; grid-template-columns: 40px 40px; gap: 4px; padding: 6px; background: rgba(0,0,0,0.6); border-radius: 6px; }
+  .tile { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); display: grid; place-items: center; color: #dfe7ee; }
+  .tile.on { background: #4a7a9a; border-color: #8cc0e0; } .tile svg, .frow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .frow { display: flex; align-items: center; gap: 9px; padding: 4px 6px; border-radius: 6px; font-size: 13px; color: #dfe7ee; }
+  .frow .p { margin-left: auto; padding-left: 18px; color: var(--money); font-size: 12px; } .frow .p .d { margin-left: 8px; font-weight: 400; }
+  .frow.lock { opacity: .45; } .frow.poor .d { color: var(--red); }
+  .tip { display: inline-block; background: rgba(10,18,28,0.95); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; line-height: 1.45; }
+  .tip b { color: #fff; display: block; } .tip .c { color: var(--money); font-weight: 600; font-size: 11px; } .tip .u { color: var(--amber); font-size: 11px; } .tip .h { color: #8a9bb0; font-size: 11px; } .tip .pcl { color: var(--pc); font-size: 11px; font-weight: 600; }
+  .pane { width: 230px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.7; }
+  .pane .t { font-size: 14px; font-weight: 600; color: #dde; } .pane .k { color: #9ab; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+  .code.ok { background: #4fbf7a; color: #06200f; } .code.ok::before { content: "✓ "; }
+  .passed { opacity: .38; }
+  .code.new { background: #ffd166; } .code.new::after { content: " NEW"; font-size: 9px; }
+  .tint { width: 44px; height: 44px; background: var(--red); border-radius: 6px; mix-blend-mode: multiply; }
+  .frown { transform: translate(-50%, -50%); width: 17px; height: 17px; border-radius: 50%; background: var(--red); border: 1.5px solid #fff; display: grid; place-items: center; }
+  .frown svg { width: 11px; height: 11px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
+  .ring.c1 { border: 2px solid rgba(224,112,112,0.95); } .ring.c2 { border: 2px dashed rgba(224,112,112,0.7); } .ring.c3 { border: 2px dotted rgba(224,112,112,0.5); }
+  .ring.cov { background: rgba(255,255,255,0.22); border: 2px solid rgba(255,255,255,0.7); }
+  .zone.bad { background: rgba(224,112,112,0.5); outline-color: var(--red); }
+  .heat { background: var(--red); width: 44px; height: 44px; }
+  .frow .hint { margin-left: 8px; color: var(--pc); font-size: 11px; }
+  /* feedback form (same pattern as variants.html: saved in this browser, copied out as text) */
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 360px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  figure.yes .scene, figure.yes > .panel, figure.yes > .tip, figure.yes > .pane { outline: 2px solid #4fbf7a; outline-offset: 2px; }
+  figure.no { opacity: .55; }
+  textarea { width: 100%; max-width: 880px; min-height: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; color: #dde; padding: 8px; font: inherit; display: block; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+
+  /* quest log mocks */
+  .screen { position: relative; width: 760px; height: 430px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12);
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 32px), repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 32px), #6a9a55; }
+  .screen > * { position: absolute; }
+  .mini-hud { right: 8px; top: 8px; width: 150px; background: rgba(0,0,0,0.62); border-radius: 6px; padding: 6px 10px; font-size: 11px; text-align: right; line-height: 1.5; }
+  .mini-hud i { font-style: normal; color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; } .mini-hud b { color: #fff; }
+  .mini-tb { right: 8px; top: 100px; display: grid; grid-template-columns: 30px 30px; gap: 3px; padding: 5px; background: rgba(0,0,0,0.6); border-radius: 6px; }
+  .mini-tb span { width: 30px; height: 30px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); display: grid; place-items: center; color: #dfe7ee; position: relative; }
+  .mini-tb span.on { background: #4a7a9a; border-color: #8cc0e0; }
+  .mini-tb svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .mini-tb .n { position: absolute; right: -5px; top: -5px; background: var(--pc); color: #06261f; font-size: 9px; font-weight: 800; border-radius: 7px; padding: 0 4px; line-height: 13px; }
+  .mini-stats { left: 8px; top: 8px; background: rgba(0,0,0,0.62); border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #8aa; line-height: 1.5; }
+  .ql { background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 9px 11px; font-size: 12px; color: #dde; }
+  .ql h4 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; margin-bottom: 4px; font-weight: 600; display: flex; justify-content: space-between; }
+  .ql h4 span { text-transform: none; letter-spacing: 0; color: var(--pc); }
+  .ql h5 { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #8aa; font-weight: 600; margin: 8px 0 2px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 6px; } .tabs span { padding: 3px 10px; border-radius: 6px; font-size: 11px; color: #9ab; border: 1px solid transparent; }
+  .tabs span.on { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.18); } .tabs b { color: var(--pc); }
+  .qrow { display: grid; grid-template-columns: 26px 1fr auto; gap: 2px 9px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  .qrow:hover { background: rgba(255,255,255,0.05); }
+  .qico { width: 24px; height: 24px; border-radius: 50%; background: var(--pcd); border: 2px solid #f4f0e6; display: grid; place-items: center; grid-row: span 2; position: relative; }
+  .qico svg { width: 13px; height: 13px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .qico.met { background: #3a9a4a; } .qico.missed { background: #7a7f87; }
+  .qico .cd { position: absolute; inset: -5px; border-radius: 50%; background: conic-gradient(#fff var(--a), rgba(10,18,28,.5) 0); -webkit-mask: radial-gradient(circle, transparent 13px, #000 14px); mask: radial-gradient(circle, transparent 13px, #000 14px); }
+  .qrow b { color: #fff; font-size: 12.5px; } .qrow small { color: #9ab; font-size: 11px; }
+  .qrow .right { text-align: right; line-height: 1.3; grid-row: span 2; white-space: nowrap; font-size: 11px; }
+  .qrow .days { color: #fff; font-weight: 600; } .qrow .days.soon { color: #ffd166; }
+  .prog { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.14); margin-top: 3px; }
+  .prog i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--pc); }
+  .prog u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; }
+  .qrow.done { opacity: .6; cursor: default; }
+  .go { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; color: #dde; }
+  .empty { color: #9ab; padding: 14px 4px; text-align: center; line-height: 1.5; }
+  .toastx { width: 260px; background: rgba(0,0,0,0.85); border-left: 3px solid var(--pc); border-radius: 4px; padding: 8px 12px; font-size: 12px; position: relative; }
+  .toastx b { display: block; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; color: var(--pc); }
+  .toastx.alert { border-left-color: var(--red); } .toastx.alert b { color: var(--red); }
+  .toastx .show { position: absolute; right: 10px; top: 8px; font-size: 11px; color: #cfe; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 1px 8px; }
+  .toastx.whole { cursor: pointer; padding-right: 34px; } .toastx.whole::after { content: "›"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 22px; color: #cfe; }
+  .toastx.whole:hover { background: rgba(20,40,40,0.95); }
+  .pulse { border-radius: 50%; border: 3px solid #fff; transform: translate(-50%, -50%); animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0% { width: 10px; height: 10px; opacity: 1; } 100% { width: 150px; height: 150px; opacity: 0; } }
+  .area { border: 2px dashed var(--pc); background: rgba(125,216,192,0.12); animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+  .lack { width: 44px; height: 44px; outline: 2px solid #ffd166; outline-offset: -3px; border-radius: 6px; }
+  .ptip { background: rgba(10,18,28,0.95); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 8px 11px; font-size: 12px; line-height: 1.45; width: 250px; }
+  .ptip b { color: #fff; } .ptip .st { color: var(--pc); margin-top: 3px; }
+  .ring2 { transform: translate(-50%, -50%); width: 38px; height: 38px; border-radius: 50%; background: conic-gradient(#7dd87d var(--p), rgba(10,18,28,.55) 0); -webkit-mask: radial-gradient(circle, transparent 14px, #000 15px); mask: radial-gradient(circle, transparent 14px, #000 15px); }
+</style>
+</head>
+<body>
+
+<h1>Quest log mocks</h1>
+<p><b>Decided.</b> Chosen options carry a green ✓; the rest are faded and kept for the record.</p>
+<p><b>Where:</b> its own toolbar tile with a count, and a panel like Budget and Ordinances (Q1). <b>Rows:</b> compact (R1) with a "Show on map" button added to each; no history; the empty state (R4). <b>Jumping:</b> the whole toast is clickable, with a chevron (J1); on arrival the asking area is outlined and blinks (J4). <b>Progress:</b> a progress line and bar in the badge hover (P1), and hovering a badge outlines its area the way J4 does (the owner's change to P2: the area, not each home). <b>Placement:</b> a warning in the price tag when a service building would not touch a road; it can still be placed (W1).</p>
+<p class="q">Numbers and places are made up to fill the pictures. The Yes / No controls still work if anything needs revisiting.</p>
+<nav><a href="#Q">Q · Where the quest log lives</a><a href="#R">R · What a row shows</a><a href="#J">J · Jumping to a place</a><a href="#P">P · Request progress on the map</a><a href="#W">W · Placement warning</a></nav>
+
+<h2 id="Q">Q · Where the quest log lives</h2>
+<p>Three places it could go. Pick one (or say which two you'd combine).</p>
+<div class="rowf" id="secQ"></div>
+
+<h2 id="R">R · What a row shows</h2>
+<p>There are no street names, so a request is placed by where it is on the map ("north-east"), and the row jumps there when clicked (section J).</p>
+<div class="rowf" id="secR"></div>
+
+<h2 id="J">J · Jumping to a place</h2>
+<p>Clicking a toast that is about a place (a request, a fire, a shortage in one area) or a quest-log row moves the camera there. Two questions: how a toast shows it can be clicked, and what marks the spot when you arrive.</p>
+<h3>The toast</h3>
+<div class="rowf" id="secJt"></div>
+<h3>On arrival <span class="q">(animated)</span></h3>
+<div class="rowf" id="secJa"></div>
+
+<h2 id="P">P · Request progress on the map</h2>
+<p>Hovering a request badge with the inspect tool. The engine will report, per request, what share of the area's homes are covered and what share is needed.</p>
+<div class="rowf" id="secP"></div>
+
+<h2 id="W">W · Placement warning <span class="q">(optional)</span></h2>
+<p>A service building that doesn't touch a road serves only its own tile, with no warning today. That is one suspect for the police and fire request that expired.</p>
+<div class="rowf" id="secW"></div>
+
+<h2 id="else">Anything else?</h2>
+<textarea id="overall" placeholder="Overall thoughts: anything missing from the log, anything you'd never use, wording you'd change?"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+const TS = 44, P = d => `<path d="${d}"/>`;
+const IC = {
+  park: P('M12 22v-7M12 15c-5 0-7-3-5-6-1-4 3-6 5-6s6 2 5 6c2 3 0 6-5 6z'),
+  school: P('M2 9l10-5 10 5-10 5zM6 11.5V16c3 3 9 3 12 0v-4.5'),
+  tick: P('M5 12l5 5 9-10'), cross: P('M6 6l12 12M18 6L6 18'), bolt: P('M13 2L5 14h6l-1 8 8-12h-6z'),
+  scroll: P('M7 4h11a2 2 0 012 2v1h-4M7 4a2 2 0 00-2 2v12a2 2 0 002 2h9a2 2 0 002-2V7M7 4a2 2 0 012 2v0M9 10h6M9 14h6'),
+  budget: '<circle cx="12" cy="12" r="9"/>' + P('M14.6 9.3c-.5-1-1.5-1.5-2.6-1.5-1.5 0-2.6.8-2.6 2s1 1.8 2.6 2.1 2.6.9 2.6 2.1-1.1 2-2.6 2c-1.2 0-2.2-.6-2.7-1.6M12 6v12'),
+  layers: P('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'), undo: P('M9 6L4 11l5 5M4 11h10a5 5 0 010 10h-3'),
+  power: P('M7 21c2-6 2-10 0-16h10c-2 6-2 10 0 16zM4 21h16'), water: P('M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z'),
+  sewage: P('M3 7h8v6h10M3 11h4v6h14'), lock: P('M6 11h12v9H6zM9 11V8a3 3 0 016 0v3'), stadium: P('M3 9c0-2 4-4 9-4s9 2 9 4v6c0 2-4 4-9 4s-9-2-9-4zM3 9c0 2 4 4 9 4s9-2 9-4'),
+};
+const svg = k => `<svg viewBox="0 0 24 24">${IC[k]}</svg>`;
+const pc = (n, cls = '') => `<span class="d ${cls}">${n}</span>`;
+const at = (x, y) => `left:${x * TS}px;top:${y * TS}px`;
+const mid = (x, y) => `left:${(x + .5) * TS}px;top:${(y + .5) * TS}px`;
+const spr = (n, x, y, c = '') => `<img class="spr ${c}" src="../../public/sprites/clay/${n}.png" style="${at(x, y)}">`;
+const road = (x, y, w, h) => `<div class="road" style="${at(x, y)};width:${w * TS}px;height:${h * TS}px"></div>`;
+const ring = (x, y, r, c) => `<div class="ring ${c}" style="${at(x + .5 - r, y + .5 - r)};width:${2 * r * TS}px;height:${2 * r * TS}px"></div>`;
+const tag = (x, y, h, c = '') => `<div class="tag ${c}" style="${mid(x, y)}">${h}</div>`;
+const chip = (x, y, h, c = '') => `<div class="chip ${c}" style="${mid(x, y - .42)}">${h}</div>`;
+const hl = (x, y, c = '') => `<div class="hl ${c}" style="${at(x, y)}"></div>`;
+const cur = (x, y, c = '') => `<div class="cur ${c}" style="${at(x, y)}"></div>`;
+const flo = (x, y, h, c, delay = 0) => `<div class="float ${c}" style="${mid(x, y - .3)};animation-delay:${delay}s">${h}</div>`;
+const NEW = [];
+const fig = (code, w, h, parts, cap) => `<figure><div class="scene" style="width:${w * TS}px;height:${h * TS}px">${parts.join('')}</div><figcaption><span class="code ${NEW.includes(code) ? 'new' : ''}">${code}</span>${cap}</figcaption></figure>`;
+const tint = (x, y, a) => `<div class="tint" style="${at(x, y)};opacity:${a}"></div>`;
+const frown = (x, y) => `<div class="frown" style="${mid(x + .32, y - .32)}"><svg viewBox="0 0 12 12"><path d="M3 8.5c1.5-2 4.5-2 6 0M4 4v.1M8 4v.1"/></svg></div>`;
+// a little neighbourhood: homes along a street
+const HOMES = [[0,1],[1,1],[2,1],[3,1],[4,1],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3]];
+const town = (dim = []) => [road(0, 2, 8, 1), ...HOMES.map(([x, y], i) => spr(i % 3 ? 'res-1' : 'res-2', x, y, dim.includes(i) ? 'dim' : ''))];
+const dist = ([x, y], cx, cy) => Math.hypot(x - cx, y - cy);
+
+
+
+Object.assign(IC, {
+  list: P('M9 6h11M9 12h11M9 18h11M4.5 6h.1M4.5 12h.1M4.5 18h.1'),
+  shield: P('M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'),
+  pin: P('M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.5-6 10-6 10zM12 9v.1'),
+  view: P('M12 3v18M3 12h18'), road: P('M2 8h20M2 16h20'), house: P('M3 11l9-7 9 7M6 9.5V20h12V9.5'),
+});
+const cfig = (code, html, cap) => `<figure>${html}<figcaption><span class="code">${code}</span>${cap}</figcaption></figure>`;
+const prog = (v, need) => `<div class="prog"><i style="width:${v}%"></i><u style="left:${need}%"></u></div>`;
+const qico = (icon, a, cls = '') => `<span class="qico ${cls}">${a ? `<span class="cd" style="--a:${a}"></span>` : ''}${svg(icon)}</span>`;
+const REQS = [
+  { icon: 'park', what: 'A park', where: 'north-east', days: 12, a: '220deg', v: 60, need: 75, r: 10, p: 5 },
+  { icon: 'shield', what: 'Police and fire cover', where: 'city centre', days: 3, a: '60deg', v: 35, need: 75, r: 10, p: 5, soon: true },
+];
+const rowCompact = q => `<div class="qrow">${qico(q.icon, q.a)}<b>${q.what}</b><span class="right"><span class="days ${q.soon ? 'soon' : ''}">${q.days} days left</span><br>${pc('+' + q.r, 'pos')} / ${pc('−' + q.p, 'neg')}</span><small>${q.where} · ${q.v}% of homes covered, ${q.need}% needed${prog(q.v, q.need)}</small></div>`;
+const history = `<h5>Recently</h5><div class="qrow done">${qico('tick', '', 'met')}<b>A school or hospital</b><span class="right">${pc('+10', 'pos')}</span><small>west side · met 4 days ago</small></div><div class="qrow done">${qico('cross', '', 'missed')}<b>A park</b><span class="right">${pc('−5', 'neg')}</span><small>north-east · missed 9 days ago</small></div>`;
+const panel = (w, tabs = '') => `<div class="ql" style="width:${w}px">${tabs || `<h4>Requests <span>2 open</span></h4>`}${REQS.map(rowCompact).join('')}${history}</div>`;
+const hudBits = active => `<div class="mini-stats">TILE 12, 40 · ZOOM 1.5×</div><div class="mini-hud"><div><i>Pol. capital</i> <b style="color:var(--pc)">62 / 140</b></div><div><i>Money</i> <b style="color:var(--money)">$18.2k</b></div><div><i>Population</i> <b>4,012</b></div></div>
+  <div class="mini-tb">${['view', 'house', 'road', 'bolt', 'layers', 'budget', 'scroll', 'list', 'undo'].filter(k => active !== null || k !== 'list').map(k => `<span class="${k === active ? 'on' : ''}">${svg(k)}${k === 'list' && active !== null ? '<span class="n">2</span>' : ''}</span>`).join('')}</div>`;
+
+document.getElementById('secQ').innerHTML = [
+  cfig('Q1', `<div class="screen">${hudBits('list')}<div style="right:176px;top:44px">${panel(300)}</div></div>`, 'Its own toolbar tile (with a count of open requests) and a panel beside the stats column, like Budget and Ordinances. Out of the way until you want it; the count on the tile tells you something is waiting.'),
+  cfig('Q2', `<div class="screen">${hudBits('scroll')}<div style="right:176px;top:44px">${panel(300, '<div class="tabs"><span>Ordinances</span><span class="on">Requests <b>2</b></span></div>')}</div></div>`, 'A second tab in the Ordinances panel: one "politics" place for both. No new tile, but requests are a click deeper and the tile gives no count.'),
+  cfig('Q3', `<div class="screen">${hudBits(null)}<div style="left:8px;top:40px"><div class="ql" style="width:230px;padding:6px 9px"><h4 style="margin:0">Requests ▾ <span>2 open</span></h4>${REQS.map(q => `<div class="qrow" style="padding:5px 0">${qico(q.icon, q.a)}<b>${q.what}</b><span class="right"><span class="days ${q.soon ? 'soon' : ''}">${q.days}d</span></span><small>${prog(q.v, q.need)}</small></div>`).join('')}</div></div></div>`, 'Always on screen: a small folding list in the top-left corner, under the tile read-out, with just the icon, days left and progress. Nothing to open, but it takes map space, and history would need a "more" link.'),
+].join('');
+
+document.getElementById('secR').innerHTML = [
+  cfig('R1', `<div class="ql" style="width:310px"><h4>Requests <span>2 open</span></h4>${REQS.map(rowCompact).join('')}</div>`, 'Compact rows: what they want, where, days left (amber when nearly out), the reward and penalty, and a progress bar with a white tick at the share needed. The ring round the icon is the same countdown as on the map.'),
+  cfig('R2', `<div class="ql" style="width:310px"><h4>Requests <span>2 open</span></h4>${REQS.map(q => `<div class="qrow" style="cursor:default">${qico(q.icon, q.a)}<b>${q.what}</b><span class="right"><span class="days ${q.soon ? 'soon' : ''}">${q.days} days left</span></span><small>${q.where}</small><small style="grid-column:2 / -1">Residents here want ${q.what.toLowerCase()} that covers their homes.<br>${q.v}% of homes covered, ${q.need}% needed${prog(q.v, q.need)}<span style="display:flex;justify-content:space-between;align-items:center;margin-top:5px"><span>met ${pc('+' + q.r, 'pos')} · missed ${pc('−' + q.p, 'neg')}</span><span class="go">Show on map</span></span></small></div>`).join('')}</div>`, 'Fuller cards: adds the description and a "Show on map" button instead of the whole row being clickable. Easier for a new player, longer to scan.'),
+  cfig('R3', `<div class="ql" style="width:310px"><h4>Requests <span>none open</span></h4>${history}</div>`, 'Recent history under the open ones: the last few met and missed, with what they earned or cost. (Yes = keep a history; say how many if you care. Mock shows two.)'),
+  cfig('R4', `<div class="ql" style="width:310px"><h4>Requests</h4><div class="empty">No requests right now.<br>Residents will ask when a neighbourhood is missing something.</div></div>`, 'Empty state, when nothing is open and nothing has happened yet.'),
+].join('');
+
+document.getElementById('secJt').innerHTML = [
+  cfig('J1', `<div class="toastx whole"><b>Residents want: a park</b>12 days left · met ${pc('+10', 'pos')} · missed ${pc('−5', 'neg')}</div><div class="toastx alert whole" style="margin-top:6px"><b>Fire</b>A building is on fire in the industrial area.</div>`, 'The whole toast is clickable, with a chevron on the right to say so. Toasts with no place (a milestone, "not enough funds") have no chevron and do nothing.'),
+  cfig('J2', `<div class="toastx"><b>Residents want: a park</b>12 days left · met ${pc('+10', 'pos')}<span class="show">Show</span></div><div class="toastx alert" style="margin-top:6px"><b>Fire</b>A building is on fire.<span class="show">Show</span></div>`, 'A small "Show" button on the toast. More obvious, a smaller target. Toasts stay where they are either way; clicking does not dismiss them.'),
+].join('');
+
+const jtown = () => [...town(), `<div class="badge" style="${mid(2, .5)}">${svg('park')}</div>`];
+document.getElementById('secJa').innerHTML = [
+  fig('J3', 8, 5, [...jtown(), `<div class="pulse" style="${mid(2, .5)}"></div>`], 'A white ring pulses out from the spot two or three times. Works for a single tile (a fire) and for an area.'),
+  fig('J4', 8, 5, [`<div class="area" style="${at(0, 0)};width:${6 * TS}px;height:${4 * TS}px"></div>`, ...jtown()], 'The asking area is outlined and blinks a few times. Clearest for requests, since it shows exactly which homes count; a fire would outline its one tile.'),
+  fig('J5', 8, 5, [...jtown()], 'Nothing extra: the camera just moves so the place is centred. Quietest; you find the badge yourself.'),
+].join('');
+
+const HOMES_LACK = HOMES.filter(([x]) => x >= 3);
+document.getElementById('secP').innerHTML = [
+  fig('P1', 8, 5, [...town(), `<div class="badge" style="${mid(2, .5)}"><span class="cd" style="--a:220deg"></span>${svg('park')}</div>`, `<div class="ptip" style="${at(2.35, .1)};width:240px"><b>Residents want: a park</b><br>Residents here want a park within walking distance.<div class="st">60% of homes covered · 75% needed</div>${prog(60, 75)}<div class="st">12 days left · met +◆ 10 · missed −◆ 5</div></div>`], 'The hover text gains a progress line and bar, with the tick at the share needed. Text only; nothing changes on the map.'),
+  fig('P2', 8, 5, [...town(), ...HOMES_LACK.map(([x, y]) => `<div class="lack" style="${at(x, y)}"></div>`), `<div class="badge" style="${mid(2, .5)}"><span class="cd" style="--a:220deg"></span>${svg('park')}</div>`, `<div class="ptip" style="${at(.2, 3.75)};width:auto;padding:4px 9px"><span class="st" style="margin:0">60% covered · 75% needed · 5 homes still without</span></div>`], 'As P1, plus the homes that still lack it are outlined in amber while you hover, so you can see where the next park should go. (Shown with a short tip to keep the homes visible.)'),
+  fig('P3', 8, 5, [...town(), `<div class="ring2" style="${mid(2, .5)};--p:216deg"></div>`, `<div class="badge" style="${mid(2, .5)}">${svg('park')}</div>`, `<div class="ring2" style="${mid(5.5, 3.5)};--p:126deg"></div>`, `<div class="badge" style="${mid(5.5, 3.5)}">${svg('shield')}</div>`], 'No hover needed: the ring on the badge shows progress in green (how full = how close) instead of time left. Time left would then live only in the hover text and the quest log.'),
+].join('');
+
+document.getElementById('secW').innerHTML = [
+  fig('W1', 8, 5, [...town(), spr('police', 6, 4, 'ghost'), cur(6, 4, 'bad'), tag(3.9, 3.2, `<span class="m">$1,200</span><small style="color:#ffd166">No road next to it: it will serve only this tile</small>`, 'bad')], 'A warning in the price tag and a red outline when the building would not touch a road. It can still be placed.'),
+  fig('W2', 8, 5, [...town(), spr('police', 6, 4, 'ghost'), cur(6, 4, 'bad'), tag(4.6, 3.2, `<small style="color:#ff9a9a">Needs a road next to it</small>`, 'bad')], 'Refused outright: a service building must touch a road. Simpler rule, but it is a game-rule change, so it would be the engine session\'s call as well as yours.'),
+].join('');
+
+// ── Final picks ──────────────────────────────────────────────────────────────
+const FINAL = new Set('Q1 R1 R4 J1 J4 P1 P2 W1'.split(' '));
+for (const c of document.querySelectorAll('figure .code')) {
+  const ok = FINAL.has(c.textContent.trim());
+  c.classList.toggle('ok', ok);
+  if (!ok) c.closest('figure').classList.add('passed');
+}
+
+// ── Feedback form ────────────────────────────────────────────────────────────
+const KEY = 'city-builder-questlog-mocks-v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { state = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function control(id, host, mark, yes = 'Yes', no = 'No') {
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = host.classList.contains('fb') ? host : document.createElement('div');
+  box.className = 'fb';
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls;
+    b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk(yes, 'yes', 'y'), n = mk(no, 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || '';
+  note.oninput = () => { st.note = note.value; save(); };
+  box.append(note);
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no');
+    if (mark) { mark.classList.toggle('yes', st.v === 'yes'); mark.classList.toggle('no', st.v === 'no'); } tally(); };
+  if (box !== host) host.after(box);
+  return paint;
+}
+const paints = [];
+for (const c of document.querySelectorAll('figure .code, h3 .code')) {
+  const id = c.textContent.trim(); CODES.push(id);
+  const fig = c.closest('figure');
+  // In a figure the control goes under the caption; the HUD options (A1–A4) are headings above a row.
+  paints.push(fig ? control(id, fig.querySelector('figcaption'), fig) : control(id, c.closest('h3'), null));
+}
+function tally() {
+  const v = CODES.map(id => (state[id] || {}).v);
+  document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`;
+}
+paints.forEach(p => p());
+const overall = document.getElementById('overall');
+overall.value = state._overall || '';
+overall.oninput = () => { state._overall = overall.value; save(); };
+document.getElementById('copy').onclick = async () => {
+  const line = (id, label = id) => { const s = state[id] || {}; return `${label}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; };
+  const text = ['Quest log mocks feedback', ...CODES.map(id => line(id)), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>

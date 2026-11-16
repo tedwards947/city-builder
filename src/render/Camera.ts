@@ -50,6 +50,20 @@ export class Camera {
     this.y = y - this.viewportH / (2 * this.zoom);
   }
 
+  /**
+   * Centre the view on a rectangle of tiles (inclusive corners). The zoom is
+   * kept unless the rectangle would not fit with a little room to spare, in
+   * which case the view zooms out just enough.
+   */
+  focusOn(x0: number, y0: number, x1: number, y1: number): void {
+    const a = Projection.tileToWorld(x0, y0), b = Projection.tileToWorld(x1 + 1, y1 + 1);
+    const w = b.x - a.x, h = b.y - a.y, room = 0.7;
+    const fit = Math.min(this.viewportW * room / w, this.viewportH * room / h);
+    if (this.zoom > fit) this.zoom = Math.max(this.minZoom, fit);
+    this.x = (a.x + b.x) / 2 - this.viewportW / (2 * this.zoom);
+    this.y = (a.y + b.y) / 2 - this.viewportH / (2 * this.zoom);
+  }
+
   panBy(dsx: number, dsy: number): void {
     this.x -= dsx / this.zoom;
     this.y -= dsy / this.zoom;

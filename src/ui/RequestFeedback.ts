@@ -37,7 +37,7 @@ export function requestText(req: Pick<OpenRequest, 'kind' | 'deadlineTick'>, tic
   };
 }
 
-type Toast = (title: string, message: string, type: 'info' | 'warning') => void;
+type Toast = (title: string, message: string, type: 'info' | 'warning', place?: { x0: number; y0: number; x1: number; y1: number }) => void;
 
 export class RequestFeedback {
   private world: World | null = null;
@@ -74,17 +74,18 @@ export class RequestFeedback {
 
   private opened(e: CityEvents['requestOpened']): void {
     const text = requestText(e, this.world?.tick ?? 0);
-    this.toast(text.title, text.stakes, 'info');
+    this.toast(text.title, text.stakes, 'info', { x0: e.x0, y0: e.y0, x1: e.x1, y1: e.y1 });
   }
 
   private end(e: CityEvents['requestMet'], met: boolean): void {
     this.ended.push({ tx: (e.x0 + e.x1 + 1) / 2, ty: (e.y0 + e.y1 + 1) / 2, met, at: performance.now() });
+    const place = { x0: e.x0, y0: e.y0, x1: e.x1, y1: e.y1 };
     const numbers = requestConfig().kinds[e.kind];
     const asked = what(e.kind);
     if (met) {
-      this.toast(t('ui.requests.met'), t('ui.requests.metBody', { what: asked }) + (numbers?.reward > 0 ? ' ' + pcDelta(numbers.reward) : ''), 'info');
+      this.toast(t('ui.requests.met'), t('ui.requests.metBody', { what: asked }) + (numbers?.reward > 0 ? ' ' + pcDelta(numbers.reward) : ''), 'info', place);
     } else {
-      this.toast(t('ui.requests.missed'), t('ui.requests.missedBody', { what: asked }) + (numbers?.penalty > 0 ? ' ' + pcDelta(-numbers.penalty) : ''), 'warning');
+      this.toast(t('ui.requests.missed'), t('ui.requests.missedBody', { what: asked }) + (numbers?.penalty > 0 ? ' ' + pcDelta(-numbers.penalty) : ''), 'warning', place);
     }
   }
 }

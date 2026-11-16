@@ -25,7 +25,9 @@ describe('political capital preview at the pointer', () => {
     expect(hoverPcPreview(w, 'none', { tx: 5, ty: 5 })).toBeNull();
     expect(hoverPcPreview(w, 'inspect', { tx: 5, ty: 5 })).toBeNull();
     expect(hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 5 })).toBeNull();       // empty land
-    expect(hoverPcPreview(w, 'park', { tx: 5, ty: 5 }, TEST_NUISANCE)).toBeNull();
+    // A park away from any road costs no PC either, but it does get the no-road warning.
+    const park = hoverPcPreview(w, 'park', { tx: 5, ty: 5 }, TEST_NUISANCE)!;
+    expect([park.label, park.rings.length, park.tints.length, park.warning]).toEqual(['', 0, 0, true]);
     // With the shipped numbers (all 0) a power plant shows nothing either.
     expect(hoverPcPreview(w, 'power', { tx: 5, ty: 5 })).toBeNull();
   });
@@ -134,6 +136,16 @@ describe('political capital preview at the pointer', () => {
     expect(p.note).toBe('in political debt');
     w.budget.politicalCapital = 1;
     expect(hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 5 })!.note).toBe('not enough political capital');
+  });
+
+  it('warns when a service building would not touch a road, without refusing it', () => {
+    const w = streetWorld([4, 5, 6]);
+    const off = hoverPcPreview(w, 'police', { tx: 20, ty: 20 })!;     // open land, no road near
+    expect(off.warning).toBe(true);
+    expect(off.ok).toBe(true);
+    expect(off.note).toBe('no road next to it: it will serve only this tile');
+    expect(hoverPcPreview(w, 'police', { tx: 5, ty: 9 })).toBeNull();  // beside the street: nothing to say
+    expect(hoverPcPreview(w, 'power', { tx: 20, ty: 20 })).toBeNull(); // not a service building
   });
 
   it('maps tools to engine actions', () => {

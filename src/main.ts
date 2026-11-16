@@ -37,6 +37,9 @@ import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from 
 import { MilestoneBanner } from './ui/MilestoneBanner';
 import { OrdinancePanel, ordinancesShown } from './ui/OrdinancePanel';
 import { RequestFeedback, requestText } from './ui/RequestFeedback';
+import { RequestLog, requestLogState } from './ui/RequestLog';
+import { progressView } from './ui/requestInfo';
+import type { AreaHighlight } from './render/CanvasRenderer';
 import { REQUEST_COLOUR } from './render/clay/requestBadges';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
@@ -120,16 +123,20 @@ const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y), 
   const b = renderer.requestAt(x, y);
   if (!b) return null;
   const text = requestText(b.request, state.world.tick);
+  const view = progressView(state.world, b.request), pct = view.bar;
+  const progress = `<div style="color:#7dd8c0;margin-top:3px">${view.text}</div>` + (pct
+    ? `<div style="position:relative;height:5px;border-radius:3px;background:rgba(255,255,255,0.14);margin:3px 0 1px"><i style="position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#7dd8c0;width:${Math.min(100, pct.covered)}%"></i><u style="position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;left:${Math.min(100, pct.needed)}%"></u></div>`
+    : '');
   const more = b.count > 1 ? ` <span style="color:#98a2b0;font-weight:400">· ${t('ui.requests.more', { n: b.count - 1 })}</span>` : '';
   return {
-    key: `request:${b.request.id}:${b.count}:${text.stakes}`,
-    html: `<div style="font-weight:700;color:#fff;margin-bottom:2px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:${REQUEST_COLOUR}"></span>${text.title}${more}</div>${text.body}<div style="color:#7dd8c0;margin-top:3px">${text.stakes}</div>`,
+    key: `request:${b.request.id}:${b.count}:${text.stakes}:${view.text}`,
+    html: `<div style="font-weight:700;color:#fff;margin-bottom:2px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:${REQUEST_COLOUR}"></span>${text.title}${more}</div>${text.body}${progress}<div style="color:#7dd8c0;margin-top:3px">${text.stakes}</div>`,
   };
 });
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const pcFloat = new PcFloat(document.getElementById('game')!, camera);
-const requestFeedback = new RequestFeedback((title, message, type) => toastPanel.showToast(title, message, type));
+const requestFeedback = new RequestFeedback((title, message, type, place) => toastPanel.showToast(title, message, type, place));
 const milestoneBanner = new MilestoneBanner(document.getElementById('game')!, (title, message) => toastPanel.showToast(title, message, 'info'));
 const demandChart = new DemandChart();
 
@@ -229,6 +236,50 @@ const input = new InputController(
 // ── Event Listeners ───────────────────────────────────────────────────────────
 
 const ordinancePanel = new OrdinancePanel(document.getElementById('game')!, () => state.world);
+
+// Jumping to a place: a toast about somewhere, or a quest-log row, moves the
+// camera there, and the place is outlined and blinks for a moment.
+const ARRIVAL_MS = 2600;
+let arrival: { x0: number; y0: number; x1: number; y1: number; at: number } | null = null;
+function focusArea(place: { x0: number; y0: number; x1: number; y1: number }): void {
+  camera.focusOn(place.x0, place.y0, place.x1, place.y1);
+  arrival = { x0: place.x0, y0: place.y0, x1: place.x1, y1: place.y1, at: performance.now() };
+}
+toastPanel.onGo = focusArea;
+const requestLog = new RequestLog(document.getElementById('game')!, () => state.world, (req) => focusArea(req));
+
+// Where the pointer is over the map, for outlining the request whose badge it is on.
+const pointer = { x: 0, y: 0, inside: false };
+canvas.addEventListener('pointermove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top; pointer.inside = true;
+});
+canvas.addEventListener('pointerleave', () => { pointer.inside = false; });
+
+/** The areas to outline this frame: where the camera just jumped (three blinks), and the request under the pointer. */
+function areaHighlights(now: number): AreaHighlight[] {
+  const out: AreaHighlight[] = [];
+  if (arrival) {
+    const age = (now - arrival.at) / ARRIVAL_MS;
+    if (age >= 1) arrival = null;
+    else out.push({ ...arrival, alpha: 0.25 + 0.75 * Math.abs(Math.sin(age * Math.PI * 3)) * (age > 0.85 ? (1 - age) / 0.15 : 1) });
+  }
+  if (currentTool === 'inspect' && pointer.inside) {
+    const b = renderer.requestAt(pointer.x, pointer.y);
+    if (b) out.push({ x0: b.request.x0, y0: b.request.y0, x1: b.request.x1, y1: b.request.y1, alpha: 1 });
+  }
+  return out;
+}
+
+/** The Budget, Ordinances and Requests panels open in the same spot: opening one closes the others. */
+function togglePanel(which: 'budget' | 'ordinances' | 'requests'): void {
+  if (which !== 'budget' && econPanel.isOpen) econPanel.toggle();
+  if (which !== 'ordinances') ordinancePanel.close();
+  if (which !== 'requests') requestLog.close();
+  if (which === 'budget') { document.getElementById('econ-panel')!.style.right = besideHud() + 'px'; econPanel.toggle(); }
+  else if (which === 'ordinances') ordinancePanel.toggle(besideHud());
+  else requestLog.toggle(besideHud());
+}
 /** Where a panel opened from the toolbar sits: just left of the stats and toolbar column. */
 function besideHud(): number {
   // With ?debug=true a dock of tuning panels sits beside the column; open left of that.
@@ -246,17 +297,9 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'load':   saveLoadPanel.showLoad(); break;
       case 'undo':   state.history.undo(); break;
       case 'redo':   state.history.redo(); break;
-      case 'budget': {
-        // The budget panel opens beside the stats and toolbar column, however wide that is.
-        ordinancePanel.close();
-        document.getElementById('econ-panel')!.style.right = besideHud() + 'px';
-        econPanel.toggle();
-        break;
-      }
-      case 'ordinances':
-        if (econPanel.isOpen) econPanel.toggle();   // the two share the same spot
-        ordinancePanel.toggle(besideHud());
-        break;
+      case 'budget':     togglePanel('budget'); break;
+      case 'ordinances': togglePanel('ordinances'); break;
+      case 'requests':   togglePanel('requests'); break;
     }
   },
   onRoadMode: (mode) => {
@@ -289,7 +332,7 @@ function planPcPreview(at: { tx: number; ty: number }, q: PcQuote): PcPreview | 
  */
 let toastsMovedFor = '';
 function keepToastsClear(): void {
-  const open = ordinancePanel.isOpen ? document.getElementById('ordinance-panel') : econPanel.isOpen ? document.getElementById('econ-panel') : null;
+  const open = requestLog.isOpen ? document.getElementById('request-log') : ordinancePanel.isOpen ? document.getElementById('ordinance-panel') : econPanel.isOpen ? document.getElementById('econ-panel') : null;
   const key = (open ? open.id : '') + ':' + window.innerWidth;
   if (key === toastsMovedFor) return;
   toastsMovedFor = key;
@@ -348,6 +391,7 @@ window.addEventListener('keydown', (e) => {
   if (key === 'escape') {
     if (toolbar.closeFlyout()) return;
     if (ordinancePanel.close()) return;
+    if (requestLog.close()) return;
     if (input.autoRoadStart) { input.cancelAutoRoad(); return; }
     setTool('none');
     return;
@@ -374,7 +418,8 @@ window.addEventListener('keydown', (e) => {
   }
   // Tool and overlay keys come from the toolbar list, so the tooltips cannot lie.
   const item = toolbarItems().find(i => i.hotkey === key);
-  if (item?.action === 'ordinances') { if (ordinancesShown()) { if (econPanel.isOpen) econPanel.toggle(); ordinancePanel.toggle(besideHud()); } }
+  if (item?.action === 'ordinances') { if (ordinancesShown()) togglePanel('ordinances'); }
+  else if (item?.action === 'requests') { if (!item.shown || item.shown()) togglePanel('requests'); }
   else if (item?.tool !== undefined) setTool(item.tool);
   else if (item?.overlay !== undefined) toggleOverlay(item.overlay);
 });
@@ -388,6 +433,15 @@ const statPC    = document.getElementById('stat-pc')!;
 const statPCRate = document.getElementById('stat-pc-rate')!;
 const pcBar     = document.getElementById('pc-bar')!;
 const statMoney = document.getElementById('stat-money')!;
+if (DEBUG) {
+  // Play-test helper: a little money on demand, next to the money figure.
+  const more = document.createElement('button');
+  more.id = 'debug-money';
+  more.type = 'button';
+  more.textContent = '+$10k';
+  more.addEventListener('click', () => { state.world.budget.money += 10000; });
+  statMoney.after(more);
+}
 const statDebt  = document.getElementById('stat-debt')!;
 const statPop   = document.getElementById('stat-pop')!;
 const statPower = document.getElementById('stat-power')!;
@@ -464,6 +518,7 @@ function frame(now: number): void {
   renderer.render(state.world, camera, {
     pcPreview,
     requestOutcomes: requestFeedback.outcomes(performance.now()),
+    areaHighlights: areaHighlights(performance.now()),
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
@@ -472,7 +527,9 @@ function frame(now: number): void {
   politicsTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
+  requestLogState.open = state.world.politics.requests.length;
   toolbar.syncShown();
+  requestLog.update();
   keepToastsClear();
   if (ordinancePanel.isOpen && !ordinancesShown()) ordinancePanel.close();   // switched off while open
   ordinancePanel.update();

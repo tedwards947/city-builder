@@ -4,11 +4,17 @@ import { t } from '../i18n';
 
 export type ToastType = 'info' | 'warning' | 'alert';
 
+/** Where a toast is about, in tiles (inclusive corners). A single tile has x0 = x1, y0 = y1. */
+export interface ToastPlace { x0: number; y0: number; x1: number; y1: number }
+const tile = (tx: number, ty: number): ToastPlace => ({ x0: tx, y0: ty, x1: tx, y1: ty });
+
 export class ToastPanel {
   private container: HTMLDivElement;
   private world: World | null = null;
   private readonly handlers: Record<string, (payload: any) => void> = {};
   private readonly maxToasts: number = 3;
+  /** Called when the player clicks a toast that is about a place. Set by main.ts (moves the camera). */
+  public onGo: ((place: ToastPlace) => void) | null = null;
 
   constructor() {
     this.container = document.createElement('div');
@@ -57,7 +63,7 @@ export class ToastPanel {
       this.showToast(t('ui.toast.crimeWaveTitle'), t('ui.toast.crimeWaveMsg', { affectedTiles: p.affectedTiles }), 'warning');
     };
     this.handlers['fireIgnition'] = (p: CityEvents['fireIgnition']) => {
-      this.showToast(t('ui.toast.fireAlertTitle'), t('ui.toast.fireAlertMsg', { tx: p.tx, ty: p.ty }), 'alert');
+      this.showToast(t('ui.toast.fireAlertTitle'), t('ui.toast.fireAlertMsg', { tx: p.tx, ty: p.ty }), 'alert', tile(p.tx, p.ty));
     };
     this.handlers['healthcareCrisis'] = (p: CityEvents['healthcareCrisis']) => {
       this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert');
@@ -65,7 +71,7 @@ export class ToastPanel {
     this.handlers['fireDamage'] = (p: CityEvents['fireDamage']) => {
       // p.level is the level after the fire; only report losses of bigger buildings.
       if (p.level >= 1) {
-        this.showToast(t('ui.toast.fireDamageTitle'), t('ui.toast.fireDamageMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning');
+        this.showToast(t('ui.toast.fireDamageTitle'), t('ui.toast.fireDamageMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning', tile(p.tx, p.ty));
       }
     };
     this.handlers['budgetWarning'] = (p: CityEvents['budgetWarning']) => {
@@ -80,14 +86,15 @@ export class ToastPanel {
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam
       if (p.level >= 2) {
-        this.showToast(t('ui.toast.buildingAbandonedTitle'), t('ui.toast.buildingAbandonedMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning');
+        this.showToast(t('ui.toast.buildingAbandonedTitle'), t('ui.toast.buildingAbandonedMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning', tile(p.tx, p.ty));
       }
     };
   }
 
-  public showToast(title: string, message: string, type: ToastType = 'info'): void {
+  /** `place`: where the toast is about. Such a toast shows a chevron, and a click goes there instead of dismissing it. */
+  public showToast(title: string, message: string, type: ToastType = 'info', place?: ToastPlace): void {
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `toast ${type}` + (place ? ' go' : '');
     
     const titleEl = document.createElement('div');
     titleEl.className = 'toast-title';
@@ -115,6 +122,12 @@ export class ToastPanel {
         }
       }, 300); // Wait for fade out animation
     }, 10000);
+
+    // A toast about a place: a click goes there, and the toast stays.
+    if (place) {
+      toast.addEventListener('click', () => this.onGo?.(place));
+      return;
+    }
 
     // Allow clicking to dismiss early
     toast.addEventListener('click', () => {

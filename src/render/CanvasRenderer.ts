@@ -49,7 +49,11 @@ export interface RenderOptions {
   pcPreview?: PcPreview | null;
   /** Resident requests that have just been met or missed, to mark for a moment. */
   requestOutcomes?: readonly RequestOutcome[];
+  /** Areas to outline (tiles, inclusive corners), each at `alpha` 0–1: where the camera just jumped to, or the request under the pointer. */
+  areaHighlights?: readonly AreaHighlight[];
 }
+
+export interface AreaHighlight { x0: number; y0: number; x1: number; y1: number; alpha: number }
 
 export interface ZonePreview {
   tiles: ReadonlyArray<{ tx: number; ty: number }>;
@@ -70,6 +74,8 @@ export interface PcTag {
   ok: boolean;
   /** A second line, e.g. why the action is refused. */
   note?: string;
+  /** The note is a warning about something still allowed: drawn in amber. */
+  warn?: boolean;
 }
 
 export interface RoadPreview {
@@ -188,6 +194,7 @@ export class CanvasRenderer {
     // 3. Problem badges and district pins.
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
     this._drawRequests(ctx, world, camera, ts, options.requestOutcomes ?? []);
+    for (const h of options.areaHighlights ?? []) this._drawAreaHighlight(ctx, camera, ts, h);
 
     // 4. The inspected lot's trips to work and shops (or to homes), along the roads.
     if (tool === 'inspect' && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
@@ -204,7 +211,7 @@ export class CanvasRenderer {
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
-    if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok);
+    if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok, pcPreview?.warning === true);
 
     const tlsx = camera.worldToScreenX(0);
     const tlsy = camera.worldToScreenY(0);
@@ -483,6 +490,22 @@ export class CanvasRenderer {
     }
   }
 
+  /** A bright dashed outline and a light wash over an area: "here". */
+  private _drawAreaHighlight(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, h: AreaHighlight): void {
+    if (h.alpha <= 0) return;
+    const x = Math.round(camera.worldToScreenX(h.x0 * TILE_SIZE)), y = Math.round(camera.worldToScreenY(h.y0 * TILE_SIZE));
+    const w = Math.round((h.x1 - h.x0 + 1) * ts), hh = Math.round((h.y1 - h.y0 + 1) * ts);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, h.alpha);
+    ctx.fillStyle = 'rgba(125,216,192,0.14)';
+    ctx.fillRect(x, y, w, hh);
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([9, 6]);
+    ctx.strokeStyle = '#9ff3dc';
+    ctx.strokeRect(x + 0.5, y + 0.5, w, hh);
+    ctx.restore();
+  }
+
   /**
    * Resident requests: a faint dashed outline round each asking area, a badge
    * at its centre (merged where they would overlap), and a tick or cross where
@@ -592,7 +615,7 @@ export class CanvasRenderer {
     }
     if (note) {
       ctx.font = SMALL;
-      ctx.fillStyle = '#9ab';
+      ctx.fillStyle = pc?.warn ? '#ffd166' : '#9ab';
       ctx.fillText(note, x, y + 15);
     }
   }
@@ -634,11 +657,11 @@ export class CanvasRenderer {
     });
     ctx.setLineDash([]);
     if (preview.label || preview.money) {
-      this._drawPriceTag(ctx, camera, ts, at, preview.money ?? '', true, { text: preview.label, ok, note: preview.note });
+      this._drawPriceTag(ctx, camera, ts, at, preview.money ?? '', true, { text: preview.label, ok, note: preview.note, warn: preview.warning });
     }
   }
 
-  private _drawHover(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, hoverTile: { tx: number; ty: number }, tool: string, refused = false): void {
+  private _drawHover(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, hoverTile: { tx: number; ty: number }, tool: string, refused = false, warn = false): void {
     const sx = camera.worldToScreenX(Projection.tileToWorldX(hoverTile.tx));
     const sy = camera.worldToScreenY(Projection.tileToWorldY(hoverTile.ty));
     
@@ -651,7 +674,8 @@ export class CanvasRenderer {
       ctx.fillStyle = 'rgba(224,112,112,0.3)';
       ctx.fillRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
     }
-    ctx.strokeStyle = ok ? '#fff' : '#f66';
+    // Amber: allowed, but with a warning (a service building off the road network).
+    ctx.strokeStyle = !ok ? '#f66' : warn ? '#ffd166' : '#fff';
     ctx.lineWidth = 2;
     ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
   }
