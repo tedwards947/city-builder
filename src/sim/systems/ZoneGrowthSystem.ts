@@ -4,6 +4,7 @@
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 
 /** Inverse of `a` modulo `m`, or 0 if there is none (a and m share a factor). */
 function modInverse(a: number, m: number): number {
@@ -58,6 +59,11 @@ export class ZoneGrowthSystem {
     const hasPowerSurplus  = world.stats.powerSupply >= world.stats.powerDemand;
     const hasWaterSurplus  = world.stats.waterSupply >= world.stats.waterDemand;
     const hasSewageSurplus = world.stats.sewageSupply >= world.stats.sewageDemand;
+
+    // Ordinances scale the chance to grow: every zone (Fast-Track Permits)
+    // and industry on top of that (Clean Air Act).
+    const growthAll = ordinanceModifier(world, 'growth');
+    const growthIndustry = growthAll * ordinanceModifier(world, 'industrialGrowth');
 
     // Randomize scan order with a prime step to prevent top-left always growing first.
     const n = width * height;
@@ -124,7 +130,8 @@ export class ZoneGrowthSystem {
         const a = world.layers.accessibility[i] / 255;
         accessMult = BALANCE.transit.accessFloor + (1 - BALANCE.transit.accessFloor) * a;
       }
-      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult * shortagePenalty) {
+      const ordinance = zone[i] === ZONE_I ? growthIndustry : growthAll;
+      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult * shortagePenalty * ordinance) {
         dev[i]++;
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });

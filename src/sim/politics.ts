@@ -16,6 +16,7 @@ import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants'
 import { BALANCE } from '../data/balance';
 import { serviceOpeningValue, serviceClosureValue } from './serviceValue';
 import type { ServiceValueConfig } from './serviceValue';
+import { ordinanceModifier } from './ordinances';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -185,6 +186,11 @@ export interface Disruption {
   pcReward: number;
 }
 
+/** PC charged per resident displaced, after any ordinance (Eminent Domain halves it). */
+function displacementPerResident(world: World): number {
+  return BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * ordinanceModifier(world, 'displacementCost');
+}
+
 /**
  * Political consequences of wiping whatever currently stands on a tile.
  *   - Populated, non-abandoned residential → displacement cost.
@@ -201,7 +207,7 @@ export function tileDisruption(world: World, tx: number, ty: number): Disruption
       : 0;
   return {
     displacedPopulation,
-    pcCost: displacedPopulation * costs.bulldozePerPop,
+    pcCost: displacedPopulation * displacementPerResident(world),
     pcReward: isAbandoned && dev > 0 ? dev * costs.abandonedBuildingReward : 0,
   };
 }
@@ -404,7 +410,7 @@ export function pcQuote(
           const zi = grid.idx(z.tx, z.ty);
           if (layers.zone[zi] !== ZONE_R) continue;
           const pop = BALANCE.growth.popPerLevel[layers.devLevel[zi]] ?? 0;
-          addPart(q, 'displacement', z.tx, z.ty, -(pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop));
+          addPart(q, 'displacement', z.tx, z.ty, -(pop * displacementPerResident(world)));
         }
       }
       break;

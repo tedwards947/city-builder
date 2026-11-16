@@ -15,6 +15,7 @@
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
 const LV = BALANCE.landValue;
@@ -78,6 +79,8 @@ export class LandValueSystem {
     // this keeps the first run's whole-map pass cheap.
     const near = growRect(world.index.area(world), width, height, REACH);
 
+    const riseSmoothing = Math.min(1, LV.smoothing * ordinanceModifier(world, 'landValueGrowth'));
+
     let delta = 0;
     let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
     for (let y = region.y0; y <= region.y1; y++) {
@@ -131,9 +134,10 @@ export class LandValueSystem {
         }
 
         target = Math.max(0, Math.min(255, target));
-        // Smooth toward target.
+        // Smooth toward target. Rent Control slows rises (not falls).
         const before = lv[i];
-        const after = Math.round(before * (1 - LV.smoothing) + target * LV.smoothing);
+        const smoothing = target > before ? riseSmoothing : LV.smoothing;
+        const after = Math.round(before * (1 - smoothing) + target * smoothing);
         lv[i] = after;
         if (firstRun) delta += after;
         else delta += after - before;
@@ -178,7 +182,8 @@ export class LandValueSystem {
 
     const sqrtClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, Math.sqrt(v)));
     world.stats.rDemand = taxClamp(sqrtClamp(rRatio) * rTaxMult);
-    world.stats.cDemand = taxClamp(sqrtClamp(cRatio) * cTaxMult);
-    world.stats.iDemand = taxClamp(sqrtClamp(iRatio) * iTaxMult);
+    // Business Incentives scales demand for shops and industry.
+    world.stats.cDemand = taxClamp(sqrtClamp(cRatio) * cTaxMult * ordinanceModifier(world, 'commercialDemand'));
+    world.stats.iDemand = taxClamp(sqrtClamp(iRatio) * iTaxMult * ordinanceModifier(world, 'industrialDemand'));
   }
 }

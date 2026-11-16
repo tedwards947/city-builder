@@ -51,6 +51,7 @@
 import { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 import {
   type TrafficData, type TrafficField,
   makeTrafficData, marketRate, marketCapacity, bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
@@ -110,6 +111,7 @@ export class TransitSystem {
   private _lots!: Int32Array;       // developed, non-abandoned zone tiles
   private _lotCount = 0;
   private _fresh = true;            // no pass has run yet
+  private _tripsScale = 1;          // ordinance multiplier on trips, read once per pass
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
@@ -202,6 +204,9 @@ export class TransitSystem {
     this._roads = roads; this._roadCount = roadCount; this._lotCount = lotCount;
     let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
     for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)}`;
+    // Free Transit scales the trips put on the roads; a change means a new pass.
+    this._tripsScale = ordinanceModifier(world, 'trafficTrips');
+    tuning += `,${this._tripsScale}`;
     for (const k of [1, 2, 3]) {
       const rc = BALANCE.roadClasses[k];
       tuning += `,${rc.capacity},${rc.speedMult}`;
@@ -337,7 +342,7 @@ export class TransitSystem {
       const m = markets[k];
       const { def, field } = m;
       this._flood(world, def.dest, field, marketCapacity(def));
-      const demand = this._inject(world, field, def.origin, marketRate(def), this._flow);
+      const demand = this._inject(world, field, def.origin, marketRate(def) * this._tripsScale, this._flow);
       this._openDoors(field, demand);
       this._sweep(world, field, this._flow);
       this._spill(world, field);

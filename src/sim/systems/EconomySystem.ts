@@ -1,6 +1,7 @@
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -13,6 +14,9 @@ export class EconomySystem {
     const roadClass = world.layers.roadClass;
     const abandoned = world.layers.abandoned;
     const { taxRates } = world.budget;
+    // Ordinances (Curfew, Business Incentives) scale tax income from shops and industry.
+    const shopIncome = ordinanceModifier(world, 'commercialIncome');
+    const industryIncome = ordinanceModifier(world, 'industrialIncome');
     let income = 0;
     let population = 0;
     let roadMaintenance = 0;
@@ -43,7 +47,8 @@ export class EconomySystem {
           const sick = world.layers.sickness[i];
           sickMult = 1.0 - (sick / 255) * BALANCE.healthcare.taxPenalty;
         }
-        income += dev[i] * baseRate * lvMult * eduMult * sickMult;
+        const ordinance = zone[i] === ZONE_C ? shopIncome : zone[i] === ZONE_I ? industryIncome : 1;
+        income += dev[i] * baseRate * lvMult * eduMult * sickMult * ordinance;
       }
     }
     for (let k = 0; k < roadCount; k++) {
