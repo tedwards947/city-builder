@@ -2,6 +2,7 @@
 // All typed arrays are copied (not referenced) so the snapshot is immutable.
 
 import { World } from '../sim/World';
+import { upgradeLoadedRequests } from '../sim/requests';
 import { startCountingFromNow } from '../sim/established';
 import type { WorldSnapshot } from './SaveFormat';
 
@@ -85,7 +86,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
     active: [...(ordinances?.active ?? [])],
     suspended: [...(ordinances?.suspended ?? [])],
   };
-  world.politics.requests = (requests ?? []).map(r => ({ ...r }));
+  // needAtOpen and the split kinds are filled in by upgradeLoadedRequests once the layers are loaded.
+  world.politics.requests = (requests ?? []).map(r => ({ ...r, needAtOpen: r.needAtOpen ?? NaN }));
   world.politics.nextRequestId = nextRequestId ?? 1;
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
@@ -148,5 +150,6 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.roadNetDirty = true;
   world.grid.markAllDirty();
 
+  upgradeLoadedRequests(world);
   return world;
 }

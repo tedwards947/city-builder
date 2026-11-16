@@ -14,7 +14,7 @@ import { pcCap, regenPerTick } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
 import { debugDock } from './debugDock';
-import { REQUEST_KINDS, requestConfig, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
+import { REQUEST_KINDS, requestConfig, requestKind, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 
 // BALANCE is declared `as const`; the debug panels are the one place that edit it.
 type Tree = Record<string, unknown>;
@@ -363,7 +363,7 @@ export class PoliticsTuningPanel {
       const w = this.getWorld();
       const area = neediestFor(w, kind.value);
       if (!area) { console.log('No neighbourhood with enough homes yet.'); return; }
-      openRequest(w, kind.value, area, requestConfig().kinds[kind.value]?.days || 20);
+      openRequest(w, kind.value, area, requestConfig().kinds[kind.value]?.days || 20, requestKind(kind.value)?.need(w, area) ?? 0);
     }));
 
     const days = numberBox(1, 40);

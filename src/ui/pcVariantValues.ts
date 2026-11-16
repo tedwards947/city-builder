@@ -79,12 +79,22 @@ export const VARIANT_VALUES = {
           reward: 15,
           penalty: 3
         },
-        schoolOrHospital: {
+        school: {
           days: 30,
           reward: 15,
           penalty: 3
         },
-        policeOrFire: {
+        hospital: {
+          days: 30,
+          reward: 15,
+          penalty: 3
+        },
+        police: {
+          days: 30,
+          reward: 15,
+          penalty: 3
+        },
+        fire: {
           days: 30,
           reward: 15,
           penalty: 3
@@ -260,12 +270,22 @@ export const VARIANT_VALUES = {
           reward: 10,
           penalty: 5
         },
-        schoolOrHospital: {
+        school: {
           days: 20,
           reward: 10,
           penalty: 5
         },
-        policeOrFire: {
+        hospital: {
+          days: 20,
+          reward: 10,
+          penalty: 5
+        },
+        police: {
+          days: 20,
+          reward: 10,
+          penalty: 5
+        },
+        fire: {
           days: 20,
           reward: 10,
           penalty: 5
@@ -441,12 +461,22 @@ export const VARIANT_VALUES = {
           reward: 8,
           penalty: 8
         },
-        schoolOrHospital: {
+        school: {
           days: 15,
           reward: 8,
           penalty: 8
         },
-        policeOrFire: {
+        hospital: {
+          days: 15,
+          reward: 8,
+          penalty: 8
+        },
+        police: {
+          days: 15,
+          reward: 8,
+          penalty: 8
+        },
+        fire: {
           days: 15,
           reward: 8,
           penalty: 8
@@ -622,12 +652,22 @@ export const VARIANT_VALUES = {
           reward: 20,
           penalty: 10
         },
-        schoolOrHospital: {
+        school: {
           days: 20,
           reward: 20,
           penalty: 10
         },
-        policeOrFire: {
+        hospital: {
+          days: 20,
+          reward: 20,
+          penalty: 10
+        },
+        police: {
+          days: 20,
+          reward: 20,
+          penalty: 10
+        },
+        fire: {
           days: 20,
           reward: 20,
           penalty: 10
