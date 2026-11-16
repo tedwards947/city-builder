@@ -87,10 +87,28 @@ export function ordinanceState(world: World, id: OrdinanceId): OrdinanceState {
   return canEnact(world, id) ? 'off' : 'cantAfford';
 }
 
-/** Enacting needs PC above 0 (an ordinance enacted in debt would only be suspended) and at least its cost. */
-export function canEnact(world: World, id: OrdinanceId): boolean {
+/** Whether ordinances are switched on in this build (the toolbar tile and panel are hidden until then). */
+export function ordinancesEnabled(): boolean {
+  return BALANCE.politicalCapital.ordinancesEnabled;
+}
+
+/** Why an ordinance can't be enacted right now. */
+export type EnactBlocker = 'active' | 'inDebt' | 'notEnoughPc';
+
+/**
+ * Why `id` can't be enacted now, or null if it can. Enacting needs PC above
+ * 0 (an ordinance enacted in debt would only be suspended) and at least its cost.
+ */
+export function enactBlocker(world: World, id: OrdinanceId): EnactBlocker | null {
   const pc = world.budget.politicalCapital;
-  return !world.politics.ordinances.active.includes(id) && pc > 0 && pc >= numbersOf(id)!.enactCost;
+  if (world.politics.ordinances.active.includes(id)) return 'active';
+  if (pc <= 0) return 'inDebt';
+  if (pc < numbersOf(id)!.enactCost) return 'notEnoughPc';
+  return null;
+}
+
+export function canEnact(world: World, id: OrdinanceId): boolean {
+  return enactBlocker(world, id) === null;
 }
 
 /** Enact an ordinance, charging its cost. Returns false (and changes nothing) if it can't be. */
