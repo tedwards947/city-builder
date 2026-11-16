@@ -26,6 +26,8 @@ import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import type { TilePos } from './dragPath';
+import { pcQuoteMany } from '../sim/politics';
+import type { PcQuote } from '../sim/politics';
 
 /** How the zone tools paint: by dragging over tiles, or by filling along a road. */
 export type ZoneMode = 'drag' | 'fill';
@@ -162,7 +164,13 @@ export interface ZoneFillPlan {
   /** The tiles that will be zoned. */
   tiles: TilePos[];
   cost: number;
+  /** Whether the city has the money for it right now. */
   affordable: boolean;
+  /**
+   * The political capital the fill would cost (industry near homes), with
+   * `pc.affordable` false if the click would be refused for it.
+   */
+  pc: PcQuote;
 }
 
 /** What a fill of `zone` from `hover` would zone and cost. Reads the world, changes nothing. */
@@ -171,5 +179,6 @@ export function planZoneFill(world: World, hover: TilePos, zone: number, reach =
     world.isBuildable(tx, ty) && world.layers.zone[world.grid.idx(tx, ty)] === ZONE_NONE);
   const each = zone === ZONE_R ? BALANCE.costs.zoneR : zone === ZONE_C ? BALANCE.costs.zoneC : BALANCE.costs.zoneI;
   const cost = tiles.length * each;
-  return { tiles, cost, affordable: world.budget.money >= cost };
+  const pc = pcQuoteMany(world, tiles.map(({ tx, ty }) => ({ type: 'zone' as const, tx, ty, zone })));
+  return { tiles, cost, affordable: world.budget.money >= cost, pc };
 }

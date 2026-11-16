@@ -325,5 +325,22 @@ export const BALANCE = {
       bulldozePerPop: 3.5, // per displaced resident (level-3 R zone = 20 pop → 70 PC)
       abandonedBuildingReward: 2.5, // per abandoned building level cleared (clearing blight is popular)
     },
+    // Unpopular things put near homes cost PC for each resident within reach,
+    // less the further away they live. Homes built later next to one do not count.
+    // SWITCHED OFF: every rate is 0 until the Political Capital numbers pass.
+    nuisance: {
+      // Fall-off bands by manhattan distance, nearest first: a home within
+      // `within` tiles objects at `weight`. The last band is the radius. The
+      // preview rings are drawn from these, so they always match the cost.
+      bands: [
+        { within: 2, weight: 1 },
+        { within: 4, weight: 0.6 },
+        { within: 6, weight: 0.3 },
+      ] as { within: number; weight: number }[],
+      // PC per resident at weight 1, for each industrial tile zoned.
+      industrialPerResident: 0,
+      // PC per resident at weight 1, by building kind (1 = power plant, 3 = sewage plant).
+      buildingPerResident: { 1: 0, 3: 0 } as Record<number, number>,
+    },
   },
 } as const;

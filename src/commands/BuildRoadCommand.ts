@@ -1,10 +1,11 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
 import { snapshotTile, restoreTile, tileDisruption } from './Command';
+import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
-import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, TERRAIN_WATER } from '../sim/constants';
+import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { changePc } from '../sim/politics';
+import { pcQuote, chargeQuote, refundCharges, zonesCutOffByHighway } from '../sim/politics';
 
 // Builds a new road OR upgrades an existing road to a higher class.
 //
@@ -41,8 +42,8 @@ export class BuildRoadCommand extends Command {
   private readonly targetClass: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  // Change to political capital applied at execute (negative = cost, positive = reward).
-  private pcDelta = 0;
+  // Political capital changes applied at execute.
+  private pcCharges: PcCharges = [];
   private affectedZones: Array<{ tx: number; ty: number; snap: TileSnapshot }> = [];
 
   constructor(tx: number, ty: number, targetClass = ROAD_STREET) {
@@ -63,69 +64,24 @@ export class BuildRoadCommand extends Command {
 
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
+    // Paving over a populated residential tile displaces its residents, and a
+    // highway cuts off the zones beside it that have no other road: both are
+    // priced by the quote.
+    const quote = pcQuote(world, { type: 'road', tx: this.tx, ty: this.ty, roadClass: this.targetClass });
+    if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
+    const { displacedPopulation, pcCost: displacementCost } = tileDisruption(world, this.tx, this.ty);
+
     // Snapshot for undo
     this.snap = snapshotTile(world, this.tx, this.ty);
     this.cost = cost;
-    this.affectedZones = [];
-    // Paving over a populated residential tile displaces its residents.
-    const { displacedPopulation, pcCost: displacementCost } = tileDisruption(world, this.tx, this.ty);
-    let pcCost = displacementCost;
+    // Zones a highway leaves with no street or avenue abandon at once.
+    this.affectedZones = this.targetClass === ROAD_HIGHWAY
+      ? zonesCutOffByHighway(world, this.tx, this.ty).map(z => ({ ...z, snap: snapshotTile(world, z.tx, z.ty) }))
+      : [];
 
-    // 1. Temporarily apply the road change to check for abandonment impact
-    const oldClass = world.layers.roadClass[i];
-    world.layers.roadClass[i] = this.targetClass;
-
-    // 2. If upgrading to HIGHWAY, check nearby zones (direct adjacency only)
-    if (this.targetClass === ROAD_HIGHWAY) {
-      const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
-      for (const [dx, dy] of neighbors) {
-        const nx = this.tx + dx, ny = this.ty + dy;
-        if (!world.grid.inBounds(nx, ny)) continue;
-        
-        const ni = world.grid.idx(nx, ny);
-        const zone = world.layers.zone[ni];
-        const dev = world.layers.devLevel[ni];
-        const isAbandoned = world.layers.abandoned[ni] !== 0;
-
-        if (zone !== ZONE_NONE && dev > 0 && !isAbandoned) {
-          // Check if it still has valid road access
-          let hasValidRoad = false;
-          for (const [adx, ady] of neighbors) {
-            const anx = nx + adx, any = ny + ady;
-            if (!world.grid.inBounds(anx, any)) continue;
-            const rc = world.layers.roadClass[world.grid.idx(anx, any)];
-            if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) {
-              hasValidRoad = true;
-              break;
-            }
-          }
-
-          if (!hasValidRoad) {
-            // Mark for abandonment
-            this.affectedZones.push({ tx: nx, ty: ny, snap: snapshotTile(world, nx, ny) });
-            if (zone === ZONE_R) {
-              const pop = BALANCE.growth.popPerLevel[dev] ?? 0;
-              pcCost += pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
-            }
-          }
-        }
-      }
-    }
-
-    // 3. Verify we can afford the PC cost
-    if (pcCost > 0 && world.budget.politicalCapital < pcCost) {
-      world.layers.roadClass[i] = oldClass; // Revert temp change
-      this.failReason = 'politicalCapital';
-      return false;
-    }
-
-    // 4. Finalize
-    this.pcDelta = -pcCost;
     world.budget.money -= cost;
-    changePc(world, this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty });
+    this.pcCharges = chargeQuote(world, quote, this.tx, this.ty);
 
-    // Re-apply road via world method for dirty tracking etc.
-    world.layers.roadClass[i] = oldClass; 
     const ok = world.setRoad(this.tx, this.ty, this.targetClass);
 
     if (ok) {
@@ -152,6 +108,6 @@ export class BuildRoadCommand extends Command {
       restoreTile(world, az.tx, az.ty, az.snap);
     }
     world.budget.money += this.cost;
-    changePc(world, -this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty, undo: true });
+    refundCharges(world, this.pcCharges, this.tx, this.ty);
   }
 }
