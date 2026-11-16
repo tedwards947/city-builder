@@ -244,6 +244,7 @@ export interface TranslationSchema {
       menu: string;
       upkeep: string;
       shortcut: string;
+      free: string;
       pcNearHomes: string;
       pcWithin: string;
       pcAvoid: string;
