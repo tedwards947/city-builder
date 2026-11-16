@@ -74,7 +74,7 @@ Owner answers to questions from the engine and graphics sessions. Where these cl
 - **Delivery:** engine's plan is to land prep work and steps P1–P8 with all numbers at 0, so nothing changes visibly; switching each step's numbers on is its own small pull request.
 
 ## Ordinances (decided 2026-11-16)
-Each ordinance is a trade-off, not a free buff. It costs a lump of PC to enact plus a small daily PC upkeep (numbers set in the balance play-test). First set:
+Each ordinance is a trade-off, not a free buff. It costs a lump of PC to enact plus a small daily PC upkeep (numbers set in the balance play-test). First set (eight):
 
 | Ordinance | Benefit | Drawback | Sim it uses |
 |---|---|---|---|
@@ -84,11 +84,10 @@ Each ordinance is a trade-off, not a free buff. It costs a lump of PC to enact p
 | Business Incentives | Shop and industry demand up | Their tax income down | Demand, tax |
 | Free Transit | Less traffic | Money upkeep too | Traffic |
 | Fast-Track Permits | Zones grow faster | A bit more pollution and crime | Growth |
-| Rent Control | Homes don't abandon over land value; vibe becomes more egalitarian | Land value grows slower | Land value, abandonment, vibe |
 | Eminent Domain | Displacing residents costs half the PC | City-wide satisfaction drops, so PC is earned more slowly | PC, satisfaction |
 | Heritage Protection | Established neighbourhoods gain land value | They become very expensive to demolish | Land value, PC |
 
-Percentages are starting points, to be tuned in play-testing. Not chosen: Tree Planting Program.
+Percentages are starting points, to be tuned in play-testing. Not chosen: Tree Planting Program. Parked: Rent Control (its benefits, no abandonment over land value and an egalitarian vibe pull, act on things the sim doesn't have yet), until vibe or land-value abandonment exist.
 
 **At 0 PC:** active ordinances are suspended (no effect, no upkeep) and resume by themselves once PC recovers. This matches the "suspended" row state in the mock.
 
