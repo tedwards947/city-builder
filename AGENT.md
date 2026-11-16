@@ -103,6 +103,7 @@ Command (execute/undo) ──► World (mutates layers + buildings[])
 | `world.buildings` | `BuildingEntity[]` | All placed buildings `{ tx, ty, kind }` |
 | `world.stats` | `Stats` | Aggregates: population, supply/demand, satisfaction, etc. |
 | `world.budget` | `Budget` | `money`, `politicalCapital`, `income`, `expenses`, `taxRates` |
+| `world.politics` | `Politics` | `peakPopulation` (highest population credited, for one-off milestones), `regen` (PC change from regeneration last tick, signed; for the HUD). Saved. |
 | `world.character` | `{ egalitarian, green, planned }` | City-wide character axes; derived by VibeSystem from the average of the vibe layers |
 | `world.events` | `EventBus` | Pub/sub for cross-system signals and UI alerts |
 | `world.roadNetDirty` | `boolean` | Set to `true` when road topology changes; NetworkSystem clears it |
@@ -547,7 +548,7 @@ Test files:
 - `chunkCache.test.ts`, `chunkPainter.test.ts`, `rebakeBudget.test.ts` — the static layer is redrawn only when its picture changes; the signature covers every layer the painter reads; zoom smoothing
 - `transit.test.ts`, `trafficCity.test.ts` — traffic model on small hand-built maps, and stability on a 6,500-person test city (`fixtures/testCity.ts`)
 - `goldenCity.test.ts` — the whole simulation on the test city against a stored fingerprint (see below)
-- `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 8), autosave, new game
+- `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 9), autosave, new game
 - `World`, `Grid`, `rng`, `Vegetation`, `graphics`, `i18n`, `audio`, `ToastPanel`
 
 Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays, autosave resume on startup) and real IndexedDB. Check those in a browser.

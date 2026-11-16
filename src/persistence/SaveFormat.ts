@@ -9,8 +9,9 @@
 //   6 — added missing derived layers (crime, education, sickness, etc.) and missing stats
 //   7 — unified powerPlants/waterTowers/sewagePlants/serviceBuildings into buildings[]
 //   8 — added visualVariant layer (Lot ID for persistent graphics)
+//   9 — added politics (peak population for milestones, last PC regeneration)
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -62,6 +63,10 @@ export interface WorldSnapshot {
     green: number;
     planned: number;
   };
+  politics: {
+    peakPopulation: number;
+    regen: number;
+  };
   buildings: { tx: number; ty: number; kind: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
@@ -102,7 +107,7 @@ export interface WorldSnapshot {
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -139,8 +144,23 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 5) rec = upgradeV5toV6(rec);
   if ((rec as { version: number }).version === 6) rec = upgradeV6toV7(rec);
   if ((rec as { version: number }).version === 7) rec = upgradeV7toV8(rec);
-  if ((rec as { version: number }).version === 8) return rec;
+  if ((rec as { version: number }).version === 8) rec = upgradeV8toV9(rec);
+  if ((rec as { version: number }).version === 9) return rec;
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
+}
+
+function upgradeV8toV9(v8: SaveRecord): SaveRecord {
+  const snap = v8.snapshot;
+  return {
+    ...v8,
+    version: 9,
+    snapshot: {
+      ...snap,
+      // The city is credited for the people it already has, so population
+      // milestones it has passed count as reached and pay nothing on load.
+      politics: { peakPopulation: snap.stats?.population ?? 0, regen: 0 },
+    },
+  };
 }
 
 function upgradeV7toV8(v7: SaveRecord): SaveRecord {

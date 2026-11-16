@@ -22,6 +22,7 @@ export function serialize(world: World): WorldSnapshot {
     budget: { ...world.budget },
     stats:  { ...world.stats },
     character: { ...world.character },
+    politics: { ...world.politics },
     buildings: world.buildings.map(b => ({ ...b })),
     layers: {
       terrain:   new Uint8Array(l.terrain),
@@ -69,6 +70,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   Object.assign(world.budget, snapshot.budget);
   Object.assign(world.stats,  snapshot.stats);
   Object.assign(world.character, snapshot.character);
+  Object.assign(world.politics, snapshot.politics);
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
 
