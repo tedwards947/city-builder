@@ -401,7 +401,6 @@ export const BALANCE = {
       businessIncentives: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { commercialDemand: 1, industrialDemand: 1, commercialIncome: 1, industrialIncome: 1 } }, // Shop and industry demand up; their tax income down
       freeTransit: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { trafficTrips: 1 } }, // Less traffic; money upkeep too
       fastTrackPermits: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { growth: 1, pollution: 1, crime: 1 } }, // Zones grow faster; a bit more pollution and crime
-      rentControl: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { abandonmentFromLandValue: 1, vibeEgalitarian: 1, landValueGrowth: 1 } }, // Homes don't abandon over land value, vibe more egalitarian; land value grows slower
       eminentDomain: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { displacementCost: 1, satisfaction: 1 } }, // Displacing residents costs half the PC; satisfaction drops
       heritageProtection: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { establishedLandValue: 1, establishedDemolitionCost: 1 } }, // Established neighbourhoods gain land value; very expensive to demolish
     } as Record<string, { enactCost: number; dailyUpkeep: number; dailyMoney: number; modifiers: Record<string, number> }>,

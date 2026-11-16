@@ -27,9 +27,10 @@ function events(w: World): string[] {
 }
 
 describe('ordinance registry', () => {
-  it('has the nine ordinances, switched off: no cost, no upkeep, every modifier 1', () => {
+  it('has the eight ordinances (Rent Control parked), switched off: no cost, no upkeep, every modifier 1', () => {
     expect(ORDINANCES.map((o) => o.id)).toEqual([...ORDINANCE_IDS]);
-    expect(ORDINANCE_IDS).toHaveLength(9);
+    expect(ORDINANCE_IDS).toHaveLength(8);
+    expect(ORDINANCE_IDS as readonly string[]).not.toContain('rentControl');
     for (const o of ORDINANCES) {
       expect(o.numbers, o.id).toBeDefined();
       expect([o.numbers.enactCost, o.numbers.dailyUpkeep, o.numbers.dailyMoney]).toEqual([0, 0, 0]);
