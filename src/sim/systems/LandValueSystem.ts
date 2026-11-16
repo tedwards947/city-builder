@@ -71,9 +71,17 @@ export class LandValueSystem {
       );
     }
 
+    // Only tiles within REACH of the built-up area can have a road, an
+    // industry, a developed or an abandoned lot near enough to matter, so
+    // only they need the neighbourhood scans below. Anywhere else those terms
+    // are zero (the same reasoning that limits `region` after the first run);
+    // this keeps the first run's whole-map pass cheap.
+    const near = growRect(world.index.area(world), width, height, REACH);
+
     let delta = 0;
     let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
     for (let y = region.y0; y <= region.y1; y++) {
+      const rowNear = y >= near.y0 && y <= near.y1;
       for (let x = region.x0; x <= region.x1; x++) {
         const i = y * width + x;
 
@@ -83,39 +91,41 @@ export class LandValueSystem {
         target += water[i] ? LV.waterBonus   : 0;
         target -= poll[i] * LV.pollutionPenalty;
 
-        // Find max congestion on adjacent roads (within 2 tiles)
-        let maxNearbyCongestion = 0;
-        for (let dy = -2; dy <= 2; dy++) {
-          for (let dx = -2; dx <= 2; dx++) {
-            const nx = x + dx, ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-            const ni = ny * width + nx;
-            if (roadClass[ni] !== 0 && congestion[ni] > maxNearbyCongestion) {
-              maxNearbyCongestion = congestion[ni];
+        if (rowNear && x >= near.x0 && x <= near.x1) {
+          // Find max congestion on adjacent roads (within 2 tiles)
+          let maxNearbyCongestion = 0;
+          for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const ni = ny * width + nx;
+              if (roadClass[ni] !== 0 && congestion[ni] > maxNearbyCongestion) {
+                maxNearbyCongestion = congestion[ni];
+              }
             }
           }
-        }
-        target -= maxNearbyCongestion * LV.congestionPenalty;
+          target -= maxNearbyCongestion * LV.congestionPenalty;
 
-        // Scan neighbourhood for nearby industry (penalty) or developed zones (bonus).
-        const r = LV.industryRadius;
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = x + dx, ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-            const ni = ny * width + nx;
+          // Scan neighbourhood for nearby industry (penalty) or developed zones (bonus).
+          const r = LV.industryRadius;
+          for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const ni = ny * width + nx;
 
-            if (abandoned[ni]) {
-              target -= LV.abandonedPenalty;
-              continue;
-            }
+              if (abandoned[ni]) {
+                target -= LV.abandonedPenalty;
+                continue;
+              }
 
-            if (dev[ni] === 0) continue;
-            if (zone[ni] === ZONE_I) {
-              target -= LV.industryPenalty / (Math.abs(dx) + Math.abs(dy));
-            } else if (zone[ni] !== ZONE_NONE && Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
-              target += LV.neighborBonus;
+              if (dev[ni] === 0) continue;
+              if (zone[ni] === ZONE_I) {
+                target -= LV.industryPenalty / (Math.abs(dx) + Math.abs(dy));
+              } else if (zone[ni] !== ZONE_NONE && Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
+                target += LV.neighborBonus;
+              }
             }
           }
         }
