@@ -15,7 +15,7 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
-import { changePc } from './politics';
+import { changePc, pcCap } from './politics';
 
 export const ORDINANCE_IDS = [
   'neighbourhoodWatch', 'curfew', 'cleanAirAct', 'businessIncentives', 'freeTransit',
@@ -169,9 +169,25 @@ export function updateSuspension(world: World): void {
 }
 
 /**
+ * How much the PC upkeep in the balance table is scaled for this city: the
+ * cap ÷ the base cap, the same factor regeneration uses. A bigger city earns
+ * PC proportionally faster, so its ordinances cost proportionally more and
+ * running them takes the same share of PC income at any size. Exactly 1
+ * while the cap is the base cap.
+ */
+export function upkeepScale(world: World): number {
+  return pcCap(world) / BALANCE.politicalCapital.max;
+}
+
+/** The PC an ordinance costs to keep up per game day in this city (its `dailyUpkeep` × upkeepScale). */
+export function dailyUpkeepOf(world: World, id: OrdinanceId): number {
+  return (numbersOf(id)?.dailyUpkeep ?? 0) * upkeepScale(world);
+}
+
+/**
  * One game day of upkeep for the active, unsuspended ordinances. PC upkeep
- * takes what PC there is and never pushes it below 0; money upkeep is paid
- * like any other running cost.
+ * scales with the cap (upkeepScale), takes what PC there is and never pushes
+ * it below 0; money upkeep is a fixed amount, paid like any other running cost.
  */
 export function payUpkeep(world: World): void {
   const { active, suspended } = world.politics.ordinances;
@@ -183,6 +199,7 @@ export function payUpkeep(world: World): void {
     pc += n.dailyUpkeep;
     money += n.dailyMoney;
   }
+  pc *= upkeepScale(world);
   const take = Math.min(pc, Math.max(0, world.budget.politicalCapital));
   if (take > 0) changePc(world, -take, 'ordinanceUpkeep');
   if (money > 0) world.budget.money -= money;
