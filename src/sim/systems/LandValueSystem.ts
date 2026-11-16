@@ -16,6 +16,7 @@ import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
+import { isEstablished, establishedAfterYears } from '../established';
 import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
 const LV = BALANCE.landValue;
@@ -80,6 +81,10 @@ export class LandValueSystem {
     const near = growRect(world.index.area(world), width, height, REACH);
 
     const riseSmoothing = Math.min(1, LV.smoothing * ordinanceModifier(world, 'landValueGrowth'));
+    // Heritage Protection scales the land value of established lots. The
+    // per-tile check only runs while it is enacted and has a number.
+    const heritage = ordinanceModifier(world, 'establishedLandValue');
+    const establishedAfter = heritage !== 1 ? establishedAfterYears() : 0;
 
     let delta = 0;
     let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
@@ -132,6 +137,8 @@ export class LandValueSystem {
             }
           }
         }
+
+        if (establishedAfter > 0 && isEstablished(world, i, establishedAfter)) target *= heritage;
 
         target = Math.max(0, Math.min(255, target));
         // Smooth toward target. Rent Control slows rises (not falls).

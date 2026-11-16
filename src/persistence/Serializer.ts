@@ -2,6 +2,7 @@
 // All typed arrays are copied (not referenced) so the snapshot is immutable.
 
 import { World } from '../sim/World';
+import { startCountingFromNow } from '../sim/established';
 import type { WorldSnapshot } from './SaveFormat';
 
 /**
@@ -62,6 +63,7 @@ export function serialize(world: World): WorldSnapshot {
       vibeEgalitarian: new Uint8Array(l.vibeEgalitarian),
       vibeGreen:       new Uint8Array(l.vibeGreen),
       vibePlanned:     new Uint8Array(l.vibePlanned),
+      developedSince:  new Uint16Array(world.developedSince),
     },
   };
 }
@@ -130,6 +132,11 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   if (needsBootstrap && bootstrapper) {
     bootstrapper.bootstrapVibes(world);
   }
+
+  // How long each lot has been developed; a save from before that was kept
+  // starts every developed lot's clock now.
+  if (snapshot.layers.developedSince) world.developedSince.set(snapshot.layers.developedSince);
+  else startCountingFromNow(world);
 
   // Sync fire counter after bulk load
   world.recomputeFireCount();

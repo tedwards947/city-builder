@@ -17,6 +17,7 @@ import { BALANCE } from '../data/balance';
 import { serviceOpeningValue, serviceClosureValue } from './serviceValue';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
+import { isEstablished } from './established';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -197,9 +198,16 @@ export interface Disruption {
   pcReward: number;
 }
 
-/** PC charged per resident displaced, after any ordinance (Eminent Domain halves it). */
-function displacementPerResident(world: World): number {
-  return BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * ordinanceModifier(world, 'displacementCost');
+/**
+ * PC charged per resident displaced from tile `i`, after any ordinance:
+ * Eminent Domain scales it everywhere, Heritage Protection scales it for
+ * established lots.
+ */
+function displacementPerResident(world: World, i: number): number {
+  let rate = BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * ordinanceModifier(world, 'displacementCost');
+  const heritage = ordinanceModifier(world, 'establishedDemolitionCost');
+  if (heritage !== 1 && isEstablished(world, i)) rate *= heritage;
+  return rate;
 }
 
 /**
@@ -218,7 +226,7 @@ export function tileDisruption(world: World, tx: number, ty: number): Disruption
       : 0;
   return {
     displacedPopulation,
-    pcCost: displacedPopulation * displacementPerResident(world),
+    pcCost: displacedPopulation * displacementPerResident(world, i),
     pcReward: isAbandoned && dev > 0 ? dev * costs.abandonedBuildingReward : 0,
   };
 }
@@ -421,7 +429,7 @@ export function pcQuote(
           const zi = grid.idx(z.tx, z.ty);
           if (layers.zone[zi] !== ZONE_R) continue;
           const pop = BALANCE.growth.popPerLevel[layers.devLevel[zi]] ?? 0;
-          addPart(q, 'displacement', z.tx, z.ty, -(pop * displacementPerResident(world)));
+          addPart(q, 'displacement', z.tx, z.ty, -(pop * displacementPerResident(world, zi)));
         }
       }
       break;

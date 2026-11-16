@@ -5,6 +5,7 @@ import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
+import { markDeveloped } from '../established';
 
 /** Inverse of `a` modulo `m`, or 0 if there is none (a and m share a factor). */
 function modInverse(a: number, m: number): number {
@@ -133,6 +134,7 @@ export class ZoneGrowthSystem {
       const ordinance = zone[i] === ZONE_I ? growthIndustry : growthAll;
       if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult * shortagePenalty * ordinance) {
         dev[i]++;
+        if (dev[i] === 1) markDeveloped(world, i);   // built up from empty: its years start now
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });
       }
