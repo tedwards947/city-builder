@@ -313,7 +313,7 @@ function close(world: World, req: OpenRequest): boolean {
   return true;
 }
 
-/** Close an open request as met, paying its reward (stops at the cap). */
+/** Close an open request as met, paying its reward (which may take PC over the cap). */
 export function meetRequest(world: World, req: OpenRequest): void {
   if (!close(world, req)) return;
   const reward = requestConfig().kinds[req.kind]?.reward ?? 0;
