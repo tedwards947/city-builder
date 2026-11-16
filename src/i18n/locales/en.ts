@@ -155,6 +155,8 @@ export const en: TranslationSchema = {
       camera: "Camera",
       zoom: "Zoom",
       polCapital: "Pol. Capital",
+      pcFull: "full",
+      pcBonus: "bonus",
       inDebt: "In debt · building blocked",
       money: "Money",
       population: "Population",

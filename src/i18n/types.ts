@@ -123,6 +123,8 @@ export interface TranslationSchema {
       camera: string;
       zoom: string;
       polCapital: string;
+      pcFull: string;
+      pcBonus: string;
       inDebt: string;
       money: string;
       population: string;
