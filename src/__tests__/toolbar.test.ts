@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { TOOLBAR, toolPrice } from '../ui/Toolbar';
+import { TOOLBAR, toolPrice, toolbarItems, hotkeyLabel } from '../ui/Toolbar';
 import type { ToolbarItem } from '../ui/Toolbar';
 import type { Tool } from '../input/InputController';
 import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
 
-const items: ToolbarItem[] = TOOLBAR.flatMap(e => e === 'sep' ? [] : 'family' in e ? e.items : [e]);
+const items: ToolbarItem[] = toolbarItems();
 const families = TOOLBAR.flatMap(e => e !== 'sep' && 'family' in e ? [e.family] : []);
 
 describe('toolbar list', () => {
@@ -30,6 +30,19 @@ describe('toolbar list', () => {
       expect(t('ui.toolbarDesc.' + i.key)).not.toBe('ui.toolbarDesc.' + i.key);
     }
     for (const f of families) expect(t('ui.toolbar.' + f)).not.toBe('ui.toolbar.' + f);
+  });
+
+  it('gives every tool and overlay its own hotkey', () => {
+    const keys = items.flatMap(i => i.hotkey ? [i.hotkey] : []);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const i of items) if (i.tool !== undefined || i.overlay !== undefined) expect(i.hotkey, i.key).toBeTruthy();
+    expect(keys).not.toContain(' ');   // space is pause
+  });
+
+  it('writes hotkeys the way each platform does', () => {
+    expect(hotkeyLabel('h', false)).toBe('H');
+    expect(hotkeyLabel('mod+shift+z', false)).toBe('Ctrl+Shift+Z');
+    expect(hotkeyLabel('mod+shift+z', true)).toBe('⌘⇧Z');
   });
 
   it('reads prices from BALANCE', () => {

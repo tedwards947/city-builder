@@ -27,6 +27,12 @@ export interface ToolbarItem {
   tool?: Tool;
   overlay?: ToolbarOverlay;
   action?: ToolbarAction;
+  /**
+   * Keyboard shortcut, lower case. A single key is acted on by main.ts (it
+   * picks the tool or toggles the overlay); one with 'mod+' is handled there by
+   * hand and is listed here only so the tooltip can show it.
+   */
+  hotkey?: string;
   /** Extra class for the icon (the zone colours). */
   cls?: string;
 }
@@ -39,43 +45,43 @@ export interface ToolbarFamily {
 export type ToolbarEntry = ToolbarItem | ToolbarFamily | 'sep';
 
 export const TOOLBAR: ToolbarEntry[] = [
-  { key: 'view', icon: 'view', tool: 'none' },
-  { key: 'inspect', icon: 'inspect', tool: 'inspect' },
-  { key: 'clear', icon: 'bulldoze', tool: 'bulldoze' },
+  { key: 'view', icon: 'view', tool: 'none', hotkey: '1' },
+  { key: 'inspect', icon: 'inspect', tool: 'inspect', hotkey: 'i' },
+  { key: 'clear', icon: 'bulldoze', tool: 'bulldoze', hotkey: '9' },
   { family: 'roads', icon: 'street', items: [
-    { key: 'street', icon: 'street', tool: 'road' },
-    { key: 'avenue', icon: 'avenue', tool: 'avenue' },
-    { key: 'highway', icon: 'highway', tool: 'highway' },
+    { key: 'street', icon: 'street', tool: 'road', hotkey: '2' },
+    { key: 'avenue', icon: 'avenue', tool: 'avenue', hotkey: 'a' },
+    { key: 'highway', icon: 'highway', tool: 'highway', hotkey: 'h' },
   ] },
   { family: 'zones', icon: 'res', items: [
-    { key: 'res', icon: 'res', tool: 'zoneR', cls: 'tb-r' },
-    { key: 'com', icon: 'com', tool: 'zoneC', cls: 'tb-c' },
-    { key: 'ind', icon: 'ind', tool: 'zoneI', cls: 'tb-i' },
+    { key: 'res', icon: 'res', tool: 'zoneR', cls: 'tb-r', hotkey: '3' },
+    { key: 'com', icon: 'com', tool: 'zoneC', cls: 'tb-c', hotkey: '4' },
+    { key: 'ind', icon: 'ind', tool: 'zoneI', cls: 'tb-i', hotkey: '5' },
   ] },
   { family: 'utilities', icon: 'power', items: [
-    { key: 'plant', icon: 'power', tool: 'power' },
-    { key: 'water', icon: 'water', tool: 'water' },
-    { key: 'sewage', icon: 'sewage', tool: 'sewage' },
+    { key: 'plant', icon: 'power', tool: 'power', hotkey: '6' },
+    { key: 'water', icon: 'water', tool: 'water', hotkey: '7' },
+    { key: 'sewage', icon: 'sewage', tool: 'sewage', hotkey: '8' },
   ] },
   { family: 'services', icon: 'police', items: [
-    { key: 'police', icon: 'police', tool: 'police' },
-    { key: 'fireStation', icon: 'fire', tool: 'fire' },
-    { key: 'school', icon: 'school', tool: 'school' },
-    { key: 'hospital', icon: 'hospital', tool: 'hospital' },
+    { key: 'police', icon: 'police', tool: 'police', hotkey: '0' },
+    { key: 'fireStation', icon: 'fire', tool: 'fire', hotkey: 'q' },
+    { key: 'school', icon: 'school', tool: 'school', hotkey: 'w' },
+    { key: 'hospital', icon: 'hospital', tool: 'hospital', hotkey: 'e' },
   ] },
   { family: 'parks', icon: 'park', items: [
-    { key: 'park', icon: 'park', tool: 'park' },
+    { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
   ] },
   'sep',
   { family: 'overlays', icon: 'layers', items: [
-    { key: 'traffic', icon: 'traffic', overlay: 'traffic' },
-    { key: 'crime', icon: 'crime', overlay: 'crime' },
-    { key: 'fire', icon: 'fire', overlay: 'fire' },
-    { key: 'vibe', icon: 'vibe', overlay: 'vibe' },
+    { key: 'traffic', icon: 'traffic', overlay: 'traffic', hotkey: 't' },
+    { key: 'crime', icon: 'crime', overlay: 'crime', hotkey: 'c' },
+    { key: 'fire', icon: 'fire', overlay: 'fire', hotkey: 'f' },
+    { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
-  { key: 'undo', icon: 'undo', action: 'undo' },
-  { key: 'redo', icon: 'redo', action: 'redo' },
+  { key: 'undo', icon: 'undo', action: 'undo', hotkey: 'mod+z' },
+  { key: 'redo', icon: 'redo', action: 'redo', hotkey: 'mod+shift+z' },
   { family: 'menu', icon: 'menu', items: [
     { key: 'new', icon: 'newCity', action: 'new' },
     { key: 'save', icon: 'save', action: 'save' },
@@ -112,6 +118,21 @@ export function toolPrice(tool: Tool): { cost?: string; upkeep?: string } {
   const flat = FLAT_COST[tool];
   return flat !== undefined ? { cost: money(flat) + ' / tile' } : {};
 }
+
+/** Every pickable item, families flattened. */
+export function toolbarItems(): ToolbarItem[] {
+  return TOOLBAR.flatMap(e => e === 'sep' ? [] : 'family' in e ? e.items : [e]);
+}
+
+/** A hotkey as shown to the player: "H", "⌘Z" on a Mac, "Ctrl+Shift+Z" elsewhere. */
+export function hotkeyLabel(hotkey: string, mac: boolean): string {
+  return hotkey.split('+').map(part =>
+    part === 'mod' ? (mac ? '⌘' : 'Ctrl')
+    : part === 'shift' ? (mac ? '⇧' : 'Shift')
+    : part.toUpperCase()).join(mac ? '' : '+');
+}
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '');
 
 export interface ToolbarHooks {
   onTool(tool: Tool): void;
@@ -285,6 +306,7 @@ export class Toolbar {
       desc: t('ui.toolbarDesc.' + item.key),
       cost: price.cost,
       upkeep: price.upkeep ? t('ui.toolbar.upkeep') + ' ' + price.upkeep : undefined,
+      hotkey: item.hotkey ? t('ui.toolbar.shortcut') + ' ' + hotkeyLabel(item.hotkey, IS_MAC) : undefined,
       hint: isRoad
         ? (this.roadMode === 'auto' ? t('ui.roadMode.auto') + ': ' + t('ui.roadMode.autoDesc')
                                     : t('ui.roadMode.manual') + ': ' + t('ui.roadMode.manualDesc'))
@@ -304,6 +326,7 @@ export class Toolbar {
       line('tb-tip-cost', tip.cost);
       line('tb-tip-upkeep', tip.upkeep);
       line('tb-tip-hint', tip.hint);
+      line('tb-tip-key', tip.hotkey);
       const r = el.getBoundingClientRect();
       this.tip.style.right = (window.innerWidth - beside.getBoundingClientRect().left + 8) + 'px';
       this.tip.style.top = Math.max(8, Math.min(r.top, window.innerHeight - this.tip.offsetHeight - 8)) + 'px';
@@ -315,4 +338,4 @@ export class Toolbar {
   private hideTip(): void { this.tip.classList.remove('visible'); }
 }
 
-interface TipText { name: string; desc?: string; cost?: string; upkeep?: string; hint?: string }
+interface TipText { name: string; desc?: string; cost?: string; upkeep?: string; hint?: string; hotkey?: string }
