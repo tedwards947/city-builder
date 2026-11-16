@@ -139,6 +139,13 @@ export class World {
   roadNetDirty: boolean;
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
   traffic: TrafficData | null = null;
+  /**
+   * Running total of what passive regeneration has added to (or drained
+   * from) political capital. Undo compares it with its value when a command
+   * ran, to tell how much of a refund regeneration has already made up. Not
+   * saved: the undo history does not survive a load either.
+   */
+  pcRegenTotal = 0;
   private _fireCount = 0;
   private _index: WorldIndex | null = null;
   private _indexPinned = false;

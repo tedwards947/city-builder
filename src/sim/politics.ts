@@ -123,14 +123,16 @@ export function regenRate(
  */
 export function regenPc(world: World, amount: number): void {
   const pc = world.budget.politicalCapital;
+  let next = pc;
   if (amount < 0) {
     // Low satisfaction drains PC to 0 and no further: only closures make debt.
-    if (pc > 0) world.budget.politicalCapital = Math.max(0, pc + amount);
-    return;
+    if (pc > 0) next = Math.max(0, pc + amount);
+  } else {
+    const cap = pcCap(world);
+    if (pc < cap) next = Math.min(cap, pc + amount);
   }
-  const cap = pcCap(world);
-  if (pc >= cap) return;
-  world.budget.politicalCapital = Math.min(cap, pc + amount);
+  world.budget.politicalCapital = next;
+  world.pcRegenTotal += next - pc;
 }
 
 // ── Population milestones ────────────────────────────────────────────────────
@@ -481,31 +483,71 @@ export function pcQuoteMany(
   return total;
 }
 
-/** What a command charged, by reason, so undo can give back exactly that. */
-export type PcCharges = [reason: PcReason, delta: number][];
+/** What a command charged, so undo can give back exactly that and no more. */
+export interface PcCharges {
+  /** Political capital just before the command charged anything. */
+  before: number;
+  /** `world.pcRegenTotal` at that moment. */
+  regenTotal: number;
+  /** The change applied for each reason, in order. */
+  changes: [reason: PcReason, delta: number][];
+}
+
+/** The charges of a command that has not run. */
+export const NO_PC_CHARGES: PcCharges = { before: 0, regenTotal: 0, changes: [] };
 
 /**
  * Apply a quote's costs and rewards to the world: one `changePc` per reason,
  * at tile (tx, ty). Returns what was applied, for `refundCharges`.
  */
 export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): PcCharges {
-  const charges: PcCharges = [];
+  const wanted: [PcReason, number][] = [];
   for (const p of q.parts) {
-    const have = charges.find(c => c[0] === p.reason);
-    if (have) have[1] += p.amount; else charges.push([p.reason, p.amount]);
+    const have = wanted.find(c => c[0] === p.reason);
+    if (have) have[1] += p.amount; else wanted.push([p.reason, p.amount]);
   }
   // Keep what was actually applied: a reward may have been cut at the cap.
-  const applied: PcCharges = [];
-  for (const [reason, delta] of charges) {
+  const applied: PcCharges = { before: world.budget.politicalCapital, regenTotal: world.pcRegenTotal, changes: [] };
+  for (const [reason, delta] of wanted) {
     const got = changePc(world, delta, reason, { tx, ty });
-    if (got !== 0) applied.push([reason, got]);
+    if (got !== 0) applied.changes.push([reason, got]);
   }
   return applied;
 }
 
-/** Undo `chargeQuote`: reverse each change, last first. */
+/**
+ * Undo `chargeQuote`: reverse each change, last first.
+ *
+ * A cost is given back only as far as regeneration has not already made it
+ * up. Without that a player could spend PC at a full bar, wait for it to
+ * refill, undo, and hold the refund on top of the full bar with the homes
+ * back as well. The refund leaves PC where it would have been had the
+ * command never run: regeneration that would have happened anyway (the bar
+ * was not full) is kept, regeneration that only happened because the command
+ * made room is not paid twice.
+ */
 export function refundCharges(world: World, charges: PcCharges, tx: number, ty: number): void {
-  for (let k = charges.length - 1; k >= 0; k--) {
-    changePc(world, -charges[k][1], charges[k][0], { tx, ty, undo: true });
+  let cost = 0;
+  for (const [, delta] of charges.changes) if (delta < 0) cost += -delta;
+  let allowed = cost;
+  const regenSince = world.pcRegenTotal - charges.regenTotal;
+  if (cost > 0 && regenSince !== 0) {
+    const { before } = charges;
+    // Where regeneration alone would have taken PC without the command…
+    const without = regenSince < 0 ? Math.max(0, before + regenSince)
+                  : before >= pcCap(world) ? before
+                  : Math.min(pcCap(world), before + regenSince);
+    // …and where it took it with the command.
+    const withIt = before - cost + regenSince;
+    allowed = Math.min(cost, Math.max(0, without - withIt));
+  }
+  for (let k = charges.changes.length - 1; k >= 0; k--) {
+    const [reason, delta] = charges.changes[k];
+    let back = -delta;
+    if (back > 0) {
+      back = Math.min(back, allowed);
+      allowed -= back;
+    }
+    changePc(world, back, reason, { tx, ty, undo: true });
   }
 }

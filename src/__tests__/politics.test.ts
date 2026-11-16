@@ -172,6 +172,80 @@ describe('politics: commands report their PC changes', () => {
 
 });
 
+describe('politics: undo cannot bank PC over the cap', () => {
+  let w: World;
+  let h: CommandHistory;
+  beforeEach(() => { w = landWorld(); h = new CommandHistory(w); });
+  /** Let regeneration run until it has added `amount` (or the bar is full). */
+  const regen = (amount: number) => regenPc(w, amount);
+
+  it('an undo straight away gives the cost back in full', () => {
+    home(w, 5, 5);
+    h.run(new BulldozeCommand(5, 5));
+    expect(w.budget.politicalCapital).toBe(pcCap(w) - HOME_COST);
+    h.undo();
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+  });
+
+  it('after PC has refilled, undo restores the homes but adds nothing on top of the full bar', () => {
+    home(w, 5, 5); home(w, 6, 5);
+    h.beginBatch();
+    h.run(new BulldozeCommand(5, 5));
+    h.run(new BulldozeCommand(6, 5));
+    h.endBatch();
+    regen(1000);                                     // time passes: refilled to the cap
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+    h.undo();
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+    expect(w.getZone(5, 5)).toBe(ZONE_R);
+    expect(w.layers.devLevel[w.grid.idx(6, 5)]).toBe(2);
+  });
+
+  it('a partial refill gets the rest back, up to the cap', () => {
+    home(w, 5, 5);
+    h.run(new BulldozeCommand(5, 5));
+    regen(10);
+    h.undo();
+    expect(w.budget.politicalCapital).toBeCloseTo(pcCap(w));
+  });
+
+  it('regeneration that would have happened anyway is kept', () => {
+    home(w, 5, 5);
+    w.budget.politicalCapital = 40;                  // well below the cap
+    h.run(new BulldozeCommand(5, 5));                // 40 − 35 = 5
+    regen(30);                                       // 35
+    h.undo();
+    expect(w.budget.politicalCapital).toBeCloseTo(70);   // 40 + 30, as if never bulldozed
+  });
+
+  it('PC over the cap before the action comes back in full, whatever was earned meanwhile', () => {
+    home(w, 5, 5);
+    w.budget.politicalCapital = pcCap(w) + 40;
+    h.run(new BulldozeCommand(5, 5));
+    changePc(w, 20, 'milestone');                    // a reward lands in between
+    regen(1000);                                     // no effect: still over the cap
+    h.undo();
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 60);
+  });
+
+  it('a drain in between does not eat the refund', () => {
+    home(w, 5, 5);
+    h.run(new BulldozeCommand(5, 5));                // 100 − 35 = 65
+    regen(-5);                                       // 60
+    h.undo();
+    expect(w.budget.politicalCapital).toBeCloseTo(95);
+  });
+
+  it('redo charges again at the current price', () => {
+    home(w, 5, 5);
+    h.run(new BulldozeCommand(5, 5));
+    regen(1000);
+    h.undo();
+    h.redo();
+    expect(w.budget.politicalCapital).toBe(pcCap(w) - HOME_COST);
+  });
+});
+
 describe('politics: one pcAction per finished player action', () => {
   let w: World;
   let h: CommandHistory;
