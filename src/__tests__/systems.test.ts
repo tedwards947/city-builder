@@ -1176,6 +1176,15 @@ describe('PoliticsSystem', () => {
     expect(w.budget.politicalCapital).toBeLessThanOrEqual(BALANCE.politicalCapital.max);
   });
 
+  it('keeps PC that is over the cap, tick after tick', () => {
+    const w = makeWorld();
+    w.budget.politicalCapital = BALANCE.politicalCapital.max + 40;
+    const sys = new PoliticsSystem();
+    for (let k = 0; k < 20; k++) sys.update(w);
+    expect(w.budget.politicalCapital).toBe(BALANCE.politicalCapital.max + 40);
+    expect(w.politics.regen).toBe(0);
+  });
+
   it('records the change regeneration made: the rate while gaining, 0 at the cap', () => {
     const w = makeWorld();
     w.budget.politicalCapital = 10;

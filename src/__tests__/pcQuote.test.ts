@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { World } from '../sim/World';
-import { pcQuote, pcQuoteMany, nuisanceRings, zonesCutOffByHighway } from '../sim/politics';
+import { pcQuote, pcQuoteMany, pcCap, nuisanceRings, zonesCutOffByHighway } from '../sim/politics';
 import type { PcQuoteAction } from '../sim/politics';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
@@ -139,6 +139,7 @@ describe('pcQuote: nuisance near homes', () => {
     w.setZone(10, 10, ZONE_I);
     w.layers.devLevel[w.grid.idx(10, 10)] = 1;
     w.layers.abandoned[w.grid.idx(10, 10)] = 1;   // repainting a ruined factory
+    w.budget.politicalCapital = 50;
     const repaint = pcQuote(w, { type: 'zone', tx: 10, ty: 10, zone: ZONE_I }, TEST_NUISANCE);
     expect(repaint.cost).toBe(0);
     expect(repaint.reward).toBeGreaterThan(0);
@@ -154,6 +155,47 @@ describe('pcQuote: nuisance near homes', () => {
     expect(nuisanceRings({ kind: BUILDING_POWER_PLANT }, TEST_NUISANCE)).toEqual(TEST_NUISANCE.bands);
     expect(nuisanceRings({ zone: ZONE_R }, TEST_NUISANCE)).toEqual([]);
     expect(nuisanceRings({ kind: BUILDING_PARK }, TEST_NUISANCE)).toEqual([]);
+  });
+});
+
+describe('pcQuote: the blight reward stops at the cap', () => {
+  const REWARD = 2 * BALANCE.politicalCapital.disruptionCosts.abandonedBuildingReward;
+  const ruin = (tx: number, ty: number) => { home(w, tx, ty); w.layers.abandoned[w.grid.idx(tx, ty)] = 1; };
+
+  it('quotes only the room below the cap, and the command banks exactly that', () => {
+    ruin(5, 5);
+    w.budget.politicalCapital = pcCap(w) - 2;
+    const q = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 5 });
+    expect(q.reward).toBe(2);
+    expect(q.parts[0].amount).toBe(REWARD);        // the part keeps its full amount
+    const cmd = new BulldozeCommand(5, 5);
+    cmd.execute(w);
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+    cmd.undo(w);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) - 2);
+  });
+
+  it('at or over the cap it earns nothing, and takes nothing away', () => {
+    ruin(5, 5); ruin(6, 5);
+    w.budget.politicalCapital = pcCap(w);
+    expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 5 }).reward).toBe(0);
+    new BulldozeCommand(5, 5).execute(w);
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+
+    w.budget.politicalCapital = pcCap(w) + 30;
+    const cmd = new PaintZoneCommand(6, 5, ZONE_R);
+    expect(cmd.execute(w)).toBe(true);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 30);
+    cmd.undo(w);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 30);
+  });
+
+  it('a merged quote for several ruins is capped as a whole', () => {
+    ruin(5, 5); ruin(6, 5); ruin(7, 5);
+    w.budget.politicalCapital = pcCap(w) - 7;
+    const q = pcQuoteMany(w, [5, 6, 7].map(tx => ({ type: 'bulldoze' as const, tx, ty: 5 })));
+    expect(q.reward).toBe(7);
+    expect(q.parts.length).toBe(3);
   });
 });
 
@@ -205,6 +247,7 @@ describe('commands charge exactly what pcQuote quotes', () => {
         const world = landWorld();
         home(world, 5, 5, 3);
         if (ruin) world.layers.abandoned[world.grid.idx(5, 5)] = 1;
+        if (ruin) world.budget.politicalCapital = 50;
         const q = pcQuote(world, action);
         const before = world.budget.politicalCapital;
         const cmd = make();

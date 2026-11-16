@@ -26,8 +26,19 @@ describe('politics: the PC write point', () => {
   let seen: PcEvent[];
   beforeEach(() => { w = landWorld(); seen = listen(w); });
 
-  it('pcCap is the balance maximum', () => {
+  it('pcCap is the balance maximum while the per-resident amount is switched off', () => {
+    expect(BALANCE.politicalCapital.capPerResident).toBe(0);
+    w.stats.population = 50_000;
     expect(pcCap(w)).toBe(BALANCE.politicalCapital.max);
+  });
+
+  it('pcCap grows with population when a per-resident amount is set', () => {
+    const cfg = { max: 100, capPerResident: 0.01 };
+    expect(pcCap(w, cfg)).toBe(100);
+    w.stats.population = 2500;
+    expect(pcCap(w, cfg)).toBe(125);
+    w.stats.population = 10_000;
+    expect(pcCap(w, cfg)).toBe(200);
   });
 
   it('changePc adds the delta and emits pcChanged with the tile', () => {
@@ -42,10 +53,30 @@ describe('politics: the PC write point', () => {
     expect(seen).toEqual([]);
   });
 
-  it('changePc does not clamp at the cap', () => {
-    w.budget.politicalCapital = pcCap(w);
-    changePc(w, 5, 'blightCleared');
-    expect(w.budget.politicalCapital).toBe(pcCap(w) + 5);
+  it('a blight reward stops at the cap and reports what it actually added', () => {
+    w.budget.politicalCapital = pcCap(w) - 2;
+    expect(changePc(w, 5, 'blightCleared')).toBe(2);
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+    expect(seen.map(e => e.delta)).toEqual([2]);
+    // Already at or over the cap: nothing added, nothing taken, no event.
+    expect(changePc(w, 5, 'blightCleared')).toBe(0);
+    w.budget.politicalCapital = pcCap(w) + 40;
+    expect(changePc(w, 5, 'blightCleared')).toBe(0);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 40);
+    expect(seen.length).toBe(1);
+  });
+
+  it('undoing a cost is never cut at the cap, and costs apply in full over it', () => {
+    w.budget.politicalCapital = pcCap(w) + 10;
+    expect(changePc(w, -30, 'displacement')).toBe(-30);
+    expect(changePc(w, 30, 'displacement', { undo: true })).toBe(30);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 10);
+  });
+
+  it('regenPc leaves PC that is over the cap alone', () => {
+    w.budget.politicalCapital = pcCap(w) + 25;
+    regenPc(w, 0.4);
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 25);
   });
 
   it('regenPc stops at the cap and emits nothing', () => {
@@ -78,6 +109,7 @@ describe('politics: commands report their PC changes', () => {
   it('clearing an abandoned building emits a blightCleared reward', () => {
     home(w, 5, 5);
     w.layers.abandoned[w.grid.idx(5, 5)] = 1;
+    w.budget.politicalCapital = 50;
     new BulldozeCommand(5, 5).execute(w);
     const reward = 2 * BALANCE.politicalCapital.disruptionCosts.abandonedBuildingReward;
     expect(seen).toEqual([{ delta: reward, reason: 'blightCleared', tx: 5, ty: 5, undo: false }]);

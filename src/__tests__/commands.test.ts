@@ -288,6 +288,7 @@ describe('BulldozeCommand', () => {
     w.layers.devLevel[w.grid.idx(tx, ty)] = level;
     w.layers.abandoned[w.grid.idx(tx, ty)] = 1;
     
+    w.budget.politicalCapital = 50;   // below the cap: the reward stops at the cap
     const pcBefore = w.budget.politicalCapital;
     new BulldozeCommand(tx, ty).execute(w);
     
@@ -300,6 +301,7 @@ describe('BulldozeCommand', () => {
     w.layers.devLevel[w.grid.idx(tx, ty)] = 2;
     w.layers.abandoned[w.grid.idx(tx, ty)] = 1;
     
+    w.budget.politicalCapital = 50;   // below the cap: the reward stops at the cap
     const pcBefore = w.budget.politicalCapital;
     new BulldozeCommand(tx, ty).execute(w);
     
