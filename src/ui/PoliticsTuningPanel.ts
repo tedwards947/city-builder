@@ -77,6 +77,8 @@ export class PoliticsTuningPanel {
   private readonly defaults: Tree = structuredClone(PC);
   private lastWorld: World | null = null;
   private lastTick = -1;
+  private lastPc = NaN;
+  private lastRequests = -1;
 
   constructor(getWorld: () => World, getPolitics: () => PoliticsSystem | undefined, advanceTicks: (n: number) => void = () => {}) {
     this.getWorld = getWorld;
@@ -193,12 +195,16 @@ export class PoliticsTuningPanel {
     return box;
   }
 
-  /** Call every frame: refreshes the read-outs once per sim tick. */
+  /** Call every frame: refreshes the read-outs on a new tick or when PC or the open requests change. */
   update(): void {
     const world = this.getWorld();
-    if (world === this.lastWorld && world.tick === this.lastTick) return;
+    // Also when paused: PC and requests change from the HUD, the shortcuts and the player's tools.
+    if (world === this.lastWorld && world.tick === this.lastTick
+      && world.budget.politicalCapital === this.lastPc && world.politics.requests.length === this.lastRequests) return;
     this.lastWorld = world;
     this.lastTick = world.tick;
+    this.lastPc = world.budget.politicalCapital;
+    this.lastRequests = world.politics.requests.length;
     this.renderReadout();
   }
 

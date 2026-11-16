@@ -103,6 +103,15 @@ const trafficTuning = DEBUG
 const politicsTuning = DEBUG
   ? new PoliticsTuningPanel(() => state.world, () => state.politics, (n) => { for (let k = 0; k < n; k++) state.scheduler.tick(); })
   : null;
+// For agents driving the page in a headless browser (?debug=true only):
+// `__city.world`, `__city.camera.centerOnTile(x, y)`, `__city.tick(n)`.
+if (DEBUG) {
+  (window as unknown as { __city: unknown }).__city = {
+    get world() { return state.world; },
+    camera,
+    tick: (n = 1) => { for (let k = 0; k < n; k++) state.scheduler.tick(); },
+  };
+}
 
 // UI Panels (must be initialized before first startGame call)
 const tileInfoPanel = new TileInfoPanel();
