@@ -61,6 +61,34 @@ export function pcCap(
   return cfg.max + world.stats.population * cfg.capPerResident;
 }
 
+/**
+ * One game day of fade for PC banked above the cap: `overCapFadePerDay` of
+ * the excess is lost, so a hoard shrinks toward the cap and never below it.
+ * Rewards may still take PC over the cap; they just do not stay there for
+ * ever. No event (it is a passive change, like regeneration); it is counted
+ * in world.pcRegenTotal. Returns the amount lost. Does nothing while the
+ * rate is 0.
+ */
+export function fadeOverCap(
+  world: World,
+  ratePerDay: number = BALANCE.politicalCapital.overCapFadePerDay,
+): number {
+  if (!(ratePerDay > 0)) return 0;
+  const excess = world.budget.politicalCapital - pcCap(world);
+  if (excess <= 0) return 0;
+  const lost = excess * Math.min(1, ratePerDay);
+  world.budget.politicalCapital -= lost;
+  world.pcRegenTotal -= lost;
+  return lost;
+}
+
+/** What `fadeOverCap` would take on the next game day, for a HUD read-out. 0 at or below the cap. */
+export function overCapFadePerDay(world: World): number {
+  const rate = BALANCE.politicalCapital.overCapFadePerDay;
+  if (!(rate > 0)) return 0;
+  return Math.max(0, world.budget.politicalCapital - pcCap(world)) * Math.min(1, rate);
+}
+
 /** Rewards that fill PC up to the cap but never past it. */
 // Met-request rewards may go over the cap, like ribbon cuttings and milestones (owner, 2026-11-16).
 const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];

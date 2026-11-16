@@ -11,7 +11,7 @@
 import type { World } from '../World';
 import { ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
-import { regenPc, regenPerTick, payMilestones } from '../politics';
+import { regenPc, regenPerTick, payMilestones, fadeOverCap } from '../politics';
 import { ordinanceModifier } from '../ordinances';
 
 // ── Satisfaction factor interface ─────────────────────────────────────────────
@@ -156,6 +156,8 @@ export class PoliticsSystem {
     const before = world.budget.politicalCapital;
     regenPc(world, regen);
     world.politics.regen = world.budget.politicalCapital - before;
+    // Once a game day, PC banked above the cap fades a little (off while the rate is 0).
+    if (world.tick % BALANCE.ticksPerDay === 0) fadeOverCap(world);
     // Pay any population milestone newly reached, and remember the largest
     // population seen so none pays twice.
     payMilestones(world);

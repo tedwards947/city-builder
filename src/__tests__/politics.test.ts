@@ -1,13 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { pcCap, changePc, regenPc, regenRate, regenPerTick } from '../sim/politics';
+import { pcCap, changePc, regenPc, regenRate, regenPerTick, fadeOverCap, overCapFadePerDay } from '../sim/politics';
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
 import { landWorld, home } from './pcTestWorld';
 
 interface PcEvent { delta: number; reason: string; tx?: number; ty?: number; undo: boolean }
@@ -323,5 +324,63 @@ describe('politics: one pcAction per finished player action', () => {
     w.budget.politicalCapital = 0;
     h.run(new BulldozeCommand(9, 9));
     expect(actions).toEqual([]);
+  });
+});
+
+describe('politics: PC banked above the cap fades', () => {
+  const cfg = BALANCE.politicalCapital as { overCapFadePerDay: number };
+  let w: World;
+  beforeEach(() => { w = landWorld(); });
+  afterEach(() => { cfg.overCapFadePerDay = 0; });
+
+  it('is switched off in the shipped balance: a hoard stays put', () => {
+    expect(cfg.overCapFadePerDay).toBe(0);
+    w.budget.politicalCapital = pcCap(w) + 500;
+    expect(fadeOverCap(w)).toBe(0);
+    const sys = new PoliticsSystem();
+    for (let t = 0; t <= 20 * BALANCE.ticksPerDay; t++) { w.tick = t; sys.update(w); }
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 500);
+  });
+
+  it('takes a share of the excess, and nothing at or below the cap', () => {
+    w.budget.politicalCapital = pcCap(w) + 200;
+    expect(fadeOverCap(w, 0.02)).toBeCloseTo(4);
+    expect(w.budget.politicalCapital).toBeCloseTo(pcCap(w) + 196);
+    w.budget.politicalCapital = pcCap(w);
+    expect(fadeOverCap(w, 0.02)).toBe(0);
+    w.budget.politicalCapital = 30;
+    expect(fadeOverCap(w, 0.02)).toBe(0);
+    w.budget.politicalCapital = -10;                 // in debt
+    expect(fadeOverCap(w, 0.02)).toBe(0);
+    expect(w.budget.politicalCapital).toBe(-10);
+  });
+
+  it('never takes PC below the cap, even at a silly rate', () => {
+    w.budget.politicalCapital = pcCap(w) + 50;
+    fadeOverCap(w, 5);
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+  });
+
+  it('runs once per game day in the system: about half the excess is gone after 35 days at 2%', () => {
+    cfg.overCapFadePerDay = 0.02;
+    w.budget.politicalCapital = pcCap(w) + 400;
+    expect(overCapFadePerDay(w)).toBeCloseTo(8);
+    const sys = new PoliticsSystem();
+    for (let t = 1; t <= 35 * BALANCE.ticksPerDay; t++) { w.tick = t; sys.update(w); }
+    const excess = w.budget.politicalCapital - pcCap(w);
+    expect(excess).toBeCloseTo(400 * 0.98 ** 35, 5);
+    expect(excess).toBeGreaterThan(190);
+    expect(excess).toBeLessThan(210);
+  });
+
+  it('a reward can still take PC over the cap; it just does not stay for ever', () => {
+    cfg.overCapFadePerDay = 0.02;
+    w.budget.politicalCapital = pcCap(w);
+    changePc(w, 60, 'milestone');
+    expect(w.budget.politicalCapital).toBe(pcCap(w) + 60);
+    const sys = new PoliticsSystem();
+    for (let t = 1; t <= 400 * BALANCE.ticksPerDay; t++) { w.tick = t; sys.update(w); }
+    expect(w.budget.politicalCapital - pcCap(w)).toBeLessThan(0.1);
+    expect(w.budget.politicalCapital).toBeGreaterThanOrEqual(pcCap(w));
   });
 });
