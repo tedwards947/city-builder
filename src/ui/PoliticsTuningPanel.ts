@@ -10,7 +10,7 @@
 import type { World } from '../sim/World';
 import type { PoliticsSystem } from '../sim/systems/PoliticsSystem';
 import { BALANCE } from '../data/balance';
-import { pcCap, regenRate } from '../sim/politics';
+import { pcCap, regenPerTick } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PROPOSED_PC, applyValues } from './pcPresets';
 import { debugDock } from './debugDock';
@@ -265,7 +265,7 @@ export class PoliticsTuningPanel {
     const pc = world.budget.politicalCapital;
     const cap = pcCap(world);
     const sat = world.stats.satisfaction;
-    const rate = regenRate(sat);
+    const rate = regenPerTick(world, sat); // what the sim applies: scales with the cap
     const applied = world.politics.regen;
     const perDay = BALANCE.ticksPerDay;
     const fmt = (n: number, d = 2) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(d));
