@@ -35,6 +35,7 @@ import { pcOfCap, pcRate } from './ui/pcFormat';
 import { pcCap } from './sim/politics';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
 import { MilestoneBanner } from './ui/MilestoneBanner';
+import { OrdinancePanel, ordinancesShown } from './ui/OrdinancePanel';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
 import { toolPrice, buildingKindForTool } from './ui/Toolbar';
@@ -204,6 +205,12 @@ const input = new InputController(
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 
+const ordinancePanel = new OrdinancePanel(document.getElementById('game')!, () => state.world);
+/** Where a panel opened from the toolbar sits: just left of the stats and toolbar column. */
+function besideHud(): number {
+  return window.innerWidth - document.getElementById('hud-right')!.getBoundingClientRect().left + 8;
+}
+
 const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneMode, {
   onTool: (tool) => setTool(tool),
   onOverlay: (which) => toggleOverlay(which),
@@ -216,12 +223,15 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'redo':   state.history.redo(); break;
       case 'budget': {
         // The budget panel opens beside the stats and toolbar column, however wide that is.
-        const panel = document.getElementById('econ-panel')!;
-        const column = document.getElementById('hud-right')!.getBoundingClientRect();
-        panel.style.right = (window.innerWidth - column.left + 8) + 'px';
+        ordinancePanel.close();
+        document.getElementById('econ-panel')!.style.right = besideHud() + 'px';
         econPanel.toggle();
         break;
       }
+      case 'ordinances':
+        if (econPanel.isOpen) econPanel.toggle();   // the two share the same spot
+        ordinancePanel.toggle(besideHud());
+        break;
     }
   },
   onRoadMode: (mode) => {
@@ -293,6 +303,7 @@ window.addEventListener('keydown', (e) => {
   // tool goes back to View.
   if (key === 'escape') {
     if (toolbar.closeFlyout()) return;
+    if (ordinancePanel.close()) return;
     if (input.autoRoadStart) { input.cancelAutoRoad(); return; }
     setTool('none');
     return;
@@ -319,7 +330,8 @@ window.addEventListener('keydown', (e) => {
   }
   // Tool and overlay keys come from the toolbar list, so the tooltips cannot lie.
   const item = toolbarItems().find(i => i.hotkey === key);
-  if (item?.tool !== undefined) setTool(item.tool);
+  if (item?.action === 'ordinances') { if (ordinancesShown()) { if (econPanel.isOpen) econPanel.toggle(); ordinancePanel.toggle(besideHud()); } }
+  else if (item?.tool !== undefined) setTool(item.tool);
   else if (item?.overlay !== undefined) toggleOverlay(item.overlay);
 });
 
@@ -415,6 +427,7 @@ function frame(now: number): void {
   politicsTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
+  ordinancePanel.update();
   econPanel.update();
   const { rDemand, cDemand, iDemand } = state.world.stats;
   demandChart.update(state.world.tick, rDemand, cDemand, iDemand);

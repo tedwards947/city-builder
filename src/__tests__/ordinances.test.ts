@@ -3,6 +3,7 @@ import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   ORDINANCES, ORDINANCE_IDS, ORDINANCE_MODIFIERS, enactOrdinance, repealOrdinance, ordinanceModifier, ordinanceState,
+  enactBlocker, ordinancesEnabled,
 } from '../sim/ordinances';
 import { OrdinanceSystem } from '../sim/systems/OrdinanceSystem';
 import { CommandHistory } from '../commands/CommandHistory';
@@ -71,8 +72,18 @@ describe('enacting and repealing', () => {
     expect(ordinanceState(w, 'cleanAirAct')).toBe('cantAfford');
     expect(enactOrdinance(w, 'cleanAirAct')).toBe(false);
     expect(w.budget.politicalCapital).toBe(40);
+    expect(enactBlocker(w, 'cleanAirAct')).toBe('notEnoughPc');
     w.budget.politicalCapital = 0;
     expect(ordinanceState(w, 'curfew')).toBe('cantAfford');   // free, but PC is not above 0
+    expect(enactBlocker(w, 'curfew')).toBe('inDebt');
+    w.budget.politicalCapital = 60;
+    expect(enactBlocker(w, 'cleanAirAct')).toBeNull();
+    enactOrdinance(w, 'cleanAirAct');
+    expect(enactBlocker(w, 'cleanAirAct')).toBe('active');
+  });
+
+  it('are switched off in normal play', () => {
+    expect(ordinancesEnabled()).toBe(false);
   });
 
   it('is not folded into the player action total', () => {
