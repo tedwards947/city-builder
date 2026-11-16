@@ -33,7 +33,8 @@ import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcRate } from './ui/pcFormat';
 import { pcCap } from './sim/politics';
-import { hoverPcPreview, nuisanceTints, pcLabel, pcNote } from './ui/pcPreview';
+import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
+import { MilestoneBanner } from './ui/MilestoneBanner';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
 import { toolPrice, buildingKindForTool } from './ui/Toolbar';
@@ -100,6 +101,7 @@ const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y));
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const pcFloat = new PcFloat(document.getElementById('game')!, camera);
+const milestoneBanner = new MilestoneBanner(document.getElementById('game')!, (title, message) => toastPanel.showToast(title, message, 'info'));
 const demandChart = new DemandChart();
 
 const store   = new LocalStore();
@@ -131,6 +133,7 @@ function startGame(world: World): void {
   autosave.reset();
   toastPanel.setWorld(world);
   pcFloat.setWorld(world);
+  milestoneBanner.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
 }
@@ -228,7 +231,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
 /** The PC part of a plan's price tag: nothing if PC does not come into it. */
 function pcTag(q: PcQuote): { text: string; ok: boolean; note?: string } | undefined {
   const text = pcLabel(q);
-  if (!text) return undefined;
+  if (!text || isQuietNuisance(q)) return undefined;   // neighbours objecting to a zone: the tint says it
   return { text, ok: q.affordable, note: pcNote(q) };
 }
 

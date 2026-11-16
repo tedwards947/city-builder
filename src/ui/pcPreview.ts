@@ -68,6 +68,16 @@ export function pcNote(q: PcQuote): string | undefined {
   return undefined;
 }
 
+/**
+ * True when a quote is only neighbours objecting and the city can cover it.
+ * Zoning shows that quietly: the homes tint, with no rings and no number (the
+ * total floats up when the drag ends). The price appears, in red, only when
+ * the city would run short.
+ */
+export function isQuietNuisance(q: PcQuote): boolean {
+  return q.affordable && q.parts.length > 0 && q.parts.every(p => p.reason === 'nuisance');
+}
+
 /** The homes behind a quote's nuisance cost, for tinting. */
 export function nuisanceTints(q: PcQuote): PcPreview['tints'] {
   return q.parts.filter(p => p.reason === 'nuisance').map(p => ({ tx: p.tx, ty: p.ty, strength: p.strength }));
@@ -89,8 +99,10 @@ export function hoverPcPreview(
   if (!action) return null;
   const source: NuisanceSource | null =
     action.type === 'zone' ? { zone: action.zone } : action.type === 'building' ? { kind: action.kind } : null;
-  const rings = source ? nuisanceRings(source, nuisance) : [];
+  // Rings are for buildings. Zoning is dragged, and rings chasing the pointer would be noise.
+  const rings = source && action.type === 'building' ? nuisanceRings(source, nuisance) : [];
   const q = pcQuote(world, action, nuisance, service);
   if (q.cost === 0 && q.reward === 0 && rings.length === 0) return null;
-  return { at: tile, rings, tints: nuisanceTints(q), label: pcLabel(q, rings.length > 0), ok: q.affordable, note: pcNote(q) };
+  const quiet = action.type === 'zone' && isQuietNuisance(q);
+  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable, note: quiet ? undefined : pcNote(q) };
 }
