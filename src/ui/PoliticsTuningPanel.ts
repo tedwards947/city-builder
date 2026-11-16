@@ -10,7 +10,7 @@
 import type { World } from '../sim/World';
 import type { PoliticsSystem } from '../sim/systems/PoliticsSystem';
 import { BALANCE } from '../data/balance';
-import { pcCap, regenPerTick } from '../sim/politics';
+import { pcCap, regenPerTick, overCapFadePerDay } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
 import { debugDock } from './debugDock';
@@ -40,6 +40,7 @@ const LABELS: Record<string, string> = {
   milestones: 'Milestones',
   ordinancesEnabled: 'Ordinances switched on',
   ordinances: 'Ordinances',
+  overCapFadePerDay: 'Fade over cap (share / day)',
   service: 'Services',
   perResident: 'Opening, per resident',
   repeatFactor: 'Repeat factor',
@@ -328,10 +329,12 @@ export class PoliticsTuningPanel {
       for (const f of factors) html += line(f.name, `${pct(f.value)} × ${f.weight}`, f.value < 0.5);
     }
     this.detailEl.innerHTML = html;
+    const fade = overCapFadePerDay(world); // what the next game day takes from PC over the cap
     this.readoutEl.innerHTML =
         line('PC', `${fmt(pc, 1)} / ${fmt(cap, 1)}${pc < 0 ? ' (debt)' : ''}`, pc <= 0)
       + line('Rate', `${fmt(rate * perDay)}/day`, rate < 0)
-      + line('Refill 0 → cap', refill);
+      + line('Refill 0 → cap', refill)
+      + (fade > 0 ? line('Fade over cap', `−${fmt(fade)}/day`) : '');
     this.renderRequests();
   }
 }

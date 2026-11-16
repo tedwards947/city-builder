@@ -4,6 +4,7 @@
 
 export const VARIANT_VALUES = {
   A: {
+    overCapFadePerDay: 0.02,
     max: 100,
     capPerResident: 0.015,
     baseRegen: 0,
@@ -195,6 +196,7 @@ export const VARIANT_VALUES = {
     }
   },
   B: {
+    overCapFadePerDay: 0.02,
     max: 100,
     capPerResident: 0.01,
     baseRegen: 0,
@@ -386,6 +388,7 @@ export const VARIANT_VALUES = {
     }
   },
   C: {
+    overCapFadePerDay: 0.02,
     max: 100,
     capPerResident: 0.008,
     baseRegen: 0,
@@ -577,6 +580,7 @@ export const VARIANT_VALUES = {
     }
   },
   D: {
+    overCapFadePerDay: 0.02,
     max: 100,
     capPerResident: 0.015,
     baseRegen: 0,
