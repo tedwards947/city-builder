@@ -240,8 +240,15 @@ window.addEventListener('keydown', (e) => {
 
   const key = e.key.toLowerCase();
 
-  // Escape abandons a road started in auto mode.
-  if (key === 'escape') { input.cancelAutoRoad(); return; }
+  // Escape backs out one step at a time: an open fly-out closes, then a road
+  // started in auto mode is abandoned, and with nothing left to cancel the
+  // tool goes back to View.
+  if (key === 'escape') {
+    if (toolbar.closeFlyout()) return;
+    if (input.autoRoadStart) { input.cancelAutoRoad(); return; }
+    setTool('none');
+    return;
+  }
 
   // Undo / redo are the only shortcuts that use Ctrl/Cmd.
   if (e.ctrlKey || e.metaKey) {
