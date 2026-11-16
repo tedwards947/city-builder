@@ -51,8 +51,12 @@ export function pcCap(
 const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
 
 /**
- * Costs that are never refused: they take what PC there is, down to 0, and
- * the rest goes unpaid. (Closing a service is how a broke city cuts costs.)
+ * Costs that are never refused: they are charged in full even when the city
+ * cannot cover them, which takes PC below 0 ("political debt"). Closing a
+ * service is how a broke city cuts costs, so it must always be possible; the
+ * debt is what stops opening and closing services from being a way to farm PC.
+ * While PC is below 0 every other action that costs PC is refused, until
+ * regeneration (or a reward) brings it back up.
  */
 const NEVER_REFUSED: readonly PcReason[] = ['serviceClosed'];
 
@@ -64,8 +68,9 @@ function roomBelowCap(world: World): number {
 /**
  * Add `delta` to political capital (negative for a cost) and tell listeners.
  * A reward whose reason is in STOPS_AT_CAP is cut down to the room below the
- * cap; a cost whose reason is in NEVER_REFUSED stops at 0. Returns the change
- * actually made, which is what undo must reverse.
+ * cap. Costs are applied in full: one whose reason is in NEVER_REFUSED may
+ * take PC below 0. Returns the change actually made, which is what undo must
+ * reverse.
  * Emits `pcChanged` (see CityEvents) unless nothing changed. CommandHistory
  * adds these up into one `pcAction` per finished player action.
  */
@@ -75,9 +80,6 @@ export function changePc(world: World, delta: number, reason: PcReason, info: Pc
   if (delta > 0 && info.undo !== true && STOPS_AT_CAP.includes(reason)) {
     const cap = pcCap(world);
     if (after > cap) after = Math.max(before, cap);
-  }
-  if (delta < 0 && info.undo !== true && NEVER_REFUSED.includes(reason) && after < 0) {
-    after = Math.min(before, 0);
   }
   const applied = after === before + delta ? delta : after - before;
   if (applied === 0) return 0;
@@ -106,13 +108,14 @@ export function regenRate(
 /**
  * Apply one tick of passive regeneration. A gain stops at the cap, and does
  * nothing to PC that is already over it. A loss drains PC (over the cap too)
- * but never below 0. No event: it happens every tick, and the HUD reads the
+ * but never below 0, and never deepens a debt. A gain pays a debt off. No event: it happens every tick, and the HUD reads the
  * value directly.
  */
 export function regenPc(world: World, amount: number): void {
   const pc = world.budget.politicalCapital;
   if (amount < 0) {
-    world.budget.politicalCapital = Math.max(0, pc + amount);
+    // Low satisfaction drains PC to 0 and no further: only closures make debt.
+    if (pc > 0) world.budget.politicalCapital = Math.max(0, pc + amount);
     return;
   }
   const cap = pcCap(world);
@@ -281,14 +284,15 @@ export interface PcQuote {
   /** Total PC the action earns (0 or more). */
   reward: number;
   /**
-   * False if the action would be refused for lack of PC right now. A service
-   * closure is never refused, so it never makes this false.
+   * False if the action would be refused for lack of PC right now: it has a
+   * cost the city cannot cover, which is any cost at all while PC is below 0.
+   * A service closure is never refused, so its cost never makes this false.
    */
   affordable: boolean;
   /**
-   * PC a service closure asks for beyond what the city has: when above 0 the
-   * closure "takes the last of your PC" and this much goes unpaid. `cost`
-   * already leaves it out.
+   * The political debt the action would leave: how far below 0 a service
+   * closure takes PC, because it is charged in full whatever the city has.
+   * 0 when the city can cover it. `cost` is the full amount either way.
    */
   shortfall: number;
   /** Residents who lose their homes. */
@@ -321,14 +325,10 @@ function totalUp(world: World, q: PcQuote): void {
     else free += p.amount;
   }
   q.affordable = canAfford(world, cost);
-  q.shortfall = 0;
-  if (unrefusable > 0) {
-    // Charged after the ordinary costs, from whatever PC is left.
-    const left = Math.max(0, world.budget.politicalCapital - cost);
-    if (unrefusable > left) { q.shortfall = unrefusable - left; unrefusable = left; }
-    cost += unrefusable;
-  }
+  cost += unrefusable;
   q.cost = cost;
+  // How far below zero the never-refused costs would take PC.
+  q.shortfall = unrefusable > 0 ? Math.max(0, cost - Math.max(0, world.budget.politicalCapital)) : 0;
   q.reward = capped > 0 ? free + Math.min(capped, roomBelowCap(world)) : free;
 }
 
