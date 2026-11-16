@@ -28,6 +28,8 @@ export interface PcPreview {
   money?: string;
   /** A second line under the price, e.g. why it is refused. */
   note?: string;
+  /** True when the note is a warning about something still allowed (a service building off the road network). */
+  warning?: boolean;
 }
 
 /** The engine action a tool performs on a tile, or null for tools that change nothing. */
@@ -104,7 +106,12 @@ export function hoverPcPreview(
   // Rings are for buildings. Zoning is dragged, and rings chasing the pointer would be noise.
   const rings = source && action.type === 'building' ? nuisanceRings(source, nuisance) : [];
   const q = pcQuote(world, action, nuisance, service);
-  if (q.cost === 0 && q.reward === 0 && rings.length === 0) return null;
+  // A service building that touches no street or avenue serves only its own tile: say so. It can still be built.
+  const offRoad = q.notConnected === true;
+  if (q.cost === 0 && q.reward === 0 && rings.length === 0 && !offRoad) return null;
   const quiet = action.type === 'zone' && isQuietNuisance(q);
-  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable, note: quiet ? undefined : pcNote(q, world) };
+  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable,
+    note: quiet ? undefined : (offRoad && q.affordable ? t('ui.hud.noRoad') : pcNote(q, world)),
+    warning: offRoad && q.affordable,
+  };
 }

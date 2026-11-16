@@ -91,7 +91,7 @@ describe('ToastPanel', () => {
   it('shows toast when building is abandoned', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('tileAbandoned', { tx: 1, ty: 1, zone: 1, level: 2 });
-    expect(showToastSpy).toHaveBeenCalledWith('Building Abandoned', expect.stringContaining('level 2'), 'warning');
+    expect(showToastSpy).toHaveBeenCalledWith('Building Abandoned', expect.stringContaining('level 2'), 'warning', { x0: 1, y0: 1, x1: 1, y1: 1 });
   });
 
   it('does NOT show toast when low-level building is abandoned', () => {
@@ -103,6 +103,6 @@ describe('ToastPanel', () => {
   it('shows toast when fireIgnition occurs', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('fireIgnition', { tx: 5, ty: 5, zone: 1, devLevel: 1 });
-    expect(showToastSpy).toHaveBeenCalledWith('Fire Alert', expect.stringContaining('5, 5'), 'alert');
+    expect(showToastSpy).toHaveBeenCalledWith('Fire Alert', expect.stringContaining('5, 5'), 'alert', { x0: 5, y0: 5, x1: 5, y1: 5 });
   });
 });

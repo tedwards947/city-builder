@@ -134,6 +134,7 @@ export interface TranslationSchema {
       pcFull: string;
       pcBonus: string;
       pcShort: string;
+      noRoad: string;
       pcIntoDebt: string;
       pcInDebt: string;
       pcDebt: string;
@@ -183,6 +184,13 @@ export interface TranslationSchema {
       cancel: string;
     };
     requests: {
+      title: string;
+      open: string;
+      none: string;
+      noneNote: string;
+      progressBy: Record<'homes' | 'roads' | 'lots' | 'city', string>;
+      show: string;
+      where: Record<'centre' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw', string>;
       want: string;
       daysLeft: string;
       ifMet: string;
@@ -226,6 +234,7 @@ export interface TranslationSchema {
       undo: string;
       redo: string;
       ordinances: string;
+      requests: string;
       roads: string;
       zones: string;
       utilities: string;
@@ -283,6 +292,7 @@ export interface TranslationSchema {
       undo: string;
       redo: string;
       ordinances: string;
+      requests: string;
     };
   };
   zones: {

@@ -18,12 +18,13 @@ import { nuisanceRings } from '../sim/politics';
 import type { NuisanceConfig } from '../sim/politics';
 import { PC_SYMBOL } from './pcFormat';
 import { ordinancesShown } from './OrdinancePanel';
+import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
 export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe';
-export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'ordinances' | 'undo' | 'redo';
+export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
 export interface ToolbarItem {
@@ -40,6 +41,8 @@ export interface ToolbarItem {
   hotkey?: string;
   /** If given and it returns false, the item is left out (a feature not switched on yet). */
   shown?: () => boolean;
+  /** If given and above 0, a small number on the tile (things waiting). */
+  count?: () => number;
   /** Extra class for the icon (the zone colours). */
   cls?: string;
 }
@@ -88,6 +91,7 @@ export const TOOLBAR: ToolbarEntry[] = [
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
   { key: 'ordinances', icon: 'ordinances', action: 'ordinances', hotkey: 'o', shown: ordinancesShown },
+  { key: 'requests', icon: 'requests', action: 'requests', hotkey: 'l', shown: requestLogShown, count: () => requestLogState.open },
   { key: 'undo', icon: 'undo', action: 'undo', hotkey: 'mod+z' },
   { key: 'redo', icon: 'redo', action: 'redo', hotkey: 'mod+shift+z' },
   { family: 'menu', icon: 'menu', items: [
@@ -210,7 +214,7 @@ export class Toolbar {
    * switched on or off while the game runs), and otherwise does nothing.
    */
   syncShown(): void {
-    const sig = TOOLBAR.map(e => e !== 'sep' && !isFamily(e) && e.shown ? (e.shown() ? '1' : '0') : '').join('');
+    const sig = TOOLBAR.map(e => e === 'sep' || isFamily(e) ? '' : (e.shown ? (e.shown() ? '1' : '0') : '') + (e.count ? e.count() : '')).join(',');
     if (sig === this.shownSig) return;
     this.shownSig = sig;
     this.render();
@@ -268,6 +272,8 @@ export class Toolbar {
       if (!isFamily(e)) {
         if (e.shown && !e.shown()) continue;
         const b = this.tile(e.icon, e.cls, this.isOn(e), false, t('ui.toolbar.' + e.key));
+        const n = e.count ? e.count() : 0;
+        if (n > 0) b.append(node('span', 'tb-count', String(n)));
         b.addEventListener('click', () => { this.open = null; this.pick(e); this.render(); });
         this.hover(b, () => this.itemTip(e));
         this.root.append(b);

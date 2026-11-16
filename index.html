@@ -152,6 +152,30 @@
     .ord-actions button.go { background: #2f9c86; border-color: #2f9c86; color: #fff; font-weight: 600; }
     .ord-actions button.go.repeal { background: #a8553f; border-color: #a8553f; }
 
+    /* ── Quest log (src/ui/RequestLog.ts); shares the ordinance panel's header and list styles ── */
+    #request-log { position: absolute; top: 60px; right: 220px; z-index: 54; width: 330px; max-width: calc(100vw - 250px); background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #dde; pointer-events: auto; }
+    #request-log.hidden { display: none; }
+    .rq-row { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+    .rq-icon { display: block; }
+    .rq-text b { color: #fff; font-size: 13px; display: block; }
+    .rq-text small { display: block; color: #9ab; line-height: 1.35; }
+    .rq-bar { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.14); margin-top: 4px; }
+    .rq-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #7dd8c0; }
+    .rq-bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; }
+    .rq-right { text-align: right; line-height: 1.35; white-space: nowrap; }
+    .rq-right small { display: block; color: #7dd8c0; font-size: 11px; }
+    .rq-days { color: #fff; font-weight: 600; } .rq-days.soon { color: #ffd166; }
+    .rq-show { margin-top: 4px; font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.22); background: none; color: #dde; cursor: pointer; }
+    .rq-show:hover { background: rgba(255,255,255,0.12); }
+    .rq-empty { color: #cdd; padding: 16px 6px 10px; text-align: center; line-height: 1.5; border-top: 1px solid rgba(255,255,255,0.1); }
+    .rq-empty small { display: block; color: #9ab; }
+    .tb-count { position: absolute; right: -5px; top: -5px; min-width: 15px; background: #7dd8c0; color: #06261f; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 0 4px; line-height: 15px; text-align: center; }
+    /* A toast about a place can be clicked to go there. */
+    .toast.go { cursor: pointer; padding-right: 30px; position: relative; pointer-events: auto; }
+    .toast.go::after { content: "›"; position: absolute; right: 11px; top: 50%; transform: translateY(-52%); font-size: 22px; color: #cfe; }
+    .toast.go:hover { background: rgba(20, 44, 48, 0.95); }
+    #debug-money { margin-left: 6px; font: inherit; font-size: 10px; padding: 0 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #cfe; cursor: pointer; pointer-events: auto; }
+
     /* ── Toolbar tooltip ── */
     .tb-tip { position: fixed; background: rgba(10,18,28,0.95); color: #dde; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; pointer-events: none; white-space: nowrap; z-index: 56; opacity: 0; transition: opacity 0.12s; }
     .tb-tip.visible { opacity: 1; }

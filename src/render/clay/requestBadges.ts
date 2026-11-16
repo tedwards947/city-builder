@@ -71,7 +71,7 @@ function glyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k
   if (kind === 'park') {                       // a tree
     ctx.beginPath(); ctx.arc(x, y - r * 0.14, r * 0.36, 0, Math.PI * 2); ctx.fill();
     ctx.fillRect(x - r * 0.07, y + r * 0.1, r * 0.14, r * 0.42);
-  } else if (kind === 'schoolOrHospital') {    // a mortarboard (a plain cross would read as the sickness pin)
+  } else if (kind === 'schoolOrHospital' || kind === 'school') {    // a mortarboard (a plain cross would read as the sickness pin)
     ctx.beginPath();
     ctx.moveTo(x, y - r * 0.42); ctx.lineTo(x + r * 0.58, y - r * 0.12); ctx.lineTo(x, y + r * 0.18); ctx.lineTo(x - r * 0.58, y - r * 0.12);
     ctx.closePath(); ctx.fill();
@@ -79,7 +79,20 @@ function glyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k
     ctx.moveTo(x - r * 0.3, y + r * 0.12); ctx.lineTo(x - r * 0.3, y + r * 0.36);
     ctx.quadraticCurveTo(x, y + r * 0.56, x + r * 0.3, y + r * 0.36); ctx.lineTo(x + r * 0.3, y + r * 0.12);
     ctx.lineTo(x, y + r * 0.3); ctx.closePath(); ctx.fill();
-  } else if (kind === 'policeOrFire') {        // a shield
+  } else if (kind === 'hospital') {            // a cross, heavier than the sickness pin's and inside the request ring
+    const a = r * 0.17, l = r * 0.5;
+    ctx.fillRect(x - a, y - l, a * 2, l * 2);
+    ctx.fillRect(x - l, y - a, l * 2, a * 2);
+  } else if (kind === 'fire') {                // a flame
+    ctx.beginPath();
+    ctx.moveTo(x, y - r * 0.6);
+    ctx.quadraticCurveTo(x + r * 0.5, y - r * 0.1, x + r * 0.36, y + r * 0.26);
+    ctx.quadraticCurveTo(x + r * 0.22, y + r * 0.58, x, y + r * 0.58);
+    ctx.quadraticCurveTo(x - r * 0.4, y + r * 0.56, x - r * 0.38, y + r * 0.14);
+    ctx.quadraticCurveTo(x - r * 0.34, y - r * 0.1, x - r * 0.14, y - r * 0.16);
+    ctx.quadraticCurveTo(x - r * 0.12, y - r * 0.4, x, y - r * 0.6);
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'policeOrFire' || kind === 'police') {        // a shield
     ctx.beginPath();
     ctx.moveTo(x - r * 0.4, y - r * 0.42); ctx.lineTo(x + r * 0.4, y - r * 0.42); ctx.lineTo(x + r * 0.4, y + r * 0.05);
     ctx.quadraticCurveTo(x + r * 0.33, y + r * 0.44, x, y + r * 0.56);
