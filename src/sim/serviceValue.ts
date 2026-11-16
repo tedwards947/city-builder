@@ -121,6 +121,21 @@ export function serviceReach(world: World, tx: number, ty: number, kind: number)
   return { touchesRoad: touchesAccessRoad(world, tx, ty), homesCovered };
 }
 
+/**
+ * The occupied homes a `kind` building standing at (tx, ty) would serve, as
+ * tile indices: every developed, lived-in home within the kind's range in
+ * road steps, by the same walk along streets and avenues that coverage uses.
+ * (tx, ty) may itself be a home, e.g. the seed of a neighbourhood: the result
+ * is then "the homes one building beside this home could serve", the seed
+ * included if a road reaches it. Bounded by the range, never a map scan.
+ * `range` overrides the kind's range (in road steps).
+ */
+export function homesWithinReach(world: World, tx: number, ty: number, kind: number, range?: number): number[] {
+  const homes: number[] = [];
+  for (const i of computeServiceCoverage(world, tx, ty, kind, range)) if (residentsAt(world, i) > 0) homes.push(i);
+  return homes;
+}
+
 /** Whether `kind` is a building that serves homes by coverage (police, fire, school, hospital, park). */
 export function isServiceKind(kind: number): boolean {
   return BALANCE.service.coverageRange[kind] !== undefined;

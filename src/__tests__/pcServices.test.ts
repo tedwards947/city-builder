@@ -8,7 +8,7 @@ import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { pcQuote, pcQuoteMany, pcCap, regenPc } from '../sim/politics';
-import { serviceOpeningValue, serviceClosureValue, coveredBy, serviceReach, touchesAccessRoad } from '../sim/serviceValue';
+import { serviceOpeningValue, serviceClosureValue, coveredBy, serviceReach, touchesAccessRoad, homesWithinReach } from '../sim/serviceValue';
 import type { ServiceValueConfig } from '../sim/serviceValue';
 import {
   ROAD_STREET, ROAD_HIGHWAY, BUILDING_PARK, BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_NONE,
@@ -290,5 +290,40 @@ describe('what a service building reaches', () => {
     cfg.perResident = { ...shipped.perResident };
     street([5]);
     expect(pcQuote(w, { type: 'building', tx: 5, ty: 7, kind: BUILDING_PARK }).notConnected).toBe(true);
+  });
+});
+
+describe('homesWithinReach', () => {
+  const xs = (tiles: number[]) => tiles.map(i => i % w.grid.width).sort((a, b) => a - b);
+
+  it('lists the occupied homes within the kind\'s range in road steps of a spot, the spot included', () => {
+    const reach = BALANCE.service.coverageRange[BUILDING_PARK];
+    street([3, 5, 6, 12, 20]);                       // homes along y = 11, street along y = 10
+    w.setZone(8, 11, 1);                             // zoned, nobody there yet
+    const from = homesWithinReach(w, 5, 11, BUILDING_PARK);
+    // From the home at x = 5: the road is reached at (5,10), `reach` steps each way, plus one tile beside the last step.
+    expect(xs(from)).toEqual([3, 5, 6, 12].filter(x => Math.abs(x - 5) <= reach + 1));
+    expect(from).toContain(w.grid.idx(5, 11));       // the seed home itself
+    expect(xs(from)).not.toContain(8);               // an empty lot is not a home
+    expect(xs(from)).not.toContain(20);              // out of reach
+  });
+
+  it('is what a building on that spot would cover, so one building beside the seed serves the cluster', () => {
+    street([4, 5, 6, 7, 20]);
+    const cluster = homesWithinReach(w, 5, 11, BUILDING_PARK);
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));          // across the street from the seed
+    const covered = coveredBy(w, BUILDING_PARK);
+    expect(cluster.every(i => covered.has(i))).toBe(true);
+  });
+
+  it('follows roads, not straight lines, and takes a range of its own', () => {
+    street([5]);
+    home(w, 5, 7);                                   // 3 tiles north of the street, no road to it
+    expect(homesWithinReach(w, 5, 11, BUILDING_PARK)).not.toContain(w.grid.idx(5, 7));
+    // A spot that touches no street or avenue reaches only itself.
+    expect(homesWithinReach(w, 5, 7, BUILDING_PARK)).toEqual([w.grid.idx(5, 7)]);
+    street([5, 9]);
+    expect(xs(homesWithinReach(w, 5, 11, BUILDING_PARK, 1))).toEqual([5]);
+    expect(xs(homesWithinReach(w, 5, 11, BUILDING_PARK, 3))).toEqual([5, 9]);
   });
 });

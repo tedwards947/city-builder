@@ -13,16 +13,17 @@ import { BALANCE } from '../../data/balance';
  * BFS coverage for a single service building placed at (tx, ty) of kind `kind`.
  * Returns the set of tile indices that would receive coverage.
  * Used by both ServiceSystem.update() and the renderer's hover preview.
+ * `range` (road steps) defaults to the kind's range in the balance table.
  */
 export function computeServiceCoverage(
   world: World,
   tx: number,
   ty: number,
   kind: number,
+  range: number = BALANCE.service.coverageRange[kind] ?? 4,
 ): Set<number> {
   const { width, height } = world.grid;
   const roadClass = world.layers.roadClass;
-  const range = BALANCE.service.coverageRange[kind] ?? 4;
   const covered = new Set<number>();
 
   // The building tile itself is always covered.
