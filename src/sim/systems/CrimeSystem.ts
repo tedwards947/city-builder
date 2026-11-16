@@ -1,6 +1,7 @@
 import type { World } from '../World';
 import { ZONE_R, ZONE_C, ZONE_I, ZONE_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 
 /**
  * CrimeSystem calculates crime levels per tile.
@@ -18,6 +19,8 @@ export class CrimeSystem {
     const police = world.layers.police;
     const crime = world.layers.crime;
     const b = BALANCE.crime;
+    // Ordinances (Neighbourhood Watch, Curfew, Fast-Track Permits) scale how much crime builds up.
+    const ordinance = ordinanceModifier(world, 'crime');
 
     const area = world.index.area(world);
     for (let y = area.y0; y <= area.y1; y++) {
@@ -42,7 +45,7 @@ export class CrimeSystem {
       else if (z === ZONE_C) baseRate = b.baseRateC;
       else if (z === ZONE_I) baseRate = b.baseRateI;
 
-      let targetCrime = baseRate * level * 40; // Increased from 20 to 40
+      let targetCrime = baseRate * level * 40 * ordinance; // Increased from 20 to 40
 
       // Police reduction.
       if (police[i] === 1) {

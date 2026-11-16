@@ -13,6 +13,7 @@
 import { World } from '../World';
 import { ZONE_I, BUILDING_POWER_PLANT, VEG_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { ordinanceModifier } from '../ordinances';
 import { FieldBounds, unionRect, growRect } from '../FieldBounds';
 
 export class PollutionSystem {
@@ -31,7 +32,12 @@ export class PollutionSystem {
     const building = world.layers.building;
     const veg      = world.layers.vegetation;
 
-    const { decayRate, diffusionRate, industryOutput, powerPlantOutput, vegDecayMult } = BALANCE.pollution;
+    const { decayRate, diffusionRate, vegDecayMult } = BALANCE.pollution;
+    // Ordinances scale what the sources put out: all of them (Fast-Track
+    // Permits) and industry on top of that (Clean Air Act).
+    const all = ordinanceModifier(world, 'pollution');
+    const industryOutput = BALANCE.pollution.industryOutput * all * ordinanceModifier(world, 'industrialPollution');
+    const powerPlantOutput = BALANCE.pollution.powerPlantOutput * all;
 
     if (this.prevPol.length !== n) this.prevPol = new Uint8Array(n);
     if (this.diffBuf.length !== n) this.diffBuf = new Float32Array(n);
@@ -60,8 +66,8 @@ export class PollutionSystem {
         let p = Math.floor(pol[i] * rate);
 
         // 2. Add sources.
-        if (zone[i] === ZONE_I && dev[i] > 0) p = Math.min(255, p + dev[i] * industryOutput);
-        if (building[i] === BUILDING_POWER_PLANT) p = Math.min(255, p + powerPlantOutput);
+        if (zone[i] === ZONE_I && dev[i] > 0) p = Math.min(255, Math.round(p + dev[i] * industryOutput));
+        if (building[i] === BUILDING_POWER_PLANT) p = Math.min(255, Math.round(p + powerPlantOutput));
         pol[i] = p;
       }
     }
