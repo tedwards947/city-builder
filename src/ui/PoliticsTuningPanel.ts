@@ -14,6 +14,7 @@ import { pcCap, regenPerTick } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
 import { debugDock } from './debugDock';
+import { balanceInputs, fold, smallButton } from './tuningWidgets';
 import { REQUEST_KINDS, requestConfig, requestKind, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 
 // BALANCE is declared `as const`; the debug panels are the one place that edit it.
@@ -60,7 +61,6 @@ const ROW_TEMPLATES: Record<string, Tree> = {
 };
 
 const label = (key: string): string => LABELS[key] ?? BUILDING_NAMES[key] ?? key;
-const isTree = (v: unknown): v is Tree => typeof v === 'object' && v !== null;
 
 export class PoliticsTuningPanel {
   private readonly getWorld: () => World;
@@ -126,7 +126,7 @@ export class PoliticsTuningPanel {
     body.appendChild(this.variantDesc);
 
     this.requestsEl = document.createElement('div');
-    body.appendChild(this.fold('Shortcuts', this.playTestTools()));
+    body.appendChild(fold('Shortcuts', this.playTestTools()));
 
     const advanced = document.createElement('div');
     this.detailEl = document.createElement('div');
@@ -156,7 +156,7 @@ export class PoliticsTuningPanel {
     note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D.';
     note.style.cssText = 'margin-top:6px;color:#888;';
     advanced.appendChild(note);
-    body.appendChild(this.fold('Advanced', advanced));
+    body.appendChild(fold('Advanced', advanced));
 
     debugDock().prepend(panel); // first in the dock: it is what the PC play-test watches
 
@@ -182,19 +182,6 @@ export class PoliticsTuningPanel {
     this.variantDesc.textContent = v ? `${v.id} ${v.name}: ${v.desc}` : 'Off: the shipped numbers.';
   }
 
-  /** A section with a clickable heading that starts folded. */
-  private fold(text: string, content: HTMLElement): HTMLElement {
-    const box = document.createElement('div');
-    const h = this.heading('', 0);
-    h.style.cursor = 'pointer';
-    content.style.display = 'none';
-    const set = () => { h.textContent = `${text} ${content.style.display === 'none' ? '▸' : '▾'}`; };
-    h.addEventListener('click', () => { content.style.display = content.style.display === 'none' ? '' : 'none'; set(); });
-    set();
-    box.append(h, content);
-    return box;
-  }
-
   /** Call every frame: refreshes the read-outs on a new tick or when PC or the open requests change. */
   update(): void {
     const world = this.getWorld();
@@ -217,113 +204,7 @@ export class PoliticsTuningPanel {
 
   private buildSettings(): void {
     this.settingsEl.replaceChildren();
-    this.addTree(this.settingsEl, PC, 0);
-  }
-
-  private addTree(parent: HTMLElement, tree: Tree, depth: number): void {
-    for (const key of Object.keys(tree)) {
-      const value = tree[key];
-      if (typeof value === 'number') {
-        parent.appendChild(this.numberRow(label(key), () => tree[key] as number, (v) => { tree[key] = v; }));
-      } else if (typeof value === 'boolean') {
-        parent.appendChild(this.checkboxRow(label(key), () => tree[key] as boolean, (v) => { tree[key] = v; }));
-      } else if (Array.isArray(value)) {
-        parent.appendChild(this.heading(label(key), depth));
-        parent.appendChild(this.listSection(key, value as Tree[]));
-      } else if (isTree(value)) {
-        parent.appendChild(this.heading(label(key), depth));
-        const box = document.createElement('div');
-        box.style.paddingLeft = '6px';
-        this.addTree(box, value, depth + 1);
-        parent.appendChild(box);
-      }
-    }
-  }
-
-  /** A list of rows (fall-off bands, milestones) that can grow and shrink. */
-  private listSection(key: string, list: Tree[]): HTMLElement {
-    const box = document.createElement('div');
-    box.style.paddingLeft = '6px';
-    const render = () => {
-      box.replaceChildren();
-      list.forEach((row, k) => {
-        const line = document.createElement('div');
-        line.style.cssText = 'display:flex;gap:4px;align-items:center;margin:1px 0;';
-        for (const field of Object.keys(row)) {
-          if (typeof row[field] !== 'number') continue;
-          const name = document.createElement('span');
-          name.textContent = field;
-          name.style.color = '#999';
-          line.append(name, this.numberInput(() => row[field] as number, (v) => { row[field] = v; }, 54));
-        }
-        const remove = this.smallButton('×', () => { list.splice(k, 1); render(); this.renderReadout(); });
-        line.appendChild(remove);
-        box.appendChild(line);
-      });
-      box.appendChild(this.smallButton('+ add', () => {
-        const last = list[list.length - 1];
-        list.push(last ? { ...last } : { ...(ROW_TEMPLATES[key] ?? {}) });
-        render();
-        this.renderReadout();
-      }));
-    };
-    render();
-    return box;
-  }
-
-  private heading(text: string, depth: number): HTMLElement {
-    const h = document.createElement('div');
-    h.textContent = text;
-    h.style.cssText = depth === 0
-      ? 'margin-top:6px;color:#999;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;'
-      : 'margin-top:3px;color:#aab;';
-    return h;
-  }
-
-  private numberRow(text: string, get: () => number, set: (v: number) => void): HTMLElement {
-    const line = document.createElement('label');
-    line.style.cssText = 'display:grid;grid-template-columns:1fr 70px;align-items:center;gap:6px;';
-    const name = document.createElement('span');
-    name.textContent = text;
-    line.append(name, this.numberInput(get, set, 70));
-    return line;
-  }
-
-  private checkboxRow(text: string, get: () => boolean, set: (v: boolean) => void): HTMLElement {
-    const line = document.createElement('label');
-    line.style.cssText = 'display:grid;grid-template-columns:1fr 70px;align-items:center;gap:6px;cursor:pointer;';
-    const name = document.createElement('span');
-    name.textContent = text;
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = get();
-    box.style.justifySelf = 'start';
-    box.addEventListener('change', () => { set(box.checked); this.renderReadout(); });
-    line.append(name, box);
-    return line;
-  }
-
-  private numberInput(get: () => number, set: (v: number) => void, width: number): HTMLInputElement {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.value = String(get());
-    // Arrow keys and the wheel move by a step that fits the number's size.
-    const v0 = Math.abs(get());
-    input.step = v0 === 0 ? '0.1' : String(10 ** Math.floor(Math.log10(v0) - 1));
-    input.style.cssText = `width:${width}px;font-size:11px;background:#111;color:#fff;border:1px solid #444;border-radius:3px;padding:0 3px;`;
-    input.addEventListener('input', () => {
-      const v = parseFloat(input.value);
-      if (Number.isFinite(v)) { set(v); this.renderReadout(); }
-    });
-    return input;
-  }
-
-  private smallButton(text: string, onClick: () => void): HTMLButtonElement {
-    const b = document.createElement('button');
-    b.textContent = text;
-    b.style.cssText = 'font-size:10px;padding:0 5px;cursor:pointer;';
-    b.addEventListener('click', onClick);
-    return b;
+    balanceInputs(this.settingsEl, PC, { label, rowTemplates: ROW_TEMPLATES, onChange: () => this.renderReadout() });
   }
 
   // ── Read-outs ─────────────────────────────────────────────────────────────
@@ -339,7 +220,7 @@ export class PoliticsTuningPanel {
       box.appendChild(r);
     };
     const button = (text: string, onClick: () => void) => {
-      const b = this.smallButton(text, () => { onClick(); this.renderReadout(); });
+      const b = smallButton(text, () => { onClick(); this.renderReadout(); });
       b.style.fontSize = '11px';
       return b;
     };
@@ -394,8 +275,8 @@ export class PoliticsTuningPanel {
         const left = document.createElement('span');
         left.style.color = '#999';
         line.append(name, left,
-          this.smallButton('Meet', () => { meetRequest(this.getWorld(), r); this.renderReadout(); }),
-          this.smallButton('Fail', () => { failRequest(this.getWorld(), r); this.renderReadout(); }));
+          smallButton('Meet', () => { meetRequest(this.getWorld(), r); this.renderReadout(); }),
+          smallButton('Fail', () => { failRequest(this.getWorld(), r); this.renderReadout(); }));
         this.requestsEl.appendChild(line);
         this.requestLeft.push({ el: left, deadline: r.deadlineTick });
       }

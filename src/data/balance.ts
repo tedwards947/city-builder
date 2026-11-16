@@ -34,9 +34,14 @@ export const BALANCE = {
     // multiplier instead of landValue/128. (Industrial tiles pollute themselves
     // down to ~0 land value, which made them pay almost no tax.)
     industryLandValueMult: 0.6,
+    // Homes and shops pay land-value-scaled tax: floor + (1 − floor) × lv/128.
+    // 0 = plain lv/128 (shipped). A floor stops homes on cheap land paying almost nothing.
+    landValueFloor: 0,
   },
   maintenance: {
     road: 0.04,
+    // Multiplies the upkeep of service buildings (police, fire, school, hospital, park). 1 = shipped.
+    serviceMult: 1,
   },
   power: {
     plantOutput: 350,    // supply per plant

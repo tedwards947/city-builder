@@ -50,6 +50,7 @@ import { DemandChart } from './ui/DemandChart';
 import { TrafficOverlay } from './render/TrafficOverlay';
 import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
 import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
+import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
 import { BALANCE } from './data/balance';
@@ -106,6 +107,7 @@ const trafficTuning = DEBUG
 const politicsTuning = DEBUG
   ? new PoliticsTuningPanel(() => state.world, () => state.politics, (n) => { for (let k = 0; k < n; k++) state.scheduler.tick(); })
   : null;
+const economyTuning = DEBUG ? new EconomyTuningPanel(() => state.world) : null;
 // For agents driving the page in a headless browser (?debug=true only):
 // `__city.world`, `__city.camera.centerOnTile(x, y)`, `__city.tick(n)`.
 if (DEBUG) {
@@ -525,6 +527,7 @@ function frame(now: number): void {
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
   politicsTuning?.update();
+  economyTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
   requestLogState.open = state.world.politics.requests.length;
