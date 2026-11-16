@@ -236,13 +236,17 @@ export function tileDisruption(world: World, tx: number, ty: number): Disruption
 const N4 = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 
 /**
- * The developed, non-abandoned zone tiles beside (tx, ty) that would be left
- * with no street or avenue if (tx, ty) became a highway. Reads the world,
- * changes nothing.
+ * The developed, non-abandoned zone tiles beside (tx, ty) that would lose
+ * their last street or avenue if (tx, ty) became a highway. Only a street or
+ * avenue there gives access now, so a highway on empty land (or over a
+ * highway) cuts nobody off: a home that never had a road is left alone
+ * (owner's rule). Reads the world, changes nothing.
  */
 export function zonesCutOffByHighway(world: World, tx: number, ty: number): { tx: number; ty: number }[] {
   const { grid, layers } = world;
   const out: { tx: number; ty: number }[] = [];
+  const here = grid.inBounds(tx, ty) ? layers.roadClass[grid.idx(tx, ty)] : ROAD_NONE;
+  if (here === ROAD_NONE || here === ROAD_HIGHWAY) return out;
   for (const [dx, dy] of N4) {
     const nx = tx + dx, ny = ty + dy;
     if (!grid.inBounds(nx, ny)) continue;

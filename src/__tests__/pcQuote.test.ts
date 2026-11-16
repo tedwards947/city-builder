@@ -10,7 +10,7 @@ import type { Command } from '../commands/Command';
 import { planAutoRoad } from '../input/autoRoad';
 import { planZoneFill } from '../input/zoneFill';
 import {
-  ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_HIGHWAY,
+  ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
   BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_PARK,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
@@ -279,6 +279,21 @@ describe('commands charge exactly what pcQuote quotes', () => {
     cmd.undo(w);
     expect(w.budget.politicalCapital).toBe(before);
     expect(w.layers.abandoned[w.grid.idx(10, 9)]).toBe(0);
+  });
+
+  it('a highway cuts off only homes that lose their last road, not homes that never had one', () => {
+    home(w, 10, 9, 3);                       // no road at all
+    expect(zonesCutOffByHighway(w, 10, 10)).toEqual([]);
+    const q = pcQuote(w, { type: 'road', tx: 10, ty: 10, roadClass: ROAD_HIGHWAY });
+    expect(q.parts).toEqual([]);
+    const cmd = new BuildRoadCommand(10, 10, ROAD_HIGHWAY);
+    expect(cmd.execute(w)).toBe(true);
+    expect(w.layers.abandoned[w.grid.idx(10, 9)]).toBe(0);
+    // Widening that highway again cuts off nobody either; an avenue upgraded to highway does.
+    expect(zonesCutOffByHighway(w, 10, 10)).toEqual([]);
+    w.setRoad(12, 9, ROAD_AVENUE);
+    home(w, 12, 8, 2);
+    expect(zonesCutOffByHighway(w, 12, 9)).toEqual([{ tx: 12, ty: 8 }]);
   });
 });
 
