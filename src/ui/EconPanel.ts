@@ -33,6 +33,8 @@ export class EconPanel {
     this._wire();
   }
 
+  get isOpen(): boolean { return this.visible; }
+
   toggle(): void {
     this.visible = !this.visible;
     this.el.classList.toggle('hidden', !this.visible);
