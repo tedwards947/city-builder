@@ -38,7 +38,7 @@ describe('request registry', () => {
   it('has the six kinds, switched off', () => {
     expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'schoolOrHospital', 'policeOrFire', 'utilities', 'trafficJam', 'blight']);
     expect(cfg.spawnEveryDays).toBe(0);
-    for (const k of REQUEST_KINDS) expect(cfg.kinds[k.id]).toEqual({ days: 0, reward: 0, penalty: 0 });
+    for (const k of REQUEST_KINDS) expect(cfg.kinds[k.id]).toMatchObject({ days: 0, reward: 0, penalty: 0 });
   });
 
   it('finds the neighbourhoods and scores need from their own tiles', () => {
@@ -98,8 +98,65 @@ describe('RequestSystem', () => {
   });
 
   it('picks the same request for the same seed', () => {
+    Object.assign(cfg.kinds.park, { days: 10 });
     const w1 = city(), w2 = city();
     w1.buildings.length = 0; w2.buildings.length = 0;
-    expect(pickRequest(w1, w1.rng)).toEqual(pickRequest(w2, w2.rng));
+    const p1 = pickRequest(w1, w1.rng);
+    expect(p1).not.toBeNull();
+    expect(p1).toEqual(pickRequest(w2, w2.rng));
+  });
+
+  it('goes quiet when no neighbourhood needs anything badly enough', () => {
+    Object.assign(cfg, { spawnEveryDays: 1 });
+    const w = city();                                            // parks, schools, police… all there
+    runDays(w, new RequestSystem(), 10);
+    expect(w.politics.requests).toEqual([]);
+  });
+
+  it('asks for power and water during a shortage, once for the city, met when it ends', () => {
+    Object.assign(cfg, { spawnEveryDays: 1, maxOpen: 3 });
+    Object.assign(cfg.kinds.utilities, { days: 30, reward: 10 });
+    const w = city();
+    const sys = new RequestSystem();
+    // Shortage: stats are set by the power and water systems, which this test does not run.
+    Object.assign(w.stats, { powerSupply: 10, powerDemand: 20, waterSupply: 50, waterDemand: 20 });
+    runDays(w, sys, 3);
+    expect(w.politics.requests.map((r) => r.kind)).toEqual(['utilities']); // city-wide: only one
+    w.stats.powerSupply = 30;
+    runDays(w, sys, 1);
+    expect(w.politics.requests).toEqual([]);
+    expect(w.budget.politicalCapital).toBe(60);
   });
 });
+
+describe('picking', () => {
+  it('gives every eligible kind a turn, weighted toward the worst need', () => {
+    Object.assign(cfg.kinds.park, { days: 10 });
+    Object.assign(cfg.kinds.blight, { days: 10 });
+    const w = city();
+    w.buildings.length = 0;                                      // park need 1 in both neighbourhoods
+    for (const x of [13, 14]) w.layers.abandoned[5 * 24 + x] = 1; // blight 2/25 = 0.08 on the right…
+    for (const x of [15, 16, 17]) w.layers.abandoned[6 * 24 + x] = 1; // …now 5/25 = 0.2, above askAt 0.1
+    const counts: Record<string, number> = {};
+    let seed = 1;
+    const rng = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let k = 0; k < 600; k++) {
+      const p = pickRequest(w, rng)!;
+      counts[p.kind] = (counts[p.kind] ?? 0) + 1;
+      if (p.kind === 'blight') expect(p.area.x0).toBe(13);
+    }
+    expect(Object.keys(counts).sort()).toEqual(['blight', 'park']);
+    // Weighted by worst need: about 1 : 0.2.
+    expect(counts.blight / 600).toBeGreaterThan(0.08);
+    expect(counts.blight / 600).toBeLessThan(0.28);
+  });
+
+  it('skips kinds whose days are 0 (switched off)', () => {
+    const w = city();
+    w.buildings.length = 0;                                      // park need 1…
+    w.layers.police.fill(0);                                     // …and police need 1
+    Object.assign(cfg.kinds.park, { days: 6 });                  // only park is switched on
+    for (let k = 0; k < 50; k++) expect(pickRequest(w, w.rng)?.kind).toBe('park');
+  });
+});
+

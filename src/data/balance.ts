@@ -380,16 +380,18 @@ export const BALANCE = {
       maxOpen: 3,
       cellSize: 12,       // neighbourhoods are cells of this many tiles square…
       minHomes: 6,        // …with at least this many developed homes
-      metNeed: 0.25,      // met once at most this share of the area's homes still lack it
       randomness: 0.3,    // 0 = always the neediest; 1 = need counts for little
+      // Per kind: a neighbourhood asks only when its need is above askAt (so
+      // a well-served city goes quiet), and the request is met once the need
+      // is down to metAt. Need is 0–1, see requests.ts.
       kinds: {
-        park: { days: 0, reward: 0, penalty: 0 },
-        schoolOrHospital: { days: 0, reward: 0, penalty: 0 },
-        policeOrFire: { days: 0, reward: 0, penalty: 0 },
-        utilities: { days: 0, reward: 0, penalty: 0 },
-        trafficJam: { days: 0, reward: 0, penalty: 0 },
-        blight: { days: 0, reward: 0, penalty: 0 },
-      } as Record<string, { days: number; reward: number; penalty: number }>,
+        park: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        schoolOrHospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        policeOrFire: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        utilities: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0 },
+        trafficJam: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0.05 },
+        blight: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0 },
+      } as Record<string, { days: number; reward: number; penalty: number; askAt: number; metAt: number }>,
     },
     // Off until the ordinance numbers are play-tested: the toolbar tile and
     // panel stay hidden while this is false (ordinancesEnabled()).

@@ -7,8 +7,10 @@
 // NEED from 0 (has what it would ask for) to 1 (entirely without it), by
 // looking only at the tiles of that cell, so nothing loops over the map. A
 // new request goes to the cell and kind with the highest need, shaken by a
-// little randomness (seeded world.rng), and is met once that cell's need for
-// its kind is down to `metNeed`.
+// little randomness (seeded world.rng): first a kind, weighted by its worst
+// need, among kinds that some cell needs badly enough to ask for (askAt);
+// then the neediest cell for that kind. A request is met once that cell's
+// need for its kind is down to the kind's metAt.
 //
 // Numbers live in BALANCE.politicalCapital.requests and are read live.
 // SWITCHED OFF: spawnEveryDays is 0, so no request ever opens.
@@ -32,15 +34,17 @@ export interface RequestKind {
   id: string;
   nameKey: string;
   descKey: string;
+  /** One request for the whole city at a time (the same need everywhere). */
+  cityWide?: boolean;
   /** 0 (nothing missing) to 1 (entirely without it) for the area's homes. */
   need(world: World, area: Rect): number;
 }
 
-interface RequestNumbers { days: number; reward: number; penalty: number }
+interface RequestNumbers { days: number; reward: number; penalty: number; askAt: number; metAt: number }
 
 type RequestConfig = {
   spawnEveryDays: number; maxOpen: number; cellSize: number; minHomes: number;
-  metNeed: number; randomness: number; kinds: Record<string, RequestNumbers>;
+  randomness: number; kinds: Record<string, RequestNumbers>;
 };
 export const requestConfig = (): RequestConfig => BALANCE.politicalCapital.requests as unknown as RequestConfig;
 
@@ -79,12 +83,13 @@ function coverageNeed(world: World, a: Rect, l1: Uint8Array, l2: Uint8Array): nu
   return Math.max(shareLacking(world, a, (i) => !l1[i]), shareLacking(world, a, (i) => !l2[i]));
 }
 
-function utilitiesNeed(world: World, a: Rect): number {
+/**
+ * 1 during a power or water shortage, else 0. A shortage doesn't uncover
+ * any tile in this game, so it is the whole city's need, met when it ends.
+ */
+function utilitiesNeed(world: World): number {
   const s = world.stats;
-  // Only asked for during a shortage.
-  if (s.powerSupply >= s.powerDemand && s.waterSupply >= s.waterDemand) return 0;
-  const { power, water } = world.layers;
-  return shareLacking(world, a, (i) => !power[i] || !water[i]);
+  return s.powerSupply < s.powerDemand || s.waterSupply < s.waterDemand ? 1 : 0;
 }
 
 function trafficNeed(world: World, a: Rect): number {
@@ -120,25 +125,26 @@ function blightNeed(world: World, a: Rect): number {
   return zoned ? empty / zoned : 0;
 }
 
-const kind = (id: string, need: RequestKind['need']): RequestKind =>
-  ({ id, nameKey: `requests.${id}.name`, descKey: `requests.${id}.desc`, need });
+const kind = (id: string, need: RequestKind['need'], cityWide = false): RequestKind =>
+  ({ id, nameKey: `requests.${id}.name`, descKey: `requests.${id}.desc`, need, cityWide });
 
 /** The registry. */
 export const REQUEST_KINDS: readonly RequestKind[] = [
   kind('park', parkNeed),
   kind('schoolOrHospital', (w, a) => coverageNeed(w, a, w.layers.school, w.layers.hospital)),
   kind('policeOrFire', (w, a) => coverageNeed(w, a, w.layers.police, w.layers.fireStation)),
-  kind('utilities', utilitiesNeed),
+  kind('utilities', utilitiesNeed, true),
   kind('trafficJam', trafficNeed),
   kind('blight', blightNeed),
 ];
 
 export const requestKind = (id: string): RequestKind | undefined => REQUEST_KINDS.find((k) => k.id === id);
 
-/** Is the request met: the area's need for its kind is down to metNeed. */
+/** Is the request met: the area's need for its kind is down to the kind's metAt. */
 export function isMet(world: World, req: OpenRequest): boolean {
   const k = requestKind(req.kind);
-  return !k || k.need(world, req) <= requestConfig().metNeed;
+  const n = requestConfig().kinds[req.kind];
+  return !k || !n || k.need(world, req) <= n.metAt;
 }
 
 const overlaps = (a: Rect, b: Rect) => a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
@@ -173,23 +179,45 @@ export function neighbourhoods(world: World): Rect[] {
 }
 
 /**
- * The next request to open: the (neighbourhood, kind) with the highest need
- * above metNeed, each need scaled by a random factor in [1 - randomness, 1].
- * Skips neighbourhoods that already have an open request. Null if nobody needs anything.
+ * The next request to open, or null if no neighbourhood needs anything badly
+ * enough. Neighbourhoods that already have an open request are skipped, and
+ * a city-wide kind is skipped while one is open.
+ *  1. Kinds with days > 0 (0 = switched off) that some free neighbourhood
+ *     needs above the kind's askAt are
+ *     eligible; one is drawn at random, weighted by its worst need, so every
+ *     eligible kind gets a turn and the most urgent comes up most often.
+ *  2. For that kind, the neighbourhood with the highest need, each need
+ *     scaled by a random factor in [1 - randomness, 1].
  */
 export function pickRequest(world: World, rng: () => number): { kind: string; area: Rect } | null {
-  const { metNeed, randomness } = requestConfig();
+  const { randomness, kinds } = requestConfig();
   const open = world.politics.requests;
-  let best: { kind: string; area: Rect } | null = null;
-  let bestScore = 0;
-  for (const area of neighbourhoods(world)) {
-    if (open.some((r) => overlaps(r, area))) continue;
-    for (const k of REQUEST_KINDS) {
-      const need = k.need(world, area);
-      if (need <= metNeed) continue;
-      const score = need * (1 - randomness * rng());
-      if (score > bestScore) { bestScore = score; best = { kind: k.id, area }; }
-    }
+  const areas = neighbourhoods(world).filter((area) => !open.some((r) => overlaps(r, area)));
+  if (!areas.length) return null;
+
+  const eligible: { k: RequestKind; needs: number[]; worst: number }[] = [];
+  let total = 0;
+  for (const k of REQUEST_KINDS) {
+    const n = kinds[k.id];
+    if (!n || n.days <= 0 || (k.cityWide && open.some((r) => r.kind === k.id))) continue;
+    const needs = areas.map((a) => k.need(world, a));
+    const worst = Math.max(...needs);
+    if (worst <= n.askAt) continue;
+    eligible.push({ k, needs, worst });
+    total += worst;
   }
-  return best;
+  if (!eligible.length) return null;
+
+  let roll = rng() * total;
+  let chosen = eligible[eligible.length - 1];
+  for (const e of eligible) { roll -= e.worst; if (roll < 0) { chosen = e; break; } }
+
+  const askAt = kinds[chosen.k.id].askAt;
+  let best = -1, bestScore = 0;
+  chosen.needs.forEach((need, j) => {
+    if (need <= askAt) return;
+    const score = need * (1 - randomness * rng());
+    if (score > bestScore) { bestScore = score; best = j; }
+  });
+  return best < 0 ? null : { kind: chosen.k.id, area: areas[best] };
 }
