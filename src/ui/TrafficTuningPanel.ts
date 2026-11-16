@@ -6,6 +6,7 @@
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { trafficTotals } from './trafficDebug';
+import { debugDock } from './debugDock';
 
 interface Knob {
   label: string;
@@ -68,17 +69,17 @@ export class TrafficTuningPanel {
     this.recompute = recompute;
 
     const panel = document.createElement('div');
-    // Sits under the stats box in the top-right corner.
-    panel.style.cssText = 'position:absolute;top:296px;right:12px;width:270px;max-height:calc(100vh - 400px);overflow:auto;'
+    // In the debug dock, left of the stats box and toolbar.
+    panel.style.cssText = 'flex:none;'
       + 'background:rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;'
-      + 'font-size:11px;color:#ccd;line-height:1.5;backdrop-filter:blur(8px);z-index:40;';
+      + 'font-size:11px;color:#ccd;line-height:1.5;backdrop-filter:blur(8px);';
     // Keep clicks and scrolls on the panel from reaching the map.
     for (const type of ['mousedown', 'pointerdown', 'wheel', 'click', 'touchstart']) {
       panel.addEventListener(type, (e) => e.stopPropagation());
     }
 
     const title = document.createElement('div');
-    title.textContent = 'Traffic tuning (debug) ▾';
+    title.textContent = 'Traffic tuning (debug) ▸';
     title.style.cssText = 'font-weight:bold;color:#9ad;margin-bottom:4px;cursor:pointer;';
     panel.appendChild(title);
 
@@ -88,7 +89,9 @@ export class TrafficTuningPanel {
 
     // Everything below the totals goes into `el`, which folds away when the
     // title is clicked.
+    // Starts folded, so the debug dock stays short.
     const el = document.createElement('div');
+    el.style.display = 'none';
     panel.appendChild(el);
     title.addEventListener('click', () => {
       const open = el.style.display === 'none';
@@ -153,7 +156,7 @@ export class TrafficTuningPanel {
     note.style.cssText = 'margin-top:6px;color:#888;';
     el.appendChild(note);
 
-    document.body.appendChild(panel);
+    debugDock().appendChild(panel);
     this.sync();
   }
 

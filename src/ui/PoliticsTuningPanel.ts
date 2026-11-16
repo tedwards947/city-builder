@@ -13,6 +13,7 @@ import { BALANCE } from '../data/balance';
 import { pcCap, regenRate } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PROPOSED_PC, applyValues } from './pcPresets';
+import { debugDock } from './debugDock';
 
 // BALANCE is declared `as const`; the debug panels are the one place that edit it.
 type Tree = Record<string, unknown>;
@@ -74,10 +75,10 @@ export class PoliticsTuningPanel {
     this.getPolitics = getPolitics;
 
     const panel = document.createElement('div');
-    // Beside the traffic tuning panel, under the stats box.
-    panel.style.cssText = 'position:absolute;top:296px;right:294px;width:270px;max-height:calc(100vh - 400px);overflow:auto;'
+    // In the debug dock, left of the stats box and toolbar.
+    panel.style.cssText = 'flex:none;'
       + 'background:rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;'
-      + 'font-size:11px;color:#ccd;line-height:1.5;backdrop-filter:blur(8px);z-index:40;';
+      + 'font-size:11px;color:#ccd;line-height:1.5;backdrop-filter:blur(8px);';
     for (const type of ['mousedown', 'pointerdown', 'wheel', 'click', 'touchstart', 'keydown']) {
       panel.addEventListener(type, (e) => e.stopPropagation());
     }
@@ -126,7 +127,7 @@ export class PoliticsTuningPanel {
     note.style.cssText = 'margin-top:6px;color:#888;';
     body.appendChild(note);
 
-    document.body.appendChild(panel);
+    debugDock().appendChild(panel);
   }
 
   /** Call every frame: refreshes the read-outs once per sim tick. */
