@@ -47,6 +47,13 @@ export type CityEvents = {
   // for a batch that was refused and taken back. (tx, ty) is the tile of the
   // action's last change. `undo` is true for an undo step.
   pcAction:         { delta: number; tx?: number; ty?: number; undo: boolean };
+  // Ordinances (src/sim/ordinances.ts). Enact and repeal come from the
+  // player; suspend and resume from OrdinanceSystem when PC falls to 0 or
+  // below and when it climbs above 0 again.
+  ordinanceEnacted:  { id: string; cost: number };
+  ordinanceRepealed: { id: string };
+  ordinanceSuspended: { id: string };
+  ordinanceResumed:  { id: string };
   // Healthcare
   deathEvent:       { tx: number; ty: number };
   healthcareCrisis: { avgSickness: number; threshold: number; affectedTiles: number };
