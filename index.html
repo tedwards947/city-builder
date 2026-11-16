@@ -123,6 +123,35 @@
     .ep-dem { font-size: 12px; }
     .ep-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0; }
 
+    /* ── Ordinance panel (src/ui/OrdinancePanel.ts) ── */
+    #ordinance-panel { position: absolute; top: 60px; right: 220px; z-index: 54; width: 340px; max-width: calc(100vw - 250px); background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #dde; pointer-events: auto; }
+    #ordinance-panel.hidden { display: none; }
+    .ord-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #8aa; font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .ord-upkeep { text-transform: none; letter-spacing: 0; color: #7dd8c0; }
+    .ord-list { max-height: min(62vh, 520px); overflow-y: auto; }
+    .ord-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+    .ord-text b { color: #fff; font-size: 13px; display: block; }
+    .ord-text small { display: block; color: #9ab; line-height: 1.35; }
+    .ord-text .ord-why { color: #e0b050; margin-top: 2px; }
+    .ord-flag { color: #e0b050; font-weight: 400; font-size: 11px; }
+    .ord-cost { text-align: right; line-height: 1.35; white-space: nowrap; }
+    .ord-cost small { display: block; color: #9ab; font-size: 10px; }
+    .ord-pc { color: #7dd8c0; font-weight: 600; }
+    .ord-row.cantAfford .ord-text, .ord-row.cantAfford .ord-cost { opacity: 0.55; }
+    .ord-row.cantAfford .ord-pc { color: #e07070; }
+    .ord-switch { width: 34px; height: 18px; border-radius: 9px; border: 0; background: rgba(255,255,255,0.2); position: relative; cursor: pointer; padding: 0; }
+    .ord-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #dde; transition: left 0.12s; }
+    .ord-switch.on { background: #2f9c86; } .ord-switch.on::after { left: 18px; background: #fff; }
+    .ord-row.suspended .ord-switch { background: #8a6a2a; }
+    .ord-switch:disabled { cursor: default; opacity: 0.5; }
+    .ord-confirm { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 9px 11px; margin: 0 0 8px; line-height: 1.5; }
+    .ord-confirm b { color: #fff; display: block; }
+    .ord-confirm small { color: #9ab; display: block; }
+    .ord-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+    .ord-actions button { font: inherit; padding: 5px 13px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: none; color: #dde; cursor: pointer; }
+    .ord-actions button.go { background: #2f9c86; border-color: #2f9c86; color: #fff; font-weight: 600; }
+    .ord-actions button.go.repeal { background: #a8553f; border-color: #a8553f; }
+
     /* ── Toolbar tooltip ── */
     .tb-tip { position: fixed; background: rgba(10,18,28,0.95); color: #dde; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; pointer-events: none; white-space: nowrap; z-index: 56; opacity: 0; transition: opacity 0.12s; }
     .tb-tip.visible { opacity: 1; }

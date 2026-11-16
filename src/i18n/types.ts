@@ -162,6 +162,23 @@ export interface TranslationSchema {
       startGame: string;
       cancel: string;
     };
+    ordinances: {
+      title: string;
+      upkeep: string;
+      perDay: string;
+      then: string;
+      suspended: string;
+      suspendedNote: string;
+      askEnact: string;
+      askRepeal: string;
+      costsNow: string;
+      costsThen: string;
+      cantUndo: string;
+      nothingBack: string;
+      enact: string;
+      repeal: string;
+      cancel: string;
+    };
     milestone: {
       title: string;
       body: string;
@@ -194,6 +211,7 @@ export interface TranslationSchema {
       clear: string;
       undo: string;
       redo: string;
+      ordinances: string;
       roads: string;
       zones: string;
       utilities: string;
@@ -250,6 +268,7 @@ export interface TranslationSchema {
       clear: string;
       undo: string;
       redo: string;
+      ordinances: string;
     };
   };
   zones: {

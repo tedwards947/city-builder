@@ -17,12 +17,13 @@ import {
 import { nuisanceRings } from '../sim/politics';
 import type { NuisanceConfig } from '../sim/politics';
 import { PC_SYMBOL } from './pcFormat';
+import { ordinancesShown } from './OrdinancePanel';
 import { t } from '../i18n';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
 export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe';
-export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'undo' | 'redo';
+export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'ordinances' | 'undo' | 'redo';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
 export interface ToolbarItem {
@@ -37,6 +38,8 @@ export interface ToolbarItem {
    * hand and is listed here only so the tooltip can show it.
    */
   hotkey?: string;
+  /** If given and it returns false, the item is left out (a feature not switched on yet). */
+  shown?: () => boolean;
   /** Extra class for the icon (the zone colours). */
   cls?: string;
 }
@@ -84,6 +87,7 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
+  { key: 'ordinances', icon: 'ordinances', action: 'ordinances', hotkey: 'o', shown: ordinancesShown },
   { key: 'undo', icon: 'undo', action: 'undo', hotkey: 'mod+z' },
   { key: 'redo', icon: 'redo', action: 'redo', hotkey: 'mod+shift+z' },
   { family: 'menu', icon: 'menu', items: [
@@ -250,6 +254,7 @@ export class Toolbar {
     for (const e of TOOLBAR) {
       if (e === 'sep') { this.root.append(node('div', 'tb-sep')); continue; }
       if (!isFamily(e)) {
+        if (e.shown && !e.shown()) continue;
         const b = this.tile(e.icon, e.cls, this.isOn(e), false, t('ui.toolbar.' + e.key));
         b.addEventListener('click', () => { this.open = null; this.pick(e); this.render(); });
         this.hover(b, () => this.itemTip(e));
