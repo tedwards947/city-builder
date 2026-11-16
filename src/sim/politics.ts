@@ -14,7 +14,7 @@
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
-import { serviceOpeningValue, serviceClosureValue } from './serviceValue';
+import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad } from './serviceValue';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { isEstablished } from './established';
@@ -342,6 +342,12 @@ export interface PcQuote {
   displacedPopulation: number;
   /** Every contribution, in the order it is charged. */
   parts: PcPart[];
+  /**
+   * Set (to true) only for a service building whose spot touches no street
+   * or avenue: it may still be built, but it would serve nobody. For a
+   * warning beside the price.
+   */
+  notConnected?: true;
 }
 
 function emptyQuote(): PcQuote {
@@ -421,6 +427,7 @@ export function pcQuote(
       // Building over a ruin earns nothing: only bulldozing or rezoning clears blight.
       if (!world.isBuildable(tx, ty)) return q;
       addPart(q, 'displacement', tx, ty, -d.pcCost);
+      if (isServiceKind(action.kind) && !touchesAccessRoad(world, tx, ty)) q.notConnected = true;
       // Opening a service: the residents it will cover are pleased.
       for (const p of serviceOpeningValue(world, tx, ty, action.kind, service)) {
         addPart(q, 'serviceOpened', p.tx, p.ty, p.amount, p.strength);
@@ -494,6 +501,7 @@ export function pcQuoteMany(
   const width = world.grid.width;
   for (const action of actions) {
     const q = pcQuote(world, action, nuisance, service);
+    if (q.notConnected) total.notConnected = true;
     for (const p of q.parts) {
       const key = `${p.reason}:${p.ty * width + p.tx}`;
       const have = byKey.get(key);

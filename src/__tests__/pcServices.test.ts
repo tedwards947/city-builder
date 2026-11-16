@@ -8,10 +8,10 @@ import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { pcQuote, pcQuoteMany, pcCap, regenPc } from '../sim/politics';
-import { serviceOpeningValue, serviceClosureValue } from '../sim/serviceValue';
+import { serviceOpeningValue, serviceClosureValue, coveredBy, serviceReach, touchesAccessRoad } from '../sim/serviceValue';
 import type { ServiceValueConfig } from '../sim/serviceValue';
 import {
-  ROAD_STREET, BUILDING_PARK, BUILDING_POLICE, BUILDING_WATER_TOWER, BUILDING_NONE,
+  ROAD_STREET, ROAD_HIGHWAY, BUILDING_PARK, BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_NONE,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home, residents } from './pcTestWorld';
@@ -233,5 +233,62 @@ describe('service value', () => {
     expect(q.cost).toBe(2 * residents() * 2);
     expect(q.shortfall).toBe(2 * residents() * 2 - 3);
     expect(q.parts.length).toBe(2);
+  });
+});
+
+describe('what a service building reaches', () => {
+  it('coveredBy counts the standing buildings of a kind over each tile, and follows the map', () => {
+    street([5]);
+    const homeTile = w.grid.idx(5, 11);
+    expect(coveredBy(w, BUILDING_PARK).get(homeTile)).toBeUndefined();
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));
+    expect(coveredBy(w, BUILDING_PARK).get(homeTile)).toBe(1);
+    h.run(new PlaceBuildingCommand(6, 9, BUILDING_PARK));
+    expect(coveredBy(w, BUILDING_PARK).get(homeTile)).toBe(2);
+    expect(coveredBy(w, BUILDING_POLICE).get(homeTile)).toBeUndefined();   // kinds are counted apart
+    h.undo();
+    expect(coveredBy(w, BUILDING_PARK).get(homeTile)).toBe(1);
+    // Along the road, not as the crow flies: a home 3 tiles away with no road between is not covered.
+    home(w, 5, 6);
+    expect(coveredBy(w, BUILDING_PARK).get(w.grid.idx(5, 6))).toBeUndefined();
+  });
+
+  it('touchesAccessRoad: a street or avenue beside the spot, not a highway, not a diagonal', () => {
+    street([]);
+    expect(touchesAccessRoad(w, 5, 9)).toBe(true);
+    expect(touchesAccessRoad(w, 5, 8)).toBe(false);
+    w.setRoad(20, 20, ROAD_STREET);
+    expect(touchesAccessRoad(w, 21, 21)).toBe(false);          // diagonal only
+    w.setRoad(30, 5, ROAD_HIGHWAY);
+    expect(touchesAccessRoad(w, 30, 4)).toBe(false);
+  });
+
+  it('serviceReach says what a spot would serve', () => {
+    street([4, 5, 6, 20]);
+    expect(serviceReach(w, 5, 9, BUILDING_PARK)).toEqual({ touchesRoad: true, homesCovered: 3 });
+    expect(serviceReach(w, 5, 7, BUILDING_PARK)).toEqual({ touchesRoad: false, homesCovered: 0 });
+  });
+
+  it('a quote flags a service building that would not be connected, and still allows it', () => {
+    street([5]);
+    const off = pcQuote(w, { type: 'building', tx: 5, ty: 7, kind: BUILDING_PARK });
+    expect(off.notConnected).toBe(true);
+    expect(off.affordable).toBe(true);
+    expect(h.run(new PlaceBuildingCommand(5, 7, BUILDING_PARK))).toBe(true);
+    // Connected spots, and buildings that are not services, are not flagged.
+    expect(pcQuote(w, { type: 'building', tx: 5, ty: 9, kind: BUILDING_PARK }).notConnected).toBeUndefined();
+    expect(pcQuote(w, { type: 'building', tx: 8, ty: 7, kind: BUILDING_POWER_PLANT }).notConnected).toBeUndefined();
+    expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 7 }).notConnected).toBeUndefined();
+    // A merged quote carries the flag if any of its buildings has it.
+    expect(pcQuoteMany(w, [
+      { type: 'building', tx: 6, ty: 9, kind: BUILDING_PARK },
+      { type: 'building', tx: 9, ty: 7, kind: BUILDING_POLICE },
+    ]).notConnected).toBe(true);
+  });
+
+  it('the flag does not depend on the service values being switched on', () => {
+    cfg.perResident = { ...shipped.perResident };
+    street([5]);
+    expect(pcQuote(w, { type: 'building', tx: 5, ty: 7, kind: BUILDING_PARK }).notConnected).toBe(true);
   });
 });
