@@ -8,6 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
 import type { Camera, TileBounds } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
@@ -43,6 +44,8 @@ export interface RenderOptions {
   roadPreview?: RoadPreview | null;
   /** Lots about to be zoned (zone fill mode). */
   zonePreview?: ZonePreview | null;
+  /** Political capital at the pointer: fall-off rings, homes that object, and the PC price. */
+  pcPreview?: PcPreview | null;
 }
 
 export interface ZonePreview {
@@ -54,6 +57,16 @@ export interface ZonePreview {
   /** Short text shown beside `at`, e.g. the price. */
   label?: string;
   at: { tx: number; ty: number };
+  /** Political capital for the same tag: its text, and whether the city can cover it. */
+  pc?: PcTag;
+}
+
+/** The political-capital part of a price tag. */
+export interface PcTag {
+  text: string;
+  ok: boolean;
+  /** A second line, e.g. why the action is refused. */
+  note?: string;
 }
 
 export interface RoadPreview {
@@ -62,6 +75,8 @@ export interface RoadPreview {
   ok: boolean;
   /** Short text shown beside the end tile, e.g. the price. */
   label?: string;
+  /** Political capital for the same tag. */
+  pc?: PcTag;
 }
 
 // Overlay colour by layer value (0–255).
@@ -140,7 +155,7 @@ export class CanvasRenderer {
   /** Draws one frame. The passes run back to front. */
   render(world: World, camera: Camera, options: RenderOptions = {}): void {
     if (camera.zoom < 0.1) return;
-    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null } = options;
+    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null } = options;
 
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
@@ -171,6 +186,7 @@ export class CanvasRenderer {
     // 5. Guides: tile grid, overlay key, coverage preview, hover outline, map edge.
     if (camera.zoom >= 1.2) this._drawTileGrid(ctx, camera, bounds);
     if (overlay !== 'none') this._drawOverlayLegend(ctx, overlay, camera.viewportH);
+    if (pcPreview !== null) this._drawPcPreview(ctx, camera, ts, pcPreview);
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
@@ -475,7 +491,7 @@ export class CanvasRenderer {
       Math.floor(camera.worldToScreenY(Projection.tileToWorldY(start.ty))) + 1,
       Math.ceil(ts) - 1, Math.ceil(ts) - 1,
     );
-    if (label) this._drawPriceTag(ctx, camera, ts, end, label, ok);
+    if (label) this._drawPriceTag(ctx, camera, ts, end, label, ok, preview.pc);
   }
 
   /** The lots a zone fill would zone: tinted in the zone's colour and outlined, the price by the pointer. */
@@ -493,21 +509,89 @@ export class CanvasRenderer {
       ctx.strokeStyle = ok ? 'rgba(255,255,255,0.7)' : '#f66';
       ctx.strokeRect(sx + 0.5, sy + 0.5, size, size);
     }
-    if (label && tiles.length > 0) this._drawPriceTag(ctx, camera, ts, at, label, ok);
+    if (label && tiles.length > 0) this._drawPriceTag(ctx, camera, ts, at, label, ok, preview.pc);
   }
 
-  /** A small price label to the right of a tile. */
-  private _drawPriceTag(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, at: { tx: number; ty: number }, label: string, ok: boolean): void {
+  /**
+   * A small price label to the right of a tile: money in green, then political
+   * capital in teal, each red if the city cannot cover it, and an optional
+   * second line saying why.
+   */
+  private _drawPriceTag(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, at: { tx: number; ty: number }, label: string, ok: boolean, pc?: PcTag): void {
     const x = camera.worldToScreenX(Projection.tileToWorldX(at.tx)) + ts + 8;
     const y = camera.worldToScreenY(Projection.tileToWorldY(at.ty)) + ts / 2;
-    ctx.font = '600 12px system-ui, sans-serif';
+    const FONT = '600 12px system-ui, sans-serif', SMALL = '500 10px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    const w = ctx.measureText(label).width;
-    ctx.fillStyle = 'rgba(10,18,28,0.85)';
-    ctx.fillRect(x - 5, y - 10, w + 10, 20);
+    ctx.font = FONT;
+    const pcText = pc?.text ?? '';
+    const sep = label && pcText ? ' · ' : '';
+    const wLabel = ctx.measureText(label + sep).width;
+    const wPc = ctx.measureText(pcText).width;
+    const note = pc?.note ?? '';
+    ctx.font = SMALL;
+    const wNote = note ? ctx.measureText(note).width : 0;
+    const w = Math.max(wLabel + wPc, wNote), h = note ? 34 : 20;
+    ctx.fillStyle = 'rgba(10,18,28,0.88)';
+    ctx.fillRect(x - 5, y - 10, w + 10, h);
+    if (pc && !pc.ok) {
+      ctx.strokeStyle = '#e07070';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - 4.5, y - 9.5, w + 9, h - 1);
+    }
+    ctx.font = FONT;
     ctx.fillStyle = ok ? '#7dd87d' : '#f77';
-    ctx.fillText(label, x, y);
+    ctx.fillText(label + sep, x, y);
+    if (pcText) {
+      ctx.fillStyle = pc!.ok ? '#7dd8c0' : '#f77';
+      ctx.fillText(pcText, x + wLabel, y);
+    }
+    if (note) {
+      ctx.font = SMALL;
+      ctx.fillStyle = '#9ab';
+      ctx.fillText(note, x, y + 15);
+    }
+  }
+
+  /**
+   * Political capital at the pointer. Homes that object are tinted red, darker
+   * the more they mind. Round an unpopular building go its fall-off bands as
+   * stepped outlines (manhattan distance, like service coverage): solid where
+   * homes mind most, then dashed, then dotted. The price goes in the tag.
+   */
+  private _drawPcPreview(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, preview: PcPreview): void {
+    const { at, rings, tints, ok } = preview;
+    const X = (tx: number) => Math.round(camera.worldToScreenX(Projection.tileToWorldX(tx)));
+    const Y = (ty: number) => Math.round(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+    for (const { tx, ty, strength } of tints) {
+      ctx.fillStyle = `rgba(224,72,72,${(0.18 + 0.42 * strength).toFixed(3)})`;
+      ctx.fillRect(X(tx), Y(ty), X(tx + 1) - X(tx), Y(ty + 1) - Y(ty));
+    }
+    const DASH = [[], [7, 5], [2, 5]];
+    ctx.lineWidth = 2;
+    rings.forEach(({ within: r }, n) => {
+      ctx.setLineDash(DASH[Math.min(n, DASH.length - 1)]);
+      ctx.strokeStyle = `rgba(232,110,110,${ok ? 0.95 - 0.2 * Math.min(n, 2) : 1})`;
+      ctx.beginPath();
+      // Down the right-hand steps of the diamond, then back up the left.
+      ctx.moveTo(X(at.tx), Y(at.ty - r));
+      for (let dy = -r; dy <= r; dy++) {
+        const x = X(at.tx + (r - Math.abs(dy)) + 1);
+        ctx.lineTo(x, Y(at.ty + dy));
+        ctx.lineTo(x, Y(at.ty + dy + 1));
+      }
+      for (let dy = r; dy >= -r; dy--) {
+        const x = X(at.tx - (r - Math.abs(dy)));
+        ctx.lineTo(x, Y(at.ty + dy + 1));
+        ctx.lineTo(x, Y(at.ty + dy));
+      }
+      ctx.closePath();
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    if (preview.label || preview.money) {
+      this._drawPriceTag(ctx, camera, ts, at, preview.money ?? '', true, { text: preview.label, ok, note: preview.note });
+    }
   }
 
   private _drawHover(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, hoverTile: { tx: number; ty: number }, tool: string): void {

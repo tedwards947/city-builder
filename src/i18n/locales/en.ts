@@ -157,6 +157,7 @@ export const en: TranslationSchema = {
       polCapital: "Pol. Capital",
       pcFull: "full",
       pcBonus: "bonus",
+      pcShort: "not enough political capital",
       inDebt: "In debt · building blocked",
       money: "Money",
       population: "Population",
