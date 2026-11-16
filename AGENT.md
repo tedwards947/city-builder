@@ -105,7 +105,9 @@ Command (execute/undo) ──► World (mutates layers + buildings[])
 | `world.buildings` | `BuildingEntity[]` | All placed buildings `{ tx, ty, kind }` |
 | `world.stats` | `Stats` | Aggregates: population, supply/demand, satisfaction, etc. |
 | `world.budget` | `Budget` | `money`, `politicalCapital`, `income`, `expenses`, `taxRates` |
-| `world.politics` | `Politics` | `peakPopulation` (highest population credited, for one-off milestones), `regen` (PC change from regeneration last tick, signed; for the HUD). Saved. |
+| `world.politics` | `Politics` | `peakPopulation` (highest population credited, for one-off milestones), `regen` (PC change from regeneration last tick, signed; for the HUD), `ordinances { active, suspended }`, `requests` (open resident requests), `nextRequestId`. Saved; the last three are optional in a save (older ones load with none, no version bump). |
+| `world.developedSince` | `Uint16Array` | Per tile, the game day a lot was built up from empty (for established lots, `src/sim/established.ts`). Outside `layers` on purpose; saved as the optional layer `developedSince` |
+| `world.pcRegenTotal` | `number` | Running total of PC regeneration, for undo refunds. Not saved |
 | `world.character` | `{ egalitarian, green, planned }` | City-wide character axes; derived by VibeSystem from the average of the vibe layers |
 | `world.events` | `EventBus` | Pub/sub for cross-system signals and UI alerts |
 | `world.roadNetDirty` | `boolean` | Set to `true` when road topology changes; NetworkSystem clears it |
@@ -185,6 +187,8 @@ The source of truth is `createSystems()` in `src/main.ts`.
 | 15 | EconomySystem | `budget.money/income/expenses` |
 | 16 | VibeSystem | `vibeEgalitarian[]`, `vibeGreen[]`, `vibePlanned[]`, `world.character` |
 | 17 | PoliticsSystem | `budget.politicalCapital`, `stats.satisfaction` |
+| 18 | OrdinanceSystem | `politics.ordinances.suspended`; daily upkeep (PC via `changePc`, money) |
+| 19 | RequestSystem | `politics.requests`; daily: pays met requests, charges missed ones, opens new ones |
 
 ---
 
@@ -297,6 +301,11 @@ The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every a
 | `tileDeveloped` | ZoneGrowthSystem | `tx, ty, zone, level` |
 | `deathEvent` | HealthcareSystem | `tx, ty` |
 | `healthcareCrisis` | HealthcareSystem | `avgSickness, threshold, affectedTiles` (cooldown-throttled) |
+| `pcChanged` | `changePc` (politics.ts) | `delta, reason, tx?, ty?, undo` (every PC cost or reward, never regeneration; `delta` is what was applied, which can be less than asked: a reward cut at the cap, an undo refund reduced by regeneration since; nothing when it is 0) |
+| `pcAction` | CommandHistory | `delta, tx?, ty?, undo` (one net PC change per finished player action) |
+| `populationMilestone` | PoliticsSystem | `population, reward` |
+| `ordinanceEnacted` / `Repealed` / `Suspended` / `Resumed` | ordinances.ts / OrdinanceSystem | `id` (`cost` on enacted) |
+| `requestOpened` / `Met` / `Failed` | requests.ts (RequestSystem, debug panel) | `id, kind, x0, y0, x1, y1, deadlineTick` |
 
 Usage:
 ```ts
@@ -358,6 +367,8 @@ Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overl
 - Population milestones: `BALANCE.politicalCapital.milestones` (`{ population, reward }[]`, empty for now). `PoliticsSystem` pays each the first time the population reaches it (`payMilestones`, reason `'milestone'`, may go over the cap) and emits `populationMilestone { population, reward }`. `world.politics.peakPopulation` is what stops a second payout.
 - Ordinance effects are read with `ordinanceModifier(world, name)` (1 = no effect), once per system update, never per tile: `crime` (CrimeSystem), `pollution` / `industrialPollution` (PollutionSystem), `growth` / `industrialGrowth` (ZoneGrowthSystem), `commercialIncome` / `industrialIncome` (EconomySystem), `commercialDemand` / `industrialDemand` / `landValueGrowth` (LandValueSystem), `trafficTrips` (TransitSystem), `satisfaction` (PoliticsSystem), `displacementCost` (politics.ts). Not wired: `vibeEgalitarian` and `abandonmentFromLandValue` (the game has no mechanic for them to scale yet). `establishedLandValue` (LandValueSystem) and `establishedDemolitionCost` (displacement cost in politics.ts) apply to established lots only: see `src/sim/established.ts`. `world.developedSince` (saved; not in `layers`) records the day a lot was built up from empty, written only by ZoneGrowthSystem at level 0 → 1; a lot is established after `BALANCE.politicalCapital.establishedYears` years developed without a break (0 = off).
 - Never write `world.budget.politicalCapital` directly. `src/sim/politics.ts` is the one write point: `changePc(world, delta, reason, { tx, ty, undo })` for a cost or reward (emits `pcChanged`), `regenPc` for the per-tick change (`regenPerTick(world, satisfaction)` gives the amount, which is `regenRate(satisfaction)` scaled by cap ÷ base cap: negative below `neutralSatisfaction` once that is switched on; a loss drains PC down to 0), `pcCap(world)` for the cap (a base plus `capPerResident` × population, 0 for now). Regeneration and the blight-clearing reward stop at the cap; PC over the cap is never taken away. `changePc` returns what it actually applied, which is what undo must reverse. Undoing a cost gives back only what regeneration has not already made up (`world.pcRegenTotal` is the running total it compares), so spend–refill–undo cannot bank PC over the cap. `CommandHistory` adds the per-command `pcChanged` events up into one `pcAction` per finished player action (a click, a whole drag / auto road / zone fill, an undo or redo step; nothing for a batch that was refused and taken back): UI that shows one number per action listens to `pcAction`.
+- Ordinances (`src/sim/ordinances.ts`): a registry of eight (Rent Control parked) with live numbers in `BALANCE.politicalCapital.ordinances`; hidden until `ordinancesEnabled`. `enactOrdinance` charges `enactCost` (refused at PC ≤ 0 or below the cost; `enactBlocker` says why), `repealOrdinance` refunds nothing; neither is undoable, so neither goes through `CommandHistory`. `OrdinanceSystem` suspends every active ordinance while PC ≤ 0 (no effect, no upkeep), resumes them above 0, and charges daily upkeep: PC upkeep is the table's `dailyUpkeep` × cap ÷ base cap (the factor regeneration uses; `dailyUpkeepOf(world, id)`), takes what PC there is and never goes below 0; money upkeep (Free Transit) is a fixed amount. `STOPS_AT_CAP` is `blightCleared` and `requestMet`; milestones and ribbon cuttings may go over the cap; `serviceClosed` is the only reason that can take PC below 0. Reasons `'ordinanceEnacted'`, `'ordinanceUpkeep'`, `'requestMet'`, `'requestFailed'` and `'milestone'` are in `NOT_PLAYER_ACTION`, so they never land in a `pcAction`.
+- Resident requests (`src/sim/requests.ts`): six kinds, each scoring a neighbourhood's need 0–1 from its own tiles; a neighbourhood is a `cellSize` grid cell with at least `minHomes` developed homes (from `world.index`, no map scan). `RequestSystem` opens one every `spawnEveryDays` days (0 = never, the shipped value) while fewer than `maxOpen` are open: a kind drawn by its worst need among kinds above their `askAt` (kinds with `days` 0 are off), then the neediest neighbourhood for it, with `world.rng`. Met at or below the kind's `metAt` (reward stops at the cap); missed at the deadline (penalty never pushes PC into debt). `utilities` is city-wide: need 1 during a power or water shortage.
 
 ---
 
@@ -518,6 +529,11 @@ npm run typecheck   # tsc --noEmit; `npm run build` = tsc && vite build
 The typecheck has `noUnusedLocals` / `noUnusedParameters` on, so an unused import or variable breaks the build even though tests pass.
 
 The same three checks (typecheck, tests, production build) run on GitHub for every pull request and for `main` (`.github/workflows/ci.yml`). Don't merge a PR whose check is red.
+
+### Debug tools (`?debug=true`)
+
+- The debug dock (`src/ui/debugDock.ts`, `#debug-dock`, left of the HUD column) holds the tuning panels. The PC panel (`PoliticsTuningPanel.ts`) shows PC / cap, rate and refill time, and an A–D / Off variant picker (`PC_VARIANTS` in `src/ui/pcPresets.ts`, numbers in `pcVariantValues.ts`: a partial `BALANCE.politicalCapital` applied over the shipped numbers; `?pcPreset=B` opens one directly). "Shortcuts": set PC (negative for debt), fill to cap, spawn a request of any kind, advance N days, meet or fail each open request. "Advanced": every number, generated from the balance object, and "Copy values" for a numbers-on PR. Nothing there is saved.
+- For a headless browser: `window.__city` gives `world`, `camera` (`centerOnTile(x, y)`, `zoom`) and `tick(n)`; sim modules can be imported in the page (`await import('/src/sim/requests.ts')`) and share the game's instances. Load a city by setting the Load dialog's file input (e.g. CDP `DOM.setFileInputFiles`).
 
 ### The "nothing changed" test
 
