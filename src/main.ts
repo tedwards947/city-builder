@@ -274,6 +274,25 @@ function planPcPreview(at: { tx: number; ty: number }, q: PcQuote): PcPreview | 
   return tints.length ? { at, rings: [], tints, label: '', ok: q.affordable } : null;
 }
 
+/**
+ * Toasts appear top centre. When the Budget or Ordinances panel is open and
+ * would sit under them, the toasts move left so they do not cover its rows.
+ */
+let toastsMovedFor = '';
+function keepToastsClear(): void {
+  const open = ordinancePanel.isOpen ? document.getElementById('ordinance-panel') : econPanel.isOpen ? document.getElementById('econ-panel') : null;
+  const key = (open ? open.id : '') + ':' + window.innerWidth;
+  if (key === toastsMovedFor) return;
+  toastsMovedFor = key;
+  const toasts = document.getElementById('toast-container');
+  if (!toasts) return;
+  const half = toasts.offsetWidth / 2 || 140;
+  const centre = window.innerWidth / 2;
+  const panelLeft = open ? open.getBoundingClientRect().left : Infinity;
+  // Keep the toasts' right edge 12px clear of the panel, but never push them off the left edge.
+  toasts.style.left = centre + half + 12 > panelLeft ? Math.max(half + 8, panelLeft - 12 - half) + 'px' : '';
+}
+
 /** Toggle one overlay; turning one on turns the others off. */
 function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
   overlay = overlay === which ? 'none' : which;
@@ -445,6 +464,7 @@ function frame(now: number): void {
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
   toolbar.syncShown();
+  keepToastsClear();
   if (ordinancePanel.isOpen && !ordinancesShown()) ordinancePanel.close();   // switched off while open
   ordinancePanel.update();
   econPanel.update();

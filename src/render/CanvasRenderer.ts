@@ -204,7 +204,7 @@ export class CanvasRenderer {
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
-    if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool);
+    if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok);
 
     const tlsx = camera.worldToScreenX(0);
     const tlsy = camera.worldToScreenY(0);
@@ -501,6 +501,14 @@ export class CanvasRenderer {
     }
     ctx.setLineDash([]);
     this._requestBadges = layoutRequestBadges(requests, world.tick, (tx, ty) => ({ x: X(tx), y: Y(ty) }));
+    // A request badge that would sit on a problem badge or pin steps aside, to the right.
+    const taken = this._badges;
+    for (const b of this._requestBadges) {
+      for (let tries = 0, q = 0; tries < 6 && q < taken.length; q += 5) {
+        const reach = (b.r + 4 + taken[q + 2]) * 0.9;
+        if (Math.abs(taken[q + 1] - b.y) < reach && Math.abs(taken[q] - b.x) < reach) { b.x = taken[q] + taken[q + 2] + b.r + 6; q = -5; tries++; }
+      }
+    }
     for (const b of this._requestBadges) drawRequestBadge(ctx, b);
     for (const o of outcomes) drawRequestOutcome(ctx, X(o.tx), Y(o.ty), o.met, o.age);
   }
@@ -630,14 +638,20 @@ export class CanvasRenderer {
     }
   }
 
-  private _drawHover(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, hoverTile: { tx: number; ty: number }, tool: string): void {
+  private _drawHover(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, hoverTile: { tx: number; ty: number }, tool: string, refused = false): void {
     const sx = camera.worldToScreenX(Projection.tileToWorldX(hoverTile.tx));
     const sy = camera.worldToScreenY(Projection.tileToWorldY(hoverTile.ty));
     
     const isRoadTool = ['road', 'avenue', 'highway'].includes(tool);
     const isBuildable = world.isBuildable(hoverTile.tx, hoverTile.ty, isRoadTool);
     
-    ctx.strokeStyle = isBuildable ? '#fff' : '#f66';
+    // Red when nothing can go here, or when the action would be refused for lack of political capital.
+    const ok = isBuildable && !refused;
+    if (refused) {
+      ctx.fillStyle = 'rgba(224,112,112,0.3)';
+      ctx.fillRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
+    }
+    ctx.strokeStyle = ok ? '#fff' : '#f66';
     ctx.lineWidth = 2;
     ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
   }
