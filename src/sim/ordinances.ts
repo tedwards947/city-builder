@@ -19,7 +19,11 @@ import { changePc } from './politics';
 
 export const ORDINANCE_IDS = [
   'neighbourhoodWatch', 'curfew', 'cleanAirAct', 'businessIncentives', 'freeTransit',
-  'fastTrackPermits', 'rentControl', 'eminentDomain', 'heritageProtection',
+  'fastTrackPermits', 'eminentDomain', 'heritageProtection',
+  // Parked (owner, 2026-11-16): rentControl. Its benefits (no abandonment
+  // over land value, a more egalitarian vibe) have no mechanic to act on
+  // yet. Its strings stay in the locale files for when it comes back; a
+  // save that somehow has it active ignores it (no numbers, no effect).
 ] as const;
 export type OrdinanceId = typeof ORDINANCE_IDS[number];
 

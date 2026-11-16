@@ -119,8 +119,9 @@ describe('ordinance modifiers in the simulation', { timeout: SLOW }, () => {
 
   it('landValueGrowth: land value rises more slowly, and still falls at full speed', () => {
     const base = run(6);
-    const slow = run(6, 'rentControl', { landValueGrowth: 0.2 });
-    // From its starting value the test city's land value climbs; with rent control it has climbed less.
+    // Rent Control, the ordinance that uses this, is parked; any ordinance can carry it for the test.
+    const slow = run(6, 'heritageProtection', { landValueGrowth: 0.2 });
+    // From its starting value the test city's land value climbs; slowed, it has climbed less.
     expect(sumWhere(slow, slow.layers.landValue)).toBeLessThan(sumWhere(base, base.layers.landValue));
   });
 
