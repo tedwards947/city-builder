@@ -386,8 +386,10 @@ export const BALANCE = {
       // is down to metAt. Need is 0–1, see requests.ts.
       kinds: {
         park: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        schoolOrHospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        policeOrFire: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        police: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        fire: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        school: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
+        hospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
         utilities: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0 },
         trafficJam: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0.05 },
         blight: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0 },

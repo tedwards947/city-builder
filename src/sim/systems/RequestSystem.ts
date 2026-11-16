@@ -23,6 +23,6 @@ export class RequestSystem {
     const day = world.tick / BALANCE.ticksPerDay;
     if (cfg.spawnEveryDays <= 0 || open.length >= cfg.maxOpen || day % cfg.spawnEveryDays !== 0) return;
     const pick = pickRequest(world, world.rng);
-    if (pick) openRequest(world, pick.kind, pick.area, cfg.kinds[pick.kind]?.days ?? 0);
+    if (pick) openRequest(world, pick.kind, pick.area, cfg.kinds[pick.kind]?.days ?? 0, pick.need);
   }
 }

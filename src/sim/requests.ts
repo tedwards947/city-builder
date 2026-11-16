@@ -29,6 +29,8 @@ export interface OpenRequest extends Rect {
   kind: string;
   openedTick: number;
   deadlineTick: number;
+  /** The area's need when the request opened; met once it has at least halved (or the target is reached). */
+  needAtOpen: number;
 }
 
 export interface RequestKind {
@@ -80,8 +82,9 @@ function parkNeed(world: World, a: Rect): number {
   return shareLacking(world, a, (_i, x, y) => !parks.some((p) => Math.abs(p.tx - x) + Math.abs(p.ty - y) <= reach));
 }
 
-function coverageNeed(world: World, a: Rect, l1: Uint8Array, l2: Uint8Array): number {
-  return Math.max(shareLacking(world, a, (i) => !l1[i]), shareLacking(world, a, (i) => !l2[i]));
+/** Share of the area's homes outside one service's coverage layer (the sim's own road coverage). */
+function layerNeed(layer: (w: World) => Uint8Array): (world: World, a: Rect) => number {
+  return (world, a) => { const l = layer(world); return shareLacking(world, a, (i) => !l[i]); };
 }
 
 /**
@@ -132,8 +135,10 @@ const kind = (id: string, need: RequestKind['need'], cityWide = false): RequestK
 /** The registry. */
 export const REQUEST_KINDS: readonly RequestKind[] = [
   kind('park', parkNeed),
-  kind('schoolOrHospital', (w, a) => coverageNeed(w, a, w.layers.school, w.layers.hospital)),
-  kind('policeOrFire', (w, a) => coverageNeed(w, a, w.layers.police, w.layers.fireStation)),
+  kind('police', layerNeed((w) => w.layers.police)),
+  kind('fire', layerNeed((w) => w.layers.fireStation)),
+  kind('school', layerNeed((w) => w.layers.school)),
+  kind('hospital', layerNeed((w) => w.layers.hospital)),
   kind('utilities', utilitiesNeed, true),
   kind('trafficJam', trafficNeed),
   kind('blight', blightNeed),
@@ -141,11 +146,70 @@ export const REQUEST_KINDS: readonly RequestKind[] = [
 
 export const requestKind = (id: string): RequestKind | undefined => REQUEST_KINDS.find((k) => k.id === id);
 
-/** Is the request met: the area's need for its kind is down to the kind's metAt. */
+/**
+ * The met rule (owner's): the target is reached (need ≤ metAt), or the gap
+ * has at least halved since the request opened and is smaller than it was
+ * (so a request that opened at a tiny need can't be met by doing nothing).
+ */
+function metAt(need: number, needAtOpen: number, target: number): boolean {
+  return need <= target || (need <= needAtOpen / 2 && need < needAtOpen);
+}
+
 export function isMet(world: World, req: OpenRequest): boolean {
   const k = requestKind(req.kind);
   const n = requestConfig().kinds[req.kind];
-  return !k || !n || k.need(world, req) <= n.metAt;
+  return !k || !n || metAt(k.need(world, req), req.needAtOpen, n.metAt);
+}
+
+/** What a request's progress looks like, for the quest log and badges. Shares are 0–1. */
+export interface RequestProgress {
+  covered: number;        // share of the area that has what was asked, now (1 − need)
+  coveredAtOpen: number;  // the same when the request opened
+  coveredNeeded: number;  // met once covered reaches this (see `met` for the exact rule)
+  met: boolean;           // exactly isMet()
+  units: number;          // how many things the share is of
+  unit: 'homes' | 'roads' | 'lots' | 'city';
+  daysLeft: number;       // whole game days to the deadline, ≥ 0
+  reward: number;
+  penalty: number;
+}
+
+const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', trafficJam: 'roads', blight: 'lots' };
+
+export function requestProgress(world: World, req: OpenRequest): RequestProgress {
+  const k = requestKind(req.kind);
+  const n = requestConfig().kinds[req.kind];
+  const need = k ? k.need(world, req) : 0;
+  const target = n ? n.metAt : 0;
+  const unit = UNITS[req.kind] ?? 'homes';
+  let units = 1;
+  if (unit === 'homes') units = forHomes(world, req, () => {});
+  else if (unit !== 'city') units = countTiles(world, unit === 'roads' ? growArea(world, req, 2) : req, unit);
+  return {
+    covered: 1 - need,
+    coveredAtOpen: 1 - req.needAtOpen,
+    coveredNeeded: 1 - Math.max(target, req.needAtOpen / 2),
+    met: !k || !n || metAt(need, req.needAtOpen, target),
+    units,
+    unit,
+    daysLeft: Math.max(0, Math.ceil((req.deadlineTick - world.tick) / BALANCE.ticksPerDay)),
+    reward: n?.reward ?? 0,
+    penalty: n?.penalty ?? 0,
+  };
+}
+
+function growArea(world: World, a: Rect, by: number): Rect {
+  const { width, height } = world.grid;
+  return { x0: Math.max(0, a.x0 - by), y0: Math.max(0, a.y0 - by), x1: Math.min(width - 1, a.x1 + by), y1: Math.min(height - 1, a.y1 + by) };
+}
+
+/** Road tiles or zoned lots in an area (what trafficJam and blight measure). */
+function countTiles(world: World, a: Rect, unit: 'roads' | 'lots'): number {
+  const layer = unit === 'roads' ? world.layers.roadClass : world.layers.zone;
+  const w = world.grid.width;
+  let n = 0;
+  for (let y = a.y0; y <= a.y1; y++) for (let x = a.x0; x <= a.x1; x++) if (layer[y * w + x]) n++;
+  return n;
 }
 
 const overlaps = (a: Rect, b: Rect) => a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
@@ -190,7 +254,7 @@ export function neighbourhoods(world: World): Rect[] {
  *  2. For that kind, the neighbourhood with the highest need, each need
  *     scaled by a random factor in [1 - randomness, 1].
  */
-export function pickRequest(world: World, rng: () => number): { kind: string; area: Rect } | null {
+export function pickRequest(world: World, rng: () => number): { kind: string; area: Rect; need: number } | null {
   const { randomness, kinds } = requestConfig();
   const open = world.politics.requests;
   const areas = neighbourhoods(world).filter((area) => !open.some((r) => overlaps(r, area)));
@@ -220,7 +284,7 @@ export function pickRequest(world: World, rng: () => number): { kind: string; ar
     const score = need * (1 - randomness * rng());
     if (score > bestScore) { bestScore = score; best = j; }
   });
-  return best < 0 ? null : { kind: chosen.k.id, area: areas[best] };
+  return best < 0 ? null : { kind: chosen.k.id, area: areas[best], need: chosen.needs[best] };
 }
 
 // ── Opening and resolving (RequestSystem, and the debug panel's buttons) ─────
@@ -228,14 +292,15 @@ export function pickRequest(world: World, rng: () => number): { kind: string; ar
 const payload = (r: OpenRequest) =>
   ({ id: r.id, kind: r.kind, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, deadlineTick: r.deadlineTick });
 
-/** Open a request of `kind` for `area`, due in `days` game days. */
-export function openRequest(world: World, kind: string, area: Rect, days: number): OpenRequest {
+/** Open a request of `kind` for `area`, due in `days` game days; `needAtOpen` is the area's need now. */
+export function openRequest(world: World, kind: string, area: Rect, days: number, needAtOpen: number): OpenRequest {
   const req: OpenRequest = {
     id: world.politics.nextRequestId++,
     kind,
     x0: area.x0, y0: area.y0, x1: area.x1, y1: area.y1,
     openedTick: world.tick,
     deadlineTick: world.tick + days * BALANCE.ticksPerDay,
+    needAtOpen,
   };
   world.politics.requests.push(req);
   world.events.emit('requestOpened', payload(req));
@@ -281,4 +346,21 @@ export function neediestFor(world: World, kind: string): Rect | null {
     if (need > bestNeed) { bestNeed = need; best = a; }
   }
   return best;
+}
+
+/**
+ * Bring requests loaded from an older save up to date: an open 'policeOrFire'
+ * or 'schoolOrHospital' (split into four kinds) becomes whichever half its
+ * area needs more, and a request without needAtOpen takes its need now.
+ */
+export function upgradeLoadedRequests(world: World): void {
+  const split: Record<string, [string, string]> = { policeOrFire: ['police', 'fire'], schoolOrHospital: ['school', 'hospital'] };
+  for (const r of world.politics.requests) {
+    const halves = split[r.kind];
+    if (halves) {
+      const [a, b] = halves.map((id) => requestKind(id)!);
+      r.kind = a.need(world, r) >= b.need(world, r) ? a.id : b.id;
+    }
+    if (!Number.isFinite(r.needAtOpen)) r.needAtOpen = requestKind(r.kind)?.need(world, r) ?? 0;
+  }
 }

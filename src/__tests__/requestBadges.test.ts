@@ -6,7 +6,7 @@ import { requestConfig } from '../sim/requests';
 import { BALANCE } from '../data/balance';
 
 const req = (id: number, x0: number, y0: number, deadlineTick: number, kind = 'park'): OpenRequest =>
-  ({ id, kind, x0, y0, x1: x0 + 11, y1: y0 + 11, openedTick: 0, deadlineTick });
+  ({ id, kind, x0, y0, x1: x0 + 11, y1: y0 + 11, openedTick: 0, deadlineTick, needAtOpen: 1 });
 const at = (ts: number) => (tx: number, ty: number) => ({ x: tx * ts, y: ty * ts });
 
 describe('resident request badges', () => {

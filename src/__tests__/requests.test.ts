@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { ZONE_R, BUILDING_PARK } from '../sim/constants';
-import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
+import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress } from '../sim/requests';
 import { RequestSystem } from '../sim/systems/RequestSystem';
 
 const cfg = requestConfig();
@@ -36,7 +36,7 @@ function runDays(w: World, sys: RequestSystem, days: number): void {
 
 describe('request registry', () => {
   it('has the six kinds, switched off', () => {
-    expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'schoolOrHospital', 'policeOrFire', 'utilities', 'trafficJam', 'blight']);
+    expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'police', 'fire', 'school', 'hospital', 'utilities', 'trafficJam', 'blight']);
     expect(cfg.spawnEveryDays).toBe(0);
     for (const k of REQUEST_KINDS) expect(cfg.kinds[k.id]).toMatchObject({ days: 0, reward: 0, penalty: 0 });
   });
@@ -45,12 +45,12 @@ describe('request registry', () => {
     const w = city();
     const areas = neighbourhoods(w);
     expect(areas).toEqual([{ x0: 1, y0: 3, x1: 5, y1: 7 }, { x0: 13, y0: 3, x1: 17, y1: 7 }]);
-    const park = REQUEST_KINDS[0];
+    const park = REQUEST_KINDS.find((k) => k.id === 'park')!;
     expect(park.need(w, areas[0])).toBeCloseTo(4 / 25);     // only the corners are out of reach
     w.buildings.splice(0, 1);                                   // the left park goes
     expect(park.need(w, areas[0])).toBe(1);
     w.layers.abandoned[5 * 24 + 15] = 1;
-    expect(REQUEST_KINDS[5].need(w, areas[1])).toBeCloseTo(1 / 25);
+    expect(REQUEST_KINDS.find((k) => k.id === 'blight')!.need(w, areas[1])).toBeCloseTo(1 / 25);
   });
 });
 
@@ -169,8 +169,8 @@ describe('debug helpers', () => {
     expect(area.x0).toBe(13);
     const log: string[] = [];
     for (const e of ['requestOpened', 'requestMet', 'requestFailed'] as const) w.events.on(e, (p) => log.push(`${e}:${p.id}`));
-    const a = openRequest(w, 'park', area, 5);
-    const b = openRequest(w, 'park', neighbourhoods(w)[0], 5);
+    const a = openRequest(w, 'park', area, 5, 1);
+    const b = openRequest(w, 'park', neighbourhoods(w)[0], 5, 1);
     expect(a.deadlineTick).toBe(w.tick + 5 * BALANCE.ticksPerDay);
     meetRequest(w, a);
     failRequest(w, b);
@@ -178,6 +178,44 @@ describe('debug helpers', () => {
     expect(w.politics.requests).toEqual([]);
     expect(w.budget.politicalCapital).toBe(50 + 10 - 4);
     expect(log).toEqual(['requestOpened:1', 'requestOpened:2', 'requestMet:1', 'requestFailed:2']);
+  });
+});
+
+describe('met rule and progress', () => {
+  /** Police cover over the first `n` of the left block's 25 homes (row by row). */
+  function policed(w: World, n: number): void {
+    let k = 0;
+    for (let y = 3; y < 8; y++) for (let x = 1; x < 6; x++) w.layers.police[y * 24 + x] = k++ < n ? 1 : 0;
+  }
+
+  it('is met once the gap has halved, or the target is reached, but not by standing still', () => {
+    Object.assign(cfg.kinds.police, { metAt: 0.1 });
+    const w = city();
+    const area = neighbourhoods(w)[0];
+    policed(w, 5);                                               // need 20/25 = 0.8
+    const req = openRequest(w, 'police', area, 10, 0.8);
+    expect(isMet(w, req)).toBe(false);
+    policed(w, 15);                                              // need 0.4: halved
+    expect(isMet(w, req)).toBe(true);
+    const tiny = openRequest(w, 'police', area, 10, 0.08);       // opened already under the target
+    policed(w, 23);                                              // need 0.08, unchanged
+    expect(isMet(w, tiny)).toBe(true);                           // target reached counts
+    Object.assign(cfg.kinds.police, { metAt: 0 });
+    expect(isMet(w, tiny)).toBe(false);                          // half-gap rule alone: no change, no credit
+  });
+
+  it('reports progress in the shape the quest log reads', () => {
+    Object.assign(cfg.kinds.police, { metAt: 0.1, reward: 10, penalty: 5 });
+    const w = city();
+    policed(w, 5);
+    const req = openRequest(w, 'police', neighbourhoods(w)[0], 10, 0.8);
+    policed(w, 10);                                              // need 0.6
+    w.tick += 3 * BALANCE.ticksPerDay;
+    const p = requestProgress(w, req);
+    expect(p).toMatchObject({ unit: 'homes', units: 25, met: false, daysLeft: 7, reward: 10, penalty: 5 });
+    expect(p.covered).toBeCloseTo(0.4);
+    expect(p.coveredAtOpen).toBeCloseTo(0.2);
+    expect(p.coveredNeeded).toBeCloseTo(0.6);                    // 1 − max(0.1, 0.8 / 2)
   });
 });
 

@@ -385,11 +385,21 @@ describe('politics state', () => {
 
   it('round-trips open requests', () => {
     const w = new World(16, 16, 1);
-    w.politics.requests.push({ id: 4, kind: 'park', x0: 1, y0: 2, x1: 5, y1: 6, openedTick: 80, deadlineTick: 320 });
+    w.politics.requests.push({ id: 4, kind: 'park', x0: 1, y0: 2, x1: 5, y1: 6, openedTick: 80, deadlineTick: 320, needAtOpen: 0.75 });
     w.politics.nextRequestId = 5;
     const loaded = deserialize(serialize(w));
     expect(loaded.politics.requests).toEqual(w.politics.requests);
     expect(loaded.politics.requests[0]).not.toBe(w.politics.requests[0]);
     expect(loaded.politics.nextRequestId).toBe(5);
   });
+  it('upgrades requests from older saves: split kinds and need at opening', () => {
+    const w = new World(16, 16, 1);
+    for (let x = 2; x < 6; x++) { const i = 3 * 16 + x; w.layers.zone[i] = 1; w.layers.devLevel[i] = 1; w.layers.fireStation[i] = 1; }
+    const snap = serialize(w);
+    // An open combined request, saved before needAtOpen existed: police is missing everywhere, fire nowhere.
+    snap.politics.requests = [{ id: 1, kind: 'policeOrFire', x0: 2, y0: 3, x1: 5, y1: 3, openedTick: 0, deadlineTick: 80 }];
+    const loaded = deserialize(snap);
+    expect(loaded.politics.requests[0]).toMatchObject({ kind: 'police', needAtOpen: 1 });
+  });
+
 });
