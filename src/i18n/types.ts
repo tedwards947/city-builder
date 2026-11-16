@@ -62,6 +62,8 @@ export interface TranslationSchema {
       tripNone: string;
       tripLimit: string;
       tripGrowth: string;
+      established: string;
+      developedFor: string;
       pcHeader: string;
       pcClose: string;
       pcCloseLast: string;

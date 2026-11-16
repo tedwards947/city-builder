@@ -38,6 +38,7 @@ import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
 import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
 import {pcQuote} from "../sim/politics";
+import {developedYears, isEstablished, establishedAfterYears} from "../sim/established";
 import {PC_SYMBOL, pcAmount} from "./pcFormat";
 
 /** The lot's problems as chips, in the colours of the map badges ('' if it has none). */
@@ -61,6 +62,20 @@ function pcRows(world: World, tx: number, ty: number): string {
     ? t(q.shortfall > 0 ? "ui.tileInfo.pcCloseLast" : "ui.tileInfo.pcClose", {pc})
     : t("ui.tileInfo.pcDisplace", {n: q.displacedPopulation, pc});
   return `<div class="ti-growth-header">${t("ui.tileInfo.pcHeader")}</div><div class="ti-detail">${line}</div>`;
+}
+
+/**
+ * How long a lot has stood, once that matters: an established neighbourhood
+ * is one Heritage Protection covers. Empty while the feature is off
+ * (threshold 0) or the lot has no history yet.
+ */
+export function establishedRow(world: World, i: number): string {
+  const after = establishedAfterYears();
+  const years = Math.floor(developedYears(world, i));
+  if (after <= 0 || years <= 0) return "";
+  return isEstablished(world, i)
+    ? `<div class="ti-detail" style="color:#d9c08a">${t("ui.tileInfo.established", {n: years})}</div>`
+    : `<div class="ti-detail" style="color:#9ab">${t("ui.tileInfo.developedFor", {n: years, after})}</div>`;
 }
 
 function tripRows(world: World, i: number): string {
@@ -363,6 +378,7 @@ export class TileInfoPanel {
       const isAbandoned = world.layers.abandoned[i] !== 0;
       html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
       html += problemChips(world, i);
+      html += establishedRow(world, i);
       html += pcRows(world, tx, ty);
 
       if (fire > 0) {

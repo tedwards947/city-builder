@@ -88,6 +88,8 @@ export const en: TranslationSchema = {
       tripNone: "none in reach",
       tripLimit: "Trips over {limit} count as out of reach.",
       tripGrowth: "Growth here is slowed to {pct}% by the trip.",
+      established: "Established neighbourhood: {n} years",
+      developedFor: "Developed for {n} years (established at {after})",
       pcHeader: "Political capital",
       pcClose: "Closing it would cost {pc}",
       pcCloseLast: "Closing it would cost {pc} and leave you in political debt",
