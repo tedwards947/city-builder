@@ -4,6 +4,7 @@ import { snapshotTile, restoreTile, tileDisruption } from './Command';
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { changePc } from '../sim/politics';
 
 // Builds a new road OR upgrades an existing road to a higher class.
 //
@@ -40,7 +41,8 @@ export class BuildRoadCommand extends Command {
   private readonly targetClass: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
-  private pcCost = 0;
+  // Change to political capital applied at execute (negative = cost, positive = reward).
+  private pcDelta = 0;
   private affectedZones: Array<{ tx: number; ty: number; snap: TileSnapshot }> = [];
 
   constructor(tx: number, ty: number, targetClass = ROAD_STREET) {
@@ -67,7 +69,7 @@ export class BuildRoadCommand extends Command {
     this.affectedZones = [];
     // Paving over a populated residential tile displaces its residents.
     const { displacedPopulation, pcCost: displacementCost } = tileDisruption(world, this.tx, this.ty);
-    this.pcCost = displacementCost;
+    let pcCost = displacementCost;
 
     // 1. Temporarily apply the road change to check for abandonment impact
     const oldClass = world.layers.roadClass[i];
@@ -103,7 +105,7 @@ export class BuildRoadCommand extends Command {
             this.affectedZones.push({ tx: nx, ty: ny, snap: snapshotTile(world, nx, ny) });
             if (zone === ZONE_R) {
               const pop = BALANCE.growth.popPerLevel[dev] ?? 0;
-              this.pcCost += pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
+              pcCost += pop * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
             }
           }
         }
@@ -111,15 +113,16 @@ export class BuildRoadCommand extends Command {
     }
 
     // 3. Verify we can afford the PC cost
-    if (this.pcCost > 0 && world.budget.politicalCapital < this.pcCost) {
+    if (pcCost > 0 && world.budget.politicalCapital < pcCost) {
       world.layers.roadClass[i] = oldClass; // Revert temp change
       this.failReason = 'politicalCapital';
       return false;
     }
 
     // 4. Finalize
+    this.pcDelta = -pcCost;
     world.budget.money -= cost;
-    world.budget.politicalCapital -= this.pcCost;
+    changePc(world, this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty });
 
     // Re-apply road via world method for dirty tracking etc.
     world.layers.roadClass[i] = oldClass; 
@@ -149,6 +152,6 @@ export class BuildRoadCommand extends Command {
       restoreTile(world, az.tx, az.ty, az.snap);
     }
     world.budget.money += this.cost;
-    world.budget.politicalCapital += this.pcCost;
+    changePc(world, -this.pcDelta, 'displacement', { tx: this.tx, ty: this.ty, undo: true });
   }
 }

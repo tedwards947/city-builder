@@ -11,6 +11,7 @@
 import type { World } from '../World';
 import { ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { regenPc } from '../politics';
 
 // ── Satisfaction factor interface ─────────────────────────────────────────────
 
@@ -143,10 +144,7 @@ export class PoliticsSystem {
     const cfg = BALANCE.politicalCapital;
     const sat = this.satisfaction(world);
     const regen = cfg.baseRegen + sat * cfg.satisfactionRegenBonus;
-    world.budget.politicalCapital = Math.min(
-      cfg.max,
-      world.budget.politicalCapital + regen,
-    );
+    regenPc(world, regen);
     // Expose satisfaction on stats so HUD and other systems can read it
     // without recomputing.
     world.stats.satisfaction = sat;

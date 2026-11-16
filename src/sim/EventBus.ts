@@ -31,6 +31,18 @@ export type CityEvents = {
   tileAbandoned:    { tx: number; ty: number; zone: number; level: number };
   // Zone growth (emitted by ZoneGrowthSystem)
   tileDeveloped:    { tx: number; ty: number; zone: number; level: number };
+  // Political capital changed by one command (emitted by changePc in
+  // sim/politics.ts; passive regeneration does not emit). `delta` is signed.
+  // `undo` is true when the command is being undone. A drag emits one per
+  // tile, and a refused auto road / zone fill emits changes and then their
+  // reversals: for one message per player action, use pcAction instead.
+  pcChanged:        { delta: number; reason: string; tx?: number; ty?: number; undo: boolean };
+  // The net political-capital change of one finished player action (emitted
+  // by CommandHistory): a single click, a whole drag / auto road / zone fill,
+  // or one undo or redo step. Nothing is emitted for a net change of zero or
+  // for a batch that was refused and taken back. (tx, ty) is the tile of the
+  // action's last change. `undo` is true for an undo step.
+  pcAction:         { delta: number; tx?: number; ty?: number; undo: boolean };
   // Healthcare
   deathEvent:       { tx: number; ty: number };
   healthcareCrisis: { avgSickness: number; threshold: number; affectedTiles: number };

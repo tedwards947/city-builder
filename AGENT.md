@@ -350,6 +350,7 @@ Other keys: `t` / `c` / `f` / `v` toggle the traffic / crime / fire / vibe overl
 - Money below zero blocks everything that costs money **except bulldozing** (demolition is how a broke city cuts upkeep).
 - A command refused for lack of money or political capital sets `cmd.failReason` (`'funds'` / `'politicalCapital'`); `InputController` passes it to `main.ts`, which shows a throttled toast.
 - Anything that displaces residents (bulldoze, rezone, building or road over a zone) costs political capital via `tileDisruption()` and is blocked if unaffordable. Undo reverses the net PC change.
+- Never write `world.budget.politicalCapital` directly. `src/sim/politics.ts` is the one write point: `changePc(world, delta, reason, { tx, ty, undo })` for a cost or reward (emits `pcChanged`), `regenPc` for the per-tick change, `pcCap(world)` for the cap. `CommandHistory` adds the per-command `pcChanged` events up into one `pcAction` per finished player action (a click, a whole drag / auto road / zone fill, an undo or redo step; nothing for a batch that was refused and taken back): UI that shows one number per action listens to `pcAction`.
 
 ---
 
