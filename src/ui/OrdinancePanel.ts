@@ -5,20 +5,19 @@
 
 import type { World } from '../sim/World';
 import {
-  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance,
+  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance, ordinancesEnabled, enactBlocker,
 } from '../sim/ordinances';
 import type { OrdinanceDef, OrdinanceId, OrdinanceState } from '../sim/ordinances';
-import { DEBUG } from '../debug';
 import { t } from '../i18n';
 import { PC_SYMBOL, pcAmount } from './pcFormat';
 
 /**
- * Whether ordinances are offered to the player at all. Until their numbers
- * are set every one is free and does nothing, so the tile stays hidden in
- * normal play; `?debug=true` shows it for testing.
+ * Whether ordinances are offered to the player at all: the engine's switch
+ * (BALANCE.politicalCapital.ordinancesEnabled, off until the numbers are set;
+ * the ?debug=true PC panel can tick it). While off, the toolbar tile is hidden.
  */
 export function ordinancesShown(): boolean {
-  return DEBUG || ORDINANCES.some(o => o.numbers.enactCost > 0 || o.numbers.dailyUpkeep > 0 || o.numbers.dailyMoney > 0);
+  return ordinancesEnabled();
 }
 
 /** PC per day the city is paying to keep its ordinances (suspended ones cost nothing). */
@@ -87,7 +86,7 @@ export class OrdinancePanel {
     if (!this.visible) return;
     const world = this.getWorld();
     const states = ORDINANCES.map(o => ordinanceState(world, o.id));
-    const sig = states.join(',') + '|' + this.asking + '|' + (world.budget.politicalCapital <= 0) + '|' + ordinanceUpkeep(world).toFixed(2);
+    const sig = states.join(',') + '|' + this.asking + '|' + ORDINANCES.map(o => enactBlocker(world, o.id) ?? '-').join(',') + '|' + ordinanceUpkeep(world).toFixed(2);
     if (sig === this.drawn) return;
     this.drawn = sig;
     this.render(world, states);
@@ -110,7 +109,7 @@ export class OrdinancePanel {
       if (state === 'suspended') name.append(el('span', 'ord-flag', ' · ' + t('ui.ordinances.suspended')));
       text.append(name, el('small', '', t(o.descKey)));
       if (state === 'cantAfford') {
-        text.append(el('small', 'ord-why', t(world.budget.politicalCapital <= 0 ? 'ui.hud.pcInDebt' : 'ui.hud.pcShort')));
+        text.append(el('small', 'ord-why', t(enactBlocker(world, o.id) === 'inDebt' ? 'ui.hud.pcInDebt' : 'ui.hud.pcShort')));
       } else if (state === 'suspended') {
         text.append(el('small', 'ord-why', t('ui.ordinances.suspendedNote')));
       }

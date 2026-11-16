@@ -208,7 +208,9 @@ const input = new InputController(
 const ordinancePanel = new OrdinancePanel(document.getElementById('game')!, () => state.world);
 /** Where a panel opened from the toolbar sits: just left of the stats and toolbar column. */
 function besideHud(): number {
-  return window.innerWidth - document.getElementById('hud-right')!.getBoundingClientRect().left + 8;
+  // With ?debug=true a dock of tuning panels sits beside the column; open left of that.
+  const edge = document.getElementById('debug-dock') ?? document.getElementById('hud-right')!;
+  return window.innerWidth - edge.getBoundingClientRect().left + 8;
 }
 
 const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneMode, {
@@ -427,6 +429,8 @@ function frame(now: number): void {
   politicsTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
+  toolbar.syncShown();
+  if (ordinancePanel.isOpen && !ordinancesShown()) ordinancePanel.close();   // switched off while open
   ordinancePanel.update();
   econPanel.update();
   const { rDemand, cDemand, iDemand } = state.world.stats;
