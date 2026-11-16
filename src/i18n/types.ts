@@ -61,6 +61,10 @@ export interface TranslationSchema {
       tripNone: string;
       tripLimit: string;
       tripGrowth: string;
+      pcHeader: string;
+      pcClose: string;
+      pcCloseLast: string;
+      pcDisplace: string;
     };
     /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
@@ -126,6 +130,9 @@ export interface TranslationSchema {
       pcFull: string;
       pcBonus: string;
       pcShort: string;
+      pcLast: string;
+      pcRibbon: string;
+      pcClosing: string;
       inDebt: string;
       money: string;
       population: string;
@@ -192,6 +199,7 @@ export interface TranslationSchema {
       pcNearHomes: string;
       pcWithin: string;
       pcAvoid: string;
+      pcEarns: string;
     };
     roadMode: {
       manual: string;

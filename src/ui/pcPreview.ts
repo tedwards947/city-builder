@@ -8,6 +8,8 @@ import type { Tool } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import { pcQuote, nuisanceRings } from '../sim/politics';
 import type { PcQuote, PcQuoteAction, NuisanceConfig, NuisanceSource } from '../sim/politics';
+import type { ServiceValueConfig } from '../sim/serviceValue';
+import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
 import { buildingKindForTool } from './Toolbar';
 import { PC_SYMBOL, pcAmount } from './pcFormat';
@@ -53,6 +55,19 @@ export function pcLabel(q: PcQuote, showZero = false): string {
   return parts.join(' ');
 }
 
+/**
+ * The line under a quote's price that says what is going on, or undefined:
+ * why it is refused, that a closure takes the last of the city's PC, that the
+ * reward is a ribbon cutting, or that the cost is for closing a service.
+ */
+export function pcNote(q: PcQuote): string | undefined {
+  if (!q.affordable) return t('ui.hud.pcShort');
+  if (q.shortfall > 0) return t('ui.hud.pcLast');
+  if (q.parts.some(p => p.reason === 'serviceOpened')) return t('ui.hud.pcRibbon');
+  if (q.parts.some(p => p.reason === 'serviceClosed')) return t('ui.hud.pcClosing');
+  return undefined;
+}
+
 /** The homes behind a quote's nuisance cost, for tinting. */
 export function nuisanceTints(q: PcQuote): PcPreview['tints'] {
   return q.parts.filter(p => p.reason === 'nuisance').map(p => ({ tx: p.tx, ty: p.ty, strength: p.strength }));
@@ -68,13 +83,14 @@ export function hoverPcPreview(
   tool: Tool,
   tile: { tx: number; ty: number },
   nuisance: NuisanceConfig = BALANCE.politicalCapital.nuisance,
+  service: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): PcPreview | null {
   const action = pcActionForTool(tool, tile.tx, tile.ty);
   if (!action) return null;
   const source: NuisanceSource | null =
     action.type === 'zone' ? { zone: action.zone } : action.type === 'building' ? { kind: action.kind } : null;
   const rings = source ? nuisanceRings(source, nuisance) : [];
-  const q = pcQuote(world, action, nuisance);
+  const q = pcQuote(world, action, nuisance, service);
   if (q.cost === 0 && q.reward === 0 && rings.length === 0) return null;
-  return { at: tile, rings, tints: nuisanceTints(q), label: pcLabel(q, rings.length > 0), ok: q.affordable };
+  return { at: tile, rings, tints: nuisanceTints(q), label: pcLabel(q, rings.length > 0), ok: q.affordable, note: pcNote(q) };
 }
