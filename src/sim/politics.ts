@@ -23,7 +23,8 @@ export type PcReason =
   | 'blightCleared'   // an abandoned building was cleared
   | 'nuisance'        // something unpopular (industry, a power or sewage plant) was put near homes
   | 'serviceOpened'   // a service building opened: the residents it covers are pleased
-  | 'serviceClosed';  // a service building closed: the residents it covered object
+  | 'serviceClosed'   // a service building closed: the residents it covered object
+  | 'milestone';      // the population reached a milestone for the first time
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */
@@ -117,6 +118,45 @@ export function regenPc(world: World, amount: number): void {
   const cap = pcCap(world);
   if (pc >= cap) return;
   world.budget.politicalCapital = Math.min(cap, pc + amount);
+}
+
+// ── Population milestones ────────────────────────────────────────────────────
+
+export interface Milestone {
+  population: number;
+  reward: number;
+}
+
+/**
+ * The milestones a city is due: those above the population it has already
+ * been credited for (`peak`) and at or below its population now, smallest
+ * first.
+ */
+export function dueMilestones(
+  peak: number,
+  population: number,
+  ladder: readonly Milestone[] = BALANCE.politicalCapital.milestones,
+): Milestone[] {
+  return ladder
+    .filter(m => m.population > peak && m.population <= population)
+    .sort((a, b) => a.population - b.population);
+}
+
+/**
+ * Pay any population milestones the city has newly reached and credit it for
+ * its population, so none can pay again. Emits `populationMilestone` for each.
+ */
+export function payMilestones(
+  world: World,
+  ladder: readonly Milestone[] = BALANCE.politicalCapital.milestones,
+): void {
+  const population = world.stats.population;
+  if (population <= world.politics.peakPopulation) return;
+  for (const m of dueMilestones(world.politics.peakPopulation, population, ladder)) {
+    changePc(world, m.reward, 'milestone');
+    world.events.emit('populationMilestone', { population: m.population, reward: m.reward });
+  }
+  world.politics.peakPopulation = population;
 }
 
 // ── Displacement ─────────────────────────────────────────────────────────────
