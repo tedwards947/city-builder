@@ -353,5 +353,19 @@ export const BALANCE = {
       // PC per resident at weight 1, by building kind (1 = power plant, 3 = sewage plant).
       buildingPerResident: { 1: 0, 3: 0 } as Record<number, number>,
     },
+    // Opening a service building earns PC for the residents it covers; closing
+    // one costs what they lose (see sim/serviceValue.ts).
+    // SWITCHED OFF: every value is 0 until the Political Capital numbers pass.
+    service: {
+      // PC per resident for the first building of a kind covering them, by
+      // building kind (4 police, 5 fire, 6 school, 7 hospital, 8 park).
+      perResident: { 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 } as Record<number, number>,
+      // Each further building of the same kind covering a resident is worth
+      // this fraction of the one before.
+      repeatFactor: 0.5,
+      // Closing costs the value lost times this. Keep it at 1 or more, or
+      // building and bulldozing a service becomes a way to farm PC.
+      closureMultiplier: 1.5,
+    },
   },
 } as const;
