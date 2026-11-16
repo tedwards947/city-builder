@@ -17,10 +17,10 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
-import { ZONE_R, BUILDING_PARK } from './constants';
+import { ZONE_R, BUILDING_PARK, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from './constants';
 import { trafficVolume, roadCapacity } from './TrafficData';
 import { changePc } from './politics';
-import { coveredBy } from './serviceValue';
+import { coveredBy, homesWithinReach, touchesAccessRoad } from './serviceValue';
 
 export interface Rect { x0: number; y0: number; x1: number; y1: number }
 
@@ -32,6 +32,14 @@ export interface OpenRequest extends Rect {
   deadlineTick: number;
   /** The area's need when the request opened; met once it has at least halved (or the target is reached). */
   needAtOpen: number;
+  /**
+   * Coverage kinds only (park, police, fire, school, hospital): the home that
+   * asked and the asking homes (tile indices), fixed at opening: developed
+   * homes lacking the service within the kind's range in road steps of the
+   * seed. x0..y1 is then their bounding box. Need is measured over these homes.
+   */
+  seed?: number;
+  homes?: number[];
 }
 
 export interface RequestKind {
@@ -128,6 +136,98 @@ function blightNeed(world: World, a: Rect): number {
   return zoned ? empty / zoned : 0;
 }
 
+// ── Road-shaped clusters for the coverage kinds ─────────────────────────────
+
+/** The building each coverage kind asks for. */
+const SERVICE_OF: Record<string, number> = {
+  park: BUILDING_PARK, police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL, hospital: BUILDING_HOSPITAL,
+};
+export const isClusterKind = (kind: string): boolean => SERVICE_OF[kind] !== undefined;
+
+function isHome(world: World, i: number): boolean {
+  const { zone, devLevel, abandoned } = world.layers;
+  return zone[i] === ZONE_R && devLevel[i] > 0 && !abandoned[i];
+}
+
+/** Does home tile `i` lack the service `kind` asks for (the sim's own coverage)? */
+function lacks(world: World, kind: string, i: number): boolean {
+  switch (kind) {
+    case 'park': return !coveredBy(world, BUILDING_PARK).has(i);
+    case 'police': return !world.layers.police[i];
+    case 'fire': return !world.layers.fireStation[i];
+    case 'school': return !world.layers.school[i];
+    case 'hospital': return !world.layers.hospital[i];
+    default: return false;
+  }
+}
+
+/**
+ * The homes that ask with `seed`: developed homes lacking the service within
+ * the kind's coverage range in road steps of the seed, found with the same
+ * walk the sim uses for a building there (homesWithinReach in serviceValue.ts). Sorted.
+ */
+export function clusterFor(world: World, kind: string, seed: number): number[] {
+  const w = world.grid.width;
+  const out: number[] = [];
+  for (const i of homesWithinReach(world, seed % w, Math.floor(seed / w), SERVICE_OF[kind])) {
+    if (isHome(world, i) && lacks(world, kind, i)) out.push(i);
+  }
+  if (!out.includes(seed) && isHome(world, seed) && lacks(world, kind, seed)) out.push(seed);
+  return out.sort((a, b) => a - b);
+}
+
+function boundsOf(world: World, tiles: readonly number[]): Rect {
+  const w = world.grid.width;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const i of tiles) {
+    const x = i % w, y = Math.floor(i / w);
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return { x0, y0, x1, y1 };
+}
+
+/** Share of a request's asking homes, still lived in, that lack the service; 0 if none are left. */
+function clusterNeed(world: World, req: OpenRequest): number {
+  let live = 0, missing = 0;
+  for (const i of req.homes!) {
+    if (!isHome(world, i)) continue;
+    live++;
+    if (lacks(world, req.kind, i)) missing++;
+  }
+  return live ? missing / live : 0;
+}
+
+/** The need a request is judged on: its asking homes for a cluster kind, else its area. */
+export function requestNeed(world: World, req: OpenRequest): number {
+  if (req.homes) return clusterNeed(world, req);
+  return requestKind(req.kind)?.need(world, req) ?? 0;
+}
+
+/**
+ * How a request of `kind` would open over `area` (a neighbourhood): for a
+ * coverage kind, a seed home lacking the service is drawn from the area with
+ * `rng` and the request covers its road-shaped cluster (need 1: every asking
+ * home lacks it); otherwise the area itself at its current need.
+ */
+export function planRequest(world: World, kind: string, area: Rect, rng: () => number):
+    { area: Rect; need: number; seed?: number; homes?: number[] } | null {
+  if (!isClusterKind(kind)) {
+    const k = requestKind(kind);
+    return k ? { area, need: k.need(world, area) } : null;
+  }
+  // Seeds come from homes on a street or avenue: one off the road would reach only itself.
+  const onRoad: number[] = [], offRoad: number[] = [];
+  forHomes(world, area, (i, x, y) => {
+    if (lacks(world, kind, i)) (touchesAccessRoad(world, x, y) ? onRoad : offRoad).push(i);
+  });
+  const candidates = onRoad.length ? onRoad : offRoad;
+  if (!candidates.length) return null;
+  const seed = candidates[Math.floor(rng() * candidates.length)];
+  const homes = clusterFor(world, kind, seed);
+  return { area: boundsOf(world, homes), need: 1, seed, homes };
+}
+
 const kind = (id: string, need: RequestKind['need'], cityWide = false): RequestKind =>
   ({ id, nameKey: `requests.${id}.name`, descKey: `requests.${id}.desc`, need, cityWide });
 
@@ -157,7 +257,7 @@ function metAt(need: number, needAtOpen: number, target: number): boolean {
 export function isMet(world: World, req: OpenRequest): boolean {
   const k = requestKind(req.kind);
   const n = requestConfig().kinds[req.kind];
-  return !k || !n || metAt(k.need(world, req), req.needAtOpen, n.metAt);
+  return !k || !n || metAt(requestNeed(world, req), req.needAtOpen, n.metAt);
 }
 
 /** What a request's progress looks like, for the quest log and badges. Shares are 0–1. */
@@ -171,6 +271,8 @@ export interface RequestProgress {
   daysLeft: number;       // whole game days to the deadline, ≥ 0
   reward: number;
   penalty: number;
+  rect: Rect;                // the request's area (for a cluster kind, its homes' bounding box)
+  homes: readonly number[];  // the asking homes' tile indices (cluster kinds; else empty)
 }
 
 const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', trafficJam: 'roads', blight: 'lots' };
@@ -178,11 +280,12 @@ const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', traf
 export function requestProgress(world: World, req: OpenRequest): RequestProgress {
   const k = requestKind(req.kind);
   const n = requestConfig().kinds[req.kind];
-  const need = k ? k.need(world, req) : 0;
+  const need = k ? requestNeed(world, req) : 0;
   const target = n ? n.metAt : 0;
   const unit = UNITS[req.kind] ?? 'homes';
   let units = 1;
-  if (unit === 'homes') units = forHomes(world, req, () => {});
+  if (req.homes) units = req.homes.filter((i) => isHome(world, i)).length;
+  else if (unit === 'homes') units = forHomes(world, req, () => {});
   else if (unit !== 'city') units = countTiles(world, unit === 'roads' ? growArea(world, req, 2) : req, unit);
   return {
     covered: 1 - need,
@@ -194,6 +297,8 @@ export function requestProgress(world: World, req: OpenRequest): RequestProgress
     daysLeft: Math.max(0, Math.ceil((req.deadlineTick - world.tick) / BALANCE.ticksPerDay)),
     reward: n?.reward ?? 0,
     penalty: n?.penalty ?? 0,
+    rect: { x0: req.x0, y0: req.y0, x1: req.x1, y1: req.y1 },
+    homes: req.homes ?? [],
   };
 }
 
@@ -253,7 +358,8 @@ export function neighbourhoods(world: World): Rect[] {
  *  2. For that kind, the neighbourhood with the highest need, each need
  *     scaled by a random factor in [1 - randomness, 1].
  */
-export function pickRequest(world: World, rng: () => number): { kind: string; area: Rect; need: number } | null {
+export function pickRequest(world: World, rng: () => number):
+    { kind: string; area: Rect; need: number; seed?: number; homes?: number[] } | null {
   const { randomness, kinds } = requestConfig();
   const open = world.politics.requests;
   const areas = neighbourhoods(world).filter((area) => !open.some((r) => overlaps(r, area)));
@@ -283,7 +389,9 @@ export function pickRequest(world: World, rng: () => number): { kind: string; ar
     const score = need * (1 - randomness * rng());
     if (score > bestScore) { bestScore = score; best = j; }
   });
-  return best < 0 ? null : { kind: chosen.k.id, area: areas[best], need: chosen.needs[best] };
+  if (best < 0) return null;
+  const plan = planRequest(world, chosen.k.id, areas[best], rng);
+  return plan ? { kind: chosen.k.id, ...plan } : null;
 }
 
 // ── Opening and resolving (RequestSystem, and the debug panel's buttons) ─────
@@ -292,7 +400,10 @@ const payload = (r: OpenRequest) =>
   ({ id: r.id, kind: r.kind, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, deadlineTick: r.deadlineTick });
 
 /** Open a request of `kind` for `area`, due in `days` game days; `needAtOpen` is the area's need now. */
-export function openRequest(world: World, kind: string, area: Rect, days: number, needAtOpen: number): OpenRequest {
+export function openRequest(
+  world: World, kind: string, area: Rect, days: number, needAtOpen: number,
+  cluster?: { seed?: number; homes?: number[] },
+): OpenRequest {
   const req: OpenRequest = {
     id: world.politics.nextRequestId++,
     kind,
@@ -301,6 +412,7 @@ export function openRequest(world: World, kind: string, area: Rect, days: number
     deadlineTick: world.tick + days * BALANCE.ticksPerDay,
     needAtOpen,
   };
+  if (cluster?.homes) { req.seed = cluster.seed; req.homes = [...cluster.homes]; }
   world.politics.requests.push(req);
   world.events.emit('requestOpened', payload(req));
   return req;
@@ -360,6 +472,18 @@ export function upgradeLoadedRequests(world: World): void {
       const [a, b] = halves.map((id) => requestKind(id)!);
       r.kind = a.need(world, r) >= b.need(world, r) ? a.id : b.id;
     }
-    if (!Number.isFinite(r.needAtOpen)) r.needAtOpen = requestKind(r.kind)?.need(world, r) ?? 0;
+    if (isClusterKind(r.kind) && !r.homes) {
+      // From before road-shaped clusters: the cluster of the area's first home that lacks the service.
+      let seed = -1, offRoad = -1;
+      forHomes(world, r, (i, x, y) => {
+        if (!lacks(world, r.kind, i)) return;
+        if (touchesAccessRoad(world, x, y)) { if (seed < 0) seed = i; } else if (offRoad < 0) offRoad = i;
+      });
+      if (seed < 0) seed = offRoad;
+      r.homes = seed >= 0 ? clusterFor(world, r.kind, seed) : [];
+      if (seed >= 0) { r.seed = seed; Object.assign(r, boundsOf(world, r.homes)); }
+      r.needAtOpen = r.homes.length ? 1 : 0;
+    }
+    if (!Number.isFinite(r.needAtOpen)) r.needAtOpen = requestNeed(world, r);
   }
 }

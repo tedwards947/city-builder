@@ -15,7 +15,7 @@ import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
 import { debugDock } from './debugDock';
 import { balanceInputs, fold, smallButton } from './tuningWidgets';
-import { REQUEST_KINDS, requestConfig, requestKind, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
+import { REQUEST_KINDS, requestConfig, planRequest, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 
 // BALANCE is declared `as const`; the debug panels are the one place that edit it.
 type Tree = Record<string, unknown>;
@@ -244,7 +244,9 @@ export class PoliticsTuningPanel {
       const w = this.getWorld();
       const area = neediestFor(w, kind.value);
       if (!area) { console.log('No neighbourhood with enough homes yet.'); return; }
-      openRequest(w, kind.value, area, requestConfig().kinds[kind.value]?.days || 20, requestKind(kind.value)?.need(w, area) ?? 0);
+      const plan = planRequest(w, kind.value, area, w.rng);
+      if (!plan) { console.log('Nobody there lacks it.'); return; }
+      openRequest(w, kind.value, plan.area, requestConfig().kinds[kind.value]?.days || 20, plan.need, plan);
     }));
 
     const days = numberBox(1, 40);
