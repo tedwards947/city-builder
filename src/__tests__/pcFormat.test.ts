@@ -32,3 +32,30 @@ describe('political capital formatting', () => {
     expect(pcOfCap(112.2, 100)).toBe('112 / 100');
   });
 });
+
+import { pcHudRate } from '../ui/pcFormat';
+
+describe('pcHudRate', () => {
+  const L = { bonus: 'bonus', full: 'full' };
+  it('shows the passive rate below the cap', () => {
+    expect(pcHudRate(2.2, 0, false, false, L)).toBe('+2.2/day');
+    expect(pcHudRate(-1.5, 0, false, false, L)).toBe('−1.5/day');
+  });
+  it('says full at the cap with nothing moving', () => {
+    expect(pcHudRate(0, 0, false, true, L)).toBe('full');
+    expect(pcHudRate(0, 0, false, false, L)).toBe('');
+  });
+  it('shows the fade over the cap', () => {
+    expect(pcHudRate(0, 0.4, true, true, L)).toBe('−0.4/day');
+  });
+  it('says just "bonus" when the fade is off or too small to show', () => {
+    expect(pcHudRate(0, 0, true, true, L)).toBe('bonus');
+    expect(pcHudRate(0, 0.02, true, true, L)).toBe('bonus');
+  });
+  it('ignores the fade below the cap', () => {
+    expect(pcHudRate(1, 5, false, false, L)).toBe('+1.0/day');
+  });
+  it('adds the fade to a drain when an unhappy city is over the cap', () => {
+    expect(pcHudRate(-1, 0.5, true, true, L)).toBe('−1.5/day');
+  });
+});
