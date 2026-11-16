@@ -5,9 +5,12 @@ export const BALANCE = {
   costs: {
     road: 10,
     bridgeMultiplier: 3,
-    zoneR: 20,
-    zoneC: 25,
-    zoneI: 25,
+    // Zoning is free in money (owner's decision after the PC play-test): the
+    // cost of zoning is political, not financial. Set a price here and it is
+    // charged per tile again.
+    zoneR: 0,
+    zoneC: 0,
+    zoneI: 0,
     bulldoze: 5,
   },
   // Placement cost and per-tick maintenance for every BUILDING_* kind.

@@ -135,8 +135,8 @@ describe('InputController drag-to-paint', () => {
         expect(world.getZone(o.tx + dx, o.ty)).toBe(ZONE_R);
       }
     }
-    const perTile = (before - world.budget.money) / 6;
-    expect(perTile).toBeGreaterThan(0);
+    // Each tile is charged the zoning price once (which is 0: zoning is free).
+    expect(before - world.budget.money).toBe(6 * BALANCE.costs.zoneR);
     // Dragging over already-zoned tiles in a second stroke costs nothing.
     const mid = world.budget.money;
     canvas.fire('pointerdown', at(0, 0));

@@ -80,12 +80,12 @@ describe('PaintZoneCommand', () => {
     expect(w.budget.money).toBe(before - BALANCE.costs.zoneI);
   });
 
-  it('returns false and does not charge money when broke', () => {
-    w.budget.money = 0;
+  it('returns false and changes nothing when the city is in debt (zoning is free, but not in the red)', () => {
+    w.budget.money = -1;
     const ok = new PaintZoneCommand(tx, ty, ZONE_R).execute(w);
     expect(ok).toBe(false);
     expect(w.getZone(tx, ty)).toBe(ZONE_NONE);
-    expect(w.budget.money).toBe(0);
+    expect(w.budget.money).toBe(-1);
   });
 
   it('returns false on a water tile', () => {
