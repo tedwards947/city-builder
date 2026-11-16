@@ -856,13 +856,15 @@ it('coverage follows road and building changes when one system is reused', () =>
   });
 
   it('park covers a smaller road range than fire station', () => {
-    // Both at (2,8). Road runs east: (3,8)…(8,8) — 5 hops.
-    // Park range=3: reaches hop 3 = (6,8). Radiation covers (7,8).
-    // Fire range=5: reaches hop 5 = (8,8). Radiation covers (9,8).
+    // Both at (2,8), on a street running east from (3,8). A building reaches
+    // `range` road steps and covers one tile beyond the last road it reaches.
+    const park = BALANCE.service.coverageRange[BUILDING_PARK];
+    const fire = BALANCE.service.coverageRange[BUILDING_FIRE];
+    expect(park).toBeLessThan(fire);
     const wPark = makeWorld(), wFire = makeWorld();
     for (const w of [wPark, wFire]) {
       forceBuildable(w, 2, 8);
-      for (let x = 3; x <= 8; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
+      for (let x = 3; x <= 3 + fire; x++) w.layers.roadClass[w.grid.idx(x, 8)] = ROAD_STREET;
     }
     wPark.layers.building[wPark.grid.idx(2, 8)] = BUILDING_PARK;
     wPark.buildings = [{ tx: 2, ty: 8, kind: BUILDING_PARK }];
@@ -870,9 +872,12 @@ it('coverage follows road and building changes when one system is reused', () =>
     wFire.buildings = [{ tx: 2, ty: 8, kind: BUILDING_FIRE }];
     new ServiceSystem().update(wPark);
     new ServiceSystem().update(wFire);
-    // (8,8) is at road hop 5 — beyond park range=3, not covered; within fire range=5, covered.
-    expect(wPark.layers.services[wPark.grid.idx(8, 8)]).toBe(0);
-    expect(wFire.layers.services[wFire.grid.idx(8, 8)]).toBe(1);
+    // Two road steps past the park's range: out of the park's reach, inside the fire station's.
+    const x = 3 + park + 2;
+    expect(wPark.layers.services[wPark.grid.idx(x, 8)]).toBe(0);
+    expect(wFire.layers.services[wFire.grid.idx(x, 8)]).toBe(1);
+    // The last road step the park does reach.
+    expect(wPark.layers.services[wPark.grid.idx(3 + park, 8)]).toBe(1);
   });
 
   it('multiple service buildings both contribute to coverage', () => {

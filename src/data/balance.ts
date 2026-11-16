@@ -60,7 +60,9 @@ export const BALANCE = {
   },
   service: {
     // Coverage radius (manhattan distance) per building kind (4–8)
-    coverageRange: { 4: 12, 5: 15, 6: 4, 7: 6, 8: 3 } as Record<number, number>,
+    // (police 15, fire 15, school 8, hospital 8, park 6: widened after the
+    // owner's play-test, where one building rarely served a neighbourhood)
+    coverageRange: { 4: 15, 5: 15, 6: 8, 7: 8, 8: 6 } as Record<number, number>,
   },
   crime: {
     // Base crime added per tick per developed level.

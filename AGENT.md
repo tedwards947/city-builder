@@ -484,7 +484,7 @@ buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={
               police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}
 tax/tick:     zoneR=0.65, zoneC=1.0, zoneI=1.25  (per dev level)
               R/C scale by landValue/128; I uses fixed industryLandValueMult=0.6
-service:      coverageRange: police=12, fire=15, school=4, hospital=6, park=3  (manhattan tiles)
+service:      coverageRange: police=15, fire=15, school=8, hospital=8, park=6  (road steps along streets and avenues)
 power:        plantOutput=350, perDevLevel=2, propagationRange=1
 water:        towerOutput=250, perDevLevel=1, propagationRange=1
 sewage:       plantOutput=300, perDevLevel=2, propagationRange=1
