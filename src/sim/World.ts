@@ -140,6 +140,12 @@ export class World {
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
   traffic: TrafficData | null = null;
   /**
+   * Per tile: the game day (+1; 0 = no record) the lot was last built up from
+   * empty. See sim/established.ts. Saved. Kept outside `layers` because
+   * nothing draws it.
+   */
+  developedSince: Uint16Array;
+  /**
    * Running total of what passive regeneration has added to (or drained
    * from) political capital. Undo compares it with its value when a command
    * ran, to tell how much of a refund regeneration has already made up. Not
@@ -224,6 +230,7 @@ export class World {
     };
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
+    this.developedSince = new Uint16Array(n);
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] } };
     this.buildings = [];
     this.events = new EventBus();
