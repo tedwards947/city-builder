@@ -63,7 +63,8 @@ export function pcLabel(q: PcQuote, showZero = false): string {
  */
 export function pcNote(q: PcQuote, world: World): string | undefined {
   if (!q.affordable) return t(world.budget.politicalCapital < 0 ? 'ui.hud.pcInDebt' : 'ui.hud.pcShort');
-  if (q.shortfall > 0) return t('ui.hud.pcIntoDebt', { pc: PC_SYMBOL + ' ' + pcAmount(q.shortfall) });
+  // What the city will owe afterwards, counting any debt it is already in.
+  if (q.shortfall > 0) return t('ui.hud.pcIntoDebt', { pc: PC_SYMBOL + ' ' + pcAmount(Math.max(q.shortfall, q.cost - world.budget.politicalCapital)) });
   if (q.parts.some(p => p.reason === 'serviceOpened')) return t('ui.hud.pcRibbon');
   if (q.parts.some(p => p.reason === 'serviceClosed')) return t('ui.hud.pcClosing');
   return undefined;

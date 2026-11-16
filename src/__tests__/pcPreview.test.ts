@@ -95,6 +95,12 @@ describe('political capital preview at the pointer', () => {
     expect(last.ok).toBe(true);           // a closure is never refused
     expect(last.label).toBe('◆ 60');     // charged in full: the rest becomes debt
     expect(last.note).toBe('leaves you ◆ 59 in political debt');
+    // Already in debt: the note counts what the city will owe in all.
+    w.budget.politicalCapital = -20;
+    const deeper = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
+    expect(deeper.ok).toBe(true);
+    expect(deeper.label).toBe('◆ 60');
+    expect(deeper.note).toBe('leaves you ◆ 80 in political debt');
   });
 
   it('keeps industrial zoning quiet: tint only, the price only when short', () => {
