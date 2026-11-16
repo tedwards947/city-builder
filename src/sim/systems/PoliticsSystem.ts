@@ -11,7 +11,7 @@
 import type { World } from '../World';
 import { ZONE_NONE, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
-import { regenPc, regenRate, payMilestones } from '../politics';
+import { regenPc, regenPerTick, payMilestones } from '../politics';
 import { ordinanceModifier } from '../ordinances';
 
 // ── Satisfaction factor interface ─────────────────────────────────────────────
@@ -152,7 +152,7 @@ export class PoliticsSystem {
   update(world: World): void {
     // Eminent Domain lowers city-wide satisfaction.
     const sat = Math.min(1, this.satisfaction(world) * ordinanceModifier(world, 'satisfaction'));
-    const regen = regenRate(sat);
+    const regen = regenPerTick(world, sat);
     const before = world.budget.politicalCapital;
     regenPc(world, regen);
     world.politics.regen = world.budget.politicalCapital - before;

@@ -106,14 +106,25 @@ export function changePc(world: World, delta: number, reason: PcReason, info: Pc
 }
 
 /**
- * The passive change to PC per tick at a given satisfaction (0–1): positive
- * above the neutral point, negative below it (if the numbers allow).
+ * The passive change to PC per tick at a given satisfaction (0–1), for a
+ * city whose cap is the base cap: positive above the neutral point, negative
+ * below it (if the numbers allow). See regenPerTick for a city of any size.
  */
 export function regenRate(
   satisfaction: number,
   cfg: { baseRegen: number; satisfactionRegenBonus: number; neutralSatisfaction: number } = BALANCE.politicalCapital,
 ): number {
   return cfg.baseRegen + (satisfaction - cfg.neutralSatisfaction) * cfg.satisfactionRegenBonus;
+}
+
+/**
+ * The passive change to PC this tick for a city at `satisfaction`: the rate
+ * above, scaled by how big the cap has grown (cap ÷ base cap). A bigger city
+ * holds more PC and fills, or drains, proportionally faster, so going from
+ * empty to full takes the same time at every size.
+ */
+export function regenPerTick(world: World, satisfaction: number): number {
+  return regenRate(satisfaction) * (pcCap(world) / BALANCE.politicalCapital.max);
 }
 
 /**
