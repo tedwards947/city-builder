@@ -172,9 +172,6 @@ export class Toolbar {
     document.addEventListener('pointerdown', (e) => {
       if (this.open && !this.root.contains(e.target as Node)) { this.open = null; this.render(); }
     });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.open) { this.open = null; this.render(); }
-    });
     this.render();
   }
 
@@ -187,6 +184,14 @@ export class Toolbar {
       if (member) this.last.set(e.family, member.key);
     }
     this.render();
+  }
+
+  /** Close the open fly-out, if there is one. Returns whether there was. */
+  closeFlyout(): boolean {
+    if (!this.open) return false;
+    this.open = null;
+    this.render();
+    return true;
   }
 
   setOverlay(overlay: ToolbarOverlay | 'none'): void {
