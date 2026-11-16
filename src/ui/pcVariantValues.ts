@@ -1,5 +1,5 @@
 // The four PC play-test variants' numbers, designed and dry-run by the engine
-// session (2026-11-16). Each is a partial BALANCE.politicalCapital tree, applied
+// session (2026-11-16); service values rescaled for the service ranges of #116. Each is a partial BALANCE.politicalCapital tree, applied
 // over the shipped numbers by the debug panel's picker (see pcPresets.ts).
 
 export const VARIANT_VALUES = {
@@ -36,14 +36,14 @@ export const VARIANT_VALUES = {
     },
     service: {
       perResident: {
-        "4": 0.006,
+        "4": 0.0045,
         "5": 0.0045,
-        "6": 0.015,
-        "7": 0.018,
-        "8": 0.015
+        "6": 0.0065,
+        "7": 0.013,
+        "8": 0.006
       },
       repeatFactor: 0.5,
-      closureMultiplier: 2
+      closureMultiplier: 3
     },
     milestones: [
       {
@@ -227,14 +227,14 @@ export const VARIANT_VALUES = {
     },
     service: {
       perResident: {
-        "4": 0.004,
+        "4": 0.003,
         "5": 0.003,
-        "6": 0.01,
-        "7": 0.012,
-        "8": 0.01
+        "6": 0.0043,
+        "7": 0.0086,
+        "8": 0.004
       },
       repeatFactor: 0.5,
-      closureMultiplier: 3
+      closureMultiplier: 4.5
     },
     milestones: [
       {
@@ -418,14 +418,14 @@ export const VARIANT_VALUES = {
     },
     service: {
       perResident: {
-        "4": 0.004,
+        "4": 0.003,
         "5": 0.003,
-        "6": 0.01,
-        "7": 0.012,
-        "8": 0.01
+        "6": 0.0043,
+        "7": 0.0086,
+        "8": 0.004
       },
       repeatFactor: 0.5,
-      closureMultiplier: 5
+      closureMultiplier: 7.5
     },
     milestones: [
       {
@@ -609,14 +609,14 @@ export const VARIANT_VALUES = {
     },
     service: {
       perResident: {
-        "4": 0.012,
+        "4": 0.009,
         "5": 0.009,
-        "6": 0.03,
-        "7": 0.036,
-        "8": 0.03
+        "6": 0.013,
+        "7": 0.026,
+        "8": 0.012
       },
       repeatFactor: 0.5,
-      closureMultiplier: 2.5
+      closureMultiplier: 3.75
     },
     milestones: [
       {
