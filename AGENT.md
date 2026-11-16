@@ -32,8 +32,9 @@ src/
       NetworkSystem, PowerSystem, WaterSystem, SewageSystem, ServiceSystem,
       LandValueSystem, PollutionSystem, CrimeSystem, FireSystem, TransitSystem,
       AbandonmentSystem, EducationSystem, HealthcareSystem, ZoneGrowthSystem,
-      EconomySystem, VibeSystem, PoliticsSystem, OrdinanceSystem
-    politics.ts (PC rules), ordinances.ts (ordinance registry, enact/repeal, ordinanceModifier)
+      EconomySystem, VibeSystem, PoliticsSystem, OrdinanceSystem, RequestSystem
+    politics.ts (PC rules), ordinances.ts (ordinance registry, enact/repeal, ordinanceModifier),
+    requests.ts (resident request kinds: need per neighbourhood, pick, isMet)
   render/
     CanvasRenderer.ts  (the frame: order of the passes, and the per-frame passes themselves),
     ChunkCache.ts      (WHEN a chunk of the static layer is redrawn: signatures, zoom smoothing, per-frame budgets),

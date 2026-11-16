@@ -29,6 +29,7 @@ export function serialize(world: World): WorldSnapshot {
         active: [...world.politics.ordinances.active],
         suspended: [...world.politics.ordinances.suspended],
       },
+      requests: world.politics.requests.map(r => ({ ...r })),
     },
     buildings: world.buildings.map(b => ({ ...b })),
     layers: {
@@ -78,12 +79,14 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   Object.assign(world.budget, snapshot.budget);
   Object.assign(world.stats,  snapshot.stats);
   Object.assign(world.character, snapshot.character);
-  const { ordinances, ...politics } = snapshot.politics;
+  const { ordinances, requests, nextRequestId, ...politics } = snapshot.politics;
   Object.assign(world.politics, politics);
   world.politics.ordinances = {
     active: [...(ordinances?.active ?? [])],
     suspended: [...(ordinances?.suspended ?? [])],
   };
+  world.politics.requests = (requests ?? []).map(r => ({ ...r }));
+  world.politics.nextRequestId = nextRequestId ?? 1;
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
 

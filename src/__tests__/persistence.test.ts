@@ -363,20 +363,33 @@ describe('politics state', () => {
     expect(loaded.politics).toEqual({
       peakPopulation: 2600, regen: -0.25,
       ordinances: { active: ['curfew', 'freeTransit'], suspended: ['freeTransit'] },
+      requests: [], nextRequestId: 1,
     });
     expect(loaded.politics).not.toBe(w.politics);
     expect(loaded.politics.ordinances.active).not.toBe(w.politics.ordinances.active);
   });
 
   it('a new city starts with nothing credited', () => {
-    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] } });
+    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requests: [], nextRequestId: 1 });
   });
 
   it('a v9 save from before ordinances loads with none', () => {
     const w = new World(16, 16, 1);
     const snap = serialize(w);
-    const { ordinances: _dropped, ...oldPolitics } = snap.politics;
+    const { ordinances: _o, requests: _r, nextRequestId: _n, ...oldPolitics } = snap.politics;
     const loaded = deserialize({ ...snap, politics: oldPolitics });
     expect(loaded.politics.ordinances).toEqual({ active: [], suspended: [] });
+    expect(loaded.politics.requests).toEqual([]);
+    expect(loaded.politics.nextRequestId).toBe(1);
+  });
+
+  it('round-trips open requests', () => {
+    const w = new World(16, 16, 1);
+    w.politics.requests.push({ id: 4, kind: 'park', x0: 1, y0: 2, x1: 5, y1: 6, openedTick: 80, deadlineTick: 320 });
+    w.politics.nextRequestId = 5;
+    const loaded = deserialize(serialize(w));
+    expect(loaded.politics.requests).toEqual(w.politics.requests);
+    expect(loaded.politics.requests[0]).not.toBe(w.politics.requests[0]);
+    expect(loaded.politics.nextRequestId).toBe(5);
   });
 });
