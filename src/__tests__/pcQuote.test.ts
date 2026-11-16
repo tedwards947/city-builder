@@ -28,7 +28,7 @@ describe('pcQuote: displacement and blight', () => {
       { type: 'road', tx: 5, ty: 5, roadClass: ROAD_STREET },
       { type: 'bulldoze', tx: -1, ty: 99 },
     ] as PcQuoteAction[]) {
-      expect(pcQuote(w, a)).toEqual({ cost: 0, reward: 0, affordable: true, displacedPopulation: 0, parts: [] });
+      expect(pcQuote(w, a)).toEqual({ cost: 0, reward: 0, affordable: true, shortfall: 0, displacedPopulation: 0, parts: [] });
     }
     home(w, 5, 5);
     // Painting homes residential again changes nothing, so it displaces nobody.
@@ -298,6 +298,6 @@ describe('plans carry a PC quote', () => {
     homes(w, 4, 11, 12, 11);
     const plan = planZoneFill(w, { tx: 8, ty: 9 }, ZONE_I);
     expect(plan.tiles.length).toBeGreaterThan(0);
-    expect(plan.pc).toEqual({ cost: 0, reward: 0, affordable: true, displacedPopulation: 0, parts: [] });
+    expect(plan.pc).toEqual({ cost: 0, reward: 0, affordable: true, shortfall: 0, displacedPopulation: 0, parts: [] });
   });
 });

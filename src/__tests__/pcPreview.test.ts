@@ -62,7 +62,7 @@ describe('political capital preview at the pointer', () => {
   });
 
   it('writes a quote as a price tag', () => {
-    const q = { cost: 0, reward: 0, affordable: true, displacedPopulation: 0, parts: [] };
+    const q = { cost: 0, reward: 0, affordable: true, shortfall: 0, displacedPopulation: 0, parts: [] };
     expect(pcLabel(q)).toBe('');
     expect(pcLabel(q, true)).toBe('◆ 0');
     expect(pcLabel({ ...q, cost: 18 })).toBe('◆ 18');

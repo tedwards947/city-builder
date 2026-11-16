@@ -10,6 +10,11 @@ export class Grid {
   readonly chunkCols: number;
   readonly chunkRows: number;
   readonly dirtyChunks: Set<number>;
+  /**
+   * Goes up every time a tile is marked dirty, so code that remembers
+   * something derived from the map can tell cheaply whether it may be stale.
+   */
+  edits = 0;
 
   constructor(width: number, height: number) {
     this.width = width;
@@ -35,9 +40,11 @@ export class Grid {
 
   markDirty(tx: number, ty: number): void {
     this.dirtyChunks.add(this.chunkIdOf(tx, ty));
+    this.edits++;
   }
 
   markAllDirty(): void {
+    this.edits++;
     for (let i = 0; i < this.chunkCols * this.chunkRows; i++) {
       this.dirtyChunks.add(i);
     }

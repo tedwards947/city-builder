@@ -14,12 +14,16 @@
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
+import { serviceOpeningValue, serviceClosureValue } from './serviceValue';
+import type { ServiceValueConfig } from './serviceValue';
 
 /** Why political capital changed. */
 export type PcReason =
   | 'displacement'    // residents lost their homes (bulldoze, rezone, road or building over homes)
   | 'blightCleared'   // an abandoned building was cleared
-  | 'nuisance';       // something unpopular (industry, a power or sewage plant) was put near homes
+  | 'nuisance'        // something unpopular (industry, a power or sewage plant) was put near homes
+  | 'serviceOpened'   // a service building opened: the residents it covers are pleased
+  | 'serviceClosed';  // a service building closed: the residents it covered object
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */
@@ -45,6 +49,12 @@ export function pcCap(
 /** Rewards that fill PC up to the cap but never past it. */
 const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
 
+/**
+ * Costs that are never refused: they take what PC there is, down to 0, and
+ * the rest goes unpaid. (Closing a service is how a broke city cuts costs.)
+ */
+const NEVER_REFUSED: readonly PcReason[] = ['serviceClosed'];
+
 /** How much of a reward that stops at the cap there is room for right now. */
 function roomBelowCap(world: World): number {
   return Math.max(0, pcCap(world) - world.budget.politicalCapital);
@@ -53,7 +63,8 @@ function roomBelowCap(world: World): number {
 /**
  * Add `delta` to political capital (negative for a cost) and tell listeners.
  * A reward whose reason is in STOPS_AT_CAP is cut down to the room below the
- * cap. Returns the change actually made, which is what undo must reverse.
+ * cap; a cost whose reason is in NEVER_REFUSED stops at 0. Returns the change
+ * actually made, which is what undo must reverse.
  * Emits `pcChanged` (see CityEvents) unless nothing changed. CommandHistory
  * adds these up into one `pcAction` per finished player action.
  */
@@ -63,6 +74,9 @@ export function changePc(world: World, delta: number, reason: PcReason, info: Pc
   if (delta > 0 && info.undo !== true && STOPS_AT_CAP.includes(reason)) {
     const cap = pcCap(world);
     if (after > cap) after = Math.max(before, cap);
+  }
+  if (delta < 0 && info.undo !== true && NEVER_REFUSED.includes(reason) && after < 0) {
+    after = Math.min(before, 0);
   }
   const applied = after === before + delta ? delta : after - before;
   if (applied === 0) return 0;
@@ -226,8 +240,17 @@ export interface PcQuote {
   cost: number;
   /** Total PC the action earns (0 or more). */
   reward: number;
-  /** False if the action would be refused for lack of PC right now. */
+  /**
+   * False if the action would be refused for lack of PC right now. A service
+   * closure is never refused, so it never makes this false.
+   */
   affordable: boolean;
+  /**
+   * PC a service closure asks for beyond what the city has: when above 0 the
+   * closure "takes the last of your PC" and this much goes unpaid. `cost`
+   * already leaves it out.
+   */
+  shortfall: number;
   /** Residents who lose their homes. */
   displacedPopulation: number;
   /** Every contribution, in the order it is charged. */
@@ -235,7 +258,7 @@ export interface PcQuote {
 }
 
 function emptyQuote(): PcQuote {
-  return { cost: 0, reward: 0, affordable: true, displacedPopulation: 0, parts: [] };
+  return { cost: 0, reward: 0, affordable: true, shortfall: 0, displacedPopulation: 0, parts: [] };
 }
 
 function addPart(q: PcQuote, reason: PcReason, tx: number, ty: number, amount: number, strength = 1): void {
@@ -249,15 +272,24 @@ function addPart(q: PcQuote, reason: PcReason, tx: number, ty: number, amount: n
  * keep their full amounts: they say who is pleased, not what is banked).
  */
 function totalUp(world: World, q: PcQuote): void {
-  let cost = 0, free = 0, capped = 0;
+  let cost = 0, unrefusable = 0, free = 0, capped = 0;
   for (const p of q.parts) {
-    if (p.amount < 0) cost += -p.amount;
+    if (p.amount < 0) {
+      if (NEVER_REFUSED.includes(p.reason)) unrefusable += -p.amount; else cost += -p.amount;
+    }
     else if (STOPS_AT_CAP.includes(p.reason)) capped += p.amount;
     else free += p.amount;
   }
+  q.affordable = canAfford(world, cost);
+  q.shortfall = 0;
+  if (unrefusable > 0) {
+    // Charged after the ordinary costs, from whatever PC is left.
+    const left = Math.max(0, world.budget.politicalCapital - cost);
+    if (unrefusable > left) { q.shortfall = unrefusable - left; unrefusable = left; }
+    cost += unrefusable;
+  }
   q.cost = cost;
   q.reward = capped > 0 ? free + Math.min(capped, roomBelowCap(world)) : free;
-  q.affordable = canAfford(world, cost);
 }
 
 /** An action is refused when it has a cost the city cannot cover. Rewards do not offset it. */
@@ -270,12 +302,14 @@ function canAfford(world: World, cost: number): boolean {
  * Reads the world, changes nothing. An action that would do nothing (painting
  * a zone a tile already has, a road where one cannot go) quotes as empty.
  * It scans at most the nuisance radius round the tile, so it is cheap enough
- * to call every frame for a hover preview.
+ * to call every frame for a hover preview. (A service building also walks
+ * the roads its coverage would follow, as the coverage preview already does.)
  */
 export function pcQuote(
   world: World,
   action: PcQuoteAction,
   nuisance: NuisanceConfig = BALANCE.politicalCapital.nuisance,
+  service: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): PcQuote {
   const q = emptyQuote();
   const { grid, layers } = world;
@@ -288,6 +322,10 @@ export function pcQuote(
     case 'bulldoze':
       addPart(q, 'displacement', tx, ty, -d.pcCost);
       addPart(q, 'blightCleared', tx, ty, d.pcReward);
+      // Closing a service: the residents it covered object.
+      for (const p of serviceClosureValue(world, tx, ty, service)) {
+        addPart(q, 'serviceClosed', p.tx, p.ty, p.amount, p.strength);
+      }
       break;
     case 'zone': {
       if (!world.isBuildable(tx, ty) || layers.roadClass[i] !== ROAD_NONE) return q;
@@ -300,6 +338,10 @@ export function pcQuote(
       // Building over a ruin earns nothing: only bulldozing or rezoning clears blight.
       if (!world.isBuildable(tx, ty)) return q;
       addPart(q, 'displacement', tx, ty, -d.pcCost);
+      // Opening a service: the residents it will cover are pleased.
+      for (const p of serviceOpeningValue(world, tx, ty, action.kind, service)) {
+        addPart(q, 'serviceOpened', p.tx, p.ty, p.amount, p.strength);
+      }
       break;
     case 'road': {
       if (!world.isBuildable(tx, ty, true) || layers.roadClass[i] >= action.roadClass) return q;
@@ -353,8 +395,8 @@ export function pcQuote(
  * auto road). Parts for the same tile and reason are merged:
  *   - a home can only be displaced, and a ruin only cleared, once, so those
  *     count once however many of the actions touch it;
- *   - nuisance adds up (each industrial tile is charged), keeping the
- *     strongest `strength`.
+ *   - everything else adds up (each industrial tile is charged, each service
+ *     building counted), keeping the strongest `strength`.
  * It prices each action against the world as it is now, so it is an estimate
  * where one action changes what the next would cost.
  */
@@ -362,12 +404,13 @@ export function pcQuoteMany(
   world: World,
   actions: readonly PcQuoteAction[],
   nuisance: NuisanceConfig = BALANCE.politicalCapital.nuisance,
+  service: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): PcQuote {
   const total = emptyQuote();
   const byKey = new Map<string, PcPart>();
   const width = world.grid.width;
   for (const action of actions) {
-    const q = pcQuote(world, action, nuisance);
+    const q = pcQuote(world, action, nuisance, service);
     for (const p of q.parts) {
       const key = `${p.reason}:${p.ty * width + p.tx}`;
       const have = byKey.get(key);
@@ -378,7 +421,7 @@ export function pcQuoteMany(
         if (p.reason === 'displacement' && p.tx === action.tx && p.ty === action.ty) {
           total.displacedPopulation += q.displacedPopulation;
         }
-      } else if (p.reason === 'nuisance') {
+      } else if (p.reason !== 'displacement' && p.reason !== 'blightCleared') {
         have.amount += p.amount;
         have.strength = Math.max(have.strength, p.strength);
       }
