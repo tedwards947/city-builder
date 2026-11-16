@@ -13,6 +13,11 @@ export interface EconPreset {
 export const ECON_PRESETS: readonly EconPreset[] = [
   { id: 'shipped', name: 'Shipped', desc: "Today's numbers: services eat a young city's income.", values: {} },
   {
+    id: 'tight', name: 'Tight',
+    desc: 'A lean start: a short spell in debt early on, slower growth.',
+    values: { maintenance: { serviceMult: 0.75 }, tax: { landValueFloor: 0.25 } },
+  },
+  {
     id: 'recommended', name: 'Recommended',
     desc: 'Halves service upkeep; homes on cheap land still pay. Tight but survivable.',
     values: { maintenance: { serviceMult: 0.5 }, tax: { landValueFloor: 0.25 } },

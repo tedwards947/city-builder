@@ -32,7 +32,7 @@ describe('PC tuning presets', () => {
     expect((target.nuisance as Tree).bands).toBe(bands);
     expect(target.milestones).toEqual((PROPOSED_PC as Tree).milestones);
     expect(target.neutralSatisfaction).toBe(0.75);
-    expect(((target.service as Tree).perResident as Tree)[7]).toBe(0.012);
+    expect(((target.service as Tree).perResident as Tree)[7]).toBe(0.0086);  // variant B, rescaled for the #116 ranges
     expect((target.satisfactionWeights as Tree).crime).toBe(BALANCE.politicalCapital.satisfactionWeights.crime);
   });
 });
