@@ -1,6 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { hoverPcPreview, pcActionForTool, pcLabel } from '../ui/pcPreview';
 import { landWorld, home, homes, displacementCost, TEST_NUISANCE } from './pcTestWorld';
+import { CommandHistory } from '../commands/CommandHistory';
+import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
+import { ROAD_STREET, BUILDING_PARK } from '../sim/constants';
+import type { ServiceValueConfig } from '../sim/serviceValue';
+
+// 1 PC per resident for a park; a second park is worth half; closing costs twice what is lost.
+const SERVICE_ON: ServiceValueConfig = { perResident: { 8: 1 }, repeatFactor: 0.5, closureMultiplier: 2 };
+
+/** A street along y = 10 with homes on its south side. */
+function streetWorld(homesAt: number[]) {
+  const w = landWorld();
+  for (let tx = 2; tx <= 28; tx++) w.setRoad(tx, 10, ROAD_STREET);
+  for (const tx of homesAt) home(w, tx, 11);
+  return w;
+}
+
 
 describe('political capital preview at the pointer', () => {
   it('is nothing for tools and places where PC does not come into it', () => {
@@ -52,6 +68,32 @@ describe('political capital preview at the pointer', () => {
     w.budget.politicalCapital = 1;
     expect(hoverPcPreview(w, 'power', { tx: 16, ty: 16 }, TEST_NUISANCE)!.ok).toBe(false);
     expect(hoverPcPreview(w, 'zoneI', { tx: 16, ty: 16 }, TEST_NUISANCE)!.ok).toBe(false);
+  });
+
+  it('shows a ribbon-cutting reward for a service that homes gain', () => {
+    const w = streetWorld([4, 5, 6]);
+    const p = hoverPcPreview(w, 'park', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
+    expect(p.label.startsWith('+◆ ')).toBe(true);
+    expect(p.rings).toEqual([]);          // a park upsets nobody
+    expect(p.tints).toEqual([]);
+    expect(p.note).toBe('ribbon cutting');
+    expect(p.ok).toBe(true);
+    // Shipped numbers: no reward, so nothing shows.
+    expect(hoverPcPreview(w, 'park', { tx: 5, ty: 9 })).toBeNull();
+  });
+
+  it('shows what closing a service costs, and says when it takes the last PC', () => {
+    const w = streetWorld([4, 5, 6]);
+    new CommandHistory(w).run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));
+    const p = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
+    expect(p.label.startsWith('◆ ')).toBe(true);
+    expect(p.note).toBe('for closing it');
+    expect(p.ok).toBe(true);
+    w.budget.politicalCapital = 1;
+    const last = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
+    expect(last.ok).toBe(true);           // a closure is never refused
+    expect(last.label).toBe('◆ 1');
+    expect(last.note).toBe('takes the last of your political capital');
   });
 
   it('maps tools to engine actions', () => {

@@ -361,8 +361,11 @@ export class Toolbar {
     const isRoad = item.tool !== undefined && roadClassForTool(item.tool) !== undefined;
     const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
     const radius = item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
+    const kind = item.tool !== undefined ? BUILDING_KIND[item.tool] : undefined;
+    const earns = kind !== undefined && (BALANCE.politicalCapital.service.perResident[kind] ?? 0) > 0;
     return {
-      pc: radius > 0 ? PC_SYMBOL + ' ' + t('ui.toolbar.pcWithin', { n: radius }) : undefined,
+      pc: radius > 0 ? PC_SYMBOL + ' ' + t('ui.toolbar.pcWithin', { n: radius })
+        : earns ? PC_SYMBOL + ' ' + t('ui.toolbar.pcEarns') : undefined,
       pcNote: radius > 0 ? t('ui.toolbar.pcAvoid') : undefined,
       name: t('ui.toolbar.' + item.key),
       desc: t('ui.toolbarDesc.' + item.key),

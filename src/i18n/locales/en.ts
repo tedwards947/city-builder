@@ -77,6 +77,10 @@ export const en: TranslationSchema = {
       tripNone: "none in reach",
       tripLimit: "Trips over {limit} count as out of reach.",
       tripGrowth: "Growth here is slowed to {pct}% by the trip.",
+      pcHeader: "Political capital",
+      pcClose: "Closing it would cost {pc}",
+      pcCloseLast: "Closing it would take your last {pc}",
+      pcDisplace: "Demolishing displaces {n} residents: {pc}",
     },
     badge: {
       crime: { name: "High crime", tip: "Crime is high here, which holds back growth and land value. Build a police station nearby." },
@@ -158,6 +162,9 @@ export const en: TranslationSchema = {
       pcFull: "full",
       pcBonus: "bonus",
       pcShort: "not enough political capital",
+      pcLast: "takes the last of your political capital",
+      pcRibbon: "ribbon cutting",
+      pcClosing: "for closing it",
       inDebt: "In debt · building blocked",
       money: "Money",
       population: "Population",
@@ -224,6 +231,7 @@ export const en: TranslationSchema = {
       pcNearHomes: "near homes",
       pcWithin: "only if homes are within {n} tiles",
       pcAvoid: "The price shows at the pointer. Build away from homes and it's free.",
+      pcEarns: "Earns political capital where residents gain one",
     },
     roadMode: {
       manual: "Manual",

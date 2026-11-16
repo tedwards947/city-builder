@@ -33,7 +33,7 @@ import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcRate } from './ui/pcFormat';
 import { pcCap } from './sim/politics';
-import { hoverPcPreview, nuisanceTints, pcLabel } from './ui/pcPreview';
+import { hoverPcPreview, nuisanceTints, pcLabel, pcNote } from './ui/pcPreview';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
 import { toolPrice, buildingKindForTool } from './ui/Toolbar';
@@ -229,7 +229,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
 function pcTag(q: PcQuote): { text: string; ok: boolean; note?: string } | undefined {
   const text = pcLabel(q);
   if (!text) return undefined;
-  return { text, ok: q.affordable, note: q.affordable ? undefined : t('ui.hud.pcShort') };
+  return { text, ok: q.affordable, note: pcNote(q) };
 }
 
 /** The homes a plan would upset, tinted; the plan's own tag carries the price. */
@@ -393,7 +393,6 @@ function frame(now: number): void {
     pcPreview = hoverPcPreview(state.world, currentTool, hoverTile);
     if (pcPreview) {
       if (buildingKindForTool(currentTool) !== undefined) pcPreview.money = toolPrice(currentTool).cost;
-      if (!pcPreview.ok) pcPreview.note = t('ui.hud.pcShort');
     }
   }
   renderer.render(state.world, camera, {

@@ -37,6 +37,8 @@ import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
 import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
+import {pcQuote} from "../sim/politics";
+import {PC_SYMBOL, pcAmount} from "./pcFormat";
 
 /** The lot's problems as chips, in the colours of the map badges ('' if it has none). */
 function problemChips(world: World, i: number): string {
@@ -46,6 +48,21 @@ function problemChips(world: World, i: number): string {
 }
 
 /** How far the lot's trips are, each as a bar against the commute limit ('' before the first traffic pass). */
+/**
+ * What demolishing the thing on this tile would cost in political capital:
+ * closing a service, or displacing the residents of a home. Empty if nothing.
+ */
+function pcRows(world: World, tx: number, ty: number): string {
+  const q = pcQuote(world, {type: "bulldoze", tx, ty});
+  if (q.cost <= 0) return "";
+  const pc = `<span style="color:${q.affordable ? "#7dd8c0" : "#e07070"};font-weight:600">${PC_SYMBOL} ${pcAmount(q.cost)}</span>`;
+  const closing = q.parts.some(p => p.reason === "serviceClosed");
+  const line = closing
+    ? t(q.shortfall > 0 ? "ui.tileInfo.pcCloseLast" : "ui.tileInfo.pcClose", {pc})
+    : t("ui.tileInfo.pcDisplace", {n: q.displacedPopulation, pc});
+  return `<div class="ti-growth-header">${t("ui.tileInfo.pcHeader")}</div><div class="ti-detail">${line}</div>`;
+}
+
 function tripRows(world: World, i: number): string {
   const trips = lotTrips(world, i);
   if (!trips.length) return "";
@@ -287,6 +304,7 @@ export class TileInfoPanel {
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;
       }
+      html += pcRows(world, tx, ty);
 
       // ── Road tile ──────────────────────────────────────────────────────────────
     } else if (road !== ROAD_NONE) {
@@ -345,6 +363,7 @@ export class TileInfoPanel {
       const isAbandoned = world.layers.abandoned[i] !== 0;
       html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
       html += problemChips(world, i);
+      html += pcRows(world, tx, ty);
 
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;
