@@ -320,6 +320,10 @@ export const BALANCE = {
     // Extra cap per resident, so a bigger city can hold more (0.01 = +1 per
     // 100 people). SWITCHED OFF at 0 until the Political Capital numbers pass.
     capPerResident: 0,
+    // PC banked above the cap fades: once per game day, this share of the
+    // excess is lost (0.02 = 2% a day, half gone in about 35 days). It never
+    // takes PC below the cap. SWITCHED OFF at 0 until the numbers pass.
+    overCapFadePerDay: 0,
     // Passive change per tick:
     //   (baseRegen + (satisfaction − neutralSatisfaction) × satisfactionRegenBonus)
     //     × (cap ÷ max)
