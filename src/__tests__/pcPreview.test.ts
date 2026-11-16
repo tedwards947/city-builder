@@ -92,7 +92,7 @@ describe('political capital preview at the pointer', () => {
     w.budget.politicalCapital = 1;
     const last = hoverPcPreview(w, 'bulldoze', { tx: 5, ty: 9 }, TEST_NUISANCE, SERVICE_ON)!;
     expect(last.ok).toBe(true);           // a closure is never refused
-    expect(last.label).toBe('◆ 1');
+    expect(last.label).toBe('◆ 60');     // charged in full: the rest becomes debt
     expect(last.note).toBe('takes the last of your political capital');
   });
 

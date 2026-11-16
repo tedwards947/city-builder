@@ -7,7 +7,7 @@ import type { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
-import { pcQuote, pcQuoteMany, pcCap } from '../sim/politics';
+import { pcQuote, pcQuoteMany, pcCap, regenPc } from '../sim/politics';
 import { serviceOpeningValue, serviceClosureValue } from '../sim/serviceValue';
 import type { ServiceValueConfig } from '../sim/serviceValue';
 import {
@@ -147,23 +147,59 @@ describe('service value', () => {
     expect(serviceClosureValue(w, 6, 9)[0].strength).toBe(1);
   });
 
-  it('a closure is never refused: it takes what PC there is and says how much went unpaid', () => {
+  it('a closure is never refused: what the city cannot cover becomes debt', () => {
     street([4, 5, 6]);
     h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));
     const full = 3 * residents() * 2;
     w.budget.politicalCapital = 7;
     const q = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 });
     expect(q.affordable).toBe(true);
-    expect(q.cost).toBe(7);
+    expect(q.cost).toBe(full);
     expect(q.shortfall).toBe(full - 7);
-    const cmd = new BulldozeCommand(5, 9);
-    expect(h.run(cmd)).toBe(true);
-    expect(w.budget.politicalCapital).toBe(0);
-    h.undo();
-    expect(w.budget.politicalCapital).toBe(7);                     // exactly what was taken
-    // At zero it still goes through, free.
-    w.budget.politicalCapital = 0;
     expect(h.run(new BulldozeCommand(5, 9))).toBe(true);
+    expect(w.budget.politicalCapital).toBe(7 - full);
+    h.undo();
+    expect(w.budget.politicalCapital).toBe(7);
+    // Already in debt: it still goes through, and the debt deepens by the full cost.
+    w.budget.politicalCapital = -10;
+    const again = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 });
+    expect(again.affordable).toBe(true);
+    expect(again.shortfall).toBe(full);
+    expect(h.run(new BulldozeCommand(5, 9))).toBe(true);
+    expect(w.budget.politicalCapital).toBe(-10 - full);
+  });
+
+  it('opening, spending the reward and closing cannot be farmed: it ends in debt', () => {
+    street([4, 5, 6]);
+    home(w, 20, 20, 3);                                             // something to spend PC on
+    w.budget.politicalCapital = 0;
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));           // + 3 × residents
+    const reward = w.budget.politicalCapital;
+    expect(reward).toBe(3 * residents());
+    w.budget.politicalCapital = 0;                                  // "spent" on something else
+    h.run(new BulldozeCommand(5, 9));                               // close it
+    expect(w.budget.politicalCapital).toBe(-reward * 2);
+    // In debt, anything that costs PC is refused…
+    const cmd = new BulldozeCommand(20, 20);
+    expect(pcQuote(w, { type: 'bulldoze', tx: 20, ty: 20 }).affordable).toBe(false);
+    expect(h.run(cmd)).toBe(false);
+    expect(cmd.failReason).toBe('politicalCapital');
+    // …but things that cost nothing, or earn PC, still go through.
+    expect(h.run(new PlaceBuildingCommand(6, 9, BUILDING_PARK))).toBe(true);
+    expect(w.budget.politicalCapital).toBe(-reward * 2 + reward);
+  });
+
+  it('regeneration pays a debt off; low satisfaction never deepens one', () => {
+    w.budget.politicalCapital = -5;
+    regenPc(w, 0.4);
+    expect(w.budget.politicalCapital).toBeCloseTo(-4.6);
+    regenPc(w, -0.4);
+    expect(w.budget.politicalCapital).toBeCloseTo(-4.6);
+    w.budget.politicalCapital = 0;
+    regenPc(w, -0.4);
+    expect(w.budget.politicalCapital).toBe(0);
+    w.budget.politicalCapital = 0.1;
+    regenPc(w, -0.4);
     expect(w.budget.politicalCapital).toBe(0);
   });
 
@@ -194,7 +230,7 @@ describe('service value', () => {
       { type: 'bulldoze', tx: 20, ty: 9 },
     ]);
     expect(q.affordable).toBe(true);
-    expect(q.cost).toBe(3);
+    expect(q.cost).toBe(2 * residents() * 2);
     expect(q.shortfall).toBe(2 * residents() * 2 - 3);
     expect(q.parts.length).toBe(2);
   });
