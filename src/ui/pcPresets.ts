@@ -2,23 +2,23 @@
 // button. Only the keys listed are changed; the rest keep their current
 // value. balance.ts itself stays at the shipped numbers until a numbers-on PR.
 
-/** The engine session's proposed starting numbers (arithmetic from the owner's targets, not play-tested yet). */
+/** The play-test starting numbers the owner accepted (engine session's revised set, 2026-11-16). */
 export const PROPOSED_PC = {
   max: 100,
   capPerResident: 0.01,
   baseRegen: 0,
-  satisfactionRegenBonus: 0.42,
-  neutralSatisfaction: 0.6,
+  satisfactionRegenBonus: 0.7,
+  neutralSatisfaction: 0.75,
   disruptionCosts: { bulldozePerPop: 2.5, abandonedBuildingReward: 2.5 },
   nuisance: {
     bands: [{ within: 2, weight: 1 }, { within: 4, weight: 0.6 }, { within: 6, weight: 0.3 }],
-    industrialPerResident: 0.03,
+    industrialPerResident: 0.08,
     buildingPerResident: { 1: 0.4, 3: 0.3 },
   },
   service: {
-    perResident: { 4: 0.02, 5: 0.015, 6: 0.05, 7: 0.06, 8: 0.05 },
+    perResident: { 4: 0.004, 5: 0.003, 6: 0.01, 7: 0.012, 8: 0.01 },
     repeatFactor: 0.5,
-    closureMultiplier: 1.5,
+    closureMultiplier: 3,
   },
   milestones: [
     { population: 1000, reward: 20 },
