@@ -194,6 +194,13 @@ export interface TranslationSchema {
       autoDesc: string;
       title: string;
     };
+    zoneMode: {
+      drag: string;
+      fill: string;
+      dragDesc: string;
+      fillDesc: string;
+      title: string;
+    };
     toolbarDesc: {
       new: string;
       save: string;
