@@ -43,6 +43,8 @@ import { ToastPanel } from './ui/ToastPanel';
 import { DemandChart } from './ui/DemandChart';
 import { TrafficOverlay } from './render/TrafficOverlay';
 import { TrafficTuningPanel } from './ui/TrafficTuningPanel';
+import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
+import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
 import { BALANCE } from './data/balance';
 import {
@@ -88,11 +90,15 @@ const state = {
   history:   null as unknown as CommandHistory,
   scheduler: null as unknown as Scheduler,
   transit:   null as unknown as TransitSystem,
+  politics:  undefined as PoliticsSystem | undefined,
 };
 
 // Developer tools, only with ?debug=true.
 const trafficTuning = DEBUG
   ? new TrafficTuningPanel(() => state.world, () => state.transit.recompute(state.world))
+  : null;
+const politicsTuning = DEBUG
+  ? new PoliticsTuningPanel(() => state.world, () => state.politics)
   : null;
 
 // UI Panels (must be initialized before first startGame call)
@@ -124,6 +130,7 @@ function startGame(world: World): void {
   // Systems carry per-game state, so every new or loaded world gets a fresh set.
   const sim = createSystems();
   state.transit = sim.transit;
+  state.politics = sim.systems.find((s): s is PoliticsSystem => s instanceof PoliticsSystem);
   // Settle traffic now, while the city is loading, rather than on the first
   // traffic tick: that pass is the costliest of the game (~20 ms on a big
   // city), and roads show their traffic from the first frame.
@@ -405,6 +412,7 @@ function frame(now: number): void {
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();
+  politicsTuning?.update();
   tileInfoPanel.update(state.world, hoverTile);
   badgeTooltip.update(currentTool === 'inspect');
   econPanel.update();
