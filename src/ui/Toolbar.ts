@@ -106,10 +106,11 @@ const BUILDING_KIND: Partial<Record<Tool, number>> = {
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
-const FLAT_COST: Partial<Record<Tool, number>> = {
-  zoneR: BALANCE.costs.zoneR, zoneC: BALANCE.costs.zoneC, zoneI: BALANCE.costs.zoneI,
-  bulldoze: BALANCE.costs.bulldoze,
-};
+/** Flat per-tile prices, read when asked so a change to BALANCE shows at once. */
+function flatCost(tool: Tool): number | undefined {
+  const c = BALANCE.costs;
+  return tool === 'zoneR' ? c.zoneR : tool === 'zoneC' ? c.zoneC : tool === 'zoneI' ? c.zoneI : tool === 'bulldoze' ? c.bulldoze : undefined;
+}
 
 /** The building a tool places, if it places one. */
 export function buildingKindForTool(tool: Tool): number | undefined {
@@ -145,7 +146,9 @@ export function toolPrice(tool: Tool): { cost?: string; upkeep?: string } {
     const b = BALANCE.buildings[kind];
     return { cost: money(b.cost), upkeep: money(b.maintenance) + '/tick' };
   }
-  const flat = FLAT_COST[tool];
+  const flat = flatCost(tool);
+  // A tool whose price is set to 0 (zoning, since it became free) is free, not "$0 / tile".
+  if (flat === 0) return { cost: t('ui.toolbar.free') };
   return flat !== undefined ? { cost: money(flat) + ' / tile' } : {};
 }
 

@@ -496,7 +496,7 @@ function frame(now: number): void {
     zonePreview = {
       tiles: plan.tiles, ok: plan.affordable, at: hoverTile,
       color: ZONE_PREVIEW_COLOR[fillZone] ?? '#fff',
-      label: '$' + plan.cost.toLocaleString('en-US'),
+      label: plan.cost > 0 ? '$' + plan.cost.toLocaleString('en-US') : t('ui.toolbar.free'),
       pc: pcTag(plan.pc),
     };
     pcPreview = planPcPreview(hoverTile, plan.pc);

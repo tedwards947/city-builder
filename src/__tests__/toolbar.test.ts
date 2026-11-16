@@ -58,6 +58,14 @@ describe('toolbar list', () => {
     expect(t('ui.toolbar.pcWithin', { n: 6 })).toContain('6 tiles');
   });
 
+  it('calls a tool with a zero price free', () => {
+    const costs = BALANCE.costs as { zoneR: number };
+    const was = costs.zoneR;
+    costs.zoneR = 0;
+    try { expect(toolPrice('zoneR').cost).toBe('Free'); } finally { costs.zoneR = was; }
+    if (was > 0) expect(toolPrice('zoneR').cost).toBe('$' + was + ' / tile');
+  });
+
   it('reads prices from BALANCE', () => {
     expect(toolPrice('hospital').cost).toBe('$' + BALANCE.buildings[7].cost.toLocaleString('en-US'));
     expect(toolPrice('road').cost).toBe('$' + BALANCE.roadClasses[1].cost + ' / tile');

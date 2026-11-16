@@ -300,6 +300,7 @@ export const en: TranslationSchema = {
       menu: "Menu",
       upkeep: "Upkeep:",
       shortcut: "Shortcut:",
+      free: "Free",
       pcNearHomes: "near homes",
       pcWithin: "only if homes are within {n} tiles",
       pcAvoid: "The price shows at the pointer. Build away from homes and it's free.",
