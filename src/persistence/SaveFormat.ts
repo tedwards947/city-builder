@@ -69,6 +69,8 @@ export interface WorldSnapshot {
     // Added after v9 without a version bump: missing in older saves, which
     // load with no ordinances.
     ordinances?: { active: string[]; suspended: string[] };
+    requests?: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; openedTick: number; deadlineTick: number }[];
+    nextRequestId?: number;
   };
   buildings: { tx: number; ty: number; kind: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.

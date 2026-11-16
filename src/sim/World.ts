@@ -3,6 +3,7 @@
 // Adding a new simulation concern = adding a new layer, not restructuring.
 
 import { Grid } from './Grid';
+import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
 import { mulberry32 } from './rng';
 import {
@@ -93,6 +94,9 @@ export interface Politics {
    * were enacted, and which of them are suspended because PC is 0 or below.
    */
   ordinances: { active: string[]; suspended: string[] };
+  /** Open resident requests (src/sim/requests.ts) and the id the next one gets. */
+  requests: OpenRequest[];
+  nextRequestId: number;
 }
 
 // Unified entity type for every placed building (utilities and services alike).
@@ -231,7 +235,7 @@ export class World {
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
     this.developedSince = new Uint16Array(n);
-    this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] } };
+    this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requests: [], nextRequestId: 1 };
     this.buildings = [];
     this.events = new EventBus();
     this.roadNetDirty = true;

@@ -369,6 +369,28 @@ export const BALANCE = {
     // establishedDemolitionCost) is not defined yet: which tiles count is an
     // open design question for the owner and the PM. Until it is decided,
     // nothing reads those two names.
+    // Heritage Protection: a tile counts as "established" once it has stayed
+    // developed for this many game years (engine wires it). 0 = off.
+    establishedYears: 0,
+    // Resident requests (src/sim/requests.ts, RequestSystem). SWITCHED OFF:
+    // spawnEveryDays is 0, so none ever opens; days, rewards and penalties
+    // are set in the balance play-test.
+    requests: {
+      spawnEveryDays: 0,  // a new request every this many game days while under maxOpen (0 = never)
+      maxOpen: 3,
+      cellSize: 12,       // neighbourhoods are cells of this many tiles square…
+      minHomes: 6,        // …with at least this many developed homes
+      metNeed: 0.25,      // met once at most this share of the area's homes still lack it
+      randomness: 0.3,    // 0 = always the neediest; 1 = need counts for little
+      kinds: {
+        park: { days: 0, reward: 0, penalty: 0 },
+        schoolOrHospital: { days: 0, reward: 0, penalty: 0 },
+        policeOrFire: { days: 0, reward: 0, penalty: 0 },
+        utilities: { days: 0, reward: 0, penalty: 0 },
+        trafficJam: { days: 0, reward: 0, penalty: 0 },
+        blight: { days: 0, reward: 0, penalty: 0 },
+      } as Record<string, { days: number; reward: number; penalty: number }>,
+    },
     // Off until the ordinance numbers are play-tested: the toolbar tile and
     // panel stay hidden while this is false (ordinancesEnabled()).
     ordinancesEnabled: false,

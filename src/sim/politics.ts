@@ -28,7 +28,9 @@ export type PcReason =
   | 'serviceClosed'   // a service building closed: the residents it covered object
   | 'milestone'       // the population reached a milestone for the first time
   | 'ordinanceEnacted' // the player enacted an ordinance (src/sim/ordinances.ts)
-  | 'ordinanceUpkeep'; // a day's upkeep for the active ordinances
+  | 'ordinanceUpkeep'  // a day's upkeep for the active ordinances
+  | 'requestMet'       // a resident request was met (src/sim/requests.ts)
+  | 'requestFailed';   // a resident request ran past its deadline
 
 /**
  * Changes the simulation makes on its own, not part of the player's current
@@ -36,7 +38,7 @@ export type PcReason =
  * them out of pcAction. (Enacting an ordinance is a player action, but it is
  * not a command, so it is left out too.)
  */
-export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep'];
+export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep', 'requestMet', 'requestFailed'];
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */
@@ -60,7 +62,7 @@ export function pcCap(
 }
 
 /** Rewards that fill PC up to the cap but never past it. */
-const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
+const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared', 'requestMet'];
 
 /**
  * Costs that are never refused: they are charged in full even when the city

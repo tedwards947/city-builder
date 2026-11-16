@@ -54,6 +54,11 @@ export type CityEvents = {
   ordinanceRepealed: { id: string };
   ordinanceSuspended: { id: string };
   ordinanceResumed:  { id: string };
+  // Resident requests (emitted by RequestSystem). The area is a tile rect;
+  // `deadlineTick` is when it fails if not met.
+  requestOpened: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; deadlineTick: number };
+  requestMet:    { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; deadlineTick: number };
+  requestFailed: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; deadlineTick: number };
   // Healthcare
   deathEvent:       { tx: number; ty: number };
   healthcareCrisis: { avgSickness: number; threshold: number; affectedTiles: number };

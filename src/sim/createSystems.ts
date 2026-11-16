@@ -20,6 +20,7 @@ import { EconomySystem } from './systems/EconomySystem';
 import { VibeSystem } from './systems/VibeSystem';
 import { PoliticsSystem } from './systems/PoliticsSystem';
 import { OrdinanceSystem } from './systems/OrdinanceSystem';
+import { RequestSystem } from './systems/RequestSystem';
 
 export interface SimSystems {
   /** Every system, in tick order. */
@@ -55,6 +56,7 @@ export function createSystems(): SimSystems {
       new VibeSystem(),
       new PoliticsSystem(),
       new OrdinanceSystem(),
+      new RequestSystem(),
     ],
   };
 }

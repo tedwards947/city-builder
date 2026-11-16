@@ -39,6 +39,14 @@ export const en: TranslationSchema = {
     eminentDomain: { name: 'Eminent Domain', desc: 'The city may take land it needs. Displacing residents costs half the political capital, but people are less satisfied.' },
     heritageProtection: { name: 'Heritage Protection', desc: 'Old neighbourhoods are protected. They gain land value, but become very expensive to demolish.' },
   },
+  requests: {
+    park: { name: 'A park', desc: 'Residents here want a park within walking distance.' },
+    schoolOrHospital: { name: 'A school or hospital', desc: 'Residents here want a school and a hospital that cover their homes.' },
+    policeOrFire: { name: 'Police and fire cover', desc: 'Residents here want police and fire stations that cover their homes.' },
+    utilities: { name: 'Power and water back', desc: 'Residents here have lost power or water in the shortage and want it back.' },
+    trafficJam: { name: 'Fix the traffic', desc: 'The roads around here are jammed; residents want them back under capacity.' },
+    blight: { name: 'Clear the blight', desc: 'Abandoned buildings are dragging the area down; residents want them cleared or revived.' },
+  },
   ui: {
     tileInfo: {
       coords: "({tx}, {ty})",
