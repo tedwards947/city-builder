@@ -125,6 +125,7 @@ export interface TranslationSchema {
       polCapital: string;
       pcFull: string;
       pcBonus: string;
+      pcShort: string;
       inDebt: string;
       money: string;
       population: string;

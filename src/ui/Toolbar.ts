@@ -100,6 +100,11 @@ const FLAT_COST: Partial<Record<Tool, number>> = {
   bulldoze: BALANCE.costs.bulldoze,
 };
 
+/** The building a tool places, if it places one. */
+export function buildingKindForTool(tool: Tool): number | undefined {
+  return BUILDING_KIND[tool];
+}
+
 function money(n: number): string {
   return '$' + (Number.isInteger(n) ? n.toLocaleString('en-US') : n.toFixed(2));
 }
