@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { TOOLBAR, toolPrice, toolbarItems, hotkeyLabel } from '../ui/Toolbar';
+import { TOOLBAR, toolPrice, toolbarItems, hotkeyLabel, toolNuisanceRadius } from '../ui/Toolbar';
+import { TEST_NUISANCE } from './pcTestWorld';
 import type { ToolbarItem } from '../ui/Toolbar';
 import type { Tool } from '../input/InputController';
 import { t } from '../i18n';
@@ -43,6 +44,18 @@ describe('toolbar list', () => {
     expect(hotkeyLabel('h', false)).toBe('H');
     expect(hotkeyLabel('mod+shift+z', false)).toBe('Ctrl+Shift+Z');
     expect(hotkeyLabel('mod+shift+z', true)).toBe('⌘⇧Z');
+  });
+
+  it('knows which tools can upset neighbours, and how far', () => {
+    // Shipped rates are 0: nothing is marked until the costs are switched on.
+    expect(toolNuisanceRadius('power')).toBe(0);
+    expect(toolNuisanceRadius('zoneI')).toBe(0);
+    expect(toolNuisanceRadius('power', TEST_NUISANCE)).toBe(6);
+    expect(toolNuisanceRadius('zoneI', TEST_NUISANCE)).toBe(6);
+    expect(toolNuisanceRadius('zoneR', TEST_NUISANCE)).toBe(0);
+    expect(toolNuisanceRadius('park', TEST_NUISANCE)).toBe(0);
+    expect(toolNuisanceRadius('road', TEST_NUISANCE)).toBe(0);
+    expect(t('ui.toolbar.pcWithin', { n: 6 })).toContain('6 tiles');
   });
 
   it('reads prices from BALANCE', () => {

@@ -14,6 +14,9 @@ import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
+import { nuisanceRings } from '../sim/politics';
+import type { NuisanceConfig } from '../sim/politics';
+import { PC_SYMBOL } from './pcFormat';
 import { t } from '../i18n';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
@@ -103,6 +106,19 @@ const FLAT_COST: Partial<Record<Tool, number>> = {
 /** The building a tool places, if it places one. */
 export function buildingKindForTool(tool: Tool): number | undefined {
   return BUILDING_KIND[tool];
+}
+
+/**
+ * How far (in tiles) homes object to what this tool places, or 0 if it upsets
+ * nobody. Political capital has no fixed prices, so the toolbar only says
+ * which tools can cost it and when; the amount shows at the pointer.
+ */
+export function toolNuisanceRadius(tool: Tool, cfg?: NuisanceConfig): number {
+  const zone = zoneForTool(tool), kind = BUILDING_KIND[tool];
+  const source = zone !== undefined ? { zone } : kind !== undefined ? { kind } : null;
+  if (!source) return 0;
+  const rings = nuisanceRings(source, cfg);
+  return rings.length ? rings[rings.length - 1].within : 0;
 }
 
 function money(n: number): string {
@@ -271,6 +287,9 @@ export class Toolbar {
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);
+      if (item.tool !== undefined && toolNuisanceRadius(item.tool) > 0) {
+        row.appendChild(node('span', 'tb-pc')).textContent = PC_SYMBOL + ' ' + t('ui.toolbar.pcNearHomes');
+      }
       const cost = item.tool !== undefined ? toolPrice(item.tool).cost : undefined;
       if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '');
       row.addEventListener('click', () => { this.open = null; this.pick(item); this.render(); });
@@ -341,7 +360,10 @@ export class Toolbar {
     const price = item.tool !== undefined ? toolPrice(item.tool) : {};
     const isRoad = item.tool !== undefined && roadClassForTool(item.tool) !== undefined;
     const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
+    const radius = item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
     return {
+      pc: radius > 0 ? PC_SYMBOL + ' ' + t('ui.toolbar.pcWithin', { n: radius }) : undefined,
+      pcNote: radius > 0 ? t('ui.toolbar.pcAvoid') : undefined,
       name: t('ui.toolbar.' + item.key),
       desc: t('ui.toolbarDesc.' + item.key),
       cost: price.cost,
@@ -366,6 +388,8 @@ export class Toolbar {
       line('tb-tip-name', tip.name);
       line('tb-tip-desc', tip.desc);
       line('tb-tip-cost', tip.cost);
+      line('tb-tip-pc', tip.pc);
+      line('tb-tip-hint', tip.pcNote);
       line('tb-tip-upkeep', tip.upkeep);
       line('tb-tip-hint', tip.hint);
       line('tb-tip-key', tip.hotkey);
@@ -380,4 +404,4 @@ export class Toolbar {
   private hideTip(): void { this.tip.classList.remove('visible'); }
 }
 
-interface TipText { name: string; desc?: string; cost?: string; upkeep?: string; hint?: string; hotkey?: string }
+interface TipText { name: string; desc?: string; cost?: string; upkeep?: string; hint?: string; hotkey?: string; pc?: string; pcNote?: string }
