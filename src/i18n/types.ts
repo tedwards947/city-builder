@@ -189,6 +189,9 @@ export interface TranslationSchema {
       menu: string;
       upkeep: string;
       shortcut: string;
+      pcNearHomes: string;
+      pcWithin: string;
+      pcAvoid: string;
     };
     roadMode: {
       manual: string;
