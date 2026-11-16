@@ -31,8 +31,8 @@ import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
-import { pcOfCap, pcRate } from './ui/pcFormat';
-import { pcCap } from './sim/politics';
+import { pcOfCap, pcHudRate } from './ui/pcFormat';
+import { pcCap, overCapFadePerDay } from './sim/politics';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
 import { MilestoneBanner } from './ui/MilestoneBanner';
 import { OrdinancePanel, ordinancesShown } from './ui/OrdinancePanel';
@@ -558,7 +558,9 @@ function frame(now: number): void {
   const draining = pcPerDay < -0.05;
   // Political debt (below 0, from closing services): everything that costs PC is refused until it is paid off.
   const inDebt = pc < 0;
-  const rateText = pcRate(pcPerDay) || (pcOver ? t('ui.hud.pcBonus') : Math.floor(pc) >= pcMax ? t('ui.hud.pcFull') : '');
+  // Over the cap the banked extra slowly fades: "−0.4/day" beside the brightened figure.
+  const rateText = pcHudRate(pcPerDay, overCapFadePerDay(state.world), pcOver, Math.floor(pc) >= pcMax,
+    { bonus: t('ui.hud.pcBonus'), full: t('ui.hud.pcFull') });
   statPCRate.textContent = inDebt ? (t('ui.hud.pcDebt') + ' ' + rateText).trim() : rateText;
   statPC.classList.toggle('debt', inDebt);
   statPCRate.classList.toggle('debt', inDebt);

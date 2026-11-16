@@ -26,6 +26,21 @@ export function pcRate(perDay: number): string {
 }
 
 /**
+ * The small text beside the HUD figure. Normally the passive rate. Over the
+ * cap the banked extra fades, so it reads "−0.4/day" ("bonus" when the fade
+ * is off or too small to show; the two together overflow the HUD row); at the cap with nothing moving, "full".
+ * `regenPerDay` and `fadePerDay` are per game day; the fade is a positive amount.
+ */
+export function pcHudRate(
+  regenPerDay: number, fadePerDay: number, over: boolean, full: boolean,
+  labels: { bonus: string; full: string },
+): string {
+  const rate = pcRate(regenPerDay - (over ? fadePerDay : 0));
+  if (over) return rate || labels.bonus;
+  return rate || (full ? labels.full : '');
+}
+
+/**
  * The HUD figure: "62 / 100", or "−12 / 100" in political debt. Rounds down,
  * so it never overstates what the city has or understates what it owes.
  */
