@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { ZONE_R, BUILDING_PARK } from '../sim/constants';
-import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet } from '../sim/requests';
+import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 import { RequestSystem } from '../sim/systems/RequestSystem';
 
 const cfg = requestConfig();
@@ -157,6 +157,27 @@ describe('picking', () => {
     w.layers.police.fill(0);                                     // …and police need 1
     Object.assign(cfg.kinds.park, { days: 6 });                  // only park is switched on
     for (let k = 0; k < 50; k++) expect(pickRequest(w, w.rng)?.kind).toBe('park');
+  });
+});
+
+describe('debug helpers', () => {
+  it('open the neediest neighbourhood for a kind, then meet or fail it by hand', () => {
+    Object.assign(cfg.kinds.park, { reward: 10, penalty: 4 });
+    const w = city();
+    w.buildings.splice(1, 1);                                    // the right neighbourhood loses its park
+    const area = neediestFor(w, 'park')!;
+    expect(area.x0).toBe(13);
+    const log: string[] = [];
+    for (const e of ['requestOpened', 'requestMet', 'requestFailed'] as const) w.events.on(e, (p) => log.push(`${e}:${p.id}`));
+    const a = openRequest(w, 'park', area, 5);
+    const b = openRequest(w, 'park', neighbourhoods(w)[0], 5);
+    expect(a.deadlineTick).toBe(w.tick + 5 * BALANCE.ticksPerDay);
+    meetRequest(w, a);
+    failRequest(w, b);
+    meetRequest(w, a);                                           // already closed: nothing
+    expect(w.politics.requests).toEqual([]);
+    expect(w.budget.politicalCapital).toBe(50 + 10 - 4);
+    expect(log).toEqual(['requestOpened:1', 'requestOpened:2', 'requestMet:1', 'requestFailed:2']);
   });
 });
 

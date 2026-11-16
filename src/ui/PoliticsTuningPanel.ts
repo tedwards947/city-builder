@@ -12,8 +12,9 @@ import type { PoliticsSystem } from '../sim/systems/PoliticsSystem';
 import { BALANCE } from '../data/balance';
 import { pcCap, regenPerTick } from '../sim/politics';
 import * as C from '../sim/constants';
-import { PROPOSED_PC, applyValues } from './pcPresets';
+import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
 import { debugDock } from './debugDock';
+import { REQUEST_KINDS, requestConfig, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
 
 // BALANCE is declared `as const`; the debug panels are the one place that edit it.
 type Tree = Record<string, unknown>;
@@ -64,15 +65,23 @@ const isTree = (v: unknown): v is Tree => typeof v === 'object' && v !== null;
 export class PoliticsTuningPanel {
   private readonly getWorld: () => World;
   private readonly getPolitics: () => PoliticsSystem | undefined;
+  private readonly advanceTicks: (n: number) => void;
+  private readonly requestsEl: HTMLElement;
+  private readonly detailEl: HTMLElement;
+  private readonly variantButtons: { v: PcVariant | null; b: HTMLButtonElement }[] = [];
+  private readonly variantDesc: HTMLElement;
+  private requestIds = '';
+  private requestLeft: { el: HTMLElement; deadline: number }[] = [];
   private readonly readoutEl: HTMLElement;
   private readonly settingsEl: HTMLElement;
   private readonly defaults: Tree = structuredClone(PC);
   private lastWorld: World | null = null;
   private lastTick = -1;
 
-  constructor(getWorld: () => World, getPolitics: () => PoliticsSystem | undefined) {
+  constructor(getWorld: () => World, getPolitics: () => PoliticsSystem | undefined, advanceTicks: (n: number) => void = () => {}) {
     this.getWorld = getWorld;
     this.getPolitics = getPolitics;
+    this.advanceTicks = advanceTicks;
 
     const panel = document.createElement('div');
     // In the debug dock, left of the stats box and toolbar.
@@ -90,16 +99,39 @@ export class PoliticsTuningPanel {
     this.readoutEl.style.cssText = 'margin-bottom:6px;color:#dde;';
     panel.appendChild(this.readoutEl);
 
-    // Settings start folded: the read-outs are what you watch while playing.
+    // Simple mode (the default view): the read-out above, a variant picker,
+    // then Shortcuts and Advanced folded away. The title folds it all.
     const body = document.createElement('div');
-    body.style.display = 'none';
     panel.appendChild(body);
     const setTitle = () => { title.textContent = `Political capital (debug) ${body.style.display === 'none' ? '▸' : '▾'}`; };
     title.addEventListener('click', () => { body.style.display = body.style.display === 'none' ? '' : 'none'; setTitle(); });
     setTitle();
 
+    const picker = document.createElement('div');
+    picker.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
+    for (const v of [...PC_VARIANTS, null]) {
+      const b = document.createElement('button');
+      b.textContent = v ? v.id : 'Off';
+      b.title = v ? `${v.id} ${v.name}: ${v.desc}` : 'The shipped numbers (Political Capital effects switched off)';
+      b.style.cssText = 'font-size:11px;padding:2px 0;cursor:pointer;border-radius:4px;border:1px solid #556;background:#223;color:#dde;';
+      b.addEventListener('click', () => this.chooseVariant(v));
+      picker.appendChild(b);
+      this.variantButtons.push({ v, b });
+    }
+    body.appendChild(picker);
+    this.variantDesc = document.createElement('div');
+    this.variantDesc.style.cssText = 'margin:3px 0 4px;color:#aab;min-height:1.5em;';
+    body.appendChild(this.variantDesc);
+
+    this.requestsEl = document.createElement('div');
+    body.appendChild(this.fold('Shortcuts', this.playTestTools()));
+
+    const advanced = document.createElement('div');
+    this.detailEl = document.createElement('div');
+    this.detailEl.style.cssText = 'margin:4px 0;color:#dde;';
+    advanced.appendChild(this.detailEl);
     this.settingsEl = document.createElement('div');
-    body.appendChild(this.settingsEl);
+    advanced.appendChild(this.settingsEl);
     this.buildSettings();
 
     const buttons = document.createElement('div');
@@ -111,23 +143,54 @@ export class PoliticsTuningPanel {
       b.addEventListener('click', () => onClick(b));
       buttons.appendChild(b);
     };
-    const load = (values: Tree) => { applyValues(PC, structuredClone(values)); this.buildSettings(); this.renderReadout(); };
-    mkButton('Load proposed', () => load(PROPOSED_PC as unknown as Tree));
-    mkButton('Reset', () => load(this.defaults));
     mkButton('Copy values', (b) => {
       const text = this.valuesText();
       const done = () => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy values'; }, 1200); };
       if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => console.log(text));
       else console.log(text);
     });
-    body.appendChild(buttons);
-
+    advanced.appendChild(buttons);
     const note = document.createElement('div');
-    note.textContent = 'Not saved. Changes apply from the next tick or hover.';
+    note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D.';
     note.style.cssText = 'margin-top:6px;color:#888;';
-    body.appendChild(note);
+    advanced.appendChild(note);
+    body.appendChild(this.fold('Advanced', advanced));
 
-    debugDock().appendChild(panel);
+    debugDock().prepend(panel); // first in the dock: it is what the PC play-test watches
+
+    const fromUrl = new URLSearchParams(location.search).get('pcPreset')?.toUpperCase();
+    this.chooseVariant(PC_VARIANTS.find((v) => v.id === fromUrl) ?? null, false);
+  }
+
+  /** Reset to the shipped numbers, then apply the variant (null = shipped). */
+  private chooseVariant(v: PcVariant | null, apply = true): void {
+    if (apply || v) {
+      applyValues(PC, structuredClone(this.defaults));
+      if (v) applyValues(PC, structuredClone(v.values));
+      this.buildSettings();
+      this.renderReadout();
+    }
+    for (const { v: bv, b } of this.variantButtons) {
+      const on = bv === v;
+      // The game's "selected" look (toolbar tiles, speed buttons).
+      b.style.background = on ? '#4a7a9a' : '#223';
+      b.style.borderColor = on ? '#8cc0e0' : '#556';
+      b.style.color = on ? '#fff' : '#dde';
+    }
+    this.variantDesc.textContent = v ? `${v.id} ${v.name}: ${v.desc}` : 'Off: the shipped numbers.';
+  }
+
+  /** A section with a clickable heading that starts folded. */
+  private fold(text: string, content: HTMLElement): HTMLElement {
+    const box = document.createElement('div');
+    const h = this.heading('', 0);
+    h.style.cursor = 'pointer';
+    content.style.display = 'none';
+    const set = () => { h.textContent = `${text} ${content.style.display === 'none' ? '▸' : '▾'}`; };
+    h.addEventListener('click', () => { content.style.display = content.style.display === 'none' ? '' : 'none'; set(); });
+    set();
+    box.append(h, content);
+    return box;
   }
 
   /** Call every frame: refreshes the read-outs once per sim tick. */
@@ -259,6 +322,83 @@ export class PoliticsTuningPanel {
 
   // ── Read-outs ─────────────────────────────────────────────────────────────
 
+  // ── Play-test tools: reach tricky states quickly ─────────────────────────────
+
+  private playTestTools(): HTMLElement {
+    const box = document.createElement('div');
+    const row = (...els: HTMLElement[]) => {
+      const r = document.createElement('div');
+      r.style.cssText = 'display:flex;gap:4px;align-items:center;margin:2px 0;';
+      r.append(...els);
+      box.appendChild(r);
+    };
+    const button = (text: string, onClick: () => void) => {
+      const b = this.smallButton(text, () => { onClick(); this.renderReadout(); });
+      b.style.fontSize = '11px';
+      return b;
+    };
+    const numberBox = (value: number, width = 54) => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = String(value);
+      input.style.cssText = `width:${width}px;font-size:11px;background:#111;color:#fff;border:1px solid #444;border-radius:3px;padding:0 3px;`;
+      return input;
+    };
+
+    const pc = numberBox(-20);
+    row(pc,
+      button('Set PC', () => { const v = parseFloat(pc.value); if (Number.isFinite(v)) this.getWorld().budget.politicalCapital = v; }),
+      button('Fill to cap', () => { const w = this.getWorld(); w.budget.politicalCapital = pcCap(w); }));
+
+    const kind = document.createElement('select');
+    kind.style.cssText = 'font-size:11px;max-width:130px;';
+    for (const k of REQUEST_KINDS) kind.add(new Option(k.id, k.id));
+    row(kind, button('Spawn request', () => {
+      const w = this.getWorld();
+      const area = neediestFor(w, kind.value);
+      if (!area) { console.log('No neighbourhood with enough homes yet.'); return; }
+      openRequest(w, kind.value, area, requestConfig().kinds[kind.value]?.days || 20);
+    }));
+
+    const days = numberBox(1, 40);
+    row(days, button('Advance days', () => {
+      const n = Math.max(0, Math.round(parseFloat(days.value) || 0));
+      this.advanceTicks(n * BALANCE.ticksPerDay);
+    }));
+
+    box.appendChild(this.requestsEl);
+    return box;
+  }
+
+  /** Open requests with Meet / Fail buttons; rebuilt only when the set changes, so a click is never lost. */
+  private renderRequests(): void {
+    const world = this.getWorld();
+    const open = world.politics.requests;
+    const ids = open.map((r) => r.id).join(',');
+    if (ids !== this.requestIds) {
+      this.requestIds = ids;
+      this.requestsEl.replaceChildren();
+      this.requestLeft = [];
+      for (const r of open) {
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;gap:4px;align-items:center;margin:1px 0;';
+        const name = document.createElement('span');
+        name.style.flex = '1';
+        name.textContent = `#${r.id} ${r.kind} @${r.x0},${r.y0}`;
+        const left = document.createElement('span');
+        left.style.color = '#999';
+        line.append(name, left,
+          this.smallButton('Meet', () => { meetRequest(this.getWorld(), r); this.renderReadout(); }),
+          this.smallButton('Fail', () => { failRequest(this.getWorld(), r); this.renderReadout(); }));
+        this.requestsEl.appendChild(line);
+        this.requestLeft.push({ el: left, deadline: r.deadlineTick });
+      }
+    }
+    for (const { el, deadline } of this.requestLeft) {
+      el.textContent = `${Math.max(0, Math.ceil((deadline - world.tick) / BALANCE.ticksPerDay))}d`;
+    }
+  }
+
   private renderReadout(): void {
     const world = this.getWorld();
     if (!world) return;
@@ -298,6 +438,11 @@ export class PoliticsTuningPanel {
       html += '<div style="margin-top:4px;color:#999">Satisfaction factors (value × weight)</div>';
       for (const f of factors) html += line(f.name, `${pct(f.value)} × ${f.weight}`, f.value < 0.5);
     }
-    this.readoutEl.innerHTML = html;
+    this.detailEl.innerHTML = html;
+    this.readoutEl.innerHTML =
+        line('PC', `${fmt(pc, 1)} / ${fmt(cap, 1)}${pc < 0 ? ' (debt)' : ''}`, pc <= 0)
+      + line('Rate', `${fmt(rate * perDay)}/day`, rate < 0)
+      + line('Refill 0 → cap', refill);
+    this.renderRequests();
   }
 }

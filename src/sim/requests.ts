@@ -19,6 +19,7 @@ import type { World } from './World';
 import { BALANCE } from '../data/balance';
 import { ZONE_R, BUILDING_PARK } from './constants';
 import { trafficVolume, roadCapacity } from './TrafficData';
+import { changePc } from './politics';
 
 export interface Rect { x0: number; y0: number; x1: number; y1: number }
 
@@ -220,4 +221,64 @@ export function pickRequest(world: World, rng: () => number): { kind: string; ar
     if (score > bestScore) { bestScore = score; best = j; }
   });
   return best < 0 ? null : { kind: chosen.k.id, area: areas[best] };
+}
+
+// ── Opening and resolving (RequestSystem, and the debug panel's buttons) ─────
+
+const payload = (r: OpenRequest) =>
+  ({ id: r.id, kind: r.kind, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, deadlineTick: r.deadlineTick });
+
+/** Open a request of `kind` for `area`, due in `days` game days. */
+export function openRequest(world: World, kind: string, area: Rect, days: number): OpenRequest {
+  const req: OpenRequest = {
+    id: world.politics.nextRequestId++,
+    kind,
+    x0: area.x0, y0: area.y0, x1: area.x1, y1: area.y1,
+    openedTick: world.tick,
+    deadlineTick: world.tick + days * BALANCE.ticksPerDay,
+  };
+  world.politics.requests.push(req);
+  world.events.emit('requestOpened', payload(req));
+  return req;
+}
+
+function close(world: World, req: OpenRequest): boolean {
+  const k = world.politics.requests.indexOf(req);
+  if (k < 0) return false;
+  world.politics.requests.splice(k, 1);
+  return true;
+}
+
+/** Close an open request as met, paying its reward (stops at the cap). */
+export function meetRequest(world: World, req: OpenRequest): void {
+  if (!close(world, req)) return;
+  const reward = requestConfig().kinds[req.kind]?.reward ?? 0;
+  if (reward > 0) changePc(world, reward, 'requestMet');
+  world.events.emit('requestMet', payload(req));
+}
+
+/** Close an open request as missed, charging its penalty (never into debt). */
+export function failRequest(world: World, req: OpenRequest): void {
+  if (!close(world, req)) return;
+  const penalty = requestConfig().kinds[req.kind]?.penalty ?? 0;
+  const take = Math.min(penalty, Math.max(0, world.budget.politicalCapital));
+  if (take > 0) changePc(world, -take, 'requestFailed');
+  world.events.emit('requestFailed', payload(req));
+}
+
+/**
+ * For the debug panel: the neighbourhood that most needs `kind` (ignoring
+ * askAt, open requests and randomness), or the first neighbourhood if none
+ * needs it at all. Null when the city has no neighbourhood yet.
+ */
+export function neediestFor(world: World, kind: string): Rect | null {
+  const k = requestKind(kind);
+  const areas = neighbourhoods(world);
+  if (!k || !areas.length) return null;
+  let best = areas[0], bestNeed = -1;
+  for (const a of areas) {
+    const need = k.need(world, a);
+    if (need > bestNeed) { bestNeed = need; best = a; }
+  }
+  return best;
 }
