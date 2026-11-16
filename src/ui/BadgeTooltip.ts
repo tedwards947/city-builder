@@ -12,9 +12,16 @@ export class BadgeTooltip {
   private shown = '';
   private canvas: HTMLCanvasElement;
   private badgeAt: (x: number, y: number) => { kind: BadgeKind; count: number } | null;
+  private extraAt: (x: number, y: number) => { key: string; html: string } | null;
 
   /** `badgeAt` answers which badge is under a point of the canvas (CSS pixels from its top-left). */
-  constructor(canvas: HTMLCanvasElement, badgeAt: (x: number, y: number) => { kind: BadgeKind; count: number } | null) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    badgeAt: (x: number, y: number) => { kind: BadgeKind; count: number } | null,
+    /** Anything else on the map that explains itself on hover (resident requests): a key and ready HTML. */
+    extraAt: (x: number, y: number) => { key: string; html: string } | null = () => null,
+  ) {
+    this.extraAt = extraAt;
     this.canvas = canvas;
     this.badgeAt = badgeAt;
     this.el = document.createElement('div');
@@ -32,12 +39,15 @@ export class BadgeTooltip {
   /** Call once per frame, after the map is drawn. `active`: the inspect tool is selected. */
   update(active: boolean): void {
     const badge = active && this.inside ? this.badgeAt(this.x, this.y) : null;
-    if (!badge) {
+    const extra = !badge && active && this.inside ? this.extraAt(this.x, this.y) : null;
+    if (!badge && !extra) {
       if (this.shown) { this.el.style.display = 'none'; this.shown = ''; }
       return;
     }
-    const key = `${badge.kind}:${badge.count}`;
-    if (key !== this.shown) {
+    const key = badge ? `${badge.kind}:${badge.count}` : extra!.key;
+    if (!badge) {
+      if (key !== this.shown) { this.shown = key; this.el.innerHTML = extra!.html; this.el.style.display = 'block'; }
+    } else if (key !== this.shown) {
       this.shown = key;
       const count = badge.count > 1 ? ` <span style="color:#98a2b0;font-weight:400">· ${t('ui.badge.lots', { count: badge.count })}</span>` : '';
       this.el.innerHTML = `<div style="font-weight:700;color:#fff;margin-bottom:2px">`

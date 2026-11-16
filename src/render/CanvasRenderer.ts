@@ -8,6 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
 import type { Camera, TileBounds } from './Camera';
@@ -46,6 +47,8 @@ export interface RenderOptions {
   zonePreview?: ZonePreview | null;
   /** Political capital at the pointer: fall-off rings, homes that object, and the PC price. */
   pcPreview?: PcPreview | null;
+  /** Resident requests that have just been met or missed, to mark for a moment. */
+  requestOutcomes?: readonly RequestOutcome[];
 }
 
 export interface ZonePreview {
@@ -126,6 +129,8 @@ export class CanvasRenderer {
   private _pinsAt = 0;
   // Every badge and pin drawn last frame as (x, y, radius, kind index, count), for `badgeAt`.
   private _badges: number[] = [];
+  // Every resident-request badge drawn last frame, for `requestAt`.
+  private _requestBadges: RequestBadge[] = [];
   private _trafficCars: TrafficCar[] = [];
   private _vibe: VibeState = { egalitarian: 0, green: 0, planned: 0, isNight: false };
   /** When each visible tile was last seen burning (ms), for the smoulder afterwards. Render-only. */
@@ -143,6 +148,14 @@ export class CanvasRenderer {
    * The badge or pin under canvas point (x, y) in the last frame drawn, topmost
    * first, or null. `count` is the number of lots a district pin stands for.
    */
+  /** The resident-request badge under a point of the canvas (CSS pixels), if any. */
+  requestAt(x: number, y: number): RequestBadge | null {
+    for (const b of this._requestBadges) {
+      if (Math.hypot(b.x - x, b.y - y) <= b.r + 4) return b;
+    }
+    return null;
+  }
+
   badgeAt(x: number, y: number): { kind: BadgeKind; count: number } | null {
     const b = this._badges;
     for (let q = b.length - 5; q >= 0; q -= 5) {
@@ -174,6 +187,7 @@ export class CanvasRenderer {
 
     // 3. Problem badges and district pins.
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
+    this._drawRequests(ctx, world, camera, ts, options.requestOutcomes ?? []);
 
     // 4. The inspected lot's trips to work and shops (or to homes), along the roads.
     if (tool === 'inspect' && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
@@ -467,6 +481,28 @@ export class CanvasRenderer {
         ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(ts) + 1, Math.ceil(ts) + 1);
       }
     }
+  }
+
+  /**
+   * Resident requests: a faint dashed outline round each asking area, a badge
+   * at its centre (merged where they would overlap), and a tick or cross where
+   * one has just ended. Records the badges for `requestAt`.
+   */
+  private _drawRequests(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, outcomes: readonly RequestOutcome[]): void {
+    const requests = world.politics.requests;
+    this._requestBadges = [];
+    if (requests.length === 0 && outcomes.length === 0) return;
+    const X = (tx: number) => camera.worldToScreenX(tx * TILE_SIZE), Y = (ty: number) => camera.worldToScreenY(ty * TILE_SIZE);
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = 'rgba(125,216,192,0.55)';
+    for (const r of requests) {
+      ctx.strokeRect(Math.round(X(r.x0)) + 0.5, Math.round(Y(r.y0)) + 0.5, Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
+    }
+    ctx.setLineDash([]);
+    this._requestBadges = layoutRequestBadges(requests, world.tick, (tx, ty) => ({ x: X(tx), y: Y(ty) }));
+    for (const b of this._requestBadges) drawRequestBadge(ctx, b);
+    for (const o of outcomes) drawRequestOutcome(ctx, X(o.tx), Y(o.ty), o.met, o.age);
   }
 
   /** The road about to be built in auto road mode: its tiles tinted, the start outlined, the price by the end. */

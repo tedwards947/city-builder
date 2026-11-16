@@ -36,6 +36,8 @@ import { pcCap } from './sim/politics';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
 import { MilestoneBanner } from './ui/MilestoneBanner';
 import { OrdinancePanel, ordinancesShown } from './ui/OrdinancePanel';
+import { RequestFeedback, requestText } from './ui/RequestFeedback';
+import { REQUEST_COLOUR } from './render/clay/requestBadges';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
 import { toolPrice, buildingKindForTool } from './ui/Toolbar';
@@ -104,10 +106,21 @@ const politicsTuning = DEBUG
 
 // UI Panels (must be initialized before first startGame call)
 const tileInfoPanel = new TileInfoPanel();
-const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y));
+const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y), (x, y) => {
+  // A resident request: what they want, how long is left, what is at stake.
+  const b = renderer.requestAt(x, y);
+  if (!b) return null;
+  const text = requestText(b.request, state.world.tick);
+  const more = b.count > 1 ? ` <span style="color:#98a2b0;font-weight:400">· ${t('ui.requests.more', { n: b.count - 1 })}</span>` : '';
+  return {
+    key: `request:${b.request.id}:${b.count}:${text.stakes}`,
+    html: `<div style="font-weight:700;color:#fff;margin-bottom:2px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:${REQUEST_COLOUR}"></span>${text.title}${more}</div>${text.body}<div style="color:#7dd8c0;margin-top:3px">${text.stakes}</div>`,
+  };
+});
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
 const pcFloat = new PcFloat(document.getElementById('game')!, camera);
+const requestFeedback = new RequestFeedback((title, message, type) => toastPanel.showToast(title, message, type));
 const milestoneBanner = new MilestoneBanner(document.getElementById('game')!, (title, message) => toastPanel.showToast(title, message, 'info'));
 const demandChart = new DemandChart();
 
@@ -142,6 +155,7 @@ function startGame(world: World): void {
   toastPanel.setWorld(world);
   pcFloat.setWorld(world);
   milestoneBanner.setWorld(world);
+  requestFeedback.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
 }
@@ -421,6 +435,7 @@ function frame(now: number): void {
   }
   renderer.render(state.world, camera, {
     pcPreview,
+    requestOutcomes: requestFeedback.outcomes(performance.now()),
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
