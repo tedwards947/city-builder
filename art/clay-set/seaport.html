@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seaport mocks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 560px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  .turns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .turn { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #8a98a6; }
+  canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #47693c; }
+  .card { width: 290px; background: #18202a; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.55; color: #b8c4cf; }
+  .card h5 { font-size: 13px; color: #fff; margin-bottom: 4px; } .card .cost { color: #e0b050; font-weight: 600; } .card .rec { color: #7dd87d; font-weight: 700; font-size: 11px; letter-spacing: .5px; }
+  .card ul { margin: 6px 0 0 16px; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 420px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, #overall { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  #overall { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Seaport mocks</h1>
+<p>The seaport is a <b>4×3 yard on land plus a row of 4 docks over open water</b>, and it turns so the docks can face water on any side. The game's camera never turns, so the port can't simply be rotated as a picture. Its <b>layout</b> turns: the quay, cranes, containers and sheds move to match the water, and each piece is still seen from the same camera as every other building.</p>
+<p>Everything below is <b>drawn by code</b> (no paid images), with real clay sprites around it for scale. Each design is shown in all four turns. Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+
+<h2>A. What the port looks like (all four turns)</h2>
+<div class="rowf">
+  <figure><div class="turns" data-scene="A1"></div><figcaption><span class="code">A1</span>Container terminal: two gantry cranes on the quay load the ship, colourful container stacks fill the yard, a small office and gate sit by the road.</figcaption></figure>
+  <figure><div class="turns" data-scene="A2"></div><figcaption><span class="code">A2</span>Cargo sheds: a long brick transit shed with a sawtooth roof, two swinging cranes, crates on the quay and a rail spur with wagons.</figcaption></figure>
+  <figure><div class="turns" data-scene="A3"></div><figcaption><span class="code">A3</span>Brutalist terminal: a stepped concrete port authority with a control tower, one big gantry crane, a few stacks and a tree-lined forecourt.</figcaption></figure>
+</div>
+
+<h2>B. The docks (shown on A1, two turns each)</h2>
+<div class="rowf">
+  <figure><div class="turns" data-scene="B1"></div><figcaption><span class="code">B1</span>Timber piers on piles, as the stand-in in the game today.</figcaption></figure>
+  <figure><div class="turns" data-scene="B2"></div><figcaption><span class="code">B2</span>A concrete apron with a yellow edge, crane rails and bollards.</figcaption></figure>
+  <figure><div class="turns" data-scene="B3"></div><figcaption><span class="code">B3</span>A stone quay with tyre fenders along the water.</figcaption></figure>
+</div>
+
+<h2>C. Ships</h2>
+<p>Ships sail in along their route, slow down, wait at the docks while the cranes work, then leave. They pass under bridges.</p>
+<div class="rowf">
+  <figure><div class="turns" data-scene="C1"></div><figcaption><span class="code">C1</span>A container ship: navy hull, stacked containers, white bridge at the stern. Wake behind it while it moves.</figcaption></figure>
+  <figure><div class="turns" data-scene="C2"></div><figcaption><span class="code">C2</span>A general cargo freighter: green hull, hatch covers, two masts with derricks.</figcaption></figure>
+  <figure><div class="turns" data-scene="C3"></div><figcaption><span class="code">C3</span>Zoomed far out: ships become short dashes with a white wake, so you can still see the traffic.</figcaption></figure>
+  <figure><div class="turns" data-scene="C4"></div><figcaption><span class="code">C4</span>Under a bridge: the road deck draws over the ship as it passes, with the ship's shadow on the water.</figcaption></figure>
+</div>
+
+<h2 id="d">D. How the final painted art would be made</h2>
+<p>These choose how much of the port becomes painted clay art (nanobanana, billed to you) and how much stays code-drawn. <b>Nothing is generated until you say so.</b></p>
+<div class="rowf">
+  <figure><div class="card"><h5>Keep it all code-drawn</h5>What you see above, polished. Identical in every turn; cranes and ships can animate freely.<br><span class="cost">0 paid images.</span> Looks less like the clay buildings next to it.</div><figcaption><span class="code">D1</span></figcaption></figure>
+  <figure><div class="card"><h5>One painted building + code for the rest</h5><span class="rec">RECOMMENDED</span><br>Paint one 2×2 building (the terminal, shed or office block). It stands at the back of the yard and fits both the wide and the tall yard, so it looks the same in every turn. The quay, cranes, containers and ships stay code-drawn so they turn and animate.<br><span class="cost">About 2–4 paid images</span> (one look plus retries).</div><figcaption><span class="code">D2</span></figcaption></figure>
+  <figure><div class="card"><h5>A painted kit of parts</h5>Paint each piece once (shed seen from its long side and from its end, office, container stack, crane facing three ways) and lay them out per turn.<br><span class="cost">About 8–12 paid images.</span> Cranes painted in three facings are the risky part; they may not match.</div><figcaption><span class="code">D3</span></figcaption></figure>
+  <figure><div class="card"><h5>One whole painting per turn</h5>Paint the whole port with docks north, south and east; west is a mirror of east. The most charm, but the turns will be similar, not identical, and the yard is wide in two turns and tall in the other two.<br><span class="cost">About 6–9 paid images.</span> The camera may drift between them, as happened with the first big plants.</div><figcaption><span class="code">D4</span></figcaption></figure>
+</div>
+
+<h2 id="e">E. Painted kit trial (one sprite sheet)</h2>
+<p>One paid image held all the props, so they share one camera, lighting and scale, and each keeps its painted shadow. It came back with seven props: three cranes, an office, two container blocks and a gate booth. Below they're laid out on A1's plan with the B3 stone quay. Code draws the ground, quay and ship.</p>
+<p><b>What worked:</b> the side-on crane (flipped for docks west), the office, the gate and the shadows. <b>What didn't:</b> I asked for cranes with the boom pointing away and pointing towards the camera, and got the same end-on crane twice, with no boom. Here code draws a striped boom on it for docks north and south. The container blocks and the office came back turned slightly, so a second sheet (<code>raw-port/sheet-2.png</code>) redid them square to the camera by swapping each house in the reference image for one prop. The office, gate and containers below come from sheet 2.</p>
+<div class="rowf">
+  <figure><div class="turns" data-scene="E1"></div><figcaption><span class="code">E1</span>Painted props from sheet 1 laid out per turn: side-on crane for docks east and west, end-on crane plus a code boom for north and south; long-side containers for north and south, end-on containers for east and west. Animated: the ship sails in, the trolleys carry boxes from the quay onto it, the funnel smokes, and it sails off.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="Overall notes (colours, size, anything missing)"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+// ── Drawing: tiles of 32px; local coords (a, b) are the port at turn 0 (docks north). ──
+const T = 32, N = 8, PAD = 60;
+const TURNS = ['Docks north', 'Docks east', 'Docks south', 'Docks west'];
+const rotPt = (a, b, r) => r === 0 ? [a, b] : r === 1 ? [N - b, a] : r === 2 ? [N - a, N - b] : [b, N - a];
+const IMG = {}; for (const n of ['res-1', 'res-2', 'res-3', 'com-1', 'com-2', 'ind-1', 'ind-2', 'ind-3', 'park']) { const i = new Image(); i.src = `../../public/sprites/clay/${n}.png`; IMG[n] = i; }
+// The painted kit trial: props cut from raw-port/sheet-1.png by port-sheet.mjs. [w, h, footY, left, right] of each crop.
+// One scale per sheet, set so each sheet's office is 0.8 of a tile wide (sheet 2 was drawn larger).
+const SHEET_K = { 'sheet-1': 0.8 * T / (136 - 4), 'sheet-2': 0.8 * T / (206 - 4) };
+const KIT = {}; for (const [n, w, h, footY, left, right] of [['sheet-1-1', 221, 368, 327, 4, 149], ['sheet-1-3', 607, 386, 345, 4, 435], ['sheet-2-1', 298, 313, 272, 4, 206], ['sheet-2-2', 368, 246, 205, 4, 288], ['sheet-2-3', 493, 390, 349, 4, 389], ['sheet-2-4', 440, 449, 408, 4, 340]]) { const img = new Image(); img.src = `sprites/port/${n}.png`; KIT[n] = { img, w, h, footY, left, right, k: SHEET_K[n.slice(0, 7)] }; }
+const BOX = ['#c75b3c', '#3f74a8', '#d8a640', '#5a8f5a', '#8a8f96', '#b54a6a', '#2f6f73', '#e08a3c'];
+const hash = n => { n = (n * 2654435761) >>> 0; return ((n ^ (n >>> 15)) >>> 0) / 4294967296; };
+const R = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+const box = (a0, b0, a1, b1, z, h, top, side, o = {}) => ({ k: 'p', poly: R(a0, b0, a1, b1), z, h, top, side, ...o });
+const line = (p, q, c, w = 1) => ({ k: 'l', p, q, c, w });
+const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); const c = s => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * f))); return `rgb(${c(16)},${c(8)},${c(0)})`; };
+
+function makeView(ctx, rot, t) {
+  const W = (a, b) => rotPt(a, b, rot);
+  const S = (x, y, z) => [x * T, PAD + y * T - z];
+  const P = (a, b, z) => { const [x, y] = W(a, b); return S(x, y, z); };
+  const poly = (pts, fill) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); };
+  const flat = (a0, b0, a1, b1, fill, z = 0) => poly(R(a0, b0, a1, b1).map(([a, b]) => P(a, b, z)), fill);
+  const seg = (p, q, c, w = 1, dash) => { ctx.beginPath(); if (dash) ctx.setLineDash(dash); ctx.moveTo(...P(...p)); ctx.lineTo(...P(...q)); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(); ctx.setLineDash([]); };
+  function prism(it) {
+    const pts = it.poly.map(([a, b]) => W(a, b));
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    const z0 = it.z + (it.bob || 0), z1 = z0 + it.h;
+    if (it.h > 0) for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], q = pts[(i + 1) % pts.length];
+      let nx = q[1] - p[1], ny = -(q[0] - p[0]);
+      if (nx * ((p[0] + q[0]) / 2 - cx) + ny * ((p[1] + q[1]) / 2 - cy) < 0) { nx = -nx; ny = -ny; }
+      if (ny <= 1e-6) continue;
+      const len = Math.hypot(nx, ny);
+      poly([S(...p, z0), S(...q, z0), S(...q, z1), S(...p, z1)], Math.abs(nx) / len > 0.2 ? shade(it.side, 0.88) : it.side);
+      if (it.win) for (let k = 1; k <= it.win; k++) {
+        const z = z0 + it.h * k / (it.win + 1), f = 0.12;
+        const a = [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f], b = [q[0] - (q[0] - p[0]) * f, q[1] - (q[1] - p[1]) * f];
+        ctx.beginPath(); ctx.moveTo(...S(...a, z)); ctx.lineTo(...S(...b, z)); ctx.strokeStyle = it.winc || 'rgba(40,52,64,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+    const top = pts.map(p => S(...p, z1));
+    poly(top, it.top);
+    ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = 1; ctx.beginPath(); top.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke();
+    if (it.deco) it.deco(z1);
+  }
+  function draw(items) {
+    const key = it => it.k === 'p' ? Math.max(...it.poly.map(([a, b]) => W(a, b)[1])) + (it.z > 0 ? 0.001 * it.z : 0)
+      : it.k === 'l' ? Math.max(W(it.p[0], it.p[1])[1], W(it.q[0], it.q[1])[1]) + 0.01
+      : it.k === 'img' || it.k === 'fx' ? W(it.a, it.b)[1]
+      : it.k === 's' ? Math.min(W(it.i, it.j)[1], W(it.i + 1, it.j + 1)[1]) + 1 : W(it.a, it.b)[1] + 0.2;
+    // Shadows first: every block casts down and to the right, as the painted sprites do,
+    // sweeping from its base height to its top so tall cranes cast long thin shadows. One fill = no double-dark overlaps.
+    ctx.beginPath();
+    for (const it of items) if (it.k === 'p' && it.h > 0) {
+      const bob = it.bob || 0, z0 = Math.max(0, it.z + bob), z1 = Math.max(0, it.z + it.h + bob), steps = Math.ceil((z1 - z0) / 6) + 1;
+      for (let s = 0; s <= steps; s++) {
+        const sh = (z0 + (z1 - z0) * s / steps) / T * 0.55;
+        it.poly.forEach(([a, b], i) => { const [x, y] = W(a, b); const p = S(x + sh * 0.9, y + sh * 0.35, 0); i ? ctx.lineTo(...p) : ctx.moveTo(...p); });
+        ctx.closePath();
+      }
+    }
+    ctx.fillStyle = 'rgba(10,20,30,0.24)'; ctx.fill('nonzero');
+    // A group (a ship and what stands on it) draws as one: at its frontmost member's place, members in the order given.
+    const keyed = items.map((it, n) => [key(it), n, it]), gmax = {};
+    for (const [k, , it] of keyed) if (it.grp) gmax[it.grp] = Math.max(gmax[it.grp] ?? -Infinity, k);
+    for (const e of keyed) if (e[2].grp) e[0] = gmax[e[2].grp];
+    for (const it of keyed.sort((x, y) => x[0] - y[0] || x[1] - y[1]).map(x => x[2])) {
+      if (it.k === 'p') prism(it);
+      else if (it.k === 'l') seg(it.p, it.q, it.c, it.w);
+      else if (it.k === 'fx') it.fn();
+      else if (it.k === 'img') { const m = KIT[it.n], img = m.img; if (!img.complete || !img.naturalWidth) continue; const [bx, by] = P(it.a, it.b, 0), K = m.k * (it.scale || 1); ctx.save(); ctx.translate(bx, by); if (it.flip) ctx.scale(-1, 1); ctx.drawImage(img, -(it.ax ?? (m.left + m.right) / 2) * K, -m.footY * K, m.w * K, m.h * K); ctx.restore(); }
+      else if (it.k === 's') { const img = IMG[it.n]; if (!img.complete || !img.naturalWidth) continue; const x = Math.min(W(it.i, it.j)[0], W(it.i + 1, it.j + 1)[0]), y = Math.min(W(it.i, it.j)[1], W(it.i + 1, it.j + 1)[1]); const [sx, sy] = S(x, y, 0); ctx.drawImage(img, sx - T * 0.125, sy - T * 0.2, T * 1.275, T * 1.275 * img.naturalHeight / img.naturalWidth); }
+      else if (it.k === 'tree') { const [x, y] = P(it.a, it.b, 0); ctx.fillStyle = 'rgba(10,20,10,0.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 1, T * 0.2, T * 0.09, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#6b4a2e'; ctx.fillRect(x - 1, y - 6, 2, 6); ctx.fillStyle = '#3f7a3a'; ctx.beginPath(); ctx.arc(x, y - 11, T * 0.18, 0, 7); ctx.fill(); ctx.fillStyle = '#5c9a4c'; ctx.beginPath(); ctx.arc(x - 2, y - 13, T * 0.1, 0, 7); ctx.fill(); }
+    }
+  }
+  return { W, S, P, poly, flat, seg, draw, ctx, rot, t };
+}
+
+// ── Ground ──
+function ground(v, water) {
+  const { ctx, flat, seg, t } = v;
+  flat(0, 0, N, N, '#47693c');
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= N; i++) { ctx.beginPath(); ctx.moveTo(i * T + 0.5, PAD - 40); ctx.lineTo(i * T + 0.5, PAD + N * T); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, PAD + i * T + 0.5); ctx.lineTo(N * T, PAD + i * T + 0.5); ctx.stroke(); }
+  for (const [a0, b0, a1, b1] of water) flat(a0, b0, a1, b1, '#3d6f93');
+  // Glints.
+  ctx.strokeStyle = 'rgba(220,240,255,0.35)';
+  for (let k = 0; k < 26; k++) {
+    const a = hash(k + 1) * N, b = hash(k + 99) * N, [x, y] = v.P(a, b, 0);
+    if (!water.some(([a0, b0, a1, b1]) => a >= a0 && a < a1 && b >= b0 && b < b1)) continue;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 1.5 + k); ctx.beginPath(); ctx.moveTo(x - 4 + Math.sin(t * 0.6 + k) * 2, y); ctx.lineTo(x + 4 + Math.sin(t * 0.6 + k) * 2, y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+function road(v, a0, b0, a1, b1) {
+  v.flat(a0, b0, a1, b1, '#5d6066');
+  const along = a1 - a0 > b1 - b0;
+  v.seg(along ? [a0, (b0 + b1) / 2, 0] : [(a0 + a1) / 2, b0, 0], along ? [a1, (b0 + b1) / 2, 0] : [(a0 + a1) / 2, b1, 0], 'rgba(230,220,170,0.7)', 1, [5, 5]);
+}
+
+// ── Pieces, in local coords (quay along a at b = 3, water at b < 3). ──
+function gantry(u, t, ph, col = '#c75b3c') {
+  const it = [], H = 44, c2 = shade(col, 0.8);
+  for (const du of [-0.3, 0.24]) for (const b of [2.2, 3.2]) it.push(box(u + du, b, u + du + 0.06, b + 0.08, 0, H, col, c2, { shadow: false }));
+  for (const du of [-0.32, 0.22]) it.push(box(u + du, 2.18, u + du + 0.1, 3.3, H - 6, 6, col, c2));
+  it.push(box(u - 0.12, 0.3, u + 0.12, 3.9, H, 4, '#e9e4da', '#c9c3b6'));
+  it.push(box(u - 0.2, 3.05, u + 0.2, 3.55, H + 4, 9, '#f2efe8', '#d4cfc4', { win: 1 }));
+  it.push(box(u - 0.08, 3.1, u + 0.08, 3.22, H + 13, 16, col, c2));
+  it.push(line([u, 3.16, H + 29], [u, 0.35, H + 4], 'rgba(60,60,60,0.7)'), line([u, 3.16, H + 29], [u, 3.85, H + 4], 'rgba(60,60,60,0.7)'));
+  const s = 0.5 + 0.5 * Math.sin(t * 0.55 + ph), b = 0.9 + 1.9 * s, zs = 14 + 18 * Math.abs(Math.cos(t * 0.55 + ph));
+  it.push(box(u - 0.14, b - 0.1, u + 0.14, b + 0.1, H - 3, 3, '#444', '#333'));
+  it.push(line([u - 0.1, b, H - 3], [u - 0.1, b, zs + 2], '#333'), line([u + 0.1, b, H - 3], [u + 0.1, b, zs + 2], '#333'));
+  it.push(box(u - 0.22, b - 0.08, u + 0.22, b + 0.08, zs, 2, '#e0b030', '#b08820'));
+  if (Math.sin(t * 0.55 + ph) > 0) it.push(box(u - 0.21, b - 0.07, u + 0.21, b + 0.07, zs - 6, 6, BOX[(ph * 3) | 0 % BOX.length], shade(BOX[(ph * 3) | 0 % BOX.length], 0.78)));
+  return it;
+}
+function slewing(u, t, ph) {
+  const it = [box(u - 0.14, 2.4, u + 0.14, 2.68, 0, 18, '#55606a', '#434c55'), box(u - 0.2, 2.34, u + 0.2, 2.74, 18, 8, '#e0b030', '#b88c20', { win: 1 })];
+  const th = Math.PI / 2 + 0.9 * Math.sin(t * 0.4 + ph), tip = [u + Math.cos(th) * 1.5, 2.54 - Math.sin(th) * 1.5];
+  it.push(line([u, 2.54, 26], [tip[0], tip[1], 44], '#c99a28', 3), line([u, 2.54, 34], [tip[0], tip[1], 44], 'rgba(60,60,60,0.6)'));
+  const zh = 12 + 6 * Math.sin(t * 0.8 + ph);
+  it.push(line([tip[0], tip[1], 44], [tip[0], tip[1], zh + 4], '#333'), box(tip[0] - 0.12, tip[1] - 0.1, tip[0] + 0.12, tip[1] + 0.1, zh, 4, '#a98a5c', '#86683f'));
+  return it;
+}
+function stacks(rows, cols, seed, a0 = 2.2, b0 = 3.6) {
+  const it = [];
+  rows.forEach((b, r) => cols.forEach((a, c) => {
+    const n = seed + r * 17 + c * 5, h = 1 + Math.floor(hash(n) * 3);
+    for (let k = 0; k < h; k++) { const col = BOX[Math.floor(hash(n + k * 7) * BOX.length)]; it.push(box(a, b, a + 0.4, b + 0.18, k * 5, 5, shade(col, 1.12), col, { shadow: k === 0 })); }
+  }));
+  return it;
+}
+const mast = (a, b) => [box(a - 0.03, b - 0.03, a + 0.03, b + 0.03, 0, 40, '#9aa0a6', '#80868c', { shadow: false }), box(a - 0.1, b - 0.06, a + 0.1, b + 0.06, 40, 3, '#fff6c8', '#d8cc8a')];
+
+function ship(type, a0, bc, t, moving = 0) {
+  const it = [], bob = Math.sin(t * 1.3) * 0.7;
+  const L = type === 'freighter' ? 4.4 : 5.4, hb = type === 'freighter' ? 0.42 : 0.5;
+  const hull = [[a0, bc - hb], [a0 + L - 0.6, bc - hb], [a0 + L, bc], [a0 + L - 0.6, bc + hb], [a0, bc + hb]];
+  const hullc = type === 'freighter' ? '#2f5a3f' : '#2f4a6b';
+  it.push({ k: 'p', poly: hull, z: -1, h: 3, top: '#a8352f', side: '#a8352f', bob, shadow: false });
+  it.push({ k: 'p', poly: hull, z: 2, h: 5, top: type === 'freighter' ? '#9a8f7a' : '#8d9196', side: hullc, bob, shadow: false });
+  it.push(box(a0 + 0.12, bc - hb * 0.75, a0 + 0.75, bc + hb * 0.75, 7, 15, '#f2f0ea', '#dcd8ce', { bob, win: 3, shadow: false }));
+  it.push(box(a0 + 0.22, bc - 0.11, a0 + 0.46, bc + 0.11, 22, 6, '#c94a3a', type === 'freighter' ? '#2a2a2a' : '#c94a3a', { bob, shadow: false }));
+  if (type === 'freighter') {
+    for (let k = 0; k < 3; k++) it.push(box(a0 + 1.0 + k * 1.0, bc - 0.28, a0 + 1.7 + k * 1.0, bc + 0.28, 7, 2, '#3f6b4f', '#2f5a3f', { bob, shadow: false }));
+    for (const m of [a0 + 0.9, a0 + 2.85]) {
+      it.push(box(m - 0.04, bc - 0.04, m + 0.04, bc + 0.04, 7, 20, '#d8a640', '#b08830', { bob, shadow: false }));
+      it.push(line([m, bc, 25 + bob], [m + 0.75, bc, 12 + bob], '#b08830', 2), line([m, bc, 27 + bob], [m + 0.75, bc, 12 + bob], 'rgba(50,50,50,0.5)'));
+    }
+  } else {
+    for (let k = 0; k < 8; k++) {
+      const h = 5 * (1 + Math.floor(hash(k + 40) * 3)), col = BOX[Math.floor(hash(k + 9) * BOX.length)];
+      it.push(box(a0 + 0.9 + k * 0.5, bc - 0.42, a0 + 1.34 + k * 0.5, bc + 0.42, 7, h, shade(col, 1.12), col, { bob, shadow: false, deco: null }));
+    }
+  }
+  for (const x of it) x.grp = 'ship';
+  return it;
+}
+function wake(v, a0, bc, sp) {
+  if (sp <= 0.02) return;
+  const { seg } = v, al = Math.min(0.8, sp * 3);
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) seg([a0 - k * 0.5, bc + s * (0.45 + k * 0.18), 0], [a0 - k * 0.5 - 0.6, bc + s * (0.6 + k * 0.2), 0], `rgba(235,245,255,${al * (1 - k * 0.3)})`, 2);
+  seg([a0 - 0.1, bc, 0], [a0 - 2.4, bc, 0], `rgba(235,245,255,${al * 0.5})`, 5);
+}
+
+// ── Docks and yard (ground level). ──
+function docks(v, style) {
+  const { flat, seg, ctx, P } = v;
+  flat(2.06, 2.06, 6.06, 3.06, 'rgba(8,24,44,0.35)');
+  if (style === 'timber') {
+    for (let i = 2; i < 6; i++) {
+      flat(i + 0.04, 2.16, i + 0.96, 3, '#a98a5c');
+      for (let k = 1; k < 4; k++) seg([i + 0.04 + 0.23 * k, 2.16, 0], [i + 0.04 + 0.23 * k, 3, 0], 'rgba(70,50,28,0.45)');
+      for (const f of [0.12, 0.88]) { const [x, y] = P(i + f, 2.16, 0); ctx.fillStyle = '#5b4630'; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.fill(); }
+    }
+  } else if (style === 'stone') {
+    flat(2, 2.1, 6, 3, '#9b9284');
+    for (let i = 0; i < 16; i++) seg([2 + i * 0.25, 2.1, 0], [2 + i * 0.25, 3, 0], 'rgba(60,55,48,0.25)');
+    for (const b of [2.4, 2.7]) seg([2, b, 0], [6, b, 0], 'rgba(60,55,48,0.25)');
+    for (let i = 0; i < 8; i++) { const [x, y] = P(2.25 + i * 0.5, 2.08, 0); ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(x, y, 1.2, 0, 7); ctx.fill(); }
+  } else {
+    flat(2, 2.08, 6, 3, '#aaa69d');
+    flat(2, 2.08, 6, 2.15, '#e0b030');
+    for (const b of [2.24, 3.24]) seg([2, b, 0], [6, b, 0], 'rgba(50,50,55,0.7)', 2);
+    for (let i = 0; i < 8; i++) { const [x, y] = P(2.25 + i * 0.5, 2.22, 0); ctx.fillStyle = '#3a3a3a'; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, 7); ctx.fill(); }
+  }
+}
+function yard(v, tone = '#b9b3a6') {
+  const { flat, seg } = v;
+  flat(2, 3, 6, 6, tone);
+  flat(2, 2.94, 6, 3.08, '#8a8377');
+  for (const b of [3.55, 4.05, 4.55]) seg([2.15, b, 0], [5.85, b, 0], 'rgba(255,255,255,0.35)');
+}
+
+// ── Scenes ──
+const PORT_WATER = [[0, 0, N, 3]];
+const AROUND = [['ind-1', 0, 3], ['ind-2', 0, 4], ['ind-3', 0, 5], ['com-1', 7, 3], ['ind-1', 7, 4], ['res-1', 7, 5], ['res-2', 3, 7], ['com-2', 5, 7], ['res-3', 6, 7], ['park', 0, 7]];
+function portScene(v, design, dockStyle) {
+  const { t } = v;
+  ground(v, PORT_WATER);
+  v.flat(0, 2.86, 2, 3, '#c9b98a'); v.flat(6, 2.86, N, 3, '#c9b98a');
+  road(v, 0, 6, N, 7); road(v, 1, 7, 2, N);
+  docks(v, dockStyle);
+  yard(v, design === 'A3' ? '#c4bfb4' : '#b9b3a6');
+  const items = AROUND.map(([n, i, j]) => ({ k: 's', n, i, j }));
+  items.push(...ship(design === 'A2' ? 'freighter' : 'container', design === 'A2' ? 1.6 : 1.3, 1.25, t));
+  if (design === 'A1') {
+    items.push(...gantry(3.0, t, 0), ...gantry(4.6, t, 2.1));
+    items.push(...stacks([3.65, 3.95, 4.2, 4.65], [2.2, 2.7, 3.2, 3.7, 4.2, 4.7], 3));
+    items.push(box(5.25, 5.1, 5.85, 5.8, 0, 16, '#eceae4', '#cfd3d8', { win: 2 }), box(5.25, 5.1, 5.85, 5.8, 16, 2, '#3f74a8', '#335f8a'));
+    items.push(box(2.3, 5.45, 2.55, 5.7, 0, 9, '#f2efe8', '#d8d4ca', { win: 1 }), line([2.6, 5.6, 8], [3.4, 5.6, 8], '#c94a3a', 2));
+    items.push(...mast(2.1, 5.2), ...mast(5.9, 3.5));
+  } else if (design === 'A2') {
+    items.push(...slewing(2.9, v.t, 0), ...slewing(4.9, v.t, 1.7));
+    items.push(box(2.15, 4.75, 5.85, 5.85, 0, 16, '#7d8a94', '#a85d45', { win: 1, winc: 'rgba(60,30,20,0.55)', deco: z1 => { for (let k = 1; k < 14; k++) v.seg([2.15 + k * 0.265, 4.75, z1], [2.15 + k * 0.265, 5.85, z1], 'rgba(40,50,60,0.45)'); } }));
+    v.seg([2, 4.45, 0], [6, 4.45, 0], '#5a4a3a', 1); v.seg([2, 4.6, 0], [6, 4.6, 0], '#5a4a3a', 1);
+    for (const a of [2.3, 3.0, 3.7]) items.push(box(a, 4.42, a + 0.6, 4.63, 0, 7, '#8a4a34', '#6e3a29'));
+    for (const [a, b] of [[2.2, 3.25], [2.55, 3.4], [3.6, 3.3], [4.1, 3.6], [5.3, 3.3], [5.6, 3.65], [4.6, 3.95]]) items.push(box(a, b, a + 0.22, b + 0.2, 0, 6, '#c8a16a', '#a9824c'));
+    items.push(...mast(5.9, 4.4));
+  } else {
+    items.push(...gantry(3.0, t, 0.6, '#3f74a8'));
+    items.push(...stacks([3.7, 3.95, 4.2], [3.6, 4.05, 4.5, 4.95, 5.4], 11));
+    items.push(box(2.15, 4.55, 4.35, 5.85, 0, 22, '#bdb8ae', '#9c978d', { win: 3, winc: 'rgba(30,36,44,0.7)' }));
+    items.push(box(2.35, 4.75, 4.15, 5.6, 22, 12, '#c6c1b7', '#a39e94', { win: 1, winc: 'rgba(30,36,44,0.7)' }));
+    items.push(box(4.55, 4.95, 5.05, 5.45, 0, 54, '#bdb8ae', '#9c978d', { win: 5, winc: 'rgba(30,36,44,0.55)' }));
+    items.push(box(4.45, 4.85, 5.15, 5.55, 54, 8, '#8fc0dc', '#6fa4c4'), box(4.42, 4.82, 5.18, 5.58, 62, 2, '#9c978d', '#7f7a71'));
+    for (const a of [2.3, 3.0, 3.7, 5.5]) items.push({ k: 'tree', a, b: 5.95 });
+    items.push({ k: 'tree', a: 5.6, b: 4.9 }, { k: 'tree', a: 5.6, b: 5.5 });
+  }
+  v.draw(items);
+}
+// One crane move, 10s: lift a box on the quay, run out over the ship, lower it, come back empty.
+// x: 0 over the quay → 1 over the ship; d: 0 up → 1 lowered; carry: a box hangs from the spreader.
+function craneCycle(t) {
+  const c = ((t % 10) + 10) % 10, e = f => f * f * (3 - 2 * f), cl = f => Math.max(0, Math.min(1, f));
+  if (c < 1.5) return { x: 0, d: 1 - e(cl(c / 1.5)), carry: true };
+  if (c < 4) return { x: e(cl((c - 1.5) / 2.5)), d: 0, carry: true };
+  if (c < 5.5) return { x: 1, d: e(cl((c - 4) / 1.5)), carry: true };
+  if (c < 7) return { x: 1, d: 1 - e(cl((c - 5.5) / 1.5)), carry: false };
+  if (c < 9.5) return { x: 1 - e(cl((c - 7) / 2.5)), d: 0, carry: false };
+  return { x: 0, d: e(cl((c - 9.5) / 0.5)), carry: false };
+}
+// The ship's visit, 38s: sail in (7s), stay while the cranes make two moves (20s), sail out (8s), gap.
+function visit(t) {
+  const c = t % 38, dock = 1.3;
+  if (c < 7) { const f = c / 7; return { a: -6 + (dock + 6) * (1 - (1 - f) ** 2), sp: (1 - f) * 0.9, work: -1 }; }
+  if (c < 27) return { a: dock, sp: 0, work: c - 7 };
+  const f = Math.min(1, (c - 27) / 8); return { a: dock + 9 * f * f, sp: f * 0.9, work: -1 };
+}
+function smoke(v, a0, bc, t) {
+  const { ctx, P } = v;
+  for (let k = 0; k < 5; k++) {
+    const f = ((t * 0.5 + k / 5) % 1), [x, y] = P(a0 + 0.34 - f * 0.6, bc, 30 + f * 22);
+    ctx.fillStyle = `rgba(235,235,235,${0.55 * (1 - f)})`; ctx.beginPath(); ctx.arc(x, y, 2 + f * 6, 0, 7); ctx.fill();
+  }
+}
+function kitScene(v) {
+  const { t, rot } = v, side = rot % 2 === 1;
+  const vis = visit(t);
+  ground(v, PORT_WATER);
+  v.flat(0, 2.86, 2, 3, '#c9b98a'); v.flat(6, 2.86, N, 3, '#c9b98a');
+  road(v, 0, 6, N, 7); road(v, 1, 7, 2, N);
+  docks(v, 'stone'); yard(v);
+  wake(v, vis.a, 1.25, vis.sp);
+  const items = AROUND.map(([n, i, j]) => ({ k: 's', n, i, j }));
+  items.push(...ship('container', vis.a, 1.25, t));
+  items.push({ k: 'fx', a: vis.a + 0.34, b: 0.5, fn: () => smoke(v, vis.a, 1.25, t) });
+  [3.0, 4.6].forEach((u, ci) => {
+    const cy = vis.work < 0 ? { x: 0.15, d: 0, carry: false } : craneCycle(vis.work + ci * 3.3);
+    const col = BOX[(ci * 3 + Math.floor((vis.work + ci * 3.3) / 10)) % BOX.length];
+    if (side) {
+      items.push({ k: 'img', n: 'sheet-1-3', a: u, b: 2.75, ax: 157, flip: rot === 3, grp: 'ship' });   // its boom reaches over the ship, so it draws after it
+      // Trolley, cables and box hang from the painted boom, in the sprite's own pixels.
+      const m = KIT['sheet-1-3'], K = m.k, dir = rot === 3 ? -1 : 1;
+      items.push({ k: 'fx', a: u, b: 2.76, grp: 'ship', fn: () => {
+        const { ctx } = v, [bx, by] = v.P(u, 2.75, 0);
+        const boomY = by - (345 - 122) * K;
+        const tx = bx + dir * ((110 + cy.x * 250) - 157) * K;
+        const low = cy.x > 0.5 ? by - 10 : by - 1, sy = boomY + 6 + (low - 6 - boomY - 6) * cy.d;
+        ctx.fillStyle = '#3b3b3b'; ctx.fillRect(tx - 4, boomY, 8, 3);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tx - 2.5, boomY + 3); ctx.lineTo(tx - 2.5, sy); ctx.moveTo(tx + 2.5, boomY + 3); ctx.lineTo(tx + 2.5, sy); ctx.stroke();
+        ctx.fillStyle = '#e0b030'; ctx.fillRect(tx - 6, sy - 1, 12, 2);
+        if (cy.carry) { ctx.fillStyle = col; ctx.fillRect(tx - 6, sy + 1, 12, 5); ctx.fillStyle = shade(col, 1.15); ctx.fillRect(tx - 6, sy + 1, 12, 1.5); }
+      } });
+    } else {
+      // The sheet's end-on crane has no boom, so code draws one in its colours.
+      items.push({ k: 'img', n: 'sheet-1-1', a: u, b: 2.75 });
+      items.push(box(u - 0.09, 0.35, u + 0.09, 2.6, 44, 4, '#f0ebe2', '#c75b3c', { deco: z1 => { for (let k = 0; k < 6; k++) v.seg([u - 0.09, 0.5 + k * 0.38, z1], [u + 0.09, 0.5 + k * 0.38, z1], '#c75b3c', 4); } }));
+      // Trolley runs along the code boom: quay (b 2.5) → over the ship (b 1.2).
+      const b = 2.5 - 1.3 * cy.x, low = cy.x > 0.5 ? 9 : 2, zs = 38 - (38 - low - 6) * cy.d;
+      items.push(box(u - 0.12, b - 0.09, u + 0.12, b + 0.09, 41, 3, '#444', '#333'));
+      items.push(line([u - 0.08, b, 41], [u - 0.08, b, zs + 8], '#333'), line([u + 0.08, b, 41], [u + 0.08, b, zs + 8], '#333'));
+      items.push(box(u - 0.2, b - 0.07, u + 0.2, b + 0.07, zs + 6, 2, '#e0b030', '#b08820'));
+      if (cy.carry) items.push(box(u - 0.19, b - 0.06, u + 0.19, b + 0.06, zs, 6, shade(col, 1.12), col));
+    }
+  });
+  for (const a of [3.1, 4.9]) items.push({ k: 'img', n: side ? 'sheet-2-4' : 'sheet-2-3', a, b: 4.75, scale: 1.1 });
+  items.push({ k: 'img', n: 'sheet-2-1', a: 5.5, b: 5.6 }, { k: 'img', n: 'sheet-2-2', a: 2.6, b: 5.7 });
+  v.draw(items);
+}
+function voyage(t) {
+  // 0–8s in (ease out), 8–15 docked, 15–23 out (ease in), loop 25s.
+  const c = t % 25, dock = 1.3;
+  if (c < 8) { const f = c / 8; return { a: -6 + (dock + 6) * (1 - (1 - f) ** 2), sp: (1 - f) * 0.9 }; }
+  if (c < 15) return { a: dock, sp: 0 };
+  const f = Math.min(1, (c - 15) / 8); return { a: dock + 9 * f * f, sp: f * 0.9 };
+}
+function shipScene(v, type) {
+  ground(v, PORT_WATER);
+  v.flat(0, 2.86, 2, 3, '#c9b98a'); v.flat(6, 2.86, N, 3, '#c9b98a');
+  road(v, 0, 6, N, 7);
+  docks(v, 'concrete'); yard(v);
+  const { a, sp } = voyage(v.t);
+  wake(v, a, 1.25, sp);
+  const items = AROUND.filter(x => x[2] < 7).map(([n, i, j]) => ({ k: 's', n, i, j }));
+  items.push(...ship(type, a, 1.25, v.t, sp));
+  const working = sp === 0 ? v.t : 0;
+  items.push(...gantry(3.0, working, 0), ...gantry(4.6, working, 2.1), ...stacks([3.7, 4.2, 4.65], [2.2, 2.7, 3.2, 3.7, 4.2, 4.7], 3));
+  v.draw(items);
+}
+function bridgeScene(v) {
+  ground(v, [[0, 2, N, 6]]);
+  v.flat(0, 1.86, N, 2, '#c9b98a'); v.flat(0, 6, N, 6.14, '#c9b98a');
+  road(v, 3.5, 0, 4.5, 2); road(v, 3.5, 6, 4.5, N);
+  const c = v.t % 16, a = -6 + c * 1.0;
+  wake(v, a, 4.0, 0.3);
+  const items = [{ k: 's', n: 'res-1', i: 1, j: 0 }, { k: 's', n: 'res-2', i: 5, j: 0 }, { k: 's', n: 'com-1', i: 6, j: 0 }, { k: 's', n: 'res-3', i: 1, j: 6 }, { k: 's', n: 'park', i: 6, j: 6 }];
+  items.push(...ship('freighter', a, 4.0, v.t));
+  v.draw(items);
+  // The bridge deck: flat at road level over the water, drawn after the ship, as in the game.
+  v.flat(3.62, 2.1, 4.62, 6.1, 'rgba(8,24,44,0.3)');
+  v.flat(3.5, 2, 4.5, 6, '#6a6d72');
+  v.seg([4, 2, 0], [4, 6, 0], 'rgba(230,220,170,0.7)', 1, [5, 5]);
+  v.seg([3.52, 2, 0], [3.52, 6, 0], '#b9b3a6', 2); v.seg([4.48, 2, 0], [4.48, 6, 0], '#b9b3a6', 2);
+}
+function farScene(ctx, t, rot) {
+  // Zoomed out: 6px tiles, 48×36 area, coast with the port; ships as dashes.
+  const t6 = 6, Wd = 288, Ht = 216;
+  ctx.fillStyle = '#47693c'; ctx.fillRect(0, 0, Wd, Ht);
+  ctx.save(); ctx.translate(Wd / 2, Ht / 2); ctx.rotate(rot * Math.PI / 2); ctx.translate(-Ht / 2, -Ht / 2);
+  ctx.fillStyle = '#3d6f93'; ctx.fillRect(-40, -60, Ht + 80, 110);
+  ctx.fillStyle = '#5d6066'; ctx.fillRect(-40, 80, Ht + 80, 4); ctx.fillRect(140, 84, 4, 200);
+  ctx.fillStyle = '#b9b3a6'; ctx.fillRect(84, 50, 24, 18); ctx.fillStyle = '#aaa69d'; ctx.fillRect(84, 44, 24, 6);
+  for (let k = 0; k < 14; k++) { ctx.fillStyle = ['#c7b28a', '#8fa0a8', '#a98e7a'][k % 3]; ctx.fillRect(10 + (k % 7) * 9 + (k > 6 ? 120 : 0), 56 + ((k * 5) % 3) * 8, 6, 6); }
+  ctx.restore();
+  // Ships move in screen space along the rotated lanes.
+  for (const [k, lane, spd] of [[0, 20, 1], [1, 34, -0.7], [2, 8, 0.5]]) {
+    const span = Ht + 120, p = ((t * 8 * Math.abs(spd) + k * 90) % span) - 60, dir = Math.sign(spd);
+    let x = dir > 0 ? p : Ht - p, y = lane - 10;
+    const pts = (xx, yy) => { const u = xx - Ht / 2, w = yy - Ht / 2, c = Math.cos(rot * Math.PI / 2), s = Math.sin(rot * Math.PI / 2); return [Wd / 2 + u * c - w * s, Ht / 2 + u * s + w * c]; };
+    const [hx, hy] = pts(x, y), [tx, ty] = pts(x - dir * 18, y), [sx, sy] = pts(x - dir * 6, y);
+    ctx.strokeStyle = 'rgba(235,245,255,0.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.strokeStyle = k === 1 ? '#2f5a3f' : '#2f4a6b'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(sx, sy); ctx.stroke(); ctx.lineCap = 'butt';
+  }
+}
+
+// ── Build the figures ──
+const views = [];
+function addTurn(host, label, w, h, fn) {
+  const d = document.createElement('div'); d.className = 'turn';
+  const c = document.createElement('canvas'); c.width = w; c.height = h; d.append(c);
+  const s = document.createElement('span'); s.textContent = label; d.append(s); host.append(d);
+  views.push({ ctx: c.getContext('2d'), fn, w, h });
+}
+const SZ = [N * T, N * T + PAD - 6];
+for (const host of document.querySelectorAll('[data-scene]')) {
+  const k = host.dataset.scene;
+  if (k[0] === 'A') TURNS.forEach((lab, r) => addTurn(host, lab, ...SZ, (ctx, t) => { ctx.save(); ctx.translate(0, -6); portScene(makeView(ctx, r, t), k, 'concrete'); ctx.restore(); }));
+  if (k[0] === 'B') [0, 1].forEach(r => addTurn(host, TURNS[r], ...SZ, (ctx, t) => { ctx.save(); ctx.translate(0, -6); portScene(makeView(ctx, r, t), 'A1', { B1: 'timber', B2: 'concrete', B3: 'stone' }[k]); ctx.restore(); }));
+  if (k === 'C1' || k === 'C2') [0, 1].forEach(r => addTurn(host, TURNS[r], ...SZ, (ctx, t) => { ctx.save(); ctx.translate(0, -6); shipScene(makeView(ctx, r, t), k === 'C1' ? 'container' : 'freighter'); ctx.restore(); }));
+  if (k === 'E1') TURNS.forEach((lab, r) => addTurn(host, lab, ...SZ, (ctx, t) => { ctx.save(); ctx.translate(0, -6); kitScene(makeView(ctx, r, t)); ctx.restore(); }));
+  if (k === 'C3') [0, 1].forEach(r => addTurn(host, r ? 'Coast east' : 'Coast north', 288, 216, (ctx, t) => farScene(ctx, t, r)));
+  if (k === 'C4') [0, 1].forEach(r => addTurn(host, r ? 'Channel north–south' : 'Channel east–west', ...SZ, (ctx, t) => { ctx.save(); ctx.translate(0, -6); bridgeScene(makeView(ctx, r, t)); ctx.restore(); }));
+}
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let last = 0;
+function frame(ms) {
+  requestAnimationFrame(frame);
+  if (ms - last < 33) return; last = ms;
+  const t = still ? 10 : ms / 1000;
+  for (const v of views) { v.ctx.clearRect(0, 0, v.w, v.h); v.fn(v.ctx, t); }
+}
+requestAnimationFrame(frame);
+
+// Feedback form: saved in this browser, copied out as text.
+const KEY = 'city-builder-seaport-mocks-v1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() {
+  const v = CODES.map(id => (state[id] || {}).v);
+  document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`;
+}
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+const overall = document.getElementById('overall');
+overall.value = state._overall || ''; overall.oninput = () => { state._overall = overall.value; save(); };
+document.getElementById('copy').onclick = async () => {
+  const text = ['Seaport mocks feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
