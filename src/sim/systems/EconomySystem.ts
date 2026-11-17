@@ -5,6 +5,8 @@ import { isServiceKind } from '../serviceValue';
 import { ordinanceModifier } from '../ordinances';
 import { updateDebt, type DebtWarnings } from '../debt';
 import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
+import { goodsIncomeMult } from '../goods';
+import { exportIncome } from '../seaport';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -19,7 +21,8 @@ export class EconomySystem {
     const abandoned = world.layers.abandoned;
     const { taxRates } = world.budget;
     // Ordinances (Curfew, Business Incentives) scale tax income from shops and industry.
-    const shopIncome = ordinanceModifier(world, 'commercialIncome');
+    // Shops short of goods earn less (sim/goods.ts; no effect while its penalty is 0).
+    const shopIncome = ordinanceModifier(world, 'commercialIncome') * goodsIncomeMult(world);
     const industryIncome = ordinanceModifier(world, 'industrialIncome');
     // Homes and shops: lvMult = floor + (1 − floor) × lv/128 (floor 0 = plain lv/128, shipped).
     const lvFloor = BALANCE.tax.landValueFloor;
@@ -61,6 +64,8 @@ export class EconomySystem {
     // The city's tax level scales all tax income (exactly 1 at the neutral level).
     noteIncomeBeforeTaxLevel(world, income);
     income *= taxIncomeMult(world.budget.taxLevel);
+    // What the seaports earn from exports is trade, not tax: the tax level does not scale it.
+    income += exportIncome(world);
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
       if (roadClass[i] !== ROAD_NONE) {

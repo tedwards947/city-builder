@@ -10,7 +10,7 @@ import {
   bestAccessRoad, marketRate, neighbourIndex, roadCapacity, trafficVolume, travelTime,
 } from '../sim/TrafficData';
 
-const MARKET_NAME: Record<MarketKey, string> = { shopping: 'Shopping', jobs: 'Work', goods: 'Goods' };
+const MARKET_NAME: Record<MarketKey, string> = { shopping: 'Shopping', jobs: 'Work', goods: 'Goods', exports: 'Exports' };
 
 const fmt = (v: number, digits = 1) => (v < Infinity ? v.toFixed(digits) : '∞');
 const row = (text: string, color = '#9ad') => `<div class="ti-detail" style="color:${color}">${text}</div>`;

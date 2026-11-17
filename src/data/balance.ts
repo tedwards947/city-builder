@@ -266,6 +266,37 @@ export const BALANCE = {
     // cut-off zones still creep along, but connectivity is a real drag.
     accessFloor: 0.05,
   },
+  // ── Seaport trade (sim/seaport.ts) ───────────────────────────────────────────
+  // SWITCHED OFF: with these numbers a port only costs its upkeep. The lab sets them.
+  port: {
+    // Export trips each developed industry level sends to a port within
+    // reach. 0 = industry exports nothing.
+    exportTripsPerLevel: 0,
+    // The furthest industry may be from a port and still export: travel time
+    // in street tiles, like transit.commuteMax.
+    reach: 48,
+    // Export trips one port can take per tick. 0 = ports take no exports.
+    exportCapacity: 0,
+    // Money per export trip the port has room for, per tick.
+    exportIncomePerTrip: 0,
+    // Goods trips one port can supply to shops per tick (an extra source in
+    // the goods market, beside industry). 0 = ports import nothing.
+    importCapacity: 0,
+    // Industrial growth demand is multiplied by this, city-wide, while a
+    // port is connected by road. 1 = no effect.
+    industrialDemandMult: 1,
+    // Road each export trip takes up: a truck counts as this many cars, so
+    // the roads to a busy port fill up.
+    truckWeight: 1,
+  },
+  // ── Shops need goods (sim/goods.ts) ──────────────────────────────────────────
+  // When shops want more goods trips than industry and ports can supply, the
+  // city-wide shortage (0–1) cuts shops' tax income and commercial demand by
+  // shortage × these. SWITCHED OFF at 0.
+  goods: {
+    shortageIncomePenalty: 0,
+    shortageDemandPenalty: 0,
+  },
   vegetation: {
     // Probability per grass/sand tile for a "seed" tree (starts a cluster)
     seedProbability: 0.012,

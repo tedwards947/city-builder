@@ -19,6 +19,10 @@ export interface TrafficField {
   doorLoad: Float32Array;  // trips that ended at this door on the last iteration
   /** Total trips wanting this destination type ÷ total door capacity. */
   demandRatio: number;
+  /** Trips put on the road toward this destination type on the last iteration. */
+  demand: number;
+  /** Trips that origins wanted to make but could not: no road, no route to any door, or out of reach. */
+  stranded: number;
 }
 
 /**
@@ -27,21 +31,36 @@ export interface TrafficField {
  * door capacities, prices and road volumes. To add a kind of trip, add a row
  * to MARKET_DEFS; the traffic pass, overlay and debug tools all loop over it.
  */
-export type MarketKey = 'shopping' | 'jobs' | 'goods';
+export type MarketKey = 'shopping' | 'jobs' | 'goods' | 'exports';
+
+/** `dest` of a market no zone receives: its only destinations are buildings (door providers). */
+export const NO_ZONE = -1;
 
 export interface MarketDef {
   key: MarketKey;
   origin: number;                                   // zone type that sends the trips
-  dest: number;                                     // zone type that receives them
-  rateKey: 'tripsRtoC' | 'tripsRtoI' | 'tripsCtoI'; // BALANCE.transit: trips per origin level
-  capacityKey: 'shopCapacity' | 'jobCapacity' | 'goodsCapacity'; // BALANCE.transit: trips per destination level
+  dest: number;                                     // zone type that receives them, or NO_ZONE
+  /** Trips per origin level (read live from BALANCE). */
+  rate: () => number;
+  /** Trips each destination level can take (read live from BALANCE). Unused for a NO_ZONE market. */
+  capacity: () => number;
+  /** How much road each trip takes up, 1 if left out (a truck is more than a car). */
+  weight?: () => number;
+  /** Origins further than this from the nearest door (travel time, in street tiles) send nothing. No limit if left out. */
+  reach?: () => number;
 }
 
 export const MARKET_DEFS: readonly MarketDef[] = [
-  { key: 'shopping', origin: ZONE_R, dest: ZONE_C, rateKey: 'tripsRtoC', capacityKey: 'shopCapacity' },
-  { key: 'jobs',     origin: ZONE_R, dest: ZONE_I, rateKey: 'tripsRtoI', capacityKey: 'jobCapacity' },
-  // Shops fetch their goods: every shop draws from the nearest industry with output to spare.
-  { key: 'goods',    origin: ZONE_C, dest: ZONE_I, rateKey: 'tripsCtoI', capacityKey: 'goodsCapacity' },
+  { key: 'shopping', origin: ZONE_R, dest: ZONE_C, rate: () => BALANCE.transit.tripsRtoC, capacity: () => BALANCE.transit.shopCapacity },
+  { key: 'jobs',     origin: ZONE_R, dest: ZONE_I, rate: () => BALANCE.transit.tripsRtoI, capacity: () => BALANCE.transit.jobCapacity },
+  // Shops fetch their goods: every shop draws from the nearest industry with output to spare
+  // (or from a seaport's imports, sim/seaport.ts).
+  { key: 'goods',    origin: ZONE_C, dest: ZONE_I, rate: () => BALANCE.transit.tripsCtoI, capacity: () => BALANCE.transit.goodsCapacity },
+  // Industry sends goods to a seaport. No zone receives exports: the ports are the only doors,
+  // so with no connected port (or the trips switched off) this market does not run at all.
+  { key: 'exports',  origin: ZONE_I, dest: NO_ZONE,
+    rate: () => BALANCE.port.exportTripsPerLevel, capacity: () => 0,
+    weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach },
 ];
 
 // ── Doors that are not zones ────────────────────────────────────────────────
@@ -80,9 +99,13 @@ export function extraDoors(world: World, market: MarketKey, add: (roadTile: numb
 }
 
 /** Trips each origin level sends in this market. */
-export function marketRate(def: MarketDef): number { return BALANCE.transit[def.rateKey]; }
+export function marketRate(def: MarketDef): number { return def.rate(); }
 /** Trips each destination level can take in this market. */
-export function marketCapacity(def: MarketDef): number { return BALANCE.transit[def.capacityKey]; }
+export function marketCapacity(def: MarketDef): number { return def.capacity(); }
+/** Road each trip of this market takes up (1 unless the market says otherwise). */
+export function marketWeight(def: MarketDef): number { const w = def.weight ? def.weight() : 1; return w > 0 ? w : 1; }
+/** The furthest an origin may be from a door and still send trips (Infinity unless the market says otherwise). */
+export function marketReach(def: MarketDef): number { const r = def.reach ? def.reach() : Infinity; return r > 0 ? r : Infinity; }
 
 export interface TrafficMarket {
   def: MarketDef;
@@ -101,6 +124,7 @@ export interface TrafficData {
   shopping: TrafficMarket; // homes → commerce
   jobs: TrafficMarket;     // homes → industry
   goods: TrafficMarket;    // commerce → industry (shops fetching goods)
+  exports: TrafficMarket;  // industry → seaport (all zero while no port takes exports)
   /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
   toR: TrafficField;
   /** False while the pass is still settling toward a stable assignment. */
@@ -112,7 +136,7 @@ export function makeTrafficData(n: number): TrafficData {
   const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
   return {
     version: 0, markets,
-    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'),
+    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'),
     toR: makeTrafficField(n), settled: false,
   };
 }
@@ -120,7 +144,7 @@ export function makeTrafficData(n: number): TrafficData {
 export function makeTrafficField(n: number): TrafficField {
   return {
     dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
-    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0,
+    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0, demand: 0, stranded: 0,
   };
 }
 

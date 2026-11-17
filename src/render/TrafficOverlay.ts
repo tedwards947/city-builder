@@ -45,11 +45,13 @@ const MARKET_COLOR: Record<MarketKey, string> = {
   shopping: '#4cc9f0',
   jobs: '#ffb703',
   goods: '#b6f36a',
+  exports: '#f28cff',
 };
 const MARKET_LABEL: Record<MarketKey, string> = {
   shopping: 'Shopping',
   jobs: 'To work',
   goods: 'Fetching goods',
+  exports: 'Exports to a port',
 };
 
 function scale(stops: readonly (readonly [number, RGB])[], v: number): string {

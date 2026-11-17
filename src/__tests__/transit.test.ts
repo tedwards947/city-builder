@@ -697,7 +697,7 @@ describe('TransitSystem — goods (shops fetch from industry)', () => {
     const w = simpleTown();
     run(w);
     const d = w.traffic!;
-    expect(d.markets.map(m => m.def.key)).toEqual(['shopping', 'jobs', 'goods']);
+    expect(d.markets.map(m => m.def.key)).toEqual(['shopping', 'jobs', 'goods', 'exports']);
     expect(d.markets[0]).toBe(d.shopping);
     expect(d.markets[2]).toBe(d.goods);
     expect(d.goods.def.origin).toBe(ZONE_C);
@@ -860,8 +860,8 @@ describe('TransitSystem — buildings as destinations (door providers)', () => {
   const idx = (w: World, x: number, y: number) => w.grid.idx(x, y);
   const snapshot = (w: World) => w.traffic!.markets.map((m) => Array.from(m.volume).join(',') + '|' + Array.from(m.field.doorLoad).join(','));
 
-  it('with no provider, nothing is asked and nothing changes', () => {
-    expect(hasDoorProviders()).toBe(false);
+  it('with nothing added, nothing changes (the seaports\' own provider adds no door while its numbers are off)', () => {
+    expect(hasDoorProviders()).toBe(true);
     const a = goodsTown(), b = goodsTown();
     run(a); run(b);
     expect(snapshot(a)).toEqual(snapshot(b));
@@ -887,7 +887,6 @@ describe('TransitSystem — buildings as destinations (door providers)', () => {
       // Other markets are not touched by a goods door.
       expect(w.traffic!.shopping.field.doorCap[idx(w, 8, 5)]).toBe(0);
     } finally { remove(); }
-    expect(hasDoorProviders()).toBe(false);
   });
 
   it('a change in what a provider adds starts a new pass; doors off a street or avenue are ignored', () => {
