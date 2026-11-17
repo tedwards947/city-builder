@@ -17,6 +17,8 @@ export type PersonaId = 'planner' | 'sprawler' | 'demolisher' | 'neglecter' | 'c
 export interface PersonaOptions {
   /** Ordinance behaviour: 'auto' = the persona's own habit; 'eminent' = also enact Eminent Domain once affordable. */
   ordinances?: 'auto' | 'eminent';
+  /** Play on the city's own money (economy suite): a fresh city starts with BALANCE.startingMoney, and the persona waits rather than borrow for new blocks and services. */
+  realMoney?: boolean;
 }
 
 export interface Ctx {
@@ -70,15 +72,21 @@ function ordinanceHabits(c: Ctx, day: number, keep: OrdinanceId | null) {
   }
 }
 
+/** Money a real-money player keeps in hand before starting a block (roads for a cell cost about 160). */
+const BLOCK_RESERVE = 500;
+
 function grow(c: Ctx, day: number, every: number, until = Infinity) {
   if (!c.town) return;
   if (day <= until) c.town.utilities();
-  if (day % every === 0 && day <= until) c.town.buildCell();
+  if (day % every === 0 && day <= until && (!c.opts.realMoney || c.sim.world.budget.money >= BLOCK_RESERVE)) c.town.buildCell();
 }
 
 function services(c: Ctx, day: number) {
   if (day % SERVICES_EVERY !== 0 || c.sim.world.stats.population < 200) return;
-  for (const k of SERVICE_KINDS) serveLacking(c.sim, c.rec, k);
+  for (const k of SERVICE_KINDS) {
+    if (c.opts.realMoney && c.sim.world.budget.money < (BALANCE.buildings[k]?.cost ?? 0) + BLOCK_RESERVE) continue;
+    serveLacking(c.sim, c.rec, k);
+  }
 }
 
 function answer(c: Ctx) {
@@ -136,7 +144,7 @@ export interface PersonaRun { world: World; rec: Recorder; extra: Record<string,
 
 /** Play `days` game days of a persona on a world (fresh worlds get a Town). */
 export function playPersona(p: Persona, world: World, fresh: boolean, days: number, opts: PersonaOptions = {}): PersonaRun {
-  if (fresh) world.budget.money = Math.max(world.budget.money, 1e7);   // PC under test, not money
+  if (fresh) world.budget.money = opts.realMoney ? BALANCE.startingMoney : Math.max(world.budget.money, 1e7);   // PC suite: PC under test, not money
   const sim = startSim(world);
   const rec = new Recorder(world);
   const town = fresh ? new Town(sim, rec, p.id === 'industrialist' ? {

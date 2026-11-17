@@ -6,7 +6,7 @@ import type { CommandHistory } from '../commands/CommandHistory';
 import { BALANCE } from '../data/balance';
 import { pcCap } from '../sim/politics';
 
-export interface DaySample { day: number; pc: number; cap: number; pop: number; sat: number; money: number; regen: number }
+export interface DaySample { day: number; pc: number; cap: number; pop: number; sat: number; money: number; regen: number; inc: number; exp: number }
 
 export class Recorder {
   /** PC gained or lost per reason (pcChanged), plus passive regeneration as 'regen'. */
@@ -21,6 +21,8 @@ export class Recorder {
   /** Requests the player answered with a building, and those of them later met. */
   readonly answered = new Set<number>();
   answeredMet = 0;
+  /** First day the city has at least one police, fire, school and hospital (null = not yet). */
+  allServicesDay: number | null = null;
   private regenToday = 0;
   private readonly world: World;
 
@@ -44,7 +46,8 @@ export class Recorder {
     if (this.world.politics.regen) { this.add('regen', this.world.politics.regen); this.regenToday += this.world.politics.regen; }
     if (this.world.tick % BALANCE.ticksPerDay === 0) {
       const w = this.world;
-      this.days.push({ day: w.tick / BALANCE.ticksPerDay, pc: w.budget.politicalCapital, cap: pcCap(w), pop: w.stats.population, sat: w.stats.satisfaction, money: w.budget.money, regen: this.regenToday });
+      this.days.push({ day: w.tick / BALANCE.ticksPerDay, pc: w.budget.politicalCapital, cap: pcCap(w), pop: w.stats.population, sat: w.stats.satisfaction, money: w.budget.money, regen: this.regenToday, inc: w.budget.income * BALANCE.ticksPerDay, exp: w.budget.expenses * BALANCE.ticksPerDay });
+      if (this.allServicesDay === null && [4, 5, 6, 7].every(k => w.buildings.some(b => b.kind === k))) this.allServicesDay = this.days.length;
       this.regenToday = 0;
     }
   }
