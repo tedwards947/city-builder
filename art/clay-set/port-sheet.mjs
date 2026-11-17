@@ -136,11 +136,21 @@ blobs.forEach((bl, k) => {
     if (o.y0 > bl.y1 && o.x0 < x1 && o.x1 > x0) y1 = Math.min(y1, o.y0 - 8);
   }
   const W = x1 - x0 + 1, H = y1 - y0 + 1, px = new Uint8Array(W * H * 4);
-  const mine = new Set(bl.ids);
+  const mine = new Set(bl.ids), fade = new Float32Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = (y0 + y) * w + x0 + x;
     if (!bg[i] && !mine.has(comp[i])) continue;   // another prop's pixels
+    // Shadow and edge pixels belong to the nearest prop: drop any nearer another one (its outline, its shadow).
+    if (bg[i]) {
+      const X = x0 + x, Y = y0 + y, dist = b => Math.hypot(Math.max(b.x0 - X, 0, X - b.x1), Math.max(b.y0 - Y, 0, Y - b.y1));
+      const own = dist(bl);
+      let keep = 1;
+      for (const o of blobs) if (o !== bl) { const d = dist(o); keep = Math.min(keep, d < 6 ? 0 : Math.max(0, Math.min(1, (d - own + 20) / 40))); }
+      if (keep === 0) continue;
+      fade[y * W + x] = keep;
+    }
     px.set(rgba.subarray(i * 4, i * 4 + 4), (y * W + x) * 4);
+    if (bg[i]) px[(y * W + x) * 4 + 3] = Math.round(px[(y * W + x) * 4 + 3] * fade[y * W + x]);
     // Shadow fades out towards the crop's edges, so it never ends in a hard line.
     if (bg[i]) { const e = Math.min(x, y, W - 1 - x, H - 1 - y); if (e < 16) px[(y * W + x) * 4 + 3] = Math.round(px[(y * W + x) * 4 + 3] * e / 16); }
   }
