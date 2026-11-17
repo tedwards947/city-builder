@@ -109,7 +109,7 @@ export class PoliticsTuningPanel {
     panelFold(title, 'Political capital (debug)', 'politics', [this.readoutEl, body], true);
 
     const picker = document.createElement('div');
-    picker.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
+    picker.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:3px;';
     for (const v of [...PC_VARIANTS, null]) {
       const b = document.createElement('button');
       b.textContent = v ? v.id : 'Off';
@@ -152,7 +152,7 @@ export class PoliticsTuningPanel {
     });
     advanced.appendChild(buttons);
     const note = document.createElement('div');
-    note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D.';
+    note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D or T.';
     note.style.cssText = 'margin-top:6px;color:#888;';
     advanced.appendChild(note);
     body.appendChild(fold('Advanced', advanced));
