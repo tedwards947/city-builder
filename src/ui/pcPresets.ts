@@ -3,7 +3,7 @@
 
 import { VARIANT_VALUES } from './pcVariantValues';
 
-export type PcVariantId = 'A' | 'B' | 'C' | 'D';
+export type PcVariantId = 'A' | 'B' | 'C' | 'D' | 'T';
 
 export interface PcVariant {
   id: PcVariantId;
@@ -15,15 +15,17 @@ export interface PcVariant {
 }
 
 /**
- * The four play-test variants on the panel's picker. Choosing one resets to
+ * The play-test variants on the panel's picker. Choosing one resets to
  * the shipped numbers, then applies its values. The numbers are in
- * pcVariantValues.ts (the engine session's dry-run sets; B is the accepted one).
+ * pcVariantValues.ts (A–D are the engine session's dry-run sets, B the accepted
+ * one; T is the Balance Lab tuner's best set, found starting from D).
  */
 export const PC_VARIANTS: readonly PcVariant[] = [
   { id: 'A', name: 'Gentle', desc: 'Relaxed: PC refills in 3 minutes and rarely says no.', values: VARIANT_VALUES.A },
   { id: 'B', name: 'Balanced', desc: 'A full bar in 5 minutes; a tower costs about a third of it.', values: VARIANT_VALUES.B },
   { id: 'C', name: 'Strict planner', desc: 'PC is slow and dear: every demolition is a decision.', values: VARIANT_VALUES.C },
   { id: 'D', name: 'Political', desc: 'PC flows fast both ways: bigger rewards, costs and ordinances.', values: VARIANT_VALUES.D },
+  { id: 'T', name: 'Tuned', desc: 'Auto-tuned from D: passes the most Balance Lab targets.', values: VARIANT_VALUES.T },
 ];
 
 type Tree = Record<string, unknown>;

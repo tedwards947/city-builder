@@ -13,8 +13,8 @@ function paths(t: Tree, prefix = ''): string[] {
 }
 
 describe('PC tuning presets', () => {
-  it('has the four variants, each naming only settings that exist in BALANCE.politicalCapital', () => {
-    expect(PC_VARIANTS.map((v) => v.id)).toEqual(['A', 'B', 'C', 'D']);
+  it('has the five variants, each naming only settings that exist in BALANCE.politicalCapital', () => {
+    expect(PC_VARIANTS.map((v) => v.id)).toEqual(['A', 'B', 'C', 'D', 'T']);
     for (const path of PC_VARIANTS.flatMap((v) => paths(v.values as Tree).map((p) => `${v.id}:${p}`))) {
       const [, keyPath] = path.split(':');
       let node: unknown = BALANCE.politicalCapital;
