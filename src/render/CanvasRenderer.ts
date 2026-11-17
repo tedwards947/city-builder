@@ -9,6 +9,8 @@
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
+import { isLargeBuilding } from '../sim/buildingShapes';
+import { shapeBox, shapeTiles, drawBigStandIn } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
@@ -300,7 +302,13 @@ export class CanvasRenderer {
         // Clay image sprites. Until they load (or where no image exists) the
         // chunk layer's flat drawing shows through.
         const isAbandoned = world.layers.abandoned[i] !== 0;
-        const clay = pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        // A building on several tiles is drawn once, at its draw tile (clay/bigBuildings.ts).
+        const big = building !== BUILDING_NONE && isLargeBuilding(building);
+        if (big) {
+          const anchor = world.buildingAnchorAt(i), box = shapeBox(building);
+          if (i === anchor + box.drawDx + box.drawDy * world.grid.width) this._drawBigBuilding(ctx, world, camera, anchor, building, now);
+        }
+        const clay = big ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
@@ -374,6 +382,15 @@ export class CanvasRenderer {
 
     }
 
+    // Big buildings whose draw tile is off screen but whose body is not.
+    for (const b of world.buildings) {
+      if (!isLargeBuilding(b.kind)) continue;
+      const box = shapeBox(b.kind), dx = b.tx + box.drawDx, dy = b.ty + box.drawDy;
+      if (dx >= bounds.x0 && dx <= bounds.x1 && dy >= bounds.y0 && dy <= bounds.y1) continue;   // drawn in the loop
+      if (b.tx + box.maxX < bounds.x0 || b.tx + box.minX > bounds.x1 || b.ty + box.maxY < bounds.y0 || b.ty + box.minY > bounds.y1) continue;
+      this._drawBigBuilding(ctx, world, camera, world.grid.idx(b.tx, b.ty), b.kind, now);
+    }
+
     // Smoke, steam and flares rise over everything behind them.
     if (clayEffects.length > 0) drawClayEffects(ctx, clayEffects, now * 0.001);
 
@@ -384,6 +401,13 @@ export class CanvasRenderer {
       if (fireV > 0) drawClayFire(ctx, fx, fy, clayTile, now * 0.001, seed, fireV / BALANCE.fire.burnDuration);
       else drawClaySmolder(ctx, fx, fy, clayTile, now * 0.001, seed, 1 - (now - this._lastBurn.get(i)!) / SMOULDER_MS);
     }
+  }
+
+  /** The code-drawn stand-in for a building on several tiles, anchored at tile index `anchor`. */
+  private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
+    const width = world.grid.width, ax = anchor % width, ay = (anchor - ax) / width;
+    drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay),
+      tx => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), ty => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), now * 0.001);
   }
 
   /**
@@ -688,13 +712,27 @@ export class CanvasRenderer {
     
     // Red when nothing can go here, or when the action would be refused for lack of political capital.
     const ok = isBuildable && !refused;
+    // Amber: allowed, but with a warning (a service building off the road network).
+    ctx.strokeStyle = !ok ? '#f66' : warn ? '#ffd166' : '#fff';
+    ctx.lineWidth = 2;
+    // Looking at or bulldozing a building on several tiles: outline all of it, whichever tile is under the pointer.
+    const i = world.grid.idx(hoverTile.tx, hoverTile.ty), kind = world.layers.building[i];
+    if ((tool === 'inspect' || tool === 'bulldoze') && kind !== BUILDING_NONE && isLargeBuilding(kind)) {
+      const width = world.grid.width;
+      const tiles = world.buildingTilesAt(hoverTile.tx, hoverTile.ty).map(k => ({ x: k % width, y: Math.floor(k / width) }));
+      const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+      if (refused) {
+        ctx.fillStyle = 'rgba(224,112,112,0.3)';
+        for (const p of tiles) ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      }
+      if (tool === 'inspect') ctx.strokeStyle = '#fff';
+      this._strokeTileSet(ctx, tiles, X, Y);
+      return;
+    }
     if (refused) {
       ctx.fillStyle = 'rgba(224,112,112,0.3)';
       ctx.fillRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
     }
-    // Amber: allowed, but with a warning (a service building off the road network).
-    ctx.strokeStyle = !ok ? '#f66' : warn ? '#ffd166' : '#fff';
-    ctx.lineWidth = 2;
     ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
   }
 

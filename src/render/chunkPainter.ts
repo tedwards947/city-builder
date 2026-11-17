@@ -10,6 +10,8 @@ import { drawClayRoad } from './clay/roads';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { drawFlatTree, drawFlatZoneBuilding, drawFlatBuilding } from './flatTiles';
 import { BALANCE } from '../data/balance';
+import { isLargeBuilding } from '../sim/buildingShapes';
+import { BIG_SLAB } from './clay/bigBuildings';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
   ZONE_NONE, ROAD_NONE, VEG_NONE, BUILDING_NONE,
@@ -166,7 +168,12 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
         drawClayRoad(chunkCtx, drawnRoadAt(world, tx, ty), drawnRoadsAround(world, tx, ty), terrain === TERRAIN_WATER, sxi, syi, Math.ceil(ts));
       }
 
-      if (building !== BUILDING_NONE) drawFlatBuilding(chunkCtx, building, sxi, syi, tsi, ts, localP, visualVariant);
+      if (building !== BUILDING_NONE) {
+        // A big building's tiles are each a slice of one plain slab; the live
+        // layer draws its outline and shapes on top (clay/bigBuildings.ts).
+        if (isLargeBuilding(building)) { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
+        else drawFlatBuilding(chunkCtx, building, sxi, syi, tsi, ts, localP, visualVariant);
+      }
 
       if (!isAbandoned && !powered && zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
         chunkCtx.fillStyle = localP.noPowerTint;
