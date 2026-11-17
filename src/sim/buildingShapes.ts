@@ -1,0 +1,95 @@
+// The shape of each building kind: which tiles it stands on.
+//
+// A shape is a list of offsets (dx, dy) from the building's ANCHOR tile. The
+// anchor is offset (0, 0), which every shape must contain, so the anchor is
+// always a real tile of the building (an L's bounding-box corner may not be).
+// A building's entity in world.buildings sits at its anchor.
+//
+// A kind with no entry here is one tile, as every building was before shapes
+// existed. Square buildings are just a full block of offsets (see `block`);
+// nothing requires a shape to be square or even convex.
+//
+// The renderer imports this too: engine and graphics must agree on the anchor
+// and the offsets.
+
+/** One tile of a shape, as an offset from the anchor. */
+export type ShapeOffset = readonly [dx: number, dy: number];
+
+const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
+
+const SHAPES = new Map<number, readonly ShapeOffset[]>();
+
+/** The tiles a `kind` building stands on, as offsets from its anchor. One tile unless the kind has a shape. */
+export function buildingShape(kind: number): readonly ShapeOffset[] {
+  return SHAPES.get(kind) ?? ONE_TILE;
+}
+
+/** Whether `kind` stands on more than one tile. */
+export function isLargeBuilding(kind: number): boolean {
+  return buildingShape(kind).length > 1;
+}
+
+/**
+ * Give `kind` a shape. Throws if the shape has no (0, 0) (the anchor), repeats
+ * a tile or is not whole numbers. Buildings of this kind already standing are
+ * not touched: set shapes before any exist.
+ */
+export function setBuildingShape(kind: number, shape: readonly ShapeOffset[]): void {
+  const seen = new Set<string>();
+  for (const [dx, dy] of shape) {
+    if (!Number.isInteger(dx) || !Number.isInteger(dy)) throw new Error(`building shape for kind ${kind}: offsets must be whole numbers`);
+    const key = `${dx},${dy}`;
+    if (seen.has(key)) throw new Error(`building shape for kind ${kind}: tile ${key} is listed twice`);
+    seen.add(key);
+  }
+  if (!seen.has('0,0')) throw new Error(`building shape for kind ${kind}: must include (0, 0), the anchor`);
+  SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
+}
+
+/** Remove a kind's shape, making it one tile again. For tests. */
+export function clearBuildingShape(kind: number): void {
+  SHAPES.delete(kind);
+}
+
+/** A full w × h block with the anchor at its top-left tile, row by row. */
+export function block(w: number, h: number): ShapeOffset[] {
+  const out: ShapeOffset[] = [];
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) out.push([dx, dy]);
+  return out;
+}
+
+/**
+ * Tile indices a `kind` building anchored at (tx, ty) would stand on, in the
+ * shape's order (the anchor is wherever (0, 0) is listed), or null if any of
+ * them is off the map.
+ */
+export function footprintTiles(width: number, height: number, tx: number, ty: number, kind: number): number[] | null {
+  const shape = buildingShape(kind);
+  const out = new Array<number>(shape.length);
+  for (let k = 0; k < shape.length; k++) {
+    const x = tx + shape[k][0], y = ty + shape[k][1];
+    if (x < 0 || y < 0 || x >= width || y >= height) return null;
+    out[k] = y * width + x;
+  }
+  return out;
+}
+
+/**
+ * The tiles just outside a footprint: every tile that shares an edge with a
+ * footprint tile and is not itself part of it, each once. For each footprint
+ * tile in order, its west, east, north and south neighbour — so for a
+ * one-tile building this is exactly its four neighbours, in that order. A
+ * building is connected if one of these is a street or avenue.
+ */
+export function footprintEdge(width: number, height: number, tiles: readonly number[]): number[] {
+  const out: number[] = [];
+  const add = (i: number) => { if (!tiles.includes(i) && !out.includes(i)) out.push(i); };
+  for (const i of tiles) {
+    const x = i % width;
+    if (x > 0) add(i - 1);
+    if (x < width - 1) add(i + 1);
+    if (i >= width) add(i - width);
+    if (i < width * (height - 1)) add(i + width);
+  }
+  return out;
+}

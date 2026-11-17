@@ -1,6 +1,6 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTile, restoreTile, tileDisruption } from './Command';
+import { snapshotTiles, restoreTiles, tilesClearedWith, tileDisruption } from './Command';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ROAD_NONE, BUILDING_NONE } from '../sim/constants';
@@ -10,7 +10,8 @@ import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/polit
 export class BulldozeCommand extends Command {
   private readonly tx: number;
   private readonly ty: number;
-  private snap: TileSnapshot | null = null;
+  // Every tile this clears: the tile, or the whole building it is part of.
+  private snaps: { i: number; snap: TileSnapshot }[] | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
   private pcCharges: PcCharges = NO_PC_CHARGES;
@@ -38,7 +39,8 @@ export class BulldozeCommand extends Command {
     const quote = pcQuote(world, { type: 'bulldoze', tx: this.tx, ty: this.ty });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
-    this.snap = snapshotTile(world, this.tx, this.ty);
+    this.snaps = snapshotTiles(world, tilesClearedWith(world, this.tx, this.ty));
+    const here = this.snaps.find(s => s.i === i)!.snap;
     this.cost = BALANCE.costs.bulldoze;
 
     world.budget.money -= this.cost;
@@ -51,15 +53,15 @@ export class BulldozeCommand extends Command {
       displacedPopulation,
       pcCost,
       pcReward,
-      hadBuilding: this.snap.building,
-      hadZone: this.snap.zone,
-      devLevel: this.snap.dev,
+      hadBuilding: here.building,
+      hadZone: here.zone,
+      devLevel: here.dev,
     });
     return ok;
   }
 
   undo(world: World): void {
-    if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
+    if (this.snaps) restoreTiles(world, this.snaps);
     world.budget.money += this.cost;
     // Reverses both costs and rewards.
     refundCharges(world, this.pcCharges, this.tx, this.ty);

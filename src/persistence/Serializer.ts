@@ -98,6 +98,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   l.zone.set(snapshot.layers.zone);
   l.roadClass.set(snapshot.layers.roadClass);
   l.building.set(snapshot.layers.building);
+  world.rebuildBuildingIds();
   l.vegetation.set(snapshot.layers.vegetation);
   l.devLevel.set(snapshot.layers.devLevel);
   l.power.set(snapshot.layers.power);
