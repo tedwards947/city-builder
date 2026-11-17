@@ -230,7 +230,7 @@ const ECON_TARGETS: Omit<Target, 'suite'>[] = [
     } },
   { id: 'econ.noSoftlock', metric: 'Longest run of days in debt', target: '≤ 30', persona: 'planner (own money)', cities: 'all', status: 'graded',
     why: 'No city should be stuck in debt.',
-    evaluate: c => { const e = econ(c); return e ? range(e.longestDebtRun, 0, 30) : NA('not run'); } },
+    evaluate: c => { const e = econ(c); if (!e) return NA('not run'); if (e.gameOverDay !== null && e.gameOverDay !== undefined) return { value: e.longestDebtRun, pass: false, miss: 1, note: `game over for debt on day ${e.gameOverDay}` }; return range(e.longestDebtRun, 0, 30); } },
   { id: 'econ.matureSurplus', metric: 'A mature city\'s (income − expenses) ÷ expenses per day, mean of the last 30 days', target: '0.10–0.25', persona: 'planner (own money)', cities: 'saved and generated', status: 'graded',
     why: 'Owner: a mature city should earn, but big projects should still take saving.',
     evaluate: c => { if (c.cityKind === 'fresh') return NA('not a mature city'); const e = econ(c); return e ? { ...range(e.surplusLate, 0.1, 0.25), note: `income ${e.incomeLate}/day, expenses ${e.expensesLate}/day; tax ×${e.taxForMidSurplus} would centre it` } : NA('not run'); } },

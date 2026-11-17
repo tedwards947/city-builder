@@ -63,6 +63,10 @@ export interface EconSummary {
   gainInDaysOfExpenses: number;
   /** Tax multiplier that would put surplusLate in the middle of 10–25% (income scales with tax rates). */
   taxForMidSurplus: number | null;
+  /** The city-wide tax level (the slider, BALANCE.tax.level) that would do the same: the run's level × taxForMidSurplus. */
+  taxLevelForMidSurplus: number | null;
+  /** Day of game over for debt, or null. */
+  gameOverDay: number | null;
 }
 
 export interface LabOptions {
@@ -182,6 +186,8 @@ function econOf(run: PersonaRun): EconSummary {
     surplusLate: exp > 0 ? r3((inc - exp) / exp) : 0,
     gainInDaysOfExpenses: expEnd > 0 ? r3((moneyEnd - moneyStart) / expEnd) : 0,
     taxForMidSurplus: inc > 0 ? r3((1.175 * exp) / inc) : null,
+    taxLevelForMidSurplus: inc > 0 ? Math.round(run.world.budget.taxLevel * (1.175 * exp) / inc * 10) / 10 : null,
+    gameOverDay: run.rec.gameOverDay,
   };
 }
 
@@ -206,7 +212,7 @@ export function runLab(o: LabOptions): Report {
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
   const log = o.log ?? (() => {});
   const shippedPc = JSON.parse(JSON.stringify(BALANCE.politicalCapital));
-  const shippedEcon = { maintenance: { ...BALANCE.maintenance }, tax: { ...BALANCE.tax } };
+  const shippedEcon = { maintenance: { ...BALANCE.maintenance }, tax: { ...BALANCE.tax, level: { ...BALANCE.tax.level } }, budget: { ...BALANCE.budget } };
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -279,7 +285,7 @@ export function runLab(o: LabOptions): Report {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     // ── Economy suite: the Planner on the city's own money, per preset ──
     for (const id of presets) {
-      Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
+      Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
       applyValues(BALANCE as never, ECON_PRESETS.find(p => p.id === id)!.values as never);
       report.econRuns[id] = {};
       for (const city of o.cities) {
@@ -293,7 +299,7 @@ export function runLab(o: LabOptions): Report {
         grade('econ', id, city, { runs: { planner: s }, probes: null, refill: null, ordinancesOn: false });
       }
     }
-    Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
+    Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
     // ── Services suite: the Planner per capacity / reach preset, PC and economy as shipped ──
     for (const id of svcIds) {
       const restore = applySvcPreset(svcPresetOf(id));
@@ -316,7 +322,7 @@ export function runLab(o: LabOptions): Report {
     }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
-    Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
+    Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
   }
   for (const c of o.cities) report.cities.push({ id: c.id, kind: c.kind, population: population.get(c.id) ?? popOf(c) });
   const summarize = (suite: Suite, keys: string[], into: Report['summary']) => {
@@ -360,7 +366,10 @@ function econVerdict(r: Report): string {
     const surplus = big.map(c => `${c} ${r.econRuns[p]?.[c]?.econ.surplusLate ?? '?'}`).join(', ');
     const tax = big.map(c => r.econRuns[p]?.[c]?.econ.taxForMidSurplus).filter((x): x is number => x !== null && x !== undefined);
     const label = r.econPresets.find(x => x.id === p)?.name ?? p;
-    lines.push(`${label}: early game ${earlyOk ? 'ok' : 'NOT ok'}; mature surplus ${surplus || 'no big city'}${tax.length ? `; tax ×${Math.min(...tax)}–${Math.max(...tax)} would centre it` : ''}.`);
+    const lvl = big.map(c => r.econRuns[p]?.[c]?.econ.taxLevelForMidSurplus).filter((x): x is number => x !== null && x !== undefined);
+    const { min, max } = BALANCE.tax.level;
+    const slider = lvl.length ? `, tax level ${Math.min(...lvl)}–${Math.max(...lvl)} on the slider (${min}–${max}${lvl.every(x => x >= min && x <= max) ? ', within reach' : ', OUT of range'})` : '';
+    lines.push(`${label}: early game ${earlyOk ? 'ok' : 'NOT ok'}; mature surplus ${surplus || 'no big city'}${tax.length ? `; tax ×${Math.min(...tax)}–${Math.max(...tax)}${slider} would centre it` : ''}.`);
   }
   const fits = r.econPresets.map(x => x.id).filter(p => ok('econ.firstServices', p, early) && ok('econ.noSoftlock', p, early) && big.length > 0 && ok('econ.matureSurplus', p, big));
   const head = !big.length ? 'No big city (≥ 40k) in this run: run npm run gen-city first to judge scale.'

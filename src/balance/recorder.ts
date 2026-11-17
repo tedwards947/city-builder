@@ -28,6 +28,8 @@ export class Recorder {
   skippedFailed = 0;
   /** First day the city has at least one police, fire, school and hospital (null = not yet). */
   allServicesDay: number | null = null;
+  /** Day the city hit game over for debt (engine's debt rule, #187; off while debtGraceDays is 0), or null. */
+  gameOverDay: number | null = null;
   private regenToday = 0;
   private readonly world: World;
 
@@ -38,6 +40,7 @@ export class Recorder {
       if (p.reason === 'milestone') this.milestoneRatios.push((p.delta as number) / pcCap(world));
     });
     world.events.on('requestMet', p => { if (this.answered.has(p.id as number)) this.answeredMet++; });
+    world.events.on('gameOver', () => { this.gameOverDay ??= this.days.length; });
     world.events.on('requestFailed', p => { if (this.skipped.has(p.id as number)) this.skippedFailed++; });
     for (const ev of ['requestOpened', 'requestMet', 'requestFailed'] as const) {
       const into = ev === 'requestOpened' ? this.requests.opened : ev === 'requestMet' ? this.requests.met : this.requests.failed;
