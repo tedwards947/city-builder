@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Service capacity mocks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; --red: #e07070; --amber: #e0b050; --money: #7dd87d; --blue: #7db8f0; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 880px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 400px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+
+  .pane { width: 240px; background: rgba(0,0,0,0.75); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.6; }
+  .pane h5 { font-size: 13px; color: #fff; margin-bottom: 4px; } .pane .l { display: flex; justify-content: space-between; color: #a9b6c2; } .pane .l b { color: #fff; font-weight: 600; }
+  .pane .sub { color: #8aa; font-size: 11px; } .a { color: var(--amber) !important; } .r { color: var(--red) !important; } .g { color: var(--money) !important; }
+  .meter { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14); margin: 3px 0 4px; overflow: hidden; } .meter span { display: block; height: 100%; background: var(--blue); } .meter.full span { background: var(--amber); }
+
+  .scene { position: relative; width: 400px; height: 240px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12);
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0 1px, transparent 1px 40px), #47693c; }
+  .scene > * { position: absolute; }
+  .t { width: 40px; height: 40px; } .t img { position: absolute; left: -5px; top: -8px; width: 51px; pointer-events: none; }
+  .road { background: #5d6066; }
+  .wash { background: rgba(125,184,240,0.38); } .wash.un { background: rgba(224,176,80,0.55); } .wash.out { background: rgba(30,30,36,0.55); } .wash.gain { background: rgba(125,216,125,0.5); outline: 1px solid #9fe89f; outline-offset: -1px; }
+  .chip { transform: translate(-50%, -50%); background: var(--amber); color: #2a1c02; border-radius: 8px; font-size: 10px; font-weight: 800; padding: 0 6px; line-height: 15px; box-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; }
+  .mini { width: 34px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.6); overflow: hidden; outline: 1px solid rgba(255,255,255,0.5); } .mini span { display: block; height: 100%; background: var(--blue); } .mini.full span { background: var(--amber); }
+  .dot { width: 13px; height: 13px; border-radius: 50%; background: var(--amber); border: 1.5px solid #fff; color: #2a1c02; font: 800 9px/10px sans-serif; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+  .ghost img { opacity: .6; } .cur { outline: 2px solid #fff; outline-offset: -1px; }
+  .tag { transform: translate(-50%, 0); background: rgba(10,18,28,0.94); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 2px 8px; font-size: 12px; white-space: nowrap; color: #fff; text-align: center; }
+  .tag .m { color: var(--money); } .tag small { display: block; font-size: 10px; color: #9fe89f; }
+  .legend { left: 8px; bottom: 8px; background: rgba(0,0,0,0.6); border-radius: 5px; padding: 3px 8px; font-size: 10px; color: #cfd8e0; display: flex; gap: 10px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 420px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, #overall { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  #overall { display: block; width: 100%; max-width: 880px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Service capacity mocks</h1>
+<p>Schools and hospitals are getting a limit on how many residents they can serve. This page proposes how the game shows it. Mark <b>Yes</b> or <b>No</b> on each, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+<p>Numbers are made up. Police, fire and parks stay as they are (reach only).</p>
+
+<h2>A. Inspecting a school or hospital</h2>
+<div class="rowf">
+  <figure><div class="pane"><h5>School</h5><div class="l">Seats <b>1,640 / 2,000</b></div><div class="l">Upkeep <b>$40/day</b></div><div class="l">Road <b class="g">connected</b></div></div>
+    <figcaption><span class="code">A1</span>One line: seats taken out of seats available.</figcaption></figure>
+  <figure><div class="pane"><h5>School</h5><div class="l">Seats <b>1,640 / 2,000</b></div><div class="meter"><span style="width:82%"></span></div><div class="sub">360 seats free</div><div class="l">Upkeep <b>$40/day</b></div></div>
+    <figcaption><span class="code">A2</span>The line plus a bar, and how many seats are free.</figcaption></figure>
+  <figure><div class="pane"><h5>School <span class="a" style="font-size:10px;letter-spacing:1px">FULL</span></h5><div class="l">Seats <b class="a">2,000 / 2,000</b></div><div class="meter full"><span style="width:100%"></span></div><div class="sub a">310 residents in reach have no seat</div><div class="l">Upkeep <b>$40/day</b></div></div>
+    <figcaption><span class="code">A3</span>A2 when full: amber, a FULL tag, and how many nearby residents are left out. (Goes with A2.)</figcaption></figure>
+</div>
+
+<h2>B. A full building on the map</h2>
+<div class="rowf">
+  <figure><div class="scene" data-scene="B1"></div><figcaption><span class="code">B1</span>A small amber FULL chip on the building, shown whenever you are zoomed in. Nothing on buildings with room.</figcaption></figure>
+  <figure><div class="scene" data-scene="B2"></div><figcaption><span class="code">B2</span>A tiny fill bar under every school and hospital, only while the school or health layer is on. Blue with room, amber when full.</figcaption></figure>
+</div>
+
+<h2>C. Inspecting a home</h2>
+<div class="rowf">
+  <figure><div class="pane"><h5>Residential · level 2</h5><div class="l">Residents <b>24</b></div><div class="l">School <b class="g">has a seat</b></div><div class="l">Hospital <b class="a">no seat: hospital full</b></div></div>
+    <figcaption><span class="code">C1</span>One line per service, saying why when there is no seat: "hospital full".</figcaption></figure>
+  <figure><div class="pane"><h5>Residential · level 2</h5><div class="l">Residents <b>24</b></div><div class="l">School <b class="g">has a seat</b></div><div class="l">Hospital <b class="r">out of reach</b></div></div>
+    <figcaption><span class="code">C2</span>The other reason: "out of reach" in red, so the two fixes (bigger vs. closer) read differently. (Goes with C1.)</figcaption></figure>
+</div>
+
+<h2>D. Homes without a seat, on the school layer</h2>
+<div class="rowf">
+  <figure><div class="scene" data-scene="D1"></div><figcaption><span class="code">D1</span>Three tints: blue has a seat, amber is in reach but the school is full, dark is out of reach.</figcaption></figure>
+  <figure><div class="scene" data-scene="D2"></div><figcaption><span class="code">D2</span>Today's two tints (covered or not), plus a small amber dot on each home that is in reach but has no seat.</figcaption></figure>
+</div>
+
+<h2>E. Placing a new school near a full one</h2>
+<div class="rowf">
+  <figure><div class="scene" data-scene="E1"></div><figcaption><span class="code">E1</span>The price tag gains a line: how many residents would get a seat, and how many of those are overflow from full schools.</figcaption></figure>
+  <figure><div class="scene" data-scene="E2"></div><figcaption><span class="code">E2</span>E1, and the homes that would gain a seat light up green while you hover.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="Overall notes (wording, anything missing)"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+// Scenes: a street with homes above and below, a school at (2,1), tiles of 40px.
+const T = 40, HOMES = ['res-2', 'res-1', 'res-2', 'res-3', 'res-1', 'res-2', 'res-1', 'res-2', 'res-3', 'res-1'];
+const el = (cls, x, y, html = '') => { const d = document.createElement('div'); d.className = cls; d.style.left = x + 'px'; d.style.top = y + 'px'; d.innerHTML = html; return d; };
+const spr = (n, tx, ty, cls = '') => el('t ' + cls, tx * T, ty * T, `<img src="../../public/sprites/clay/${n}.png">`);
+const LEG = { seat: ['rgba(125,184,240,0.7)', 'has a seat'], un: ['rgba(224,176,80,0.9)', 'school full'], out: ['rgba(40,40,46,0.9)', 'out of reach'] };
+for (const s of document.querySelectorAll('[data-scene]')) {
+  const k = s.dataset.scene, add = (...n) => s.append(...n);
+  add(el('t road', 0, 3 * T)); s.lastChild.style.width = '400px';
+  // homes on rows 2 and 4; the school at (2,1)-ish sits on row 2
+  const cells = []; for (let x = 0; x < 10; x++) for (const y of [2, 4]) if (!(x === 2 && y === 2) && !(k[0] === 'E' && x === 7 && y === 2)) cells.push([x, y]);
+  const state = ([x]) => k[0] === 'E' ? (x <= 4 ? (x >= 3 ? 'un' : 'seat') : x <= 8 ? 'gain' : 'out') : x <= 2 ? 'seat' : x <= 5 ? 'un' : 'out';
+  const layer = k !== 'B1', washes = [];
+  if (layer) for (const c of cells) {
+    const st = state(c);
+    const cls = k === 'D2' ? (st === 'out' ? 'out' : '') : k === 'E1' ? (st === 'gain' ? 'out' : st === 'un' ? 'un' : '') : k === 'B2' ? (st === 'out' ? 'out' : '') : (st === 'seat' ? '' : st);
+    washes.push(el('t wash ' + cls, c[0] * T, c[1] * T));
+  }
+  cells.forEach((c, i) => add(spr(HOMES[(i * 3 + c[1]) % HOMES.length], c[0], c[1])));
+  add(...washes);   // tints go over the homes, as in the game's layers
+  add(spr('school', 2, 2));
+  if (k === 'B1') { add(el('chip', 2.5 * T, 2 * T - 2, 'FULL')); add(spr('hospital', 8, 2)); }
+  if (k === 'B2') { add(el('mini full', 2 * T + 3, 3 * T - 7, '<span style="width:100%"></span>')); add(spr('school', 8, 2)); add(el('mini', 8 * T + 3, 3 * T - 7, '<span style="width:55%"></span>')); }
+  if (k === 'D2') for (const c of cells) if (state(c) === 'un') add(el('dot', c[0] * T + 26, c[1] * T + 2, '!'));
+  if (k[0] === 'D') add(el('legend', 8, 0, (k === 'D1' ? ['seat', 'un', 'out'] : ['seat', 'out']).map(n => `<span><i style="background:${LEG[n][0]}"></i>${n === 'seat' && k === 'D2' ? 'covered' : LEG[n][1]}</span>`).join('') + (k === 'D2' ? '<span><i style="background:#e0b050;border-radius:50%"></i>no seat</span>' : ''))), s.lastChild.style.top = '', s.lastChild.style.bottom = '8px';
+  if (k[0] === 'E') {
+    add(el('chip', 2.5 * T, 2 * T - 2, 'FULL')); add(spr('school', 7, 2, 'ghost cur'));
+    add(el('tag', 6.4 * T, 0.5 * T - 8, '<span class="m">$3,000</span><small>+420 get a seat · 180 from full schools</small>'));
+  }
+}
+
+// Feedback form: saved in this browser, copied out as text.
+const KEY = 'city-builder-capacity-mocks-v1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() {
+  const v = CODES.map(id => (state[id] || {}).v);
+  document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`;
+}
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+const overall = document.getElementById('overall');
+overall.value = state._overall || ''; overall.oninput = () => { state._overall = overall.value; save(); };
+document.getElementById('copy').onclick = async () => {
+  const text = ['Service capacity mocks feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
