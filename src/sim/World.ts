@@ -16,6 +16,7 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
+import { footprintTiles } from './buildingShapes';
 
 export interface Layers {
   terrain:   Uint8Array;
@@ -101,9 +102,10 @@ export interface Politics {
 
 // Unified entity type for every placed building (utilities and services alike).
 export interface BuildingEntity {
+  // The building's anchor tile: offset (0, 0) of its shape (sim/buildingShapes.ts).
   tx: number;
   ty: number;
-  kind: number; // Any BUILDING_* constant (1–8)
+  kind: number; // Any BUILDING_* constant
 }
 
 export type WaterAmount = 'low' | 'medium' | 'high';
@@ -139,6 +141,15 @@ export class World {
   readonly character: { egalitarian: number; green: number; planned: number };
   readonly politics: Politics;
   buildings: BuildingEntity[];
+  /**
+   * Per tile: which building the tile is part of, as its anchor tile's index
+   * + 1; 0 = none recorded. Every tile of a building also carries the kind in
+   * `layers.building`. Derived from `buildings` (see rebuildBuildingIds), so
+   * it is not saved and sits outside `layers`. Read it through
+   * buildingAnchorAt / buildingAt, which also cope with a building written
+   * straight into the layers (0 here = a one-tile building).
+   */
+  buildingId: Uint32Array;
   readonly events: EventBus;
   roadNetDirty: boolean;
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
@@ -237,6 +248,7 @@ export class World {
     this.developedSince = new Uint16Array(n);
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requests: [], nextRequestId: 1 };
     this.buildings = [];
+    this.buildingId = new Uint32Array(n);
     this.events = new EventBus();
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
@@ -445,21 +457,99 @@ export class World {
     return true;
   }
 
-  placeBuilding(tx: number, ty: number, b: number): boolean {
-    if (!this.isBuildable(tx, ty)) return false;
-    const i = this.grid.idx(tx, ty);
-    if (this.layers.roadClass[i] !== ROAD_NONE) this.roadNetDirty = true;
-    this.layers.building[i] = b;
-    this.layers.zone[i] = ZONE_NONE;
-    this.layers.roadClass[i] = ROAD_NONE;
-    this.layers.vegetation[i] = VEG_NONE;
-    this.layers.devLevel[i] = 0;
-    this.layers.abandoned[i] = 0;
-    this.layers.distress[i] = 0;
-    this.layers.visualVariant[i] = Math.floor(this.rng() * 256);
-    this.buildings.push({ tx, ty, kind: b });
-    this.grid.markDirty(tx, ty);
+  /**
+   * Whether a `kind` building can be placed with its anchor at (tx, ty): every
+   * tile of its shape is on the map, not water and free of buildings. A
+   * building of more than one tile also refuses to stand on a road (a
+   * one-tile building replaces the road under it, as it always has).
+   */
+  canPlaceBuilding(tx: number, ty: number, kind: number): boolean {
+    const { width, height } = this.grid;
+    const tiles = footprintTiles(width, height, tx, ty, kind);
+    if (!tiles) return false;
+    for (const i of tiles) {
+      const x = i % width, y = (i - x) / width;
+      if (!this.isBuildable(x, y)) return false;
+      if (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) return false;
+    }
     return true;
+  }
+
+  /** Place a `b` building with its anchor at (tx, ty), on every tile of its shape. */
+  placeBuilding(tx: number, ty: number, b: number): boolean {
+    if (!this.canPlaceBuilding(tx, ty, b)) return false;
+    const { width } = this.grid;
+    const anchor = this.grid.idx(tx, ty);
+    for (const i of footprintTiles(width, this.grid.height, tx, ty, b)!) {
+      if (this.layers.roadClass[i] !== ROAD_NONE) this.roadNetDirty = true;
+      this.layers.building[i] = b;
+      this.layers.zone[i] = ZONE_NONE;
+      this.layers.roadClass[i] = ROAD_NONE;
+      this.layers.vegetation[i] = VEG_NONE;
+      this.layers.devLevel[i] = 0;
+      this.layers.abandoned[i] = 0;
+      this.layers.distress[i] = 0;
+      this.layers.visualVariant[i] = Math.floor(this.rng() * 256);
+      this.buildingId[i] = anchor + 1;
+      this.grid.markDirty(i % width, (i - (i % width)) / width);
+    }
+    this.buildings.push({ tx, ty, kind: b });
+    return true;
+  }
+
+  /** Index of the anchor tile of the building that tile `i` is part of, or -1 if there is no building there. An array read. */
+  buildingAnchorAt(i: number): number {
+    if (this.layers.building[i] === BUILDING_NONE) return -1;
+    const id = this.buildingId[i];
+    return id !== 0 ? id - 1 : i;
+  }
+
+  /** The building that (tx, ty) is part of, or null. Searches the list: for hot loops use buildingAnchorAt. */
+  buildingAt(tx: number, ty: number): BuildingEntity | null {
+    if (!this.grid.inBounds(tx, ty)) return null;
+    const anchor = this.buildingAnchorAt(this.grid.idx(tx, ty));
+    if (anchor < 0) return null;
+    const { width } = this.grid;
+    const ax = anchor % width, ay = (anchor - ax) / width;
+    for (const b of this.buildings) if (b.tx === ax && b.ty === ay) return b;
+    return null;
+  }
+
+  /**
+   * Every tile of the building that (tx, ty) is part of, in its shape's
+   * order; empty if there is no building there. A building written straight
+   * into the layers, with no entry in `buildings`, counts as its one tile.
+   */
+  buildingTilesAt(tx: number, ty: number): number[] {
+    if (!this.grid.inBounds(tx, ty)) return [];
+    const i = this.grid.idx(tx, ty);
+    const anchor = this.buildingAnchorAt(i);
+    if (anchor < 0) return [];
+    const { width, height } = this.grid;
+    const tiles = footprintTiles(width, height, anchor % width, (anchor - (anchor % width)) / width, this.layers.building[anchor]);
+    return tiles && tiles.includes(i) ? tiles : [i];
+  }
+
+  /**
+   * Which tile of its building's shape (tx, ty) is: the index into
+   * buildingShape(kind), 0 being whichever offset is listed first; -1 if
+   * there is no building there. For rules that treat parts of a building
+   * differently (an entrance, a dock, a runway).
+   */
+  buildingPartAt(tx: number, ty: number): number {
+    if (!this.grid.inBounds(tx, ty)) return -1;
+    return this.buildingTilesAt(tx, ty).indexOf(this.grid.idx(tx, ty));
+  }
+
+  /** Recompute `buildingId` from `buildings`. Call after replacing the list wholesale (loading a game). */
+  rebuildBuildingIds(): void {
+    const { width, height } = this.grid;
+    this.buildingId.fill(0);
+    for (const b of this.buildings) {
+      const anchor = b.ty * width + b.tx;
+      const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind) ?? [anchor];
+      for (const i of tiles) this.buildingId[i] = anchor + 1;
+    }
   }
 
   setFire(tx: number, ty: number, v: number): void {
@@ -478,11 +568,35 @@ export class World {
     this.grid.markDirty(tx, ty);
   }
 
+  /**
+   * Empty the tile. If it is part of a building, the whole building goes:
+   * every tile of it is emptied and its entity removed.
+   */
   clearTile(tx: number, ty: number): boolean {
     if (!this.grid.inBounds(tx, ty)) return false;
+    const whole = this.buildingTilesAt(tx, ty);
+    if (whole.length > 1) {
+      const { width } = this.grid;
+      const anchor = this.buildingAnchorAt(this.grid.idx(tx, ty));
+      const ax = anchor % width, ay = (anchor - ax) / width;
+      for (const i of whole) {
+        this.layers.zone[i] = ZONE_NONE;
+        this.layers.building[i] = BUILDING_NONE;
+        this.layers.vegetation[i] = VEG_NONE;
+        this.layers.devLevel[i] = 0;
+        this.layers.abandoned[i] = 0;
+        this.layers.distress[i] = 0;
+        this.layers.visualVariant[i] = 0;
+        this.buildingId[i] = 0;
+        this.grid.markDirty(i % width, (i - (i % width)) / width);
+      }
+      this.buildings = this.buildings.filter(b => !(b.tx === ax && b.ty === ay));
+      return true;
+    }
     const i = this.grid.idx(tx, ty);
     const hadRoad = this.layers.roadClass[i] !== ROAD_NONE;
     const hadBuilding = this.layers.building[i];
+    this.buildingId[i] = 0;
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;
     this.layers.building[i] = BUILDING_NONE;

@@ -181,7 +181,9 @@ export function serviceClosureValue(
   cfg: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): ServiceValuePart[] {
   if (!world.grid.inBounds(tx, ty)) return [];
-  const at = world.grid.idx(tx, ty);
+  // Any tile of the building will do: its coverage is kept under its anchor.
+  const at = world.buildingAnchorAt(world.grid.idx(tx, ty));
+  if (at < 0) return [];
   const kind = world.layers.building[at];
   const rate = cfg.perResident[kind] ?? 0;
   if (rate <= 0) return [];

@@ -1,6 +1,7 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTile, restoreTile, tileDisruption } from './Command';
+import { snapshotTiles, restoreTiles, tileDisruption } from './Command';
+import { footprintTiles } from '../sim/buildingShapes';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
@@ -14,7 +15,8 @@ export class PlaceBuildingCommand extends Command {
   private readonly tx: number;
   private readonly ty: number;
   private readonly kind: number;
-  private snap: TileSnapshot | null = null;
+  // Every tile of the building's shape, as it was before.
+  private snaps: { i: number; snap: TileSnapshot }[] | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
   private pcCharges: PcCharges = NO_PC_CHARGES;
@@ -27,7 +29,7 @@ export class PlaceBuildingCommand extends Command {
   }
 
   execute(world: World): boolean {
-    if (!world.isBuildable(this.tx, this.ty)) return false;
+    if (!world.canPlaceBuilding(this.tx, this.ty, this.kind)) return false;
     const cost = BALANCE.buildings[this.kind]?.cost ?? 0;
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
@@ -35,7 +37,7 @@ export class PlaceBuildingCommand extends Command {
     const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
-    this.snap = snapshotTile(world, this.tx, this.ty);
+    this.snaps = snapshotTiles(world, footprintTiles(world.grid.width, world.grid.height, this.tx, this.ty, this.kind)!);
     this.cost = cost;
     world.budget.money -= this.cost;
     this.pcCharges = chargeQuote(world, quote, this.tx, this.ty);
@@ -48,7 +50,7 @@ export class PlaceBuildingCommand extends Command {
   }
 
   undo(world: World): void {
-    if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
+    if (this.snaps) restoreTiles(world, this.snaps);
     world.budget.money += this.cost;
     refundCharges(world, this.pcCharges, this.tx, this.ty);
   }

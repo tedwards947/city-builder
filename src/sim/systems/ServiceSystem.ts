@@ -8,6 +8,7 @@
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { footprintTiles, footprintEdge } from '../buildingShapes';
 
 /**
  * BFS coverage for a single service building placed at (tx, ty) of kind `kind`.
@@ -26,8 +27,10 @@ export function computeServiceCoverage(
   const roadClass = world.layers.roadClass;
   const covered = new Set<number>();
 
-  // The building tile itself is always covered.
-  covered.add(ty * width + tx);
+  // The building's own tiles are always covered. (A kind of several tiles
+  // anchored where it does not fit is treated as its anchor tile alone.)
+  const own = footprintTiles(width, height, tx, ty, kind) ?? [ty * width + tx];
+  for (const i of own) covered.add(i);
 
   // Seed BFS from road tiles at or adjacent to the building.
   // Seeding only happens from STREET or AVENUE. HIGHWAY does not activate a building.
@@ -43,11 +46,11 @@ export function computeServiceCoverage(
     visited.add(i);
     queue.push({ idx: i, dist: 0 });
   };
-  seed(tx,     ty);
-  seed(tx - 1, ty);
-  seed(tx + 1, ty);
-  seed(tx,     ty - 1);
-  seed(tx,     ty + 1);
+  // From the building's own tiles (never roads once it stands, but they can
+  // be while it is only being previewed), then every tile along its edge: for
+  // a one-tile building, itself and its west, east, north and south.
+  for (const i of own) seed(i % width, (i - (i % width)) / width);
+  for (const i of footprintEdge(width, height, own)) seed(i % width, (i - (i % width)) / width);
 
   let qi = 0;
   while (qi < queue.length) {

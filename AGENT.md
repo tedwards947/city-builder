@@ -257,6 +257,18 @@ world.buildings: BuildingEntity[]   // { tx: number, ty: number, kind: number }
 
 Systems filter by `kind`: `for (const b of world.buildings) { if (b.kind !== BUILDING_X) continue; ... }`
 
+### Buildings of more than one tile (`sim/buildingShapes.ts`)
+
+A kind may have a **shape**: a list of offsets from its **anchor** tile, which is offset (0, 0) and must be part of the shape. A kind with no shape is one tile. No real kind has a shape yet (phase 1 of BIG_BUILDINGS_DESIGN.md); tests use a 2×2 and an L.
+
+- The entity in `world.buildings` sits at the anchor. **Every** tile of the shape carries the kind in `layers.building`, so "is there a building on this tile?" checks need no change.
+- `world.buildingId` (Uint32, on `world`, not in `layers`, not saved): per tile, its building's anchor index + 1; 0 = none recorded. Rebuilt on load by `world.rebuildBuildingIds()`.
+- Read it through `world.buildingAnchorAt(i)` (array read), `world.buildingAt(tx, ty)`, `world.buildingTilesAt(tx, ty)`, `world.buildingPartAt(tx, ty)`.
+- `world.canPlaceBuilding(tx, ty, kind)`: every tile on the map, not water, no building; a kind of several tiles also refuses roads (a one-tile building still replaces the road under it).
+- `world.clearTile` on any tile of a building removes the whole building. Commands snapshot every tile (`snapshotTiles` / `restoreTiles` in Command.ts); `restoreTile` adds or removes the entity only when it restores the anchor tile.
+- Connected = a street or avenue on any tile along the shape's edge (`footprintEdge`); used by the utilities and by service coverage seeding.
+- Not yet shape-aware (phases 2 and 3): pollution sources, PC quotes and nuisance rings (they price the anchor tile only), utility output per kind.
+
 ---
 
 ## Stats on World

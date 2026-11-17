@@ -7,6 +7,7 @@
 
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY } from '../constants';
+import { footprintTiles, footprintEdge } from '../buildingShapes';
 
 /**
  * Recompute a coverage layer (1 = covered, 0 = not) for one kind of utility
@@ -26,12 +27,10 @@ export function spreadUtility(
   let supply = 0;
   for (const b of world.buildings) {
     if (b.kind !== buildingKind) continue;
+    // Connected if any tile along the building's edge is a street or avenue.
+    const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind) ?? [b.ty * width + b.tx];
     let connected = false;
-    for (let k = 0; k < 4; k++) {
-      const nx = b.tx + (k === 0 ? -1 : k === 1 ? 1 : 0);
-      const ny = b.ty + (k === 2 ? -1 : k === 3 ? 1 : 0);
-      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-      const ni = ny * width + nx;
+    for (const ni of footprintEdge(width, height, tiles)) {
       const rc = roadClass[ni];
       if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) {
         served.add(roadNet[ni]);
@@ -40,7 +39,7 @@ export function spreadUtility(
     }
     if (connected) {
       supply += outputPerBuilding;
-      layer[b.ty * width + b.tx] = 1;
+      for (const i of tiles) layer[i] = 1;
     }
   }
   if (served.size === 0) return supply;
