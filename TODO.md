@@ -40,31 +40,33 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ## GAME ENGINE
 
-Ranked by how much it changes play, then by cost. "Unmeasured" means a suspected cost nobody has timed yet: measure first, then decide.
+Status as of 2026-11-17, after #212. Details of every system below are in AGENT.md.
 
-1. **Traffic balance pass** (with the owner, by play-testing; use `?debug=true`). Known issues:
-   - A jammed road hurts growth twice: the old congestion penalty (`congestionGrowthPenalty` 0.75) and, since roads slow down under load, longer commutes. In the owner's exported city, with only 6.8% of roads over capacity, homes average ×0.54 growth from the congestion penalty alone. Probably lower it to about 0.3.
-   - A destination that stays over capacity (a small shop strip serving a whole suburb) has no effect beyond the debug inspector. Should it slow that zone, or its customers?
-   - Industry placed away from homes can lose most of its growth to commute time when its one road in is jammed. Decide whether industry should use a gentler rule.
-   - Trip rates, commute limit and road capacities were set on a small city. They look right on the owner's 6,664-person city; a city with few avenues and highways overloads badly.
-2. **Traffic step 2: commute effects.** Growth already slows as travel time rises. Still to do: past a threshold a zone declines a level at a time (decline only for now, no abandonment from commute), and commute shown in the normal tile inspector. Check first whether zones can lose a level today outside abandonment and fire.
-3. **Shops need industry (supply matters).** Goods already flow (each shop fetches from the nearest industry with output to spare) but nothing depends on it: commerce accessibility only counts customers. Add a `supplyWeight` to `BALANCE.transit`, default 0, and blend it into commerce accessibility in `TransitSystem` (the goods market's map already gives each shop its travel time to a supplier: `travelTime(data.goods.field, road)`); put the weight on the debug tuning panel. At 0 nothing changes; raising it makes shops with no industry in reach grow slower. This is a balance change (it alters the opening and pulls industry toward the centre), so tune it in a real city before making it the default. Possible follow-ups: unmet goods demand (`goods.field.demandRatio` > 1) slowing commerce; industry needing shops to sell to.
-4. **Zoom smoothness.** _Fixed the stutter:_ sprites and map chunks are no longer re-baked on every wheel step; they are drawn stretched while the zoom moves and sharpened a few per frame once it stops (on the owner's city in headless Chrome a zoom-step frame went from about 90 ms to about 12 ms). The zoom step is also scaled by how far the wheel event scrolled (one mouse notch is still 10%), so a trackpad no longer zooms uncontrollably fast.
-5. **Show traffic on the roads** (on hold, with GRAPHICS). The owner is dropping the wandering cosmetic cars and choosing a per-tile way to show traffic from the graphics session's mock page. The engine side already has what that needs per road tile in `world.traffic`: total volume (`trafficVolume`), capacity (`roadCapacity`), each market's own volume (`shopping`, `jobs`, `goods`, so trucks can show where goods traffic is), and the direction of travel toward each market's destinations (`field.parent`). Add anything missing once the look is picked.
-7. **Per-frame tile loop.** The renderer allocates a vibe object per visible tile per frame. `npm run bench` now measures frames: on the owner's city, drawn on the CPU, a still frame is about 3 ms zoomed in and 11 ms at zoom 0.5, and 9–28 ms while zooming. Look here if zoomed-out play feels slow. (Reusing one vibe object instead of allocating per tile was tried during the renderer split: no measurable difference, so the cost is the drawing itself.)
+### Next (ranked)
 
-8. **Auto road mode follow-ups** (the mode itself is built: the Manual / Auto switch is in the Roads fly-out; click a start, click an end; auto is the default on desktop, manual on touch screens). Route around obstacles instead of skipping blocked tiles; let the player flip which leg of the L comes first; maybe chain (the end becomes the next start); the owner will refine after trying it.
+1. **Seaport phase 5: the numbers.** Phases 1–4 are merged (#202 placement and rotation, #209 traffic can route to a building, #211 trade and the shops-need-goods rule, #212 nuisance, pollution, `shipRoute`, `portTrade`). Every number ships switched off: `BALANCE.port.*`, `BALANCE.goods.*`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`; cost and upkeep in `buildings[12]` are placeholders. Put in the lab's numbers once the owner approves them. **Waiting on ENGINEER 3 (lab) and the owner.**
+2. **Debt countdown.** The rule is built (`src/sim/debt.ts`; game over is final, `reviveFromDebt` for debug) but off: `budget.debtGraceDays` is 0. **Waiting on GRAPHICS**, whose game-over screen PR sets it to 30.
+3. **Requests: "full" versus "out of reach".** `requestProgress` does not yet say whether a school or hospital request is unmet because the building is full or because no building reaches. Build when GRAPHICS needs it for the quest text.
+4. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
+5. Small: the `shortfall` doc comment in `politics.ts`; the `establishedYears` read in `established.ts`.
+
+### On hold (do not start without the owner)
+
+- **Incremental service walk.** On the 160k-resident city the tick after a road or building edit is still about six times dearer than before the capacity numbers (#195, partly fixed in #206). Only if the owner sees a hitch.
+- **Traffic balance pass** (with the owner, by play-testing; `?debug=true`). A jammed road hurts growth twice (`congestionGrowthPenalty` 0.75 plus longer commutes; probably lower it to about 0.3); a destination that stays over capacity has no effect; industry with one jammed road in loses most of its growth; trip rates, commute limit and road capacities were set on a small city. Jams should stay, and be fun to resolve.
+- **Traffic step 2: commute effects.** Past a threshold a zone declines a level at a time; commute shown in the normal tile inspector.
+- **Show traffic on the roads** (with GRAPHICS). `world.traffic` already has per-tile volume, capacity, each market's volume and direction; add anything missing once the look is picked.
+- **Per-frame tile loop** and **auto road mode follow-ups** (route round obstacles, flip the L, chain): only if the owner asks.
 
 Standing rules (see AGENT.md): systems never loop over the whole map (`world.index`, `FieldBounds`); when `paintChunk` reads a new layer, `chunkSignature` must read it too (a test checks this); anything that feeds back into traffic routing gets a stability check.
 
-Done and merged:
-- Flow-based traffic with markets (shopping, jobs, goods), capacity with local overflow, congestion slowing roads, routes split over near-equal ways; settles within two passes after an edit (#29, #30).
-- Traffic overlay with load past 100%, commute tint and route trace; `?debug=true` inspector numbers and live tuning panel (#29).
-- Save files: export / import a city as `.citysave.json` (#30).
-- Sim tick on a 512×512 map: about 95 ms → 3 ms in Node, 31 ms → 1.6 ms in Chrome, results identical (#31).
-- `CanvasRenderer.ts` split (1,060 lines → 478): chunk cache, chunk drawing with its signature, flat drawing and zoom smoothing each in their own file; `render()` takes an options object; no pixel changed (bench `picture` values identical) and no speed change. The flat pre-clay drawing is still needed: it is what shows under and before the sprites.
-- Engineering: checks on every PR (typecheck, tests, build); a whole-simulation "nothing changed" test; `npm run bench` for tick and frame times (see AGENT.md, Testing).
-- Cleanup: old traffic overlay code removed from the renderer, traffic uses the shared index, service coverage is recomputed only when roads or buildings change, no second autosave on returning to the tab.
+### Done and merged
+
+- Seaport phases 1–4 (#202, #209, #211, #212): shapes with roles and four rotations, open-water placement, a fourth traffic market (`exports`), imports as a goods source, city-wide industry boost, city-wide goods shortage, ship route and ships per day.
+- Services by capacity (#195, #206): schools and hospitals seat whole homes nearest-first (school 20 tiles / 4,000, hospital 30 / 8,000); police and fire are road-based reach only.
+- Economy (#184, #187, #189, #199): Tight numbers are the default ("Original" kept as a preset); debt rule; tax level slider that also moves satisfaction and growth demand (`taxEffect` for the UI).
+- Political capital: regeneration, upkeep, displacement and debt drain scale with the cap (`capScale`); requests and seats (#165, #179, #180, #194).
+- Earlier: flow-based traffic with markets, overlay and debug panel (#29, #30); save files (#30); sim tick 95 ms → 3 ms on a 512×512 map (#31); renderer split; zoom stutter fix; CI checks, the golden-city test and `npm run bench`.
 
 ## ENGINEER 2
 
