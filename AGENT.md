@@ -642,6 +642,7 @@ More than one agent session may be working in this repo at once.
 - A worktree starts from a commit, so uncommitted work in another tree is invisible to it. Commit before splitting work across worktrees.
 - A new worktree has no `node_modules`; run `npm install` in it. `generated_imgs/` is git-ignored and exists only in the main checkout.
 - `TODO.md` holds one ranked backlog per area (GRAPHICS, GAME ENGINE, …). Edit only your own section.
+- **Update your own `TODO.md` section whenever one of your PRs merges** (done, next, waiting on whom), so the team can be rebuilt from the repo after a restart. The team setup and the restart procedure are in `TEAM.md`.
 - Before starting, find the other sessions (`ListAgents`) and ask what files they own. If you must share a tree, agree on file ownership first and stay out of each other's files.
 - Use a different dev-server port per session (`npx vite --port <n> --strictPort`), and delete any temporary harness files you create.
 - **Keep browser checks silent.** Launch Chrome with `--mute-audio` and load the page with `?music=off` (`?sfx=off` too once effects land). The game skips music autoplay when `navigator.webdriver` is true, but Chrome driven over CDP usually reports false, so the flag is what reliably works.
