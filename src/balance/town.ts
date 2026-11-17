@@ -112,7 +112,7 @@ export function serveLacking(sim: Sim, rec: Recorder, kind: number, tag = KIND_N
 }
 
 /** Answer a request with one building of its kind on the free lot within 10 tiles that serves the most asking homes (the request-chaser's move). */
-export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' | 'noLot' | 'skipped' | 'gone' {
+export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' | 'skipped' | 'gone' {
   const w = sim.world, W = w.grid.width;
   const r = w.politics.requests.find(q => q.id === reqId) as ({ kind: string; seed?: number; x0: number; y0: number; x1: number; y1: number } | undefined);
   if (!r) return 'gone';
@@ -129,7 +129,7 @@ export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' 
     const n = asking.size ? homesWithinReach(w, cx + dx, cy + dy, kind).filter(i => asking.has(i)).length : 0;
     lots.push({ x: cx + dx, y: cy + dy, n, d: Math.max(Math.abs(dx), Math.abs(dy)) });
   }
-  if (!lots.length) return 'noLot';
+  if (!lots.length) { rec.skipped.add(reqId); return 'skipped'; }   // no free lot at all: unmeetable without demolishing
   lots.sort((a, b) => b.n - a.n || a.d - b.d || a.y - b.y || a.x - b.x);
   // Clearly unmeetable: no free lot serves half the asking homes (the met rule needs the gap at least halved).
   // A sensible player skips it rather than demolish homes (owner, 2026-11-17).

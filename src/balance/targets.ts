@@ -146,7 +146,7 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 95%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Agreed dry-run goal.',
     evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.95), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
-  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets (coverage, utilities and traffic-jam requests; blight is not its job; leaving out ones it skips because no free lot could serve half the asking homes)', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
+  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets (coverage, utilities and traffic-jam requests; blight is not its job; leaving out ones it skips because no free lot within 10 tiles could serve half the asking homes)', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17).',
     evaluate: c => {
       const r = c.runs.chaser; if (!r) return NA('not run');
