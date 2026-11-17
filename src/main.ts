@@ -617,7 +617,13 @@ manager.loadGame(AUTOSAVE_SLOT)
 const musicManager = new MusicManager((name) => musicPanel.onTrackChange(name));
 const musicPanel = new MusicPanel(musicManager);
 
-// Auto-play on first interaction
+// Auto-play on first interaction, except under browser automation
+// (Playwright / Puppeteer / headless Chrome set navigator.webdriver) or with
+// ?music=off, so agents driving the game don't fill the room with music.
+// The music panel's play button still works either way.
+const musicAutoplayOff =
+  navigator.webdriver === true ||
+  new URLSearchParams(location.search).get('music') === 'off';
 const startMusic = () => {
   musicManager.start();
   musicPanel.updateUI();
@@ -625,6 +631,8 @@ const startMusic = () => {
   window.removeEventListener('touchstart', startMusic);
   window.removeEventListener('keydown', startMusic);
 };
-window.addEventListener('mousedown', startMusic);
-window.addEventListener('touchstart', startMusic);
-window.addEventListener('keydown', startMusic);
+if (!musicAutoplayOff) {
+  window.addEventListener('mousedown', startMusic);
+  window.addEventListener('touchstart', startMusic);
+  window.addEventListener('keydown', startMusic);
+}
