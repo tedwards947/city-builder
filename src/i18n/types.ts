@@ -76,6 +76,15 @@ export interface TranslationSchema {
     route: { jobs: string; shops: string; homes: string; none: string; noHomes: string };
     econ: {
       title: string;
+      taxLevel: string;
+      taxIncome: string;
+      afterUpkeep: string;
+      satisfaction: string;
+      growth: string;
+      polCapital: string;
+      perDay: string;
+      noChange: string;
+      growthMax: string;
       taxRates: string;
       zoneDemand: string;
       avgLandValue: string;
@@ -84,6 +93,11 @@ export interface TranslationSchema {
       normal: string;
       low: string;
       veryLow: string;
+    };
+    debt: {
+      ofLimit: string; overLimit: string; voteIn: string; voteIn1: string; meterTip: string; payDown: string;
+      overKicker: string; overTitle: string; overText: string; inOffice: string; peakPopulation: string; finalBalance: string;
+      years: string; months: string; loadSave: string; newCity: string;
     };
     saveLoad: {
       saveGame: string;
@@ -121,6 +135,11 @@ export interface TranslationSchema {
       buildingAbandonedMsg: string;
       lowFundsTitle: string;
       lowFundsMsg: string;
+      debtHalfTitle: string;
+      debtHalfMsg: string;
+      debtLimitTitle: string;
+      debtLimitMsg: string;
+      debtLimitNoVoteMsg: string;
       debtTitle: string;
       debtMsg: string;
       debtClearedTitle: string;

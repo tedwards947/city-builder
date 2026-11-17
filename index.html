@@ -20,7 +20,45 @@
     #citystats .value.money { color: #7dd87d; }
     #citystats .value.money.negative { color: #e07070; }
     #citystats .value.short { color: #e07070; }
-    #stat-debt { color: #e07070; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    /* Debt meter under Money (src/ui/DebtUi.ts): the debt as a share of the limit; striped and draining during the council's countdown */
+    #stat-debt { color: #9ab; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    #stat-debt.amber { color: #e0b050; } #stat-debt.red { color: #e07070; }
+    #stat-debt-bg { width: 100%; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; margin: 2px 0 1px; position: relative; }
+    #stat-debt-bg::after { content: ""; position: absolute; left: 50%; top: -1px; bottom: -1px; width: 1px; background: rgba(255,255,255,0.45); }
+    #stat-debt.countdown #stat-debt-bg::after { display: none; }
+    #stat-debt-bar { height: 3px; border-radius: 2px; background: #9ab; transition: width 0.3s; }
+    #stat-debt.amber #stat-debt-bar { background: #e0b050; } #stat-debt.red #stat-debt-bar { background: #e07070; }
+    #stat-debt.countdown #stat-debt-bar { background: repeating-linear-gradient(-45deg, #e07070 0 4px, #8a3a3a 4px 8px); }
+    /* The countdown banner: top centre for as long as the city is past its debt limit; toasts move down under it */
+    #debt-countdown { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); z-index: 56; display: flex; gap: 12px; align-items: center; background: rgba(12,20,30,0.94); border-left: 3px solid #e07070; border-radius: 5px; padding: 6px 14px 6px 10px; font-size: 12px; color: #eee; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: none; }
+    #debt-countdown[hidden] { display: none; }
+    #debt-countdown b { display: block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #e07070; }
+    #debt-countdown-ring { width: 40px; height: 40px; border-radius: 50%; background: conic-gradient(#e07070 var(--a, 100%), rgba(255,255,255,0.15) 0); display: grid; place-items: center; flex: none; }
+    #debt-countdown-days { width: 30px; height: 30px; border-radius: 50%; background: #1a1114; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 13px; }
+    body.debt-counting #toast-container { top: 122px; }
+    @media (max-width: 1140px) { #debt-countdown { top: 104px; } body.debt-counting #toast-container { top: 164px; } }
+    /* Game over (the council removes the mayor): covers the game and takes all input; the load and new-city dialogs open above it */
+    #game-over { position: fixed; inset: 0; z-index: 90; background: rgba(6,8,12,0.72); display: flex; align-items: center; justify-content: center; }
+    #game-over.hidden { display: none; }
+    .go-card { width: 380px; max-width: calc(100vw - 32px); background: rgba(10,18,28,0.98); border: 1px solid rgba(255,255,255,0.16); border-radius: 12px; padding: 22px 24px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,0.6); color: #a9b6c2; font-size: 13px; line-height: 1.5; }
+    .go-card small { color: #e07070; letter-spacing: 2px; text-transform: uppercase; font-size: 10px; }
+    .go-card h2 { font-size: 22px; color: #fff; margin: 4px 0 8px; }
+    .go-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 16px; }
+    .go-stats div { background: rgba(255,255,255,0.06); border-radius: 7px; padding: 7px 4px; font-size: 10px; color: #8aa; text-transform: uppercase; letter-spacing: 0.5px; }
+    .go-stats b { display: block; font-size: 16px; color: #fff; letter-spacing: 0; text-transform: none; }
+    .go-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .go-btns button { font: inherit; font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 18px; border: 1px solid rgba(255,255,255,0.2); background: #2a313b; color: #fff; cursor: pointer; }
+    .go-btns button:hover { filter: brightness(1.15); }
+    .go-btns button.go { background: #2f9c86; border-color: #2f9c86; }
+    .go-btns button.cheat { background: none; border-style: dashed; color: #e0b050; }
+    .go-btns button[hidden] { display: none; }
+    /* Tax level slider at the top of the Budget panel (src/ui/EconPanel.ts) */
+    .ep-tax-big { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.2; }
+    #econ-tax-slider { width: 100%; margin: 6px 0 0; accent-color: #7dd8c0; }
+    .ep-scale { display: flex; justify-content: space-between; font-size: 10px; color: #8aa; margin-bottom: 4px; }
+    .ep-line { display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; color: #a9b6c2; }
+    .ep-line b { color: #fff; font-weight: 600; } .ep-line b.pos { color: #7dd87d; } .ep-line b.neg { color: #e07070; }
+    .ep-line[hidden] { display: none; }
     #stat-debt[hidden] { display: none; }
     #citystats .value.pc { color: #7dd8c0; }
     #citystats .value.pc.low { color: #e0b050; }
@@ -282,6 +320,18 @@
   <div id="econ-panel" class="hidden">
     <div class="ep-title" data-i18n="ui.econ.title">Economics</div>
     <div class="ep-section">
+      <div class="ep-label" data-i18n="ui.econ.taxLevel">Tax rate</div>
+      <div class="ep-tax-big"><span id="econ-tax-pct">10</span>%</div>
+      <input type="range" id="econ-tax-slider" min="0" max="20" step="1" value="10">
+      <div class="ep-scale"><span id="econ-tax-min">0%</span><span id="econ-tax-max">20%</span></div>
+      <div class="ep-line"><span data-i18n="ui.econ.taxIncome">Tax income</span><b id="econ-tax-income"></b></div>
+      <div class="ep-line"><span data-i18n="ui.econ.afterUpkeep">After upkeep</span><b id="econ-tax-net"></b></div>
+      <div class="ep-line"><span data-i18n="ui.econ.satisfaction">Satisfaction</span><b id="econ-tax-sat"></b></div>
+      <div class="ep-line"><span data-i18n="ui.econ.growth">Growth</span><b id="econ-tax-growth"></b></div>
+      <div class="ep-line" id="econ-tax-pc-line"><span data-i18n="ui.econ.polCapital">Pol. capital</span><b id="econ-tax-pc"></b></div>
+    </div>
+    <hr class="ep-divider">
+    <div class="ep-section">
       <div class="ep-label" data-i18n="ui.econ.taxRates">Tax rates (per dev level)</div>
       <div class="ep-row"><span class="ep-zone r">R</span><button class="ep-btn" id="econ-r-down">−</button><span class="ep-rate" id="econ-rate-r">0.8</span><button class="ep-btn" id="econ-r-up">+</button></div>
       <div class="ep-row"><span class="ep-zone c">C</span><button class="ep-btn" id="econ-c-down">−</button><span class="ep-rate" id="econ-rate-c">1.2</span><button class="ep-btn" id="econ-c-up">+</button></div>
@@ -311,7 +361,7 @@
         <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>
-        <div id="stat-debt" data-i18n="ui.hud.inDebt" hidden>In debt · building blocked</div>
+        <div id="stat-debt" hidden><div id="stat-debt-bg"><div id="stat-debt-bar"></div></div><span id="stat-debt-label"></span></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.population">Population</span> <span class="value" id="stat-pop">0</span></div>
       <div><span class="label" data-i18n="ui.hud.power">Power</span> <span class="value" id="stat-power">0 / 0</span></div>
@@ -344,6 +394,27 @@
 </div>
 
 <!-- ── New Game Dialog ── -->
+<div id="debt-countdown" hidden>
+  <div id="debt-countdown-ring"><span id="debt-countdown-days"></span></div>
+  <div><b id="debt-countdown-title"></b><span id="debt-countdown-sub"></span></div>
+</div>
+<div id="game-over" class="hidden">
+  <div class="go-card">
+    <small data-i18n="ui.debt.overKicker">Removed from office</small>
+    <h2 data-i18n="ui.debt.overTitle">The council removes you</h2>
+    <div id="game-over-text"></div>
+    <div class="go-stats">
+      <div><b id="game-over-time"></b><span data-i18n="ui.debt.inOffice">in office</span></div>
+      <div><b id="game-over-peak"></b><span data-i18n="ui.debt.peakPopulation">peak population</span></div>
+      <div><b id="game-over-balance"></b><span data-i18n="ui.debt.finalBalance">final balance</span></div>
+    </div>
+    <div class="go-btns">
+      <button id="game-over-load" class="go" data-i18n="ui.debt.loadSave">Load save</button>
+      <button id="game-over-new" data-i18n="ui.debt.newCity">New city</button>
+      <button id="game-over-revive" class="cheat" hidden>+$500k (debug)</button>
+    </div>
+  </div>
+</div>
 <div id="new-game-modal" class="modal hidden">
   <div class="modal-box">
     <h2 data-i18n="ui.newGame.title">New Game</h2>

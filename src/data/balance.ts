@@ -346,9 +346,9 @@ export const BALANCE = {
     debtLimitMin: 2000,
     // Past the limit for this many game days in a row: game over. Getting
     // back within the limit resets the count. The owner's number is 30.
-    // SWITCHED OFF at 0 (the limit only warns) until the game-over screen is
-    // in: without it a removed city would just stop with no explanation.
-    debtGraceDays: 0,
+    // 0 switches the countdown off (the limit then only warns). On since the
+    // game-over screen exists (ui/DebtUi.ts).
+    debtGraceDays: 30,
     // PC lost per game day while money is below zero, times cap ÷ max like
     // regeneration. SWITCHED OFF at 0 until the Political Capital numbers pass.
     debtPcDrainPerDay: 0,
