@@ -9,7 +9,7 @@ import { mulberry32 } from './rng';
 import {
   TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
   ZONE_NONE,
-  ROAD_NONE,
+  ROAD_NONE, ROAD_HIGHWAY,
   BUILDING_NONE,
   VEG_NONE, VEG_TREE_1, VEG_TREE_2, VEG_TREE_3, VEG_TREE_4, VEG_TREE_5, VEG_TREE_6,
 } from './constants';
@@ -631,6 +631,25 @@ export class World {
   buildingPartAt(tx: number, ty: number): number {
     if (!this.grid.inBounds(tx, ty)) return -1;
     return this.buildingTilesAt(tx, ty).indexOf(this.grid.idx(tx, ty));
+  }
+
+  /**
+   * The streets and avenues the building at (tx, ty) is entered from: every
+   * such road tile along the edge of its BODY tiles (docks do not count; a
+   * highway gives no access). Empty = not connected, or no building there.
+   */
+  buildingAccessRoads(tx: number, ty: number): number[] {
+    const tiles = this.buildingTilesAt(tx, ty);
+    if (tiles.length === 0) return [];
+    const { width, height } = this.grid;
+    const roles = shapeRoles(this.layers.building[tiles[0]]);
+    const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock') : tiles;
+    const out: number[] = [];
+    for (const i of footprintEdge(width, height, body)) {
+      const rc = this.layers.roadClass[i];
+      if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) out.push(i);
+    }
+    return out;
   }
 
   /** Recompute `buildingId` from `buildings`. Call after replacing the list wholesale (loading a game). */

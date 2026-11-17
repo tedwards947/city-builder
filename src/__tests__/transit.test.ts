@@ -6,7 +6,7 @@ import { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { BALANCE } from '../data/balance';
-import { bestAccessRoad, roadCapacity, trafficVolume, travelTime } from '../sim/TrafficData';
+import { bestAccessRoad, roadCapacity, trafficVolume, travelTime, addDoorProvider, hasDoorProviders } from '../sim/TrafficData';
 import { loadColor, markUpstream, routeFrom } from '../render/TrafficOverlay';
 import { trafficTotals } from '../ui/trafficDebug';
 import {
@@ -845,5 +845,88 @@ describe('traffic overlay helpers', () => {
     expect(tot.overPct).toBe(0);
     expect(tot.roads).toBe(13 + 6);
     expect(tot.usedPct).toBe(100);                       // every tile is on a route here
+  });
+});
+
+describe('TransitSystem — buildings as destinations (door providers)', () => {
+  /** Shops at the west end of a street, industry at the east end; the goods market runs west → east. */
+  function goodsTown() {
+    const w = makeWorld(24, 12);
+    roadRow(w, 2, 20, 5);
+    zoneAt(w, 2, 4, ZONE_C, 3);
+    zoneAt(w, 20, 4, ZONE_I, 3);
+    return w;
+  }
+  const idx = (w: World, x: number, y: number) => w.grid.idx(x, y);
+  const snapshot = (w: World) => w.traffic!.markets.map((m) => Array.from(m.volume).join(',') + '|' + Array.from(m.field.doorLoad).join(','));
+
+  it('with no provider, nothing is asked and nothing changes', () => {
+    expect(hasDoorProviders()).toBe(false);
+    const a = goodsTown(), b = goodsTown();
+    run(a); run(b);
+    expect(snapshot(a)).toEqual(snapshot(b));
+  });
+
+  it('a building door takes trips like a zone door: the nearer one first, overflow to the next', () => {
+    const plain = goodsTown();
+    run(plain);
+    const trips = 3 * T.tripsCtoI;                               // one level-3 shop
+    expect(plain.traffic!.goods.field.doorLoad[idx(plain, 20, 5)]).toBeCloseTo(trips);
+
+    // A door for goods halfway along the street, with room for everything.
+    const remove = addDoorProvider((world, market, add) => { if (market === 'goods') add(idx(world, 8, 5), 100); });
+    try {
+      const w = goodsTown();
+      run(w);
+      const goods = w.traffic!.goods;
+      expect(goods.field.doorLoad[idx(w, 8, 5)]).toBeCloseTo(trips);
+      expect(goods.field.doorLoad[idx(w, 20, 5)]).toBeCloseTo(0);
+      expect(goods.volume[idx(w, 5, 5)]).toBeCloseTo(trips);   // on the way to the new door
+      expect(goods.volume[idx(w, 14, 5)]).toBeCloseTo(0);      // nothing goes on to the industry
+      expect(goods.field.dist[idx(w, 8, 5)]).toBe(0);
+      // Other markets are not touched by a goods door.
+      expect(w.traffic!.shopping.field.doorCap[idx(w, 8, 5)]).toBe(0);
+    } finally { remove(); }
+    expect(hasDoorProviders()).toBe(false);
+  });
+
+  it('a change in what a provider adds starts a new pass; doors off a street or avenue are ignored', () => {
+    let cap = 0;
+    let where = (w: World) => idx(w, 8, 5);
+    const remove = addDoorProvider((world, market, add) => { if (market === 'goods') add(where(world), cap); });
+    try {
+      const w = goodsTown();
+      const sys = run(w);
+      const before = snapshot(w);
+      const door = () => w.traffic!.goods.field.doorLoad[idx(w, 8, 5)];
+      expect(door()).toBe(0);                                    // capacity 0: not a door
+      cap = 100;
+      run(w, sys, interval * 2);
+      expect(door()).toBeGreaterThan(0);
+      cap = 0;
+      run(w, sys, interval * 3);
+      expect(snapshot(w)).toEqual(before);                       // and back exactly
+      // A door on a tile that is not a road, or on a highway, is no door.
+      cap = 100;
+      where = (world) => idx(world, 8, 8);
+      run(w, sys, interval * 4);
+      expect(snapshot(w)).toEqual(before);
+      w.layers.roadClass[idx(w, 8, 8)] = ROAD_HIGHWAY;
+      run(w, sys, interval * 5);
+      expect(w.traffic!.goods.field.doorCap[idx(w, 8, 8)]).toBe(0);
+    } finally { remove(); }
+  });
+
+  it('a building door with no zone destination at all still makes the market work', () => {
+    const remove = addDoorProvider((world, market, add) => { if (market === 'goods') add(idx(world, 12, 5), 2); });
+    try {
+      const w = makeWorld(24, 12);
+      roadRow(w, 2, 20, 5);
+      zoneAt(w, 2, 4, ZONE_C, 3);                                // shops, and no industry anywhere
+      run(w);
+      const goods = w.traffic!.goods;
+      expect(goods.field.doorLoad[idx(w, 12, 5)]).toBeCloseTo(3 * T.tripsCtoI);
+      expect(goods.field.demandRatio).toBeCloseTo(3 * T.tripsCtoI / 2);
+    } finally { remove(); }
   });
 });

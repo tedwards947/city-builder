@@ -149,6 +149,19 @@ describe('placing a seaport', () => {
     expect(w.layers.terrain[idx(13, 9)]).toBe(TERRAIN_WATER);
   });
 
+  it('is entered from the streets along its yard, never from its docks', () => {
+    w.placeBuilding(10, 10, PORT);
+    expect(w.buildingAccessRoads(10, 10)).toEqual([]);
+    w.setRoad(11, 8, ROAD_STREET);                            // a bridge past the docks: no access
+    expect(w.buildingAccessRoads(11, 9)).toEqual([]);
+    w.setRoad(9, 11, ROAD_STREET);                            // west of the yard
+    w.setRoad(12, 13, ROAD_STREET);                           // south of the yard
+    expect(w.buildingAccessRoads(13, 9).sort((a, b) => a - b)).toEqual([idx(9, 11), idx(12, 13)]);
+    w.setRoad(14, 10, 3);                                     // a highway gives no access
+    expect(w.buildingAccessRoads(10, 10).length).toBe(2);
+    expect(w.buildingAccessRoads(20, 20)).toEqual([]);        // no building there
+  });
+
   it('can be turned to face water on another side, and the turn is kept', () => {
     // On the east shore (sea from x = 22): only a quarter turn fits, docks at x = 22.
     expect(w.canPlaceBuilding(21, 14, PORT, 0)).toBe(false);
