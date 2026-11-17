@@ -6,7 +6,6 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
-import { DEBUG } from '../debug';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
@@ -75,9 +74,9 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'water', icon: 'water', tool: 'water', hotkey: '7' },
     { key: 'sewage', icon: 'sewage', tool: 'sewage', hotkey: '8' },
     // Buildings on several tiles (BIG_BUILDINGS_DESIGN.md): ?debug=true only until they are balanced.
-    { key: 'largePlant', icon: 'power', tool: 'largePower', shown: () => DEBUG },
-    { key: 'largeWater', icon: 'water', tool: 'largeWater', shown: () => DEBUG },
-    { key: 'largeSewage', icon: 'sewage', tool: 'largeSewage', shown: () => DEBUG },
+    { key: 'largePlant', icon: 'power', tool: 'largePower' },
+    { key: 'largeWater', icon: 'water', tool: 'largeWater' },
+    { key: 'largeSewage', icon: 'sewage', tool: 'largeSewage' },
   ] },
   { family: 'services', icon: 'police', items: [
     { key: 'police', icon: 'police', tool: 'police', hotkey: '0' },
