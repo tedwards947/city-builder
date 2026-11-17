@@ -9,10 +9,18 @@ import { BALANCE } from '../data/balance';
 const items: ToolbarItem[] = toolbarItems();
 const families = TOOLBAR.flatMap(e => e !== 'sep' && 'family' in e ? [e.family] : []);
 
+const DEBUG_ONLY: Tool[] = ['largePower', 'largeWater', 'largeSewage'];
+
 describe('toolbar list', () => {
+  it('hides the large plants unless the page has ?debug=true', () => {
+    const large = items.filter(i => DEBUG_ONLY.includes(i.tool as Tool));
+    expect(large).toHaveLength(3);
+    for (const i of large) expect(i.shown?.(), i.key).toBe(false);
+  });
+
   it('offers every tool exactly once', () => {
     const all: Tool[] = ['none', 'inspect', 'road', 'avenue', 'highway', 'zoneR', 'zoneC', 'zoneI',
-      'power', 'water', 'sewage', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze'];
+      'power', 'water', 'sewage', 'largePower', 'largeWater', 'largeSewage', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze'];
     const offered = items.flatMap(i => i.tool !== undefined ? [i.tool] : []);
     expect([...offered].sort()).toEqual([...all].sort());
   });
@@ -36,7 +44,8 @@ describe('toolbar list', () => {
   it('gives every tool and overlay its own hotkey', () => {
     const keys = items.flatMap(i => i.hotkey ? [i.hotkey] : []);
     expect(new Set(keys).size).toBe(keys.length);
-    for (const i of items) if (i.tool !== undefined || i.overlay !== undefined) expect(i.hotkey, i.key).toBeTruthy();
+    // The debug-only tools (the large plants) have no hotkey until they are part of the game.
+    for (const i of items) if ((i.tool !== undefined || i.overlay !== undefined) && !DEBUG_ONLY.includes(i.tool as Tool)) expect(i.hotkey, i.key).toBeTruthy();
     expect(keys).not.toContain(' ');   // space is pause
   });
 

@@ -10,6 +10,7 @@
 
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding } from '../sim/buildingShapes';
+import { buildingKindForPlacing } from '../input/InputController';
 import { shapeBox, shapeTiles, drawBigStandIn } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -726,6 +727,18 @@ export class CanvasRenderer {
         for (const p of tiles) ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
       }
       if (tool === 'inspect') ctx.strokeStyle = '#fff';
+      this._strokeTileSet(ctx, tiles, X, Y);
+      return;
+    }
+    // Placing a building on several tiles: outline where it would stand (anchor under the pointer), red if it cannot go there.
+    const placing = buildingKindForPlacing(tool);
+    if (placing !== undefined && isLargeBuilding(placing)) {
+      const tiles = shapeTiles(placing, hoverTile.tx, hoverTile.ty);
+      const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+      const can = world.canPlaceBuilding(hoverTile.tx, hoverTile.ty, placing) && !refused;
+      ctx.fillStyle = can ? 'rgba(255,255,255,0.14)' : 'rgba(224,112,112,0.3)';
+      for (const p of tiles) ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
       this._strokeTileSet(ctx, tiles, X, Y);
       return;
     }

@@ -228,6 +228,9 @@ export interface TranslationSchema {
       plant: string;
       water: string;
       sewage: string;
+      largePlant: string;
+      largeWater: string;
+      largeSewage: string;
       police: string;
       fireStation: string;
       school: string;
@@ -287,6 +290,9 @@ export interface TranslationSchema {
       plant: string;
       water: string;
       sewage: string;
+      largePlant: string;
+      largeWater: string;
+      largeSewage: string;
       police: string;
       fireStation: string;
       school: string;
@@ -315,6 +321,9 @@ export interface TranslationSchema {
     powerPlant: string;
     waterTower: string;
     sewagePlant: string;
+    largePowerPlant: string;
+    largeWaterPlant: string;
+    largeSewagePlant: string;
     policeStation: string;
     fireStation: string;
     school: string;

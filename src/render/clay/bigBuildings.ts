@@ -8,7 +8,10 @@
 // clay shapes (stacks, tanks, pools) across the whole footprint.
 
 import { buildingShape, type ShapeOffset } from '../../sim/buildingShapes';
-import { BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT } from '../../sim/constants';
+import {
+  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
+} from '../../sim/constants';
 import { tileSetEdges, type TilePoint } from './tileOutline';
 
 /** The slab every big building's tiles get in the chunk layer. */
@@ -44,11 +47,10 @@ export function shapeTiles(kind: number, ax: number, ay: number): TilePoint[] {
 }
 
 type Style = 'power' | 'water' | 'sewage' | 'generic';
-// Kinds 9, 10 and 11 are the large power, water and sewage plants (engine's
-// phase 2). The small kinds are listed so a test shape on one draws in style.
+// The small kinds are listed so a test shape on one draws in style.
 const STYLE: Record<number, Style> = {
   [BUILDING_POWER_PLANT]: 'power', [BUILDING_WATER_TOWER]: 'water', [BUILDING_SEWAGE_PLANT]: 'sewage',
-  9: 'power', 10: 'water', 11: 'sewage',
+  [BUILDING_LARGE_POWER_PLANT]: 'power', [BUILDING_LARGE_WATER_PLANT]: 'water', [BUILDING_LARGE_SEWAGE_PLANT]: 'sewage',
 };
 
 function box3d(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rise: number, top: string, side: string): void {

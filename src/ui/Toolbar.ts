@@ -6,6 +6,8 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
+import { DEBUG } from '../debug';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
@@ -72,6 +74,10 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'plant', icon: 'power', tool: 'power', hotkey: '6' },
     { key: 'water', icon: 'water', tool: 'water', hotkey: '7' },
     { key: 'sewage', icon: 'sewage', tool: 'sewage', hotkey: '8' },
+    // Buildings on several tiles (BIG_BUILDINGS_DESIGN.md): ?debug=true only until they are balanced.
+    { key: 'largePlant', icon: 'power', tool: 'largePower', shown: () => DEBUG },
+    { key: 'largeWater', icon: 'water', tool: 'largeWater', shown: () => DEBUG },
+    { key: 'largeSewage', icon: 'sewage', tool: 'largeSewage', shown: () => DEBUG },
   ] },
   { family: 'services', icon: 'police', items: [
     { key: 'police', icon: 'police', tool: 'police', hotkey: '0' },
@@ -103,6 +109,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
+  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT,
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
@@ -309,6 +316,7 @@ export class Toolbar {
     const fly = node('div', 'tb-fly');
     fly.appendChild(node('div', 'tb-head', '')).textContent = t('ui.toolbar.' + f.family);
     for (const item of f.items) {
+      if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
       const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
