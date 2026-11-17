@@ -9,7 +9,7 @@ import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { Recorder } from './recorder';
 import { startSim, type Sim } from './world';
 import type { World } from '../sim/World';
-import { Town, SERVICE_KINDS, REQUEST_BUILDING, serveLacking, answerRequest, isHome, ZONE_R, ZONE_C, ZONE_I } from './town';
+import { Town, SERVICE_KINDS, CHASER_KINDS, serveLacking, answerRequest, isHome, ZONE_R, ZONE_C, ZONE_I } from './town';
 import { exploitLoops } from './probes';
 
 export type PersonaId = 'planner' | 'sprawler' | 'demolisher' | 'neglecter' | 'chaser' | 'industrialist' | 'exploiter';
@@ -120,7 +120,7 @@ export const PERSONAS: Persona[] = [
     day: (c, d) => { grow(c, d, 3); services(c, d); ordinanceHabits(c, d, null); if (d >= 40 && d % 2 === 0) demolish(c); } },
   { id: 'neglecter', desc: 'Builds for 60 days, then stops: no services, no new utilities, no answers.', fresh: true, save: true,
     day: (c, d) => grow(c, d, 3, 60) },
-  { id: 'chaser', desc: 'Grows steadily and answers every service request with one building beside the asking home.', fresh: true, save: true,
+  { id: 'chaser', desc: 'Grows steadily and answers every request: one service building on the lot that serves the asking homes (skipping ones no free lot could meet), a plant for a utilities shortage, avenues for a traffic jam.', fresh: true, save: true,
     day: (c, d) => { grow(c, d, 3); answer(c); } },
   { id: 'industrialist', desc: 'An industry district behind a buffer of shops, power plants among the homes, and every 10 days industry painted inside a home block.', fresh: true, save: false,
     day: (c, d) => {
@@ -155,7 +155,7 @@ export function playPersona(p: Persona, world: World, fresh: boolean, days: numb
     utilitiesInTown: true,
   } : {}) : null;
   const c: Ctx = { sim, rec, town, opts, extra: {}, pending: [], rand: lcg(world.seed ?? 7) };
-  world.events.on('requestOpened', q => { if (REQUEST_BUILDING[q.kind as string] !== undefined) c.pending.push(q.id as number); });
+  world.events.on('requestOpened', q => { if (CHASER_KINDS.includes(q.kind as string)) c.pending.push(q.id as number); });
   for (let d = 0; d < days; d++) {
     p.day(c, d);
     for (let k = 0; k < BALANCE.ticksPerDay; k++) { sim.tick(1); rec.afterTick(); }

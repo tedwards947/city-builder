@@ -11,7 +11,8 @@ import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import type { Command } from '../commands/Command';
 import { cloneWorld, startSim, type Sim } from './world';
-import { findLot, placeNear, isHome, residentsAt, KIND_NAME } from './town';
+import { findLot, placeNear, isHome, isFreeLot, residentsAt, KIND_NAME } from './town';
+import { homesWithinReach } from '../sim/serviceValue';
 import {
   ZONE_NONE, ZONE_C, ZONE_I, ZONE_R, ROAD_NONE, ROAD_STREET, BUILDING_NONE,
   BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE,
@@ -104,25 +105,66 @@ export function staticProbes(world: World): StaticProbes {
     }
   }
 
-  // Ribbon cuttings, moving and the lonely closure, per kind: clear the kind, open one near the
-  // middle of the homes, a second about 6 tiles east, then close the first (a move) and the second (the last one).
+  // Ribbon cuttings, moving and the lonely closure, per kind. Copy 1: clear the kind, open one
+  // near the middle of the homes, a second about 6 tiles east (a new district, mostly), then close
+  // the first and the second (the last one). Copy 2: the same first building, then a second on the
+  // free lot that serves most of the first one's homes, then close the first: a move.
+  // Pay per resident: the first building's PC ÷ the residents it serves (r). A building serving
+  // O residents the first already serves and D only it serves earns about r·(D + overlapPay·O).
   for (const kind of [BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE]) {
     const { sim, cap } = copy(world);
     for (const b of sim.world.buildings.filter(b => b.kind === kind)) sim.history.run(new BulldozeCommand(b.tx, b.ty));
+    const before = cloneWorld(sim.world);
     const c = spot(sim);
     const p0 = sim.world.budget.politicalCapital;
     const l1 = placeNear(sim, null, kind, c.x, c.y, 12);
     if (!l1) continue;
     const p1 = sim.world.budget.politicalCapital, first = p1 - p0;
+    const res = (w: World, hs: Iterable<number>) => { let n = 0; for (const i of hs) n += residentsAt(w, i); return n; };
+    const h1 = new Set(homesWithinReach(sim.world, l1.x, l1.y, kind));
+    const perRes = h1.size ? first / Math.max(res(sim.world, h1), 1e-9) : 0;
+    const split = (w: World, x: number, y: number) => {
+      const h = homesWithinReach(w, x, y, kind);
+      return { O: res(w, h.filter(i => h1.has(i))), D: res(w, h.filter(i => !h1.has(i))) };
+    };
     const l2 = placeNear(sim, null, kind, l1.x + 6, l1.y, 8);
     const second = l2 ? sim.world.budget.politicalCapital - p1 : null;
-    const closeFirst = second !== null ? delta(sim, new BulldozeCommand(l1.x, l1.y)) : null;
+    const s2 = l2 ? split(sim.world, l2.x, l2.y) : null;
+    const closeFirstFar = second !== null ? delta(sim, new BulldozeCommand(l1.x, l1.y)) : null;
     const closeLast = second !== null && l2 ? delta(sim, new BulldozeCommand(l2.x, l2.y)) : null;
+
+    // Copy 2: the move to an overlapping site.
+    const sim2 = startSim(before);
+    sim2.world.budget.politicalCapital = RICH;
+    sim2.history.run(new PlaceBuildingCommand(l1.x, l1.y, kind));
+    const lots: { x: number; y: number; n: number; d: number }[] = [];
+    for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) {
+      const x = l1.x + dx, y = l1.y + dy;
+      if (!isFreeLot(sim2.world, x, y)) continue;
+      lots.push({ x, y, n: split(sim2.world, x, y).O, d: Math.max(Math.abs(dx), Math.abs(dy)) });
+    }
+    lots.sort((a, b) => b.n - a.n || a.d - b.d || a.y - b.y || a.x - b.x);
+    let near: { x: number; y: number; open: number; O: number; D: number } | null = null;
+    for (const lot of lots.slice(0, 30)) {
+      const sp = split(sim2.world, lot.x, lot.y);
+      const d = delta(sim2, new PlaceBuildingCommand(lot.x, lot.y, kind));
+      if (d !== null) { near = { x: lot.x, y: lot.y, open: d, ...sp }; break; }
+    }
+    const closeFirstNear = near ? delta(sim2, new BulldozeCommand(l1.x, l1.y)) : null;
+
+    // Overlap pay from the overlapping building (mostly overlap); new-district pay from the far one.
+    const overlapPay = near && perRes > 0 && near.O > 0 ? (near.open - perRes * near.D) / (perRes * near.O) : null;
+    const newPay = s2 && second !== null && perRes > 0 && s2.D > 0 ? (second - perRes * (overlapPay ?? 0) * s2.O) / (perRes * s2.D) : null;
     out['ribbon:' + KIND_NAME[kind]] = {
       first: first === null ? null : r3(first / cap),
       second: second === null ? null : r3(second / cap),
       secondOverFirst: first && second !== null ? r3(second / first) : null,
-      moveNet: second !== null && closeFirst !== null ? r3((second + closeFirst) / cap) : null,
+      overlapPay: overlapPay === null ? null : r3(overlapPay),
+      newPay: newPay === null ? null : r3(newPay),
+      secondNewShare: s2 && s2.O + s2.D > 0 ? r3(s2.D / (s2.O + s2.D)) : null,
+      moveNet: near && closeFirstNear !== null ? r3((near.open + closeFirstNear) / cap) : null,
+      moveOverlapShare: near && h1.size ? r3(near.O / Math.max(res(sim2.world, h1), 1e-9)) : null,
+      moveNetFar: second !== null && closeFirstFar !== null ? r3((second + closeFirstFar) / cap) : null,
       closeLast: closeLast === null ? null : r3(-closeLast / cap),
     };
   }

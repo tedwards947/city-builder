@@ -27,7 +27,7 @@
 //   --city <file>            add a saved city (repeatable)
 //   --out <file>             where to write (default balance-results/latest.json)
 //   --summary-md <file>      also write a short markdown summary (e.g. a CI job summary)
-//   --tuned <file>           also grade an auto-tuner result (npm run balance:tune) as PC variant 'T'
+//   --tuned <file>           grade this auto-tuner result as PC variant 'T' (default T: src/balance/tunedT.ts)
 //
 // Exit code is 0 whatever the targets say: the lab reports, it doesn't gate.
 
@@ -57,7 +57,7 @@ const cities = [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }, ...saves
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
 const previous = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : null;
 const tuned = opt('--tuned') ? JSON.parse(readFileSync(opt('--tuned'), 'utf8')) : null;
-const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D'];
+const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D', 'T'];
 if (tuned && !variants.includes('T')) variants.push('T');
 
 let gitSha = null;

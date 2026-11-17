@@ -4,6 +4,7 @@
 import { BALANCE } from '../data/balance';
 import { PC_VARIANTS } from '../ui/pcPresets';
 import { applyValues } from '../ui/pcPresets';
+import { TUNED_T } from './tunedT';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
 import { PERSONAS, playPersona, type PersonaId, type PersonaRun } from './personas';
@@ -30,6 +31,9 @@ export interface RunSummary {
   requests: { opened: Record<string, number>; met: Record<string, number>; failed: Record<string, number> };
   answered: number;
   answeredMet: number;
+  /** Coverage requests skipped as unmeetable, and how many of those failed (left out of pc.request.chaser's share). */
+  skipped: number;
+  skippedFailed: number;
   milestoneRatios: number[];
   regenPerDayAt2k: number | null;
   regenPerDayLate: number;
@@ -63,7 +67,7 @@ export interface EconSummary {
 export interface LabOptions {
   /** Which suites to run (default both). */
   suites?: Suite[];
-  variants?: string[];          // PC suite: 'Off' and/or 'A'..'D'
+  variants?: string[];          // PC suite: 'Off', 'A'..'D', 'T' (default: all)
   econPresets?: string[];       // economy suite: ids from ECON_PRESETS
   cities: CitySpec[];
   personas?: PersonaId[];
@@ -136,6 +140,8 @@ export function summarise(personaKey: string, run: PersonaRun): RunSummary {
     requests: JSON.parse(JSON.stringify(rec.requests)),
     answered: rec.answered.size,
     answeredMet: rec.answeredMet,
+    skipped: rec.skipped.size,
+    skippedFailed: rec.skippedFailed,
     milestoneRatios: rec.milestoneRatios.map(r3),
     regenPerDayAt2k: near2k.length ? r3(near2k.reduce((s, d) => s + d.regen, 0) / near2k.length) : null,
     regenPerDayLate: late.length ? r3(late.reduce((s, d) => s + d.regen, 0) / late.length) : 0,
@@ -178,7 +184,9 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 
 export function runLab(o: LabOptions): Report {
   const suites = o.suites ?? ['pc', 'econ'];
-  const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D']) : [];
+  const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
+  // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
+  o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
   const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
