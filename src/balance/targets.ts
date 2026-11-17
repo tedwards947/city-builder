@@ -1,5 +1,14 @@
 // Balance Lab targets, v0 (approved by the owner 2026-11-16, ordinance targets added).
 // The ids are stable: reports compare runs by id. Change a range here, not an id.
+//
+// THE PRINCIPLE (owner, 2026-11-17): "Traffic jams are a part of the fun of developing a
+// city; the goal of play-testing should not be to remove all difficulties, just that the
+// difficulties should be fun to resolve."
+// So a target checks FAIRNESS, not ease: that a hard thing can be resolved with deliberate
+// effort (a better plan, the right building, rerouting), that nothing is impossible or
+// farmable, and that the scripted player isn't simply too naive. Never tune a number or
+// loosen a target just to make something hard become easy; if a target would only pass
+// by removing friction, flag it to the PM instead.
 
 import { BALANCE } from '../data/balance';
 import { ORDINANCE_IDS } from '../sim/ordinances';
@@ -63,9 +72,8 @@ const earnedShare = (r: RunSummary) => {
   return total > 0 ? one / total : null;
 };
 const metShare = (r: RunSummary) => { const m = sum(r.requests.met), f = sum(r.requests.failed); return m + f ? m / (m + f) : null; };
-/** The same share over coverage requests only (the kinds one building can answer: park, police, fire, school, hospital). */
+/** The request kinds one building can answer. */
 const COVERAGE_KINDS = ['park', 'police', 'fire', 'school', 'hospital'];
-const coverageMetShare = (r: RunSummary) => { const pick = (o: Record<string, number>) => COVERAGE_KINDS.reduce((a, k) => a + (o[k] ?? 0), 0); const m = pick(r.requests.met), f = pick(r.requests.failed); return m + f ? m / (m + f) : null; };
 const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
 const upkeeps = () => ORDINANCE_IDS.map(id => BALANCE.politicalCapital.ordinances[id]?.dailyUpkeep ?? 0).sort((a, b) => a - b);
 
@@ -146,14 +154,18 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 95%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Agreed dry-run goal.',
     evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.95), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
-  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets (coverage, utilities and traffic-jam requests; blight is not its job; leaving out ones it skips because no free lot within 10 tiles could serve half the asking homes)', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
-    why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17).',
+  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets. Coverage and utilities: one building each (leaving out coverage requests it skips because no free lot within 10 tiles could serve half the asking homes). Traffic jams: a plan over several passes (avenues, then a wider ring and the next bottlenecks)', target: 'coverage + utilities ≥ 70%; traffic jams ≥ 50%', persona: 'chaser', cities: 'all', status: 'graded',
+    why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17). Traffic jams are meant to be hard (the principle above): the check is that a deliberate plan resolves most of them, not that one upgrade does. The 50% is a proposal for the owner.',
     evaluate: c => {
       const r = c.runs.chaser; if (!r) return NA('not run');
-      const pick = (o: Record<string, number>) => [...COVERAGE_KINDS, 'utilities', 'trafficJam'].reduce((a, k) => a + (o[k] ?? 0), 0);
-      const m = pick(r.requests.met), f = pick(r.requests.failed) - r.skippedFailed;
-      const cov = coverageMetShare(r);
-      return { ...range(m + f ? m / (m + f) : null, 0.7), note: `skipped as unmeetable: ${r.skipped}; coverage requests only: ${cov === null ? 'none' : Math.round(cov * 100) + '%'}` };
+      const pick = (o: Record<string, number>, ks: string[]) => ks.reduce((a, k) => a + (o[k] ?? 0), 0);
+      const ks = [...COVERAGE_KINDS, 'utilities'];
+      const m = pick(r.requests.met, ks), f = pick(r.requests.failed, ks) - r.skippedFailed;
+      const tm = r.requests.met.trafficJam ?? 0, tf = r.requests.failed.trafficJam ?? 0;
+      const parts: Record<string, Outcome> = {};
+      if (m + f) parts.coverage = range(m / (m + f), 0.7);
+      if (tm + tf) parts.trafficJam = range(tm / (tm + tf), 0.5);
+      return { ...all(parts), note: `skipped as unmeetable: ${r.skipped}; traffic jams ${tm}/${tm + tf}` };
     } },
   { id: 'pc.request.neglect', metric: 'Share of requests the Neglecter meets', target: '≤ 20%', persona: 'neglecter', cities: 'fresh', status: 'graded',
     why: 'A deadline should mean something.',
