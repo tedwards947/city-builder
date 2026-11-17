@@ -32,6 +32,8 @@ export interface PcPreview {
   note?: string;
   /** True when the note is a warning about something still allowed (a service building off the road network). */
   warning?: boolean;
+  /** True when the note is good news (residents a new school would seat): shown green. */
+  good?: boolean;
 }
 
 /** The engine action a tool performs on a tile, or null for tools that change nothing. */

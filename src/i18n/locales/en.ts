@@ -137,6 +137,17 @@ export const en: TranslationSchema = {
       low: "low",
       veryLow: "very low",
     },
+    capacity: {
+      full: "FULL",
+      seat: {
+        label: "Seats", free: "{n} seats free", leftOut: "{n} residents in reach have no seat",
+        has: "has a seat", fullState: "no seat: school full", outOfReach: "out of reach", gain: "+{n} get a seat",
+      },
+      bed: {
+        label: "Beds", free: "{n} beds free", leftOut: "{n} residents in reach have no bed",
+        has: "has a bed", fullState: "no bed: hospital full", outOfReach: "out of reach", gain: "+{n} get a bed",
+      },
+    },
     debt: {
       ofLimit: "Debt {pct}% of limit",
       overLimit: "Debt over the limit",

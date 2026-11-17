@@ -9,6 +9,7 @@
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
 import { TERRAIN_WATER } from '../sim/constants';
+import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape } from '../sim/buildingShapes';
 import { buildingKindForPlacing, placementAnchor } from '../input/InputController';
@@ -44,6 +45,12 @@ export interface RenderOptions {
   overlay?: MapOverlay;
   /** Tile indices to highlight as the reach of the service building about to be placed. */
   coveragePreview?: Set<number> | null;
+  /**
+   * Seats at the schools (or beds at the hospitals) on the map: a fill bar
+   * under each building of `kind`, a dot on each home in reach that has no
+   * place, and `gained`, the homes a building at the pointer would seat.
+   */
+  seatView?: { kind: number; gained: readonly number[] } | null;
   /** The frame's time in ms. Drives animation and zoom smoothing. */
   now?: number;
   /** A road about to be built (auto road mode): its tiles in order, start first. */
@@ -82,6 +89,8 @@ export interface PcTag {
   note?: string;
   /** The note is a warning about something still allowed: drawn in amber. */
   warn?: boolean;
+  /** The note is good news: drawn in green. */
+  good?: boolean;
 }
 
 export interface RoadPreview {
@@ -215,6 +224,7 @@ export class CanvasRenderer {
     if (overlay !== 'none') this._drawOverlayLegend(ctx, overlay, camera.viewportH);
     if (pcPreview !== null) this._drawPcPreview(ctx, camera, ts, pcPreview);
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
+    if (options.seatView) this._drawSeatView(ctx, world, camera, bounds, ts, options.seatView);
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok, pcPreview?.warning === true);
@@ -570,6 +580,44 @@ export class CanvasRenderer {
     }
   }
 
+  /** Seats or beds on the map (see RenderOptions.seatView). */
+  private _drawSeatView(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, ts: number, view: { kind: number; gained: readonly number[] }): void {
+    const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+    const T = Math.ceil(ts), width = world.grid.width;
+    // Homes that would gain a place light up green.
+    ctx.lineWidth = 1;
+    for (const i of view.gained) {
+      const tx = i % width, ty = (i - tx) / width;
+      if (tx < bounds.x0 || tx > bounds.x1 || ty < bounds.y0 || ty > bounds.y1) continue;
+      ctx.fillStyle = 'rgba(125,216,125,0.45)'; ctx.fillRect(X(tx), Y(ty), T, T);
+      if (T >= 8) { ctx.strokeStyle = '#9fe89f'; ctx.strokeRect(X(tx) + 0.5, Y(ty) + 0.5, T - 1, T - 1); }
+    }
+    // An amber dot on each home in reach of a building that has no place: every one that reaches it is full.
+    if (T >= 8) {
+      const r = Math.max(3, T * 0.17);
+      for (let ty = bounds.y0; ty <= bounds.y1; ty++) for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
+        if (world.layers.zone[world.grid.idx(tx, ty)] !== ZONE_R) continue;
+        if (homeSeat(world, tx, ty, view.kind)?.reason !== 'full') continue;
+        const cx = X(tx) + T - r - 1, cy = Y(ty) + r + 1;
+        ctx.fillStyle = '#e0b050'; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, r * 0.22);
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (r >= 5) { ctx.fillStyle = '#2a1c02'; ctx.fillRect(cx - r * 0.13, cy - r * 0.55, r * 0.26, r * 0.62); ctx.fillRect(cx - r * 0.13, cy + r * 0.25, r * 0.26, r * 0.26); }
+      }
+    }
+    // A fill bar under each building of the kind: blue with room, amber when full.
+    for (const b of world.buildings) {
+      if (b.kind !== view.kind || b.tx < bounds.x0 || b.tx > bounds.x1 || b.ty < bounds.y0 || b.ty > bounds.y1) continue;
+      const seats = buildingSeats(world, b.tx, b.ty);
+      if (!seats || seats.capacity <= 0) continue;
+      const fill = Math.max(0, Math.min(1, seats.seated / seats.capacity)), full = seats.seated >= seats.capacity || seats.inReachUnseated > 0;
+      const w = Math.max(10, Math.round(T * 0.86)), h = Math.max(3, Math.round(T * 0.13));
+      const x = X(b.tx) + Math.round((T - w) / 2), y = Y(b.ty) + T - h - 1;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = full ? '#e0b050' : '#7db8f0'; ctx.fillRect(x, y, Math.round(w * fill), h);
+    }
+  }
+
   /** A bright dashed outline and a light wash over an area: "here". */
   private _drawAreaHighlight(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, h: AreaHighlight): void {
     if (h.alpha <= 0) return;
@@ -711,7 +759,7 @@ export class CanvasRenderer {
     }
     if (note) {
       ctx.font = SMALL;
-      ctx.fillStyle = pc?.warn ? '#ffd166' : '#9ab';
+      ctx.fillStyle = pc?.warn ? '#ffd166' : pc?.good ? '#9fe89f' : '#9ab';
       ctx.fillText(note, x, y + 15);
     }
   }
@@ -760,7 +808,7 @@ export class CanvasRenderer {
     });
     ctx.setLineDash([]);
     if (preview.label || preview.money) {
-      this._drawPriceTag(ctx, camera, ts, at, preview.money ?? '', true, { text: preview.label, ok, note: preview.note, warn: preview.warning });
+      this._drawPriceTag(ctx, camera, ts, at, preview.money ?? '', true, { text: preview.label, ok, note: preview.note, warn: preview.warning, good: preview.good });
     }
   }
 
