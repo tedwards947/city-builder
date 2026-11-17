@@ -36,6 +36,8 @@ export class LandValueSystem {
   private _layer: Uint8Array | null = null;   // the layer `_total` and `_easing` describe
   private _total = 0;                          // sum of the whole layer
   private _easing: Rect = { x0: 0, y0: 0, x1: -1, y1: -1 }; // tiles that changed last run
+  private _acc = new Float64Array(0);          // each tile's target while it is being added up
+  private _cong = new Uint8Array(0);           // highest congestion on a road within 2 tiles
 
   update(world: World): void {
     if (world.tick % BALANCE.growth.tickInterval !== 0) return;
@@ -86,57 +88,87 @@ export class LandValueSystem {
     const heritage = ordinanceModifier(world, 'establishedLandValue');
     const establishedAfter = heritage !== 1 ? establishedAfterYears() : 0;
 
-    let delta = 0;
-    let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
+    // The neighbourhood terms are gathered by SCATTER: instead of every tile
+    // looking at the 49 tiles around it, each road and each developed or
+    // abandoned lot adds its effect to the tiles around itself. The work is
+    // then in proportion to what is built, not to the area times 49. Each
+    // tile still receives exactly the same additions in exactly the same
+    // order as a tile-by-tile scan would make them (congestion first, then
+    // its neighbours in row order), so the results are identical to the bit.
+    if (this._acc.length !== n) { this._acc = new Float64Array(n); this._cong = new Uint8Array(n); }
+    const acc = this._acc, cong = this._cong;
+    // The part of `region` that gets the neighbourhood terms at all.
+    const sx0 = Math.max(region.x0, near.x0), sx1 = Math.min(region.x1, near.x1);
+    const sy0 = Math.max(region.y0, near.y0), sy1 = Math.min(region.y1, near.y1);
+
+    // 1. Highest congestion on a road within 2 tiles.
+    for (let y = sy0; y <= sy1; y++) cong.fill(0, y * width + sx0, y * width + sx1 + 1);
+    const { roads, roadCount } = world.index;
+    for (let k = 0; k < roadCount; k++) {
+      const ri = roads[k];
+      const c = congestion[ri];
+      if (c === 0 || roadClass[ri] === 0) continue;
+      const rx = ri % width, ry = (ri - rx) / width;
+      const ax0 = Math.max(sx0, rx - 2), ax1 = Math.min(sx1, rx + 2);
+      const ay0 = Math.max(sy0, ry - 2), ay1 = Math.min(sy1, ry + 2);
+      for (let y = ay0; y <= ay1; y++) {
+        for (let i = y * width + ax0, end = y * width + ax1; i <= end; i++) if (cong[i] < c) cong[i] = c;
+      }
+    }
+
+    // 2. Each tile's own terms, then the congestion penalty.
     for (let y = region.y0; y <= region.y1; y++) {
-      const rowNear = y >= near.y0 && y <= near.y1;
+      const rowNear = y >= sy0 && y <= sy1;
       for (let x = region.x0; x <= region.x1; x++) {
         const i = y * width + x;
-
         let target: number = LV.base;
         target += svc[i]   ? LV.serviceBonus : 0;
         target += power[i] ? LV.powerBonus   : 0;
         target += water[i] ? LV.waterBonus   : 0;
         target -= poll[i] * LV.pollutionPenalty;
+        if (rowNear && x >= sx0 && x <= sx1) target -= cong[i] * LV.congestionPenalty;
+        acc[i] = target;
+      }
+    }
 
-        if (rowNear && x >= near.x0 && x <= near.x1) {
-          // Find max congestion on adjacent roads (within 2 tiles)
-          let maxNearbyCongestion = 0;
-          for (let dy = -2; dy <= 2; dy++) {
-            for (let dx = -2; dx <= 2; dx++) {
-              const nx = x + dx, ny = y + dy;
-              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-              const ni = ny * width + nx;
-              if (roadClass[ni] !== 0 && congestion[ni] > maxNearbyCongestion) {
-                maxNearbyCongestion = congestion[ni];
-              }
-            }
-          }
-          target -= maxNearbyCongestion * LV.congestionPenalty;
-
-          // Scan neighbourhood for nearby industry (penalty) or developed zones (bonus).
-          const r = LV.industryRadius;
-          for (let dy = -r; dy <= r; dy++) {
-            for (let dx = -r; dx <= r; dx++) {
-              if (dx === 0 && dy === 0) continue;
-              const nx = x + dx, ny = y + dy;
-              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-              const ni = ny * width + nx;
-
-              if (abandoned[ni]) {
-                target -= LV.abandonedPenalty;
-                continue;
-              }
-
-              if (dev[ni] === 0) continue;
-              if (zone[ni] === ZONE_I) {
-                target -= LV.industryPenalty / (Math.abs(dx) + Math.abs(dy));
-              } else if (zone[ni] !== ZONE_NONE && Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
-                target += LV.neighborBonus;
-              }
-            }
+    // 3. Nearby abandoned lots and industry (penalties) and developed
+    //    neighbours (bonus). Sources are visited in row order, so each tile
+    //    gets its additions in the order a scan around it would make them.
+    const r = LV.industryRadius;
+    const qx0 = Math.max(0, sx0 - r), qx1 = Math.min(width - 1, sx1 + r);
+    const qy0 = Math.max(0, sy0 - r), qy1 = Math.min(height - 1, sy1 + r);
+    for (let qy = qy0; qy <= qy1; qy++) {
+      for (let qx = qx0; qx <= qx1; qx++) {
+        const q = qy * width + qx;
+        // What this tile does to the tiles around it: 1 abandoned, 2 industry, 3 neighbour.
+        let what: number;
+        if (abandoned[q]) what = 1;
+        else if (dev[q] === 0) continue;
+        else if (zone[q] === ZONE_I) what = 2;
+        else if (zone[q] !== ZONE_NONE) what = 3;
+        else continue;
+        const reach = what === 3 ? 1 : r;
+        const ax0 = Math.max(sx0, qx - reach), ax1 = Math.min(sx1, qx + reach);
+        const ay0 = Math.max(sy0, qy - reach), ay1 = Math.min(sy1, qy + reach);
+        for (let y = ay0; y <= ay1; y++) {
+          for (let x = ax0; x <= ax1; x++) {
+            if (x === qx && y === qy) continue;
+            const i = y * width + x;
+            if (what === 1) acc[i] -= LV.abandonedPenalty;
+            else if (what === 2) acc[i] -= LV.industryPenalty / (Math.abs(x - qx) + Math.abs(y - qy));
+            else acc[i] += LV.neighborBonus;
           }
         }
+      }
+    }
+
+    // 4. Ease each tile toward its target.
+    let delta = 0;
+    let cx0 = width, cy0 = height, cx1 = -1, cy1 = -1; // tiles that changed this run
+    for (let y = region.y0; y <= region.y1; y++) {
+      for (let x = region.x0; x <= region.x1; x++) {
+        const i = y * width + x;
+        let target = acc[i];
 
         if (establishedAfter > 0 && isEstablished(world, i, establishedAfter)) target *= heritage;
 
