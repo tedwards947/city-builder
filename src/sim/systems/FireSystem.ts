@@ -6,8 +6,22 @@ import { BALANCE } from '../../data/balance';
  * FireSystem manages fire risk, ignition, and spreading.
  * Fire risk is higher in industrial areas and polluted areas.
  * Fire stations reduce risk and prevent spreading.
+ *
+ * It also emits `fireReport`: the fires that matter to the player (those with
+ * no fire station in reach) summed up, at most once per
+ * BALANCE.fire.reportCooldownTicks, so the UI can show one grouped message
+ * instead of one per fire. Nothing is emitted while there is no such fire and
+ * no damage. The counting changes nothing in the simulation.
  */
 export class FireSystem {
+  // Since the last fireReport: uncovered fires that started (ignitions and
+  // spreads) and buildings that lost a level. Not saved: a loaded game simply
+  // starts a new count.
+  private _started = 0;
+  private _damaged = 0;
+  private _reportTile = -1;   // the latest uncovered fire, or failing that the latest damage
+  private _lastReport = -Infinity; // tick of the last fireReport
+
   update(world: World): void {
     const { width } = world.grid;
     const zone = world.layers.zone;
@@ -20,6 +34,7 @@ export class FireSystem {
 
     const building = world.layers.building;
 
+    let burningUncovered = 0;
     const area = world.index.area(world);
     for (let y = area.y0; y <= area.y1; y++) {
     for (let i = y * width + area.x0, rowEnd = y * width + area.x1; i <= rowEnd; i++) {
@@ -79,7 +94,15 @@ export class FireSystem {
               world.layers.distress[i] = 0;
             }
             world.events.emit('fireDamage', { tx, ty, zone: z, level: newLevel });
+            this._damaged++;
+            if (this._started === 0) this._reportTile = i;
           }
+        }
+
+        if (fire[i] > 0 && fireStation[i] === 0) {
+          burningUncovered++;
+          // A fire nobody saw start (burning when the game was loaded).
+          if (this._reportTile < 0) this._reportTile = i;
         }
 
         // 3. Fire Spreading
@@ -97,6 +120,7 @@ export class FireSystem {
                 world.setFire(ntx, nty, b.burnDuration);
                 world.grid.markDirty(ntx, nty);
                 world.events.emit('fireSpreading', { tx: ntx, ty: nty });
+                if (fireStation[ni] === 0) { this._started++; this._reportTile = ni; }
               }
             }
           }
@@ -112,10 +136,26 @@ export class FireSystem {
           const ity = (i / width) | 0;
           world.setFire(itx, ity, b.burnDuration);
           world.grid.markDirty(itx, ity);
-          world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level });
+          const covered = fireStation[i] === 1;
+          world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level, covered });
+          if (!covered) { this._started++; this._reportTile = i; burningUncovered++; }
         }
       }
     }
+    }
+
+    // At most one report per cooldown, and only when there is something to
+    // say. The first uncovered fire after a quiet spell is reported at once.
+    if ((burningUncovered > 0 || this._damaged > 0) && this._reportTile >= 0
+        && world.tick - this._lastReport >= b.reportCooldownTicks) {
+      const t = this._reportTile;
+      world.events.emit('fireReport', {
+        burning: burningUncovered, started: this._started, damaged: this._damaged,
+        tx: t % width, ty: (t / width) | 0,
+      });
+      this._lastReport = world.tick;
+      this._started = 0;
+      this._damaged = 0;
     }
   }
 }
