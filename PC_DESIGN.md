@@ -38,7 +38,7 @@ Political Capital (PC) is a dead mechanic right now. It has one way to earn it (
 ### One rule for services (ribbon cuttings and closures)
 Each nearby resident gets less value from each additional service building of the same type. The first park matters a lot, a second park close by matters less but still something.
 - **Opening** a park, police, fire, school or hospital building earns PC equal to the total value residents gain.
-- **Closing** one costs PC equal to the total value they lose, multiplied by a factor of at least 1, so building and bulldozing can't be farmed.
+- **Closing** one costs PC for what residents lose. Residents left with **no** building of that kind count at the closure multiplier (at least 1), so building and bulldozing can't be farmed and closing the only hospital hurts. Residents **still covered** by another building count their smaller loss at ×1 (owner decision, 2026-11-17, after the balance lab showed moves could never be cheap under the old rule).
 - Residents still covered by another building of the same type lose very little, so **moving** a service is cheap.
 
 ## Parked
