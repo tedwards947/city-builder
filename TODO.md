@@ -75,6 +75,24 @@ Second engine session: engine tasks the main engine session isn't on, cleanup an
 3. **Political Capital live tuning panel** (`?debug=true`): _Built._ It has an input for every `BALANCE.politicalCapital` number, generated from the balance object, so new keys appear by themselves. It shows PC / cap, regeneration (applied, and the rate at the current satisfaction), 0 → cap refill time, satisfaction with each factor, and the next milestone. "Load proposed" switches on the engine's proposed numbers (`src/ui/pcPresets.ts`), "Reset" puts the shipped ones back, and "Copy values" exports the block for a numbers-on PR.
 4. **CI and cleanup proposals** sent to the PM for the owner: perf numbers in CI, Cloudflare Pages PR previews (needs the owner's account), require CI before merging, prune merged branches.
 
+## ENGINEER 3
+
+Balance Lab: targets, tuner, grading and the tuned numbers (`src/balance/`, `scripts/balance*.mjs`).
+
+Done and merged:
+- Tuned PC preset T (`src/balance/tunedT.ts`, used by the lab and the debug panel) (#169, #190).
+- Lab grades the economy, service capacity and debt game over; tax-slider targets (#185, #193, #195, #197).
+
+In progress:
+- Re-tune T under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000); school and hospital PC pay is too high.
+
+Next:
+1. Seaport and goods targets the owner approved (port.payback 150–450 days, port.split, port.farm, goods.today, goods.port.fix), then tune `BALANCE.port` and `BALANCE.goods`.
+2. Tune `BALANCE.budget.debtPcDrainPerDay` and the tax level's `satisfactionPerPoint` / `demandStrength`.
+
+Waiting on:
+- ENGINE: the tax slider's growth-demand follow-up, before its targets can be added.
+
 ## DESIGN
 
 Raised by the owner. Lettered, not ranked.
