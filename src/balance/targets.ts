@@ -135,7 +135,7 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-17): a second building should pay little only where it overlaps the first; one serving a new district should pay well.',
     evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].flatMap(k => {
       const p = c.probes?.['ribbon:' + k] as { overlapPay?: number | null; newPay?: number | null } | undefined;
-      return [[k + '.overlap', range(p?.overlapPay, -Infinity, 0.5)], [k + '.new', range(p?.newPay, 0.8)]];
+      return [[k + '.overlap', p?.overlapPay === null ? NA('re-seats nobody') : range(p?.overlapPay, -Infinity, 0.5)], [k + '.new', p?.newPay === null ? NA('seats nobody new') : range(p?.newPay, 0.8)]];
     }))) },
   { id: 'pc.move', metric: 'Net PC to move a service (open a second on the free lot that serves most of the first one\'s homes, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Moving a service is cheap. The second site overlaps the first (owner, 2026-11-17), so the probe measures a move, not stranding homes.',
@@ -232,6 +232,14 @@ const ECON_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'econ.noSoftlock', metric: 'Longest run of days in debt', target: '≤ 30', persona: 'planner (own money)', cities: 'all', status: 'graded',
     why: 'No city should be stuck in debt.',
     evaluate: c => { const e = econ(c); if (!e) return NA('not run'); if (e.gameOverDay !== null && e.gameOverDay !== undefined) return { value: e.longestDebtRun, pass: false, miss: 1, note: `game over for debt on day ${e.gameOverDay}` }; return range(e.longestDebtRun, 0, 30); } },
+  { id: 'econ.taxSlider', metric: 'A mature city: the city-wide tax level that would put its surplus in the middle of 10–25% (the run\'s level × the tax multiplier needed), against the slider\'s range', target: 'within the slider', persona: 'planner (own money)', cities: 'saved and generated', status: 'graded',
+    why: 'Fairness (owner, 2026-11-17): the player has a lever that can reach the target band. The note gives the satisfaction cost of that level.',
+    evaluate: c => {
+      if (c.cityKind === 'fresh') return NA('mature (saved) cities only'); const e = econ(c); if (!e) return NA('not run');
+      const v = e.taxLevelForMidSurplus; if (v === null || v === undefined) return NA('no income');
+      const { min, max, neutral, satisfactionPerPoint } = BALANCE.tax.level;
+      return { ...range(v, min, max), note: `satisfaction ${((neutral - v) * satisfactionPerPoint >= 0 ? '+' : '')}${Math.round((neutral - v) * satisfactionPerPoint * 100)} points at that level` };
+    } },
   { id: 'econ.matureSurplus', metric: 'A mature city\'s (income − expenses) ÷ expenses per day, mean of the last 30 days', target: '0.10–0.25', persona: 'planner (own money)', cities: 'saved and generated', status: 'graded',
     why: 'Owner: a mature city should earn, but big projects should still take saving.',
     evaluate: c => { if (c.cityKind === 'fresh') return NA('not a mature city'); const e = econ(c); return e ? { ...range(e.surplusLate, 0.1, 0.25), note: `income ${e.incomeLate}/day, expenses ${e.expensesLate}/day; tax ×${e.taxForMidSurplus} would centre it` } : NA('not run'); } },
@@ -253,7 +261,7 @@ const capOff = (c: EvalCtx) => !c.svc || !Object.values(c.svc.capacity ?? {}).so
 
 const SVC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'svc.perCapita', metric: 'Schools and hospitals needed per 10k residents: a greedy plan seating 99% of residents (each pick seats the most, capacity respected), whatever the city has built', target: 'schools 3–6; hospitals 1–2', persona: 'planner', cities: 'all', status: 'graded',
-    why: 'Services scale with population, not sprawl: capacity should bind, but not fill the map.',
+    why: 'Services scale with population, not sprawl: capacity should bind, but not fill the map. Accepted exception (owner, 2026-11-17): spread layouts (organic, suburban) need 7–8 schools per 10k; sprawl costs buildings, so a miss there is a fair trade-off, not a bug.',
     evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, (k, n) => (c.svc!.population < 3000 ? NA('under 3k residents') : { ...range(k.neededPer10k, n === 'school' ? 3 : 1, n === 'school' ? 6 : 2), note: `the Planner has ${k.per10k}/10k` })) },
   { id: 'svc.seated', metric: 'Share of residents with a seat at the end of the Planner\'s run', target: 'schools ≥ 90%; hospitals ≥ 95%', persona: 'planner', cities: 'all', status: 'graded',
     why: 'A careful player can serve nearly everyone: hard is fine, impossible is not.',

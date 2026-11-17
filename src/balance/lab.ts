@@ -339,7 +339,7 @@ export function runLab(o: LabOptions): Report {
       }
       into[k] = s;
     }
-    const ranked = keys.filter(k => k !== 'Off' && k !== 'original' && k !== 'off').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
+    const ranked = keys.filter(k => k !== 'Off' && k !== 'original').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
     if (!ranked.length) return null;
     const share = (x: { pass: number; of: number }) => x.pass / Math.max(x.of, 1);
     return { ...ranked[0], tied: ranked.slice(1).filter(x => share(x) === share(ranked[0])).map(x => x.variant) };

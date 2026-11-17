@@ -13,6 +13,7 @@ import type { Command } from '../commands/Command';
 import { cloneWorld, startSim, type Sim } from './world';
 import { findLot, placeNear, isHome, isFreeLot, residentsAt, KIND_NAME } from './town';
 import { homesWithinReach } from '../sim/serviceValue';
+import { hasCapacity, seatsIfClosed, seatsIfOpened } from '../sim/serviceCapacity';
 import {
   ZONE_NONE, ZONE_C, ZONE_I, ZONE_R, ROAD_NONE, ROAD_STREET, BUILDING_NONE,
   BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE,
@@ -122,7 +123,11 @@ export function staticProbes(world: World): StaticProbes {
     const p1 = sim.world.budget.politicalCapital, first = p1 - p0;
     const res = (w: World, hs: Iterable<number>) => { let n = 0; for (const i of hs) n += residentsAt(w, i); return n; };
     const h1 = new Set(homesWithinReach(sim.world, l1.x, l1.y, kind));
-    const perRes = h1.size ? first / Math.max(res(sim.world, h1), 1e-9) : 0;
+    // Schools and hospitals with a capacity are paid per seat (engine's seat rule), others per resident in reach.
+    const seatKind = hasCapacity(kind);
+    const anchorOf = (x: number, y: number) => sim.world.buildingAnchorAt(sim.world.grid.idx(x, y));
+    const seats1 = seatKind ? seatsIfClosed(sim.world, anchorOf(l1.x, l1.y), kind).lostResidents : 0;
+    const perRes = seatKind ? (seats1 > 0 ? first / seats1 : 0) : h1.size ? first / Math.max(res(sim.world, h1), 1e-9) : 0;
     const split = (w: World, x: number, y: number) => {
       const h = homesWithinReach(w, x, y, kind);
       return { O: res(w, h.filter(i => h1.has(i))), D: res(w, h.filter(i => !h1.has(i))) };
@@ -130,6 +135,7 @@ export function staticProbes(world: World): StaticProbes {
     const l2 = placeNear(sim, null, kind, l1.x + 6, l1.y, 8);
     const second = l2 ? sim.world.budget.politicalCapital - p1 : null;
     const s2 = l2 ? split(sim.world, l2.x, l2.y) : null;
+    const seats2 = seatKind && l2 ? seatsIfClosed(sim.world, anchorOf(l2.x, l2.y), kind).lostResidents : 0;
     const closeFirstFar = second !== null ? delta(sim, new BulldozeCommand(l1.x, l1.y)) : null;
     const closeLast = second !== null && l2 ? delta(sim, new BulldozeCommand(l2.x, l2.y)) : null;
 
@@ -144,17 +150,22 @@ export function staticProbes(world: World): StaticProbes {
       lots.push({ x, y, n: split(sim2.world, x, y).O, d: Math.max(Math.abs(dx), Math.abs(dy)) });
     }
     lots.sort((a, b) => b.n - a.n || a.d - b.d || a.y - b.y || a.x - b.x);
-    let near: { x: number; y: number; open: number; O: number; D: number } | null = null;
+    let near: { x: number; y: number; open: number; O: number; D: number; gained: number; reseated: number } | null = null;
     for (const lot of lots.slice(0, 30)) {
       const sp = split(sim2.world, lot.x, lot.y);
+      const ch = seatKind ? seatsIfOpened(sim2.world, lot.x, lot.y, kind) : null;
       const d = delta(sim2, new PlaceBuildingCommand(lot.x, lot.y, kind));
-      if (d !== null) { near = { x: lot.x, y: lot.y, open: d, ...sp }; break; }
+      if (d !== null) { near = { x: lot.x, y: lot.y, open: d, ...sp, gained: ch?.gainedResidents ?? 0, reseated: ch ? ch.seatedAtNew - ch.gainedResidents : 0 }; break; }
     }
     const closeFirstNear = near ? delta(sim2, new BulldozeCommand(l1.x, l1.y)) : null;
 
     // Overlap pay from the overlapping building (mostly overlap); new-district pay from the far one.
-    const overlapPay = near && perRes > 0 && near.O > 0 ? (near.open - perRes * near.D) / (perRes * near.O) : null;
-    const newPay = s2 && second !== null && perRes > 0 && s2.D > 0 ? (second - perRes * (overlapPay ?? 0) * s2.O) / (perRes * s2.D) : null;
+    const overlapPay = seatKind
+      ? (near && perRes > 0 && near.reseated > 0 ? (near.open - perRes * near.gained) / (perRes * near.reseated) : null)
+      : (near && perRes > 0 && near.O > 0 ? (near.open - perRes * near.D) / (perRes * near.O) : null);
+    const newPay = seatKind
+      ? (second !== null && perRes > 0 && seats2 > 0 ? second / (perRes * seats2) : null)
+      : (s2 && second !== null && perRes > 0 && s2.D > 0 ? (second - perRes * (overlapPay ?? 0) * s2.O) / (perRes * s2.D) : null);
     out['ribbon:' + KIND_NAME[kind]] = {
       first: first === null ? null : r3(first / cap),
       second: second === null ? null : r3(second / cap),

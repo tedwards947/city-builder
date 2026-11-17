@@ -19,7 +19,7 @@
 //   --suite pc|econ|svc      one suite only (default all three)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
-//   --svc-presets off,mid,.. which services capacity presets (src/balance/services.ts; default all)
+//   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
 //   --pc-max-pop 20000       saved cities above this skip the PC and services suites
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
@@ -74,7 +74,7 @@ try {
     variants,
     customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,
     econPresets: quick ? ['recommended'] : list(opt('--presets')),
-    svcPresets: quick ? ['mid'] : list(opt('--svc-presets')),
+    svcPresets: quick ? ['shipped'] : list(opt('--svc-presets')),
     pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
     personas: list(opt('--personas')),
     daysFresh: Number(opt('--days-fresh') ?? (quick ? 120 : 300)),
