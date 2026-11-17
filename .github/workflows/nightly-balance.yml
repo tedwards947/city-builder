@@ -1,0 +1,79 @@
+# Every night on main: builds the generated test cities (npm run gen-city:
+# four layout styles at 10k and 50k people, plus a 150k grid city) and runs
+# the Balance Lab on them (npm run balance). Report only: it runs on no pull
+# request and never fails on a target miss.
+#
+#   Report      the "balance-report" artifact: latest.json (schema in
+#               src/balance/lab.ts) and summary.md
+#   Summary     the run's job summary: passes per PC variant and economy
+#               preset, newly failing and newly passing targets
+#   Trends      last night's latest.json is restored first, so the lab
+#               compares against it
+#
+# Run it by hand from the Actions tab ("Run workflow").
+name: Nightly balance
+
+on:
+  schedule:
+    - cron: '17 7 * * *'   # 07:17 UTC every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read   # to fetch last night's report
+
+concurrency:
+  group: nightly-balance
+  cancel-in-progress: false
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Last night's report
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow nightly-balance.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$id" ]; then echo "No earlier report; trends start from this run."; exit 0; fi
+          mkdir -p prev balance-results
+          gh run download "$id" --repo "$GITHUB_REPOSITORY" --name balance-report --dir prev
+          mv prev/latest.json balance-results/latest.json
+          echo "Comparing against run $id."
+
+      - name: Build test cities
+        run: |
+          for style in grid suburban organic dense-core; do
+            for target in 10000 50000; do
+              npm run -s gen-city -- --seed 1 --target "$target" --style "$style" --quiet
+            done
+          done
+          npm run -s gen-city -- --seed 1 --target 150000 --quiet
+
+      - name: Balance Lab
+        run: npm run -s balance -- --summary-md balance-results/summary.md
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f balance-results/summary.md ]; then cat balance-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else echo "No summary was written; see the log of the Balance Lab step." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: balance-report
+          path: |
+            balance-results/latest.json
+            balance-results/summary.md
+          if-no-files-found: warn
+          retention-days: 90
