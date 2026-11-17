@@ -219,7 +219,7 @@ function notifyRejected(reason: FailReason): void {
   lastRejectToast[reason] = now;
   toastPanel.showToast(
     t('ui.toast.cantBuildTitle'),
-    t(reason === 'funds' ? 'ui.toast.noFunds' : 'ui.toast.noPoliticalCapital'),
+    t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : 'ui.toast.noPoliticalCapital'),
     'warning',
   );
 }
@@ -540,7 +540,10 @@ function frame(now: number): void {
       const kind = buildingKindForTool(currentTool);
       if (kind !== undefined && isLargeBuilding(kind)) {
         const a = placementAnchor(kind, hoverTile.tx, hoverTile.ty);
-        if (state.world.canPlaceBuilding(a.tx, a.ty, kind)) pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+        const blocker = state.world.placeBlocker(a.tx, a.ty, kind);
+        if (blocker === null) pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+        // The land is free but there is no water beside it (a water pump): say so at the pointer.
+        else if (blocker === 'noWater') pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: false, money: toolPrice(currentTool).cost, note: t('ui.hud.needsWater') };
       }
     }
   }
