@@ -1,6 +1,7 @@
 // The auto-tuner's current best PC number set (variant "T" / Tuned), graded by default
 // so the nightly lab reports it. Replace with a newer tuner result (best.values of
-// balance-results/tune-*.json) when one beats it. Not used by the game.
+// balance-results/tune-*.json) when one beats it. The game's debug panel shows the
+// same object as preset T (src/ui/pcVariantValues.ts), so this file is the only copy.
 // Source: tuner from D on main 3ba7d3e, 547 evaluations (2026-11-17).
 
 export const TUNED_T: Record<string, unknown> = {
