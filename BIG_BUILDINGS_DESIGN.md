@@ -1,6 +1,6 @@
 # Big buildings: plan
 
-*Status: plan from the engine and graphics scoping notes (2026-11-17). Owner decisions are marked **Decide**. Nothing is built yet.*
+*Status: plan agreed with the owner (2026-11-17), from the engine and graphics scoping notes. Phase 1 (no behaviour change) is starting.*
 
 ## Why
 The game assumes one building per tile. Airports, seaports, military bases and landmarks need buildings that span several tiles. First step: **large power plant, large water plant, large sewage plant**, which make a good first case because they're plain and have no services logic.
@@ -13,9 +13,9 @@ The game assumes one building per tile. Airports, seaports, military bases and l
 ## Data model (engine)
 **Owner's idea (2026-11-17): every tile records which building it's part of, so buildings don't have to be square.** Adopted as follows:
 - **Shapes, not rectangles:** each kind has a **shape**, a list of tile offsets from its anchor, e.g. `[[0,0],[1,0],[0,1]]` for an L. A square 3×3 is just nine offsets. Default: one tile. New kinds **9, 10, 11** (large power, water, sewage) start as plain squares. Later, L-shaped plants, runways and docks are just other shapes.
-- **Per-tile building id:** a new layer `buildingId` gives each tile the building it belongs to (0 = none). `world.buildingAt(tx, ty)` is then a plain array read. The layer is **derived** from `world.buildings` and the shapes on load, place and clear, not saved, so the save format doesn't change.
-- **Optional part role:** each offset can carry a role (`body`, `dock`, `runway`, `entrance`…), stored per tile in a small `buildingPart` layer, also derived. Rules can use it later: a seaport's dock tiles must touch water; a runway must be road-free and straight; only entrance tiles count for road access. The first three plants use `body` only.
-- **One entity per building** in `world.buildings`, at its anchor (the shape's (0,0) tile), as today.
+- **Per-tile building id:** a new `buildingId` array (Uint32) gives each tile the building it belongs to: **the anchor tile's index + 1** (0 = none). That id is the same after save/load, undo/redo and in identical cities, two buildings can never share one, and nothing needs saving. `world.buildingAt(tx, ty)` reads the id; the kind is already on the tile. A small anchor → entity map sits beside the list. **It lives on `world`, not in `world.layers`**, because `world.layers` is what the save and the golden baseline walk. One `rebuildBuildingIds()` runs after load, with incremental updates in place/clear/undo, and a test asserts incremental equals a full rebuild after random place/bulldoze/undo sequences.
+- **Optional part role:** each offset can carry a role (`body`, `dock`, `runway`, `entrance`…). No extra layer: `buildingPartAt(tx, ty)` works it out from the id and the kind's shape (a layer only if a hot loop ever needs one). Rules can use it later: a seaport's dock tiles must touch water; a runway must be road-free and straight; only entrance tiles count for road access. The first three plants use `body` only.
+- **One entity per building** in `world.buildings`, at its anchor. **Every shape includes offset (0,0), and that tile is the anchor**, because in an L the bounding box's top-left corner may be empty. Engine and graphics use the same definition.
 - **Every shape tile also carries the kind** in `layers.building`, so anything asking "is there a building here?" keeps working (roads, zoning, fire spread, WorldIndex, renderer occupancy).
 - **No rotation yet.** The entity has room for a `rot` field later; rotating a shape just rotates its offsets.
 - The shape table, anchor and both derived layers live in `src/sim`, and graphics imports them, so engine and renderer can't disagree.
@@ -66,8 +66,9 @@ A **3×3 plant ≈ the output of 12 small ones, on the land of 9, for about 8× 
 ## Later
 Rotation, and non-square shapes in real buildings (airports, runways, docks), a shore rule for seaports, large services and landmarks (coverage from the perimeter is already in phase 1), fire and abandonment for whole landmarks.
 
-## Decide (owner)
-1. Footprints: large power **3×3**, large water **2×2**, large sewage **2×2** (graphics' suggestion)?
-2. Placeholder value: about 12× output for about 8× cost and upkeep on a 3×3 (scaled for 2×2)?
-3. Roads under a footprint refused, not replaced?
-4. Paid art: 8–12 images for phase 4, now or later?
+## Owner decisions (2026-11-17)
+1. **Footprints:** large power **3×3**, large water **2×2**, large sewage **2×2**.
+2. **Placeholder value:** more output per dollar, about 12× output for about 8× cost and upkeep on a 3×3, scaled for 2×2. Tuned by the balance lab later.
+3. **Roads under a footprint:** placement refused, not replaced.
+4. **Art:** code-drawn stand-ins first; paid art once the plants feel right.
+5. **Shapes:** every tile records which building it's part of, so buildings needn't be square (owner's idea).
