@@ -18,6 +18,8 @@ import type { World, BuildingEntity } from './World';
 import { BALANCE } from '../data/balance';
 import { BUILDING_SEAPORT } from './constants';
 import { addDoorProvider } from './TrafficData';
+import { BUILDING_NONE, TERRAIN_WATER } from './constants';
+import { shapeRoles } from './buildingShapes';
 
 /** Every seaport standing in the city. */
 export function seaports(world: World): BuildingEntity[] {
@@ -111,4 +113,82 @@ export function exportIncome(world: World): number {
 export function portIndustrialDemandMult(world: World): number {
   const mult = BALANCE.port.industrialDemandMult;
   return mult !== 1 && hasConnectedPort(world) ? mult : 1;
+}
+
+// ── For the ships graphics draws ────────────────────────────────────────────
+
+/** A port's trade per game day, and how often a ship calls. Ships are for show: nothing in the sim depends on them. */
+export interface PortTradePerDay {
+  exportsPerDay: number;
+  importsPerDay: number;
+  /** Ship calls per game day: trade trips per day ÷ BALANCE.port.tripsPerShip. 0 = no ships. */
+  shipsPerDay: number;
+  /** The most trade (exports plus imports) the port can handle per game day. */
+  capacity: number;
+}
+
+/** The trade per game day of the port anchored at tile index `anchor`, or null if no seaport is anchored there. */
+export function portTrade(world: World, anchor: number): PortTradePerDay | null {
+  const w = world.grid.width;
+  const t = portTradeAt(world, anchor % w, (anchor - (anchor % w)) / w);
+  if (!t || world.buildingAnchorAt(anchor) !== anchor) return null;
+  const day = BALANCE.ticksPerDay, P = BALANCE.port;
+  const exportsPerDay = t.exports * day, importsPerDay = t.imports * day;
+  return {
+    exportsPerDay, importsPerDay,
+    shipsPerDay: P.tripsPerShip > 0 ? (exportsPerDay + importsPerDay) / P.tripsPerShip : 0,
+    capacity: (t.exportCapacity + t.importCapacity) * day,
+  };
+}
+
+const routes = new WeakMap<World, { edits: number; byAnchor: Map<number, number[] | null> }>();
+
+/**
+ * The way a ship takes between the port anchored at tile index `anchor` and
+ * the edge of the map: water tile indices, starting on the water just off the
+ * port's docks and ending on a water tile at the map's edge. The shortest
+ * such way in tile steps; it may pass under bridges, but not through any
+ * port's docks. Null if no seaport is anchored there or its docks are shut
+ * in. Remembered until the map next changes.
+ */
+export function shipRoute(world: World, anchor: number): number[] | null {
+  let cached = routes.get(world);
+  if (!cached || cached.edits !== world.grid.edits) { cached = { edits: world.grid.edits, byAnchor: new Map() }; routes.set(world, cached); }
+  const have = cached.byAnchor.get(anchor);
+  if (have !== undefined) return have;
+  const route = findShipRoute(world, anchor);
+  cached.byAnchor.set(anchor, route);
+  return route;
+}
+
+function findShipRoute(world: World, anchor: number): number[] | null {
+  const { width, height } = world.grid;
+  const { terrain, building } = world.layers;
+  if (anchor < 0 || anchor >= terrain.length || building[anchor] !== BUILDING_SEAPORT || world.buildingAnchorAt(anchor) !== anchor) return null;
+  const tiles = world.buildingTilesAt(anchor % width, (anchor - (anchor % width)) / width);
+  const roles = shapeRoles(BUILDING_SEAPORT);
+  const docks = tiles.filter((_, k) => roles[k] === 'dock');
+
+  // Breadth-first over free water, from the water beside the docks, until the map's edge.
+  const from = new Int32Array(width * height).fill(-2);       // -2 = not reached, -1 = a start
+  const queue: number[] = [];
+  const free = (i: number) => terrain[i] === TERRAIN_WATER && building[i] === BUILDING_NONE;
+  const visit = (i: number, prev: number) => { if (from[i] === -2 && free(i)) { from[i] = prev; queue.push(i); } };
+  for (const d of docks) {
+    const x = d % width;
+    if (x > 0) visit(d - 1, -1);
+    if (x < width - 1) visit(d + 1, -1);
+    if (d >= width) visit(d - width, -1);
+    if (d < width * (height - 1)) visit(d + width, -1);
+  }
+  for (let q = 0; q < queue.length; q++) {
+    const i = queue[q], x = i % width, y = (i - x) / width;
+    if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+      const route: number[] = [];
+      for (let t = i; t >= 0; t = from[t]) route.push(t);
+      return route.reverse();
+    }
+    visit(i - 1, i); visit(i + 1, i); visit(i - width, i); visit(i + width, i);
+  }
+  return null;
 }

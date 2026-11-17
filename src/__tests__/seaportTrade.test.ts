@@ -7,11 +7,13 @@ import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { LandValueSystem } from '../sim/systems/LandValueSystem';
-import { seaports, hasConnectedPort, portTradeAt, exportIncome, portIndustrialDemandMult } from '../sim/seaport';
+import { seaports, hasConnectedPort, portTradeAt, exportIncome, portIndustrialDemandMult, portTrade, shipRoute } from '../sim/seaport';
+import { PollutionSystem } from '../sim/systems/PollutionSystem';
+import { pcQuote } from '../sim/politics';
 import { goodsShortage, goodsIncomeMult, goodsDemandMult } from '../sim/goods';
 import { BUILDING_SEAPORT, TERRAIN_WATER, ROAD_STREET, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { landWorld } from './pcTestWorld';
+import { landWorld, home } from './pcTestWorld';
 
 const P = BALANCE.port as Record<string, number>;
 const G = BALANCE.goods as Record<string, number>;
@@ -239,5 +241,96 @@ describe('the industry boost', () => {
     expect(w.stats.rDemand).toBe(plain.r);
     for (let x = 4; x <= 28; x++) w.clearTile(x, 13);        // the road goes: the boost with it
     expect(portIndustrialDemandMult(w)).toBe(1);
+  });
+});
+
+describe('ships', () => {
+  it('the route runs over open water from just off the docks to the edge of the map', () => {
+    w.placeBuilding(10, 10, PORT);                           // docks at y = 9; the sea is y 0–9
+    const anchor = idx(10, 10);
+    const route = shipRoute(w, anchor)!;
+    expect(route.length).toBe(9);                            // y = 8 down to y = 0, straight out
+    expect(Math.floor(route[0] / 32)).toBe(8);               // beside a dock
+    expect(Math.floor(route[route.length - 1] / 32)).toBe(0);
+    for (const i of route) {
+      expect(w.layers.terrain[i]).toBe(TERRAIN_WATER);
+      expect(w.layers.building[i]).toBe(0);
+    }
+    for (let k = 1; k < route.length; k++) {
+      const d = Math.abs(route[k] - route[k - 1]);
+      expect(d === 1 || d === 32).toBe(true);                // tile to tile
+    }
+    expect(shipRoute(w, anchor)).toBe(route);                // remembered until the map changes
+    expect(shipRoute(w, idx(11, 10))).toBeNull();            // not an anchor
+    expect(shipRoute(w, idx(20, 20))).toBeNull();            // no port
+  });
+
+  it('the route passes under a bridge, goes round land, and is null when the docks are shut in', () => {
+    w.placeBuilding(10, 10, PORT);
+    const anchor = idx(10, 10);
+    for (let x = 0; x < 32; x++) w.setRoad(x, 5, ROAD_STREET);                 // a bridge right across the sea
+    expect(shipRoute(w, anchor)!.length).toBe(9);
+    for (let x = 0; x < 32; x++) w.clearTile(x, 5);
+    // A wall of land across the sea at y = 4 with one gap at x = 30: the ship goes round.
+    for (let x = 0; x < 30; x++) w.layers.terrain[idx(x, 4)] = 0;
+    w.setRoad(0, 20, ROAD_STREET); w.clearTile(0, 20);                        // any edit: the route is worked out again
+    const round = shipRoute(w, anchor)!;
+    expect(round.length).toBeGreaterThan(9);
+    expect(round.every((i) => w.layers.terrain[i] === TERRAIN_WATER)).toBe(true);
+    // Closed altogether, and the sea's own side edges walled off: nowhere to go.
+    for (let x = 0; x < 32; x++) w.layers.terrain[idx(x, 4)] = 0;
+    for (let y = 5; y <= 9; y++) { w.layers.terrain[idx(0, y)] = 0; w.layers.terrain[idx(31, y)] = 0; }
+    w.setRoad(0, 20, ROAD_STREET); w.clearTile(0, 20);
+    expect(shipRoute(w, anchor)).toBeNull();
+  });
+
+  it('ships call in proportion to the trade', () => {
+    exportsOn();
+    P.importCapacity = 10;
+    P.tripsPerShip = 10;
+    w.placeBuilding(10, 10, PORT);
+    const anchor = idx(10, 10);
+    expect(portTrade(w, anchor)).toEqual({ exportsPerDay: 0, importsPerDay: 0, shipsPerDay: 0, capacity: 110 * BALANCE.ticksPerDay });
+    traffic();
+    const t = portTrade(w, anchor)!;
+    const day = BALANCE.ticksPerDay;
+    expect(t.exportsPerDay).toBeCloseTo(4.5 * day);
+    expect(t.importsPerDay).toBeCloseTo(4 * T.tripsCtoI * day);
+    expect(t.shipsPerDay).toBeCloseTo((t.exportsPerDay + t.importsPerDay) / 10);
+    expect(portTrade(w, idx(11, 10))).toBeNull();
+    expect(portTrade(w, idx(20, 20))).toBeNull();
+  });
+});
+
+describe('the port as a neighbour', () => {
+  it('homes object to the yard, not to the docks', () => {
+    const N = BALANCE.politicalCapital.nuisance as { buildingPerResident: Record<number, number> };
+    const was = N.buildingPerResident[PORT];
+    N.buildingPerResident[PORT] = 1;
+    try {
+      w.budget.politicalCapital = 1000;
+      home(w, 15, 11);                                       // two tiles east of the yard (x 10–13): full weight
+      // A spit of land level with the docks: this home is two tiles from a dock but three from the yard.
+      w.layers.terrain[idx(14, 9)] = 0; w.layers.terrain[idx(15, 9)] = 0;
+      home(w, 15, 9);
+      const q = pcQuote(w, { type: 'building', tx: 10, ty: 10, kind: PORT });
+      const parts = Object.fromEntries(q.parts.filter((p) => p.reason === 'nuisance').map((p) => [p.tx + ',' + p.ty, p.strength]));
+      expect(parts).toEqual({ '15,11': 1, '15,9': 0.6 });
+    } finally { N.buildingPerResident[PORT] = was; }
+  });
+
+  it('the yard pollutes when its output is set; the docks do not', () => {
+    const Pol = BALANCE.pollution as { seaportOutput: number };
+    w.placeBuilding(10, 10, PORT);
+    const sys = new PollutionSystem();
+    for (let k = 0; k < 5; k++) { w.tick++; sys.update(w); }
+    expect(w.layers.pollution[idx(11, 11)]).toBe(0);
+    Pol.seaportOutput = 20;
+    try {
+      w.tick++; sys.update(w);
+      // After one step: the yard holds what it put out (less what spread); a dock only what spread to it.
+      expect(w.layers.pollution[idx(11, 11)]).toBeGreaterThan(w.layers.pollution[idx(11, 9)]);
+      expect(w.layers.pollution[idx(11, 11)]).toBeGreaterThan(10);
+    } finally { Pol.seaportOutput = 0; }
   });
 });

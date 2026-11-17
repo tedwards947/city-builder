@@ -15,7 +15,7 @@ import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
 import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad, shapeTouchesAccessRoad } from './serviceValue';
-import { footprintTiles } from './buildingShapes';
+import { footprintTiles, shapeRoles, hasDocks } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { isEstablished } from './established';
@@ -519,6 +519,11 @@ export function pcQuote(
     // A home's distance is to the nearest tile of what is being placed, so a
     // large building is a nuisance from its edge, not from its anchor.
     const width = grid.width;
+    // Docks stand out over the water: homes object to the yard, not to them.
+    if (action.type === 'building' && hasDocks(action.kind)) {
+      const roles = shapeRoles(action.kind);
+      footprint = footprint.filter((_, k) => roles[k] !== 'dock');
+    }
     let fx0 = tx, fx1 = tx, fy0 = ty, fy1 = ty;
     for (const fi of footprint) {
       const fx = fi % width, fy = (fi - fx) / width;
