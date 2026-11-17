@@ -4,11 +4,13 @@ import { BALANCE } from '../data/balance';
 import { ZONE_R, ZONE_I, BUILDING_POLICE, BUILDING_POWER_PLANT, TERRAIN_GRASS } from '../sim/constants';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { ECON_PRESETS } from '../ui/econPresets';
+import { buildingUpkeep } from '../sim/serviceValue';
 
 type Tree = Record<string, unknown>;
 const tax = BALANCE.tax as { landValueFloor: number };
 const upkeep = BALANCE.maintenance as { serviceMult: number };
-afterEach(() => { tax.landValueFloor = 0; upkeep.serviceMult = 1; });
+const shipped = { landValueFloor: tax.landValueFloor, serviceMult: upkeep.serviceMult };
+afterEach(() => { tax.landValueFloor = shipped.landValueFloor; upkeep.serviceMult = shipped.serviceMult; });
 
 /** One home and one factory at land value 0, a police station and a power plant. */
 function world(): World {
@@ -24,13 +26,17 @@ function world(): World {
 }
 
 describe('economy knobs', () => {
-  it('ship at the values that change nothing', () => {
-    expect(tax.landValueFloor).toBe(0);
-    expect(upkeep.serviceMult).toBe(1);
+  it("ship at the owner's Tight numbers", () => {
+    expect(tax.landValueFloor).toBe(0.25);
+    expect(upkeep.serviceMult).toBe(0.75);
+    const tight = ECON_PRESETS.find((p) => p.id === 'tight')!.values as { maintenance: { serviceMult: number }; tax: { landValueFloor: number } };
+    expect(tight.maintenance.serviceMult).toBe(upkeep.serviceMult);
+    expect(tight.tax.landValueFloor).toBe(tax.landValueFloor);
   });
 
   it('landValueFloor lets homes on worthless land pay; industry is unaffected', () => {
     const w = world();
+    tax.landValueFloor = 0;
     new EconomySystem().update(w);
     const industryOnly = w.budget.income;                       // the home pays 0 at lv 0
     expect(industryOnly).toBeCloseTo(2 * BALANCE.tax.zoneI * BALANCE.tax.industryLandValueMult);
@@ -46,6 +52,10 @@ describe('economy knobs', () => {
     upkeep.serviceMult = 0.5;
     new EconomySystem().update(w);
     expect(w.budget.expenses).toBeCloseTo(police * 0.5 + plant);
+    // The figure the toolbar and the inspect pane show is the one the budget charges.
+    expect(buildingUpkeep(BUILDING_POLICE)).toBe(police * 0.5);
+    expect(buildingUpkeep(BUILDING_POWER_PLANT)).toBe(plant);
+    expect(w.budget.expenses).toBeCloseTo(buildingUpkeep(BUILDING_POLICE) + buildingUpkeep(BUILDING_POWER_PLANT));
   });
 
   it('presets name only settings that exist', () => {

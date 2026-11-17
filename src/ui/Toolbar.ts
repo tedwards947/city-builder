@@ -11,6 +11,7 @@ import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
 import { BALANCE } from '../data/balance';
+import { buildingUpkeep } from '../sim/serviceValue';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
@@ -150,7 +151,7 @@ export function toolPrice(tool: Tool): { cost?: string; upkeep?: string } {
   const kind = BUILDING_KIND[tool];
   if (kind !== undefined) {
     const b = BALANCE.buildings[kind];
-    return { cost: money(b.cost), upkeep: money(b.maintenance) + '/tick' };
+    return { cost: money(b.cost), upkeep: money(buildingUpkeep(kind)) + '/tick' };
   }
   const flat = flatCost(tool);
   // A tool whose price is set to 0 (zoning, since it became free) is free, not "$0 / tile".
