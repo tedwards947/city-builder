@@ -32,7 +32,7 @@ export function spreadUtility(
     const output = outputs ? outputs[b.kind] : b.kind === buildingKind ? outputPerBuilding : undefined;
     if (output === undefined) continue;
     // Connected if any tile along the building's edge is a street or avenue.
-    const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind) ?? [b.ty * width + b.tx];
+    const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, b.rot ?? 0) ?? [b.ty * width + b.tx];
     let connected = false;
     for (const ni of footprintEdge(width, height, tiles)) {
       const rc = roadClass[ni];

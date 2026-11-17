@@ -7,7 +7,7 @@ import type { World } from '../sim/World';
 import { BUILDING_NONE } from '../sim/constants';
 
 /** Why execute() refused, when the reason is worth telling the player. */
-export type FailReason = 'funds' | 'politicalCapital' | 'noWater';
+export type FailReason = 'funds' | 'politicalCapital' | 'noWater' | 'notOpenWater';
 
 export abstract class Command {
   /**
@@ -36,6 +36,8 @@ export interface TileSnapshot {
    * 0 with a building = a one-tile building anchored here.
    */
   buildingId?: number;
+  /** For a building's anchor tile: its rotation (0–3). Missing = 0. */
+  rot?: number;
 }
 
 export function snapshotTile(world: World, tx: number, ty: number): TileSnapshot {
@@ -50,6 +52,7 @@ export function snapshotTile(world: World, tx: number, ty: number): TileSnapshot
     vegetation:    world.layers.vegetation[i],
     visualVariant: world.layers.visualVariant[i],
     buildingId:    world.buildingId[i],
+    rot:           world.buildingRot[i],
   };
 }
 
@@ -98,8 +101,10 @@ export function restoreTile(world: World, tx: number, ty: number, snap: TileSnap
   }
   const id = snap.building !== BUILDING_NONE ? (snap.buildingId || i + 1) : 0;
   world.buildingId[i] = id;
+  const rot = id === i + 1 ? (snap.rot ?? 0) & 3 : 0;
+  world.buildingRot[i] = rot;
   if (id === i + 1) {
-    world.buildings.push({ tx, ty, kind: snap.building });
+    world.buildings.push(rot ? { tx, ty, kind: snap.building, rot } : { tx, ty, kind: snap.building });
   }
   world.roadNetDirty = true;
   world.grid.markDirty(tx, ty);

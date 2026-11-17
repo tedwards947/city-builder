@@ -31,6 +31,9 @@ export const BALANCE = {
     9:  { cost: 16000, maintenance: 120 }, // BUILDING_LARGE_POWER_PLANT (3×3)
     10: { cost: 1750,  maintenance: 21  }, // BUILDING_LARGE_WATER_PLANT (2×2)
     11: { cost: 5250,  maintenance: 35  }, // BUILDING_LARGE_SEWAGE_PLANT (2×2)
+    // The seaport (a 4×3 yard plus a row of docks over open water). Placeholder
+    // numbers until the lab tunes it: dear to build and dear to run.
+    12: { cost: 25000, maintenance: 150 }, // BUILDING_SEAPORT
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.

@@ -9,21 +9,66 @@
 // existed. Square buildings are just a full block of offsets (see `block`);
 // nothing requires a shape to be square or even convex.
 //
+// Each tile of a shape has a ROLE: 'body' stands on land, 'dock' stands on
+// open water (see World.checkPlacement). Every tile is 'body' unless the
+// shape says otherwise.
+//
+// A building can be ROTATED in quarter turns clockwise about its anchor
+// (0–3), so a seaport can face water on any side. The rotation is saved on
+// the building's entity; shapes here are written at rotation 0.
+//
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
 
+/** What a tile of a shape stands on: 'body' on land, 'dock' on open water. */
+export type PartRole = 'body' | 'dock';
+
 const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
+const ONE_BODY: readonly PartRole[] = ['body'];
 
 const SHAPES = new Map<number, readonly ShapeOffset[]>();
+const ROLES = new Map<number, readonly PartRole[]>();
+const DOCKED = new Set<number>();
+// Each kind's shape at rotations 1–3, worked out when first asked for.
+const ROTATED = new Map<number, (readonly ShapeOffset[])[]>();
 
-/** The tiles a `kind` building stands on, as offsets from its anchor. One tile unless the kind has a shape. */
-export function buildingShape(kind: number): readonly ShapeOffset[] {
-  return SHAPES.get(kind) ?? ONE_TILE;
+/**
+ * The tiles a `kind` building stands on, as offsets from its anchor, turned
+ * `rot` quarter turns clockwise about the anchor (0–3; the order of the tiles
+ * does not change). One tile unless the kind has a shape.
+ */
+export function buildingShape(kind: number, rot = 0): readonly ShapeOffset[] {
+  const shape = SHAPES.get(kind) ?? ONE_TILE;
+  const r = rot & 3;
+  if (r === 0 || shape.length === 1) return shape;
+  let turned = ROTATED.get(kind);
+  if (!turned) { turned = []; ROTATED.set(kind, turned); }
+  // Screen coordinates (y grows downward): one quarter turn clockwise takes (dx, dy) to (−dy, dx).
+  return turned[r] ??= shape.map(([dx, dy]) => (r === 1 ? [-dy, dx] : r === 2 ? [-dx, -dy] : [dy, -dx]) as ShapeOffset)
+    .map(([dx, dy]) => [dx + 0, dy + 0] as const);   // + 0: no negative zeros
+}
+
+/** The role of each tile of a `kind` building, in the same order as buildingShape(kind). */
+export function shapeRoles(kind: number): readonly PartRole[] {
+  let roles = ROLES.get(kind);
+  if (!roles) {
+    // All body. Kept, so the same array comes back every time (callers key caches on it).
+    const shape = SHAPES.get(kind);
+    if (!shape) return ONE_BODY;
+    roles = shape.map(() => 'body' as const);
+    ROLES.set(kind, roles);
+  }
+  return roles;
+}
+
+/** Whether any tile of `kind` is a dock (stands on water). */
+export function hasDocks(kind: number): boolean {
+  return DOCKED.has(kind);
 }
 
 /** Whether `kind` stands on more than one tile. */
@@ -33,10 +78,11 @@ export function isLargeBuilding(kind: number): boolean {
 
 /**
  * Give `kind` a shape. Throws if the shape has no (0, 0) (the anchor), repeats
- * a tile or is not whole numbers. Buildings of this kind already standing are
- * not touched: set shapes before any exist.
+ * a tile or is not whole numbers. `roles` gives each tile's role in the same
+ * order (all 'body' if left out); the anchor must be a body tile. Buildings
+ * of this kind already standing are not touched: set shapes before any exist.
  */
-export function setBuildingShape(kind: number, shape: readonly ShapeOffset[]): void {
+export function setBuildingShape(kind: number, shape: readonly ShapeOffset[], roles?: readonly PartRole[]): void {
   const seen = new Set<string>();
   for (const [dx, dy] of shape) {
     if (!Number.isInteger(dx) || !Number.isInteger(dy)) throw new Error(`building shape for kind ${kind}: offsets must be whole numbers`);
@@ -45,12 +91,21 @@ export function setBuildingShape(kind: number, shape: readonly ShapeOffset[]): v
     seen.add(key);
   }
   if (!seen.has('0,0')) throw new Error(`building shape for kind ${kind}: must include (0, 0), the anchor`);
+  if (roles) {
+    if (roles.length !== shape.length) throw new Error(`building shape for kind ${kind}: one role per tile`);
+    if (roles[shape.findIndex(([dx, dy]) => dx === 0 && dy === 0)] !== 'body') throw new Error(`building shape for kind ${kind}: the anchor must be a body tile`);
+  }
   SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
+  if (roles && roles.includes('dock')) { ROLES.set(kind, [...roles]); DOCKED.add(kind); } else { ROLES.delete(kind); DOCKED.delete(kind); }
+  ROTATED.delete(kind);
 }
 
 /** Remove a kind's shape, making it one tile again. For tests. */
 export function clearBuildingShape(kind: number): void {
   SHAPES.delete(kind);
+  ROLES.delete(kind);
+  DOCKED.delete(kind);
+  ROTATED.delete(kind);
 }
 
 /** A full w × h block with the anchor at its top-left tile, row by row. */
@@ -64,6 +119,12 @@ export function block(w: number, h: number): ShapeOffset[] {
 setBuildingShape(BUILDING_LARGE_POWER_PLANT, block(3, 3));
 setBuildingShape(BUILDING_LARGE_WATER_PLANT, block(2, 2));
 setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
+// The seaport: a 4×3 yard on land (anchor at its top-left) and, at rotation 0,
+// a row of four docks along its north side, out over the water.
+{
+  const yard = block(4, 3), docks: ShapeOffset[] = [[0, -1], [1, -1], [2, -1], [3, -1]];
+  setBuildingShape(BUILDING_SEAPORT, [...yard, ...docks], [...yard.map(() => 'body' as const), ...docks.map(() => 'dock' as const)]);
+}
 
 // ── Where a kind may stand ───────────────────────────────────────────────────
 
@@ -94,12 +155,12 @@ export function setPlacementRules(kind: number, rules: PlacementRules = {}): voi
 setPlacementRules(BUILDING_LARGE_WATER_PLANT, { needsWaterEdge: true });
 
 /**
- * Tile indices a `kind` building anchored at (tx, ty) would stand on, in the
- * shape's order (the anchor is wherever (0, 0) is listed), or null if any of
- * them is off the map.
+ * Tile indices a `kind` building anchored at (tx, ty) and turned `rot`
+ * quarter turns would stand on, in the shape's order (the anchor is wherever
+ * (0, 0) is listed), or null if any of them is off the map.
  */
-export function footprintTiles(width: number, height: number, tx: number, ty: number, kind: number): number[] | null {
-  const shape = buildingShape(kind);
+export function footprintTiles(width: number, height: number, tx: number, ty: number, kind: number, rot = 0): number[] | null {
+  const shape = buildingShape(kind, rot);
   const out = new Array<number>(shape.length);
   for (let k = 0; k < shape.length; k++) {
     const x = tx + shape[k][0], y = ty + shape[k][1];

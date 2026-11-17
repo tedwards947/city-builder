@@ -348,7 +348,7 @@ export function nuisanceRings(
 export type PcQuoteAction =
   | { type: 'bulldoze'; tx: number; ty: number }
   | { type: 'zone'; tx: number; ty: number; zone: number }
-  | { type: 'building'; tx: number; ty: number; kind: number }
+  | { type: 'building'; tx: number; ty: number; kind: number; rot?: number }
   | { type: 'road'; tx: number; ty: number; roadClass: number };
 
 /** One contribution to a quote: who objects (or is pleased), and by how much. */
@@ -473,8 +473,8 @@ export function pcQuote(
     }
     case 'building':
       // Building over a ruin earns nothing: only bulldozing or rezoning clears blight.
-      if (!world.canPlaceBuilding(tx, ty, action.kind)) return q;
-      footprint = footprintTiles(grid.width, grid.height, tx, ty, action.kind)!;
+      if (!world.canPlaceBuilding(tx, ty, action.kind, action.rot ?? 0)) return q;
+      footprint = footprintTiles(grid.width, grid.height, tx, ty, action.kind, action.rot ?? 0)!;
       // Every home under the building's shape is displaced.
       for (const fi of footprint) {
         if (fi === i) { addPart(q, 'displacement', tx, ty, -d.pcCost); continue; }

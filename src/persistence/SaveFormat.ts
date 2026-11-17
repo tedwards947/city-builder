@@ -72,7 +72,7 @@ export interface WorldSnapshot {
     requests?: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; openedTick: number; deadlineTick: number; needAtOpen?: number; seed?: number; homes?: number[] }[];
     nextRequestId?: number;
   };
-  buildings: { tx: number; ty: number; kind: number }[];
+  buildings: { tx: number; ty: number; kind: number; rot?: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
   layers: {
