@@ -2,7 +2,6 @@
 // Displays terrain, zone, development level, coverage status, and a clear
 // breakdown of what's blocking the next level of growth.
 
-import { footprintEdge } from '../sim/buildingShapes';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
@@ -244,14 +243,8 @@ function analyzeZone(
 
 /** A street or avenue beside any tile of the building at (tx, ty). */
 function isBuildingConnected(world: World, tx: number, ty: number): boolean {
-  const {width, height} = world.grid;
-  const roadClass = world.layers.roadClass;
-  const tiles = world.buildingTilesAt(tx, ty);
-  for (const i of footprintEdge(width, height, tiles.length > 0 ? tiles : [ty * width + tx])) {
-    const rc = roadClass[i];
-    if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) return true;
-  }
-  return false;
+  // A street or avenue along the building's body; a seaport's docks do not count.
+  return world.buildingAccessRoads(tx, ty).length > 0;
 }
 
 export class TileInfoPanel {
