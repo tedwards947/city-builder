@@ -36,6 +36,11 @@ export type CityEvents = {
   budgetWarning:    { money: number; daysLeft: number }; // cooldown-throttled
   debtEntered:      { money: number };                   // once, when money drops below 0
   debtCleared:      { money: number };                   // once, when money is back to >= 0
+  // Debt as a failure condition (sim/debt.ts). `limit` is how far below zero money may go (positive).
+  debtWarning:      { level: 'half' | 'limit'; money: number; limit: number }; // once each time money falls past the mark
+  debtCountdown:    { daysLeft: number; money: number; limit: number };        // once a game day while past the limit
+  gameOver:         { reason: 'debt'; money: number; limit: number };          // once: the mayor is removed
+  debtRevived:      { money: number };                                         // the debug cheat cleared a game over
   // Abandonment (emitted by AbandonmentSystem)
   tileAbandoned:    { tx: number; ty: number; zone: number; level: number };
   // Zone growth (emitted by ZoneGrowthSystem)

@@ -38,7 +38,8 @@ export class Scheduler {
     // rendering. Time spent hidden (or in a long hitch) is simply not simulated.
     const dt = Math.min(now - this.lastTime, MAX_FRAME_GAP_MS);
     this.lastTime = now;
-    if (this.speed === 0) return;
+    // Game over is final: the city stands still (only the debug revive clears it).
+    if (this.speed === 0 || this.world.budget.gameOver) return;
     this.accumulator += dt * this.speed;
     let ticks = 0;
     while (this.accumulator >= this.baseTickMs && ticks < 10) {
