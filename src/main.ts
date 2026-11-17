@@ -30,6 +30,7 @@ import { MusicManager } from './audio/MusicManager';
 import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
+import { DebtUi } from './ui/DebtUi';
 import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
@@ -402,6 +403,8 @@ function setSpeed(speed: number): void {
 window.addEventListener('keydown', (e) => {
   // Never steal keys from text fields (seed input, etc.).
   if (isTypingTarget(e.target)) return;
+  // Game over: the card takes the pointer; hotkeys do nothing either.
+  if (debtUi.blocking) return;
 
   const key = e.key.toLowerCase();
 
@@ -464,7 +467,10 @@ if (DEBUG) {
   more.addEventListener('click', () => { state.world.budget.money += 10000; });
   statMoney.after(more);
 }
-const statDebt  = document.getElementById('stat-debt')!;
+const debtUi = new DebtUi({
+  getWorld: () => state.world, formatMoney,
+  onLoad: () => saveLoadPanel.showLoad(), onNew: () => newGameDialog.show(),
+});
 const statPop   = document.getElementById('stat-pop')!;
 const statPower = document.getElementById('stat-power')!;
 const statWater  = document.getElementById('stat-water')!;
@@ -601,7 +607,7 @@ function frame(now: number): void {
   (pcBar as HTMLElement).style.background = pcOver ? '#c9fff1' : pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   statMoney.textContent = formatMoney(state.world.budget.money);
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
-  statDebt.hidden = state.world.budget.money >= 0;
+  debtUi.update();
   statPop.textContent   = state.world.stats.population.toLocaleString();
   // Demand / supply; red while demand outruns supply.
   const utility = (el: HTMLElement, demand: number, supply: number) => {

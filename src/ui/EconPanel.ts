@@ -3,6 +3,9 @@
 
 import type { World } from '../sim/World';
 import { t } from '../i18n';
+import { BALANCE } from '../data/balance';
+import { taxLevelRange, setTaxLevel, taxEffect, type TaxEffect } from '../sim/tax';
+import { pcCap } from '../sim/politics';
 
 const STEP = 0.1;
 const MIN_RATE = 0.1;
@@ -15,6 +18,11 @@ function demandLabel(d: number): string {
   if (d >= 0.8) return t('ui.econ.normal');
   if (d >= 0.4) return t('ui.econ.low');
   return t('ui.econ.veryLow');
+}
+/** "+$1,240/day"; the sign is always shown. */
+function perDay(perTick: number): string {
+  const n = Math.round(perTick * BALANCE.ticksPerDay);
+  return t('ui.econ.perDay', { amount: (n < 0 ? '−$' : '+$') + Math.abs(n).toLocaleString() });
 }
 function demandColor(d: number): string {
   if (d >= 1.2) return '#5c5';
@@ -40,10 +48,47 @@ export class EconPanel {
     this.el.classList.toggle('hidden', !this.visible);
   }
 
+  // The tax level the city's latest income was collected at. taxEffect()
+  // projects from that income, so between ticks (and while paused) it must be
+  // asked as if that level were still set, or a change made since reads as no change.
+  private taxTick = -1;
+  private taxLevelAtTick = 0;
+  private taxWorld: World | null = null;
+
+  private _taxEffect(world: World): TaxEffect {
+    if (world !== this.taxWorld || world.tick !== this.taxTick) { this.taxWorld = world; this.taxTick = world.tick; this.taxLevelAtTick = world.budget.taxLevel; }
+    const level = world.budget.taxLevel;
+    if (level === this.taxLevelAtTick) return taxEffect(world);
+    world.budget.taxLevel = this.taxLevelAtTick;
+    try { return taxEffect(world, level); } finally { world.budget.taxLevel = level; }
+  }
+
+  private _updateTax(world: World): void {
+    const range = taxLevelRange(), slider = document.getElementById('econ-tax-slider') as HTMLInputElement;
+    slider.min = String(range.min); slider.max = String(range.max); slider.step = String(range.step);
+    if (document.activeElement !== slider || Number(slider.value) !== world.budget.taxLevel) slider.value = String(world.budget.taxLevel);
+    const e = this._taxEffect(world);
+    const set = (id: string, text: string, sign = 0) => { const el = document.getElementById(id)!; el.textContent = text; el.className = sign > 0 ? 'pos' : sign < 0 ? 'neg' : ''; };
+    set('econ-tax-pct', String(world.budget.taxLevel));
+    set('econ-tax-min', range.min + '%'); set('econ-tax-max', range.max + '%');
+    set('econ-tax-income', perDay(e.income));
+    set('econ-tax-net', perDay(e.net), e.net);
+    // Satisfaction is 0–1; shown as percentage points gained or lost to the tax level.
+    const sat = Math.round(e.satisfactionDelta * 100);
+    set('econ-tax-sat', sat === 0 ? t('ui.econ.noChange') : (sat > 0 ? '+' : '−') + Math.abs(sat) + '%', sat);
+    const g = e.demandMult;
+    set('econ-tax-growth', g === 1 ? t('ui.econ.noChange') : Number.isFinite(g) ? '×' + g.toFixed(2) : t('ui.econ.growthMax'), g > 1 ? 1 : g < 1 ? -1 : 0);
+    // Political capital stops regenerating at its cap, so the figure would mislead there.
+    const pcLine = document.getElementById('econ-tax-pc-line')!, atCap = world.budget.politicalCapital >= pcCap(world) && e.pcRegenPerDay > 0;
+    pcLine.hidden = atCap;
+    if (!atCap) set('econ-tax-pc', t('ui.econ.perDay', { amount: (e.pcRegenPerDay < 0 ? '−' : '+') + Math.abs(e.pcRegenPerDay).toFixed(1) }), e.pcRegenPerDay);
+  }
+
   /** Call each frame to refresh demand + land value display. */
   update(): void {
     if (!this.visible) return;
     const world = this.getWorld();
+    this._updateTax(world);
 
     (document.getElementById('econ-rate-r')!).textContent = fmt(world.budget.taxRates.R);
     (document.getElementById('econ-rate-c')!).textContent = fmt(world.budget.taxRates.C);
@@ -63,6 +108,8 @@ export class EconPanel {
   }
 
   private _wire(): void {
+    const slider = document.getElementById('econ-tax-slider') as HTMLInputElement;
+    slider.addEventListener('input', () => { setTaxLevel(this.getWorld(), Number(slider.value)); });
     const adj = (zone: 'R' | 'C' | 'I', dir: 1 | -1) => () => {
       const rates = this.getWorld().budget.taxRates;
       rates[zone] = Math.max(MIN_RATE, Math.min(MAX_RATE,

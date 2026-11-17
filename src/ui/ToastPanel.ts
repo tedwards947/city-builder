@@ -1,3 +1,4 @@
+import { BALANCE } from '../data/balance';
 import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
@@ -84,6 +85,12 @@ export class ToastPanel {
     };
     this.handlers['budgetWarning'] = (p: CityEvents['budgetWarning']) => {
       this.showToast(t('ui.toast.lowFundsTitle'), t('ui.toast.lowFundsMsg', { days: Math.max(1, Math.round(p.daysLeft)) }), 'warning');
+    };
+    this.handlers['debtWarning'] = (p: CityEvents['debtWarning']) => {
+      const money = (n: number) => '$' + Math.round(Math.abs(n)).toLocaleString();
+      if (p.level === 'half') this.showToast(t('ui.toast.debtHalfTitle'), t('ui.toast.debtHalfMsg', { money: money(p.money), limit: money(p.limit) }), 'warning');
+      // With the countdown off (debtGraceDays 0) there is no vote to warn of.
+      else this.showToast(t('ui.toast.debtLimitTitle'), t(BALANCE.budget.debtGraceDays > 0 ? 'ui.toast.debtLimitMsg' : 'ui.toast.debtLimitNoVoteMsg', { limit: money(p.limit) }), 'alert');
     };
     this.handlers['debtEntered'] = () => {
       this.showToast(t('ui.toast.debtTitle'), t('ui.toast.debtMsg'), 'alert');

@@ -38,13 +38,14 @@ beforeEach(() => { w = city(2); sys = new EconomySystem(); listen(w); });
 afterEach(() => { Object.assign(B, shipped); });
 
 describe('debt', () => {
-  it('ships with a 30-day limit, and the countdown and PC drain switched off', () => {
+  it('ships with a 30-day limit and a 30-day countdown, and the PC drain switched off', () => {
     expect(B.debtLimitDays).toBe(30);
-    expect(B.debtGraceDays).toBe(0);
+    expect(B.debtGraceDays).toBe(30);
     expect(B.debtPcDrainPerDay).toBe(0);
   });
 
   it('with the countdown off, the limit warns but the game never ends', () => {
+    B.debtGraceDays = 0;
     tick();
     w.budget.money = -8000;
     tick(40 * DAY);
