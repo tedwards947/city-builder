@@ -1,17 +1,18 @@
 // Service capacity: a school or hospital with a capacity covers only the
-// homes it has seats for. The shipped capacities are 0 (no limit), so these
-// tests set BALANCE's values for their duration.
+// homes it has seats for. These tests set their own capacities and a short
+// reach (8 road steps) for their duration, so the shipped numbers can move.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { ServiceSystem, computeServiceCoverage } from '../sim/systems/ServiceSystem';
 import { serviceCapacity, hasCapacity, buildingReach, assignSeats, nothingIsFull, buildingSeats, homeSeat } from '../sim/serviceCapacity';
-import { ROAD_STREET, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE, BUILDING_PARK } from '../sim/constants';
+import { ROAD_STREET, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE, BUILDING_FIRE, BUILDING_PARK } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home } from './pcTestWorld';
 
 const capacity = BALANCE.service.capacity as Record<number, number>;
-const shipped = { ...capacity };
+const reach = BALANCE.service.coverageRange as Record<number, number>;
+const shipped = { capacity: { ...capacity }, reach: { ...reach } };
 
 let w: World;
 let sys: ServiceSystem;
@@ -31,12 +32,27 @@ function covered(xs: number[]): number[] {
 }
 const seatX = (tx: number) => homeSeat(w, tx, 11, BUILDING_SCHOOL)?.seatedAt?.tx ?? null;
 
-beforeEach(() => { w = landWorld(); sys = new ServiceSystem(); });
-afterEach(() => { for (const k in capacity) delete capacity[k]; Object.assign(capacity, shipped); });
+beforeEach(() => {
+  w = landWorld(); sys = new ServiceSystem();
+  capacity[BUILDING_SCHOOL] = 0; capacity[BUILDING_HOSPITAL] = 0;
+  reach[BUILDING_SCHOOL] = 8; reach[BUILDING_HOSPITAL] = 8;
+});
+afterEach(() => {
+  for (const k in capacity) delete capacity[k];
+  Object.assign(capacity, shipped.capacity);
+  Object.assign(reach, shipped.reach);
+});
 
 describe('service capacity', () => {
-  it('is switched off as shipped: no kind has a capacity', () => {
-    for (const kind of [BUILDING_POLICE, BUILDING_PARK, BUILDING_SCHOOL, BUILDING_HOSPITAL]) {
+  it("ships with the owner's numbers: schools and hospitals reach far and are limited by capacity", () => {
+    expect(shipped.capacity).toEqual({ [BUILDING_SCHOOL]: 4000, [BUILDING_HOSPITAL]: 8000 });
+    expect(shipped.reach[BUILDING_SCHOOL]).toBe(20);
+    expect(shipped.reach[BUILDING_HOSPITAL]).toBe(30);
+    Object.assign(capacity, shipped.capacity);
+    expect(serviceCapacity(BUILDING_SCHOOL)).toBe(4000);
+    expect(hasCapacity(BUILDING_HOSPITAL)).toBe(true);
+    // Police, fire and parks are served by reach alone.
+    for (const kind of [BUILDING_POLICE, BUILDING_FIRE, BUILDING_PARK]) {
       expect(serviceCapacity(kind)).toBe(0);
       expect(hasCapacity(kind)).toBe(false);
     }

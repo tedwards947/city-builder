@@ -99,7 +99,8 @@ export function buildLivingCity(): TestCity {
 
   let levels = 0;
   for (let i = 0; i < L.devLevel.length; i++) levels += L.devLevel[i];
-  const need = (perLevel: number, output: number) => Math.ceil(levels * perLevel * 1.25 / output);
+  // Half as much again as the city needs now: it grows over a run (more since schools and hospitals reach further).
+  const need = (perLevel: number, output: number) => Math.ceil(levels * perLevel * 1.5 / output);
   const utilities: [number, number][] = [
     [BUILDING_POWER_PLANT, need(BALANCE.power.perDevLevel, BALANCE.power.plantOutput)],
     [BUILDING_WATER_TOWER, need(BALANCE.water.perDevLevel, BALANCE.water.towerOutput)],
