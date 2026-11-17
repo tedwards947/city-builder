@@ -134,17 +134,81 @@ describe('service value', () => {
     expect(w.budget.politicalCapital).toBeLessThan(500);
   });
 
-  it('moving a service is cheap: homes still covered by another lose little', () => {
+  it('moving a service is cheap: homes still covered by another are charged what they lose, once', () => {
     street([5]);
     w.budget.politicalCapital = 500;
     h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));          // +1 × residents
     h.run(new PlaceBuildingCommand(6, 9, BUILDING_PARK));          // +0.5 × residents
+    expect(w.budget.politicalCapital).toBe(500 + residents() * 1.5);
     const closeOld = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 });
-    expect(closeOld.cost).toBe(residents() * 0.5 * 2);             // they still have the other park
+    // They still have the other park: the half the old one was worth, with no multiplier.
+    expect(closeOld.cost).toBe(residents() * 0.5);
+    expect(serviceClosureValue(w, 5, 9)[0].strength).toBe(0.5);
     h.run(new BulldozeCommand(5, 9));
-    // Closing the last one costs the full value.
+    // The move as a whole (open the new one, close the old one) cost nothing.
+    expect(w.budget.politicalCapital).toBe(500 + residents());
+    // Closing the last one costs the full value, times the multiplier.
     expect(pcQuote(w, { type: 'bulldoze', tx: 6, ty: 9 }).cost).toBe(residents() * 2);
     expect(serviceClosureValue(w, 6, 9)[0].strength).toBe(1);
+  });
+
+  it('closing the only one of its kind costs the multiplier in full, as before', () => {
+    street([4, 5, 6, 7]);
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_POLICE));
+    const q = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 });
+    expect(q.cost).toBe(4 * residents() * 2 * 2);                   // 4 homes × 2 per resident × multiplier 2
+    expect(q.parts.every(part => part.strength === 1)).toBe(true);
+    // A park nearby is a different kind: it does not soften the police closure.
+    h.run(new PlaceBuildingCommand(8, 9, BUILDING_PARK));
+    expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 }).cost).toBe(4 * residents() * 2 * 2);
+  });
+
+  it('a move is charged in full only for the homes it leaves with nothing', () => {
+    // Parks reach 6 road steps. The old park at x = 5 covers the homes at 2 and 8; the new one at
+    // x = 14 covers 8 and 20. Moving keeps the home at 8 served and abandons the one at 2.
+    street([2, 8, 20]);
+    w.budget.politicalCapital = 500;
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));
+    expect(w.budget.politicalCapital).toBe(500 + 2 * residents());
+    h.run(new PlaceBuildingCommand(14, 9, BUILDING_PARK));          // 20 is new (full), 8 is shared (half)
+    expect(w.budget.politicalCapital).toBe(500 + 3.5 * residents());
+    const close = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 });
+    const byHome = Object.fromEntries(close.parts.map(part => [part.tx, part.amount]));
+    expect(byHome).toEqual({ 2: -residents() * 2, 8: -residents() * 0.5 });   // stranded: ×2; still served: its half, once
+    h.run(new BulldozeCommand(5, 9));
+    // Net of the move: +1.5 for the new park, −2.5 for closing the old one.
+    expect(w.budget.politicalCapital).toBe(500 + 2 * residents() - residents());
+  });
+
+  it('opening and closing in a loop never comes out ahead, wherever the two buildings stand', () => {
+    for (const [a, b] of [[5, 6], [5, 14], [5, 20], [8, 9]]) {
+      w = landWorld();
+      h = new CommandHistory(w);
+      street([2, 3, 6, 8, 9, 12, 15, 20, 21]);
+      h.run(new PlaceBuildingCommand(a, 9, BUILDING_PARK));         // the city starts with park A
+      w.budget.politicalCapital = 1000;
+      for (let lap = 0; lap < 3; lap++) {
+        const before = w.budget.politicalCapital;
+        h.run(new PlaceBuildingCommand(b, 9, BUILDING_PARK));       // open B
+        h.run(new BulldozeCommand(a, 9));                           // close A: the move
+        h.run(new PlaceBuildingCommand(a, 9, BUILDING_PARK));       // open A again
+        h.run(new BulldozeCommand(b, 9));                           // close B: back where it started
+        expect(w.budget.politicalCapital).toBeLessThanOrEqual(before);
+      }
+    }
+  });
+
+  it('with three overlapping buildings, closing one charges each home by what it has left', () => {
+    street([8]);
+    h.run(new PlaceBuildingCommand(5, 9, BUILDING_PARK));
+    h.run(new PlaceBuildingCommand(7, 9, BUILDING_PARK));
+    h.run(new PlaceBuildingCommand(9, 9, BUILDING_PARK));
+    // Two others remain: a quarter of the value, once.
+    expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 9 }).cost).toBe(residents() * 0.25);
+    h.run(new BulldozeCommand(5, 9));
+    expect(pcQuote(w, { type: 'bulldoze', tx: 7, ty: 9 }).cost).toBe(residents() * 0.5);
+    h.run(new BulldozeCommand(7, 9));
+    expect(pcQuote(w, { type: 'bulldoze', tx: 9, ty: 9 }).cost).toBe(residents() * 2);   // the last one
   });
 
   it('a closure is never refused: what the city cannot cover becomes debt', () => {

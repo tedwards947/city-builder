@@ -454,8 +454,11 @@ export const BALANCE = {
       // Each further building of the same kind covering a resident is worth
       // this fraction of the one before.
       repeatFactor: 0.5,
-      // Closing costs the value lost times this. Keep it at 1 or more, or
-      // building and bulldozing a service becomes a way to farm PC.
+      // Closing a service costs this many times the value lost by residents
+      // it leaves with no building of that kind. (Residents another still
+      // covers are charged their reduced loss once, so moving a service is
+      // cheap.) Keep it at 1 or more, or building and bulldozing a service
+      // becomes a way to farm PC.
       closureMultiplier: 1.5,
     },
   },
