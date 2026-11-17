@@ -14,6 +14,12 @@ function displayName(trackName: string): string {
 /** Song picker sections, in display order. */
 const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['country', 'Country'], ['edm', 'Electronic']];
 
+/** The effects volume the panel's FX slider controls (SoundEffects implements this). */
+export interface EffectsSettings {
+  getVolume(): number;
+  setVolume(v: number): void;
+}
+
 function loadVolume(): number | null {
   try {
     const raw = localStorage.getItem(VOLUME_KEY);
@@ -39,7 +45,7 @@ export class MusicPanel {
   private menuEl: HTMLElement;
   private musicManager: MusicManager;
 
-  constructor(musicManager: MusicManager) {
+  constructor(musicManager: MusicManager, effects: EffectsSettings | null = null) {
     this.musicManager = musicManager;
     
     this.el = document.createElement('div');
@@ -55,8 +61,18 @@ export class MusicPanel {
         <button class="mp-btn" id="mp-list" title="Pick a song" aria-label="Pick a song"
                 aria-haspopup="true" aria-expanded="false" aria-controls="mp-menu">☰</button>
       </div>
-      <input class="mp-volume" id="mp-volume" type="range" min="0" max="100" step="1"
-             aria-label="Music volume" title="Music volume">
+      <div class="mp-levels">
+        <div class="mp-level">
+          <span class="mp-level-ico" aria-hidden="true">♪</span>
+          <input class="mp-volume" id="mp-volume" type="range" min="0" max="100" step="1"
+                 aria-label="Music volume" title="Music volume">
+        </div>
+        ${effects ? `<div class="mp-level">
+          <span class="mp-level-ico" aria-hidden="true">FX</span>
+          <input class="mp-volume" id="mp-sfx-volume" type="range" min="0" max="100" step="1"
+                 aria-label="Effects volume" title="Effects volume">
+        </div>` : ''}
+      </div>
       <div class="mp-menu" id="mp-menu" role="menu" aria-label="Songs" hidden></div>
     `;
 
@@ -97,6 +113,8 @@ export class MusicPanel {
     });
     // Release focus after a drag; the game ignores its shortcuts while an input has focus
     volumeEl.addEventListener('change', () => volumeEl.blur());
+
+    if (effects) this.wireEffects(effects);
 
     // Song picker
     this.listBtn = document.getElementById('mp-list') as HTMLButtonElement;
@@ -153,6 +171,15 @@ export class MusicPanel {
     this.menuEl.hidden = false;
     this.listBtn.setAttribute('aria-expanded', 'true');
     this.menuEl.querySelector<HTMLElement>('.current')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  /** The effects slider, under the music slider. City ambience follows it. */
+  private wireEffects(fx: EffectsSettings) {
+    const vol = document.getElementById('mp-sfx-volume') as HTMLInputElement;
+    vol.value = String(Math.round(fx.getVolume() * 100));
+    vol.addEventListener('input', () => fx.setVolume(Number(vol.value) / 100));
+    vol.addEventListener('keydown', (e) => { if (e.key.startsWith('Arrow')) e.preventDefault(); });
+    vol.addEventListener('change', () => vol.blur());
   }
 
   private closeMenu() {

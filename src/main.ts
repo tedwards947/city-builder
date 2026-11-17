@@ -25,6 +25,7 @@ import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
 import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
 import { MusicManager } from './audio/MusicManager';
+import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { MusicPanel } from './ui/MusicPanel';
@@ -139,6 +140,8 @@ const badgeTooltip = new BadgeTooltip(canvas, (x, y) => renderer.badgeAt(x, y), 
 });
 const econPanel = new EconPanel(() => state.world);
 const toastPanel = new ToastPanel();
+// Sound effects only listen (world events, toolbar and toast DOM); see src/audio/SoundEffects.ts.
+const sfx = new SoundEffects({ camera, getWorld: () => state.world, getSpeed: () => state.scheduler.speed });
 const pcFloat = new PcFloat(document.getElementById('game')!, camera);
 const requestFeedback = new RequestFeedback((title, message, type, place) => toastPanel.showToast(title, message, type, place));
 const milestoneBanner = new MilestoneBanner(document.getElementById('game')!, (title, message) => toastPanel.showToast(title, message, 'info'));
@@ -208,6 +211,7 @@ let overlay: Overlay = 'none';
 const REJECT_TOAST_MS = 4000;
 const lastRejectToast: Record<string, number> = {};
 function notifyRejected(reason: FailReason): void {
+  sfx.refused();
   const now = performance.now();
   if (now - (lastRejectToast[reason] ?? -Infinity) < REJECT_TOAST_MS) return;
   lastRejectToast[reason] = now;
@@ -302,12 +306,13 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
   onTool: (tool) => setTool(tool),
   onOverlay: (which) => toggleOverlay(which),
   onAction: (action) => {
+    if (action !== 'undo' && action !== 'redo') sfx.menuClicked();
     switch (action) {
       case 'new':    newGameDialog.show(); break;
       case 'save':   saveLoadPanel.showSave(); break;
       case 'load':   saveLoadPanel.showLoad(); break;
-      case 'undo':   state.history.undo(); break;
-      case 'redo':   state.history.redo(); break;
+      case 'undo':   sfx.undo(state.history.canUndo); state.history.undo(); break;
+      case 'redo':   sfx.redo(state.history.canRedo); state.history.redo(); break;
       case 'budget':     togglePanel('budget'); break;
       case 'ordinances': togglePanel('ordinances'); break;
       case 'requests':   togglePanel('requests'); break;
@@ -360,10 +365,12 @@ function keepToastsClear(): void {
 function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
   overlay = overlay === which ? 'none' : which;
   toolbar.setOverlay(overlay);
+  sfx.menuClicked();
 }
 
 function setTool(tool: Tool): void {
   currentTool = tool;
+  sfx.toolPicked(tool);
   tileInfoPanel.setVisible(tool === 'inspect');
   toolbar.setTool(tool);
   document.getElementById('hint')?.classList.add('hidden');
@@ -412,9 +419,11 @@ window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
     if (key === 'z' && !e.altKey) {
       e.preventDefault();
-      if (e.shiftKey) state.history.redo(); else state.history.undo();
+      if (e.shiftKey) { sfx.redo(state.history.canRedo); state.history.redo(); }
+      else { sfx.undo(state.history.canUndo); state.history.undo(); }
     } else if (key === 'y' && e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
+      sfx.redo(state.history.canRedo);
       state.history.redo();
     }
     return; // leave every other Ctrl/Cmd combo (reload, copy, …) to the browser
@@ -615,7 +624,8 @@ manager.loadGame(AUTOSAVE_SLOT)
 // ── Music ─────────────────────────────────────────────────────────────────────
 
 const musicManager = new MusicManager((name) => musicPanel.onTrackChange(name));
-const musicPanel = new MusicPanel(musicManager);
+const musicPanel = new MusicPanel(musicManager, sfx);
+sfx.setMusic(musicManager);
 
 // Auto-play on first interaction, except under browser automation
 // (Playwright / Puppeteer / headless Chrome set navigator.webdriver) or with
