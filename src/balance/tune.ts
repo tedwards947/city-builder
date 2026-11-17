@@ -98,6 +98,28 @@ export function evaluate(values: Tree, cities: CitySpec[], days: number): Eval {
   return { score: Math.round(score * 1000) / 1000, pass, graded, results, values };
 }
 
+/**
+ * Score a services preset ({ capacity, range } per kind, like SVC_PRESETS) with the
+ * services targets; same Eval shape as evaluate(). For scripts/balance-svc.mjs and the pool.
+ */
+export function evaluateSvc(values: Tree, cities: CitySpec[], days: number): Eval & { svc: unknown } {
+  const p = values as { capacity: Record<number, number>; range?: Record<number, number> };
+  const r: Report = runLab({ suites: ['svc'], svcPresets: ['X'], customSvcPresets: { X: { id: 'X', name: 'Sweep', desc: '', capacity: p.capacity, range: p.range } }, cities, daysFresh: days, daysSave: Math.min(days, 150) });
+  let score = 0, pass = 0, graded = 0;
+  const results: Record<string, boolean> = {};
+  for (const t of r.targets) {
+    if (t.status !== 'graded') continue;
+    for (const [city, o] of Object.entries(t.results.X ?? {})) {
+      if (o.pass === null) continue;
+      graded++;
+      results[`${t.id}@${city}`] = o.pass;
+      if (o.pass) pass++; else score += 1 + Math.min(o.miss ?? 1, 3);
+    }
+  }
+  const svc = Object.fromEntries(Object.entries(r.svcRuns.X ?? {}).map(([c, v]) => [c, { population: v.population, ...Object.fromEntries(Object.entries(v.kinds).map(([k, x]) => [k, { buildings: x.buildings, per10k: x.per10k, seated: x.seatedShare, full: x.fullShare, outOfReach: x.outOfReachShare }])) }]));
+  return { score: Math.round(score * 1000) / 1000, pass, graded, results, values, svc };
+}
+
 export interface TuneResult {
   start: string;
   evals: number;

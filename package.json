@@ -13,7 +13,8 @@
     "bench": "node scripts/bench.mjs",
     "gen-city": "node scripts/gen-city.mjs",
     "balance": "node scripts/balance.mjs",
-    "balance:tune": "node scripts/balance-tune.mjs"
+    "balance:tune": "node scripts/balance-tune.mjs",
+    "balance:svc": "node scripts/balance-svc.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

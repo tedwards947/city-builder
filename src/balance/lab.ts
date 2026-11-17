@@ -70,7 +70,9 @@ export interface LabOptions {
   suites?: Suite[];
   variants?: string[];          // PC suite: 'Off', 'A'..'D', 'T' (default: all)
   econPresets?: string[];       // economy suite: ids from ECON_PRESETS
-  svcPresets?: string[];        // services suite: ids from SVC_PRESETS (src/balance/services.ts)
+  svcPresets?: string[];        // services suite: ids from SVC_PRESETS (src/balance/services.ts) or customSvcPresets
+  /** Extra services presets by id (e.g. a reach / capacity sweep point). */
+  customSvcPresets?: Record<string, SvcPreset>;
   cities: CitySpec[];
   personas?: PersonaId[];
   daysFresh?: number;
@@ -196,6 +198,7 @@ export function runLab(o: LabOptions): Report {
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
   const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id)) : [];
+  const svcPresetOf = (id: string): SvcPreset => o.customSvcPresets?.[id] ?? SVC_PRESETS.find(p => p.id === id)!;
   const svcIds = suites.includes('svc') ? (o.svcPresets ?? SVC_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
@@ -220,7 +223,7 @@ export function runLab(o: LabOptions): Report {
     econSummary: {},
     econBest: null,
     econVerdict: null,
-    svcPresets: SVC_PRESETS.filter(p => svcIds.includes(p.id)),
+    svcPresets: svcIds.map(id => svcPresetOf(id)),
     svcSummary: {},
     svcBest: null,
     svcRuns: {},
@@ -292,7 +295,7 @@ export function runLab(o: LabOptions): Report {
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
     // ── Services suite: the Planner per capacity / reach preset, PC and economy as shipped ──
     for (const id of svcIds) {
-      const restore = applySvcPreset(SVC_PRESETS.find(p => p.id === id)!);
+      const restore = applySvcPreset(svcPresetOf(id));
       try {
         report.svcRuns[id] = {};
         for (const city of o.cities) {
