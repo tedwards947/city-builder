@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "bench": "node scripts/bench.mjs",
     "gen-city": "node scripts/gen-city.mjs",
-    "balance": "node scripts/balance.mjs"
+    "balance": "node scripts/balance.mjs",
+    "balance:tune": "node scripts/balance-tune.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
