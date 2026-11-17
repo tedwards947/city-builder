@@ -124,7 +124,7 @@ const LEVELS: { mult: number; add: number }[] = [{ mult: 1.5, add: 1 }, { mult: 
  * candidate in PARAMS order.
  */
 export async function tune(start: 'A' | 'B' | 'C' | 'D', evaluateMany: EvaluateMany, opts: { budget?: number; log?: (l: string) => void } = {}): Promise<TuneResult> {
-  const budget = opts.budget ?? 150, log = opts.log ?? (() => {});
+  const budget = opts.budget ?? 900, log = opts.log ?? (() => {});
   const startValues = JSON.parse(JSON.stringify(VARIANT_VALUES[start])) as Tree;
   let [best] = await evaluateMany([startValues]);
   const startEval = { score: best.score, pass: best.pass, graded: best.graded, results: best.results };
