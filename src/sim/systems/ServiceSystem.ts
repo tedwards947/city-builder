@@ -4,17 +4,25 @@
 // (propagationRange=1) receive coverage — the same pattern as power/water.
 // The building's own tile is always covered regardless of road adjacency.
 // ServiceSystem runs before ZoneGrowthSystem so it can gate level 2→3 growth.
+//
+// Kinds with a capacity (BALANCE.service.capacity; none as shipped) serve a
+// limited number of residents: a home every building in reach is too full for
+// is left out of that kind's coverage. See sim/serviceCapacity.ts.
 
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { footprintTiles, footprintEdge } from '../buildingShapes';
+import { serviceCapacity, nothingIsFull, assignSeats, buildingReach, type BuildingReach } from '../serviceCapacity';
 
 /**
  * BFS coverage for a single service building placed at (tx, ty) of kind `kind`.
  * Returns the set of tile indices that would receive coverage.
  * Used by both ServiceSystem.update() and the renderer's hover preview.
  * `range` (road steps) defaults to the kind's range in the balance table.
+ * `distOut`, if given, receives each covered tile's distance: the road steps
+ * from the building to the nearest road tile the tile sits on or beside (0
+ * for the building's own tiles).
  */
 export function computeServiceCoverage(
   world: World,
@@ -22,6 +30,7 @@ export function computeServiceCoverage(
   ty: number,
   kind: number,
   range: number = BALANCE.service.coverageRange[kind] ?? 4,
+  distOut?: Map<number, number>,
 ): Set<number> {
   const { width, height } = world.grid;
   const roadClass = world.layers.roadClass;
@@ -30,7 +39,7 @@ export function computeServiceCoverage(
   // The building's own tiles are always covered. (A kind of several tiles
   // anchored where it does not fit is treated as its anchor tile alone.)
   const own = footprintTiles(width, height, tx, ty, kind) ?? [ty * width + tx];
-  for (const i of own) covered.add(i);
+  for (const i of own) { covered.add(i); distOut?.set(i, 0); }
 
   // Seed BFS from road tiles at or adjacent to the building.
   // Seeding only happens from STREET or AVENUE. HIGHWAY does not activate a building.
@@ -63,7 +72,10 @@ export function computeServiceCoverage(
       for (let dx = -1; dx <= 1; dx++) {
         const nx = rtx + dx, ny = rty + dy;
         if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
-          covered.add(ny * width + nx);
+          const t = ny * width + nx;
+          // The walk goes outward, so the first road tile to reach a tile is the nearest.
+          if (distOut && !covered.has(t)) distOut.set(t, dist);
+          covered.add(t);
         }
       }
     }
@@ -92,6 +104,13 @@ export class ServiceSystem {
   private _world: World | null = null;
   private _key = NaN;
   private _coverage: { kind: number; tiles: Int32Array }[] = [];
+  // Kinds with a capacity: each building's reach with distances (redone with
+  // the walks), and the homes left without a seat (redone with the walks, when
+  // a capacity changes, and once a game day). `full` is null while every
+  // building has room for everyone it reaches, which is the usual case and
+  // costs one pass over the reach tiles a day.
+  private _limited = new Map<number, { capacity: number; reaches: BuildingReach[]; full: Uint8Array | null }>();
+  private _capacityKey = '';
 
   update(world: World): void {
     const services = world.layers.services;
@@ -119,7 +138,13 @@ export class ServiceSystem {
     }
     mix(world.buildings.length);
 
-    if (world !== this._world || key !== this._key) {
+    let capacityKey = '';
+    for (const kind in BALANCE.service.coverageRange) {
+      const c = serviceCapacity(+kind);
+      if (c > 0) capacityKey += kind + ':' + c + ';';
+    }
+    const walked = world !== this._world || key !== this._key;
+    if (walked) {
       this._world = world;
       this._key = key;
       this._coverage = [];
@@ -128,6 +153,10 @@ export class ServiceSystem {
         this._coverage.push({ kind: b.kind, tiles: Int32Array.from(computeServiceCoverage(world, b.tx, b.ty, b.kind)) });
       }
     }
+    if (capacityKey !== '' || this._capacityKey !== '') {
+      this._seat(world, walked || capacityKey !== this._capacityKey);
+    }
+    this._capacityKey = capacityKey;
 
     for (const { kind, tiles } of this._coverage) {
       const own = kind === BUILDING_POLICE ? police
@@ -135,6 +164,16 @@ export class ServiceSystem {
                 : kind === BUILDING_SCHOOL ? school
                 : kind === BUILDING_HOSPITAL ? hospital
                 : null;
+      const full = this._limited.get(kind)?.full;
+      if (full) {
+        // Some homes this kind reaches have no seat: they are not covered by it.
+        for (let k = 0; k < tiles.length; k++) {
+          if (full[tiles[k]]) continue;
+          services[tiles[k]] = 1;
+          if (own) own[tiles[k]] = 1;
+        }
+        continue;
+      }
       for (let k = 0; k < tiles.length; k++) {
         services[tiles[k]] = 1;
         if (own) own[tiles[k]] = 1;
@@ -151,5 +190,34 @@ export class ServiceSystem {
       if (zone[i] !== ZONE_NONE && dev[i] > 0 && services[i] === 1) covered++;
     }
     world.stats.servicesCoveredZones = covered;
+  }
+
+  /**
+   * Keep the seating of the kinds that have a capacity up to date. `rebuild`:
+   * the roads, buildings or capacities changed, so walk the reaches again and
+   * seat now. Otherwise seat once a game day, since only the homes can have
+   * changed. Seating itself runs only if some building is over its capacity.
+   */
+  private _seat(world: World, rebuild: boolean): void {
+    if (rebuild) {
+      this._limited.clear();
+      for (const b of world.buildings) {
+        const capacity = serviceCapacity(b.kind);
+        if (capacity === 0 || BALANCE.service.coverageRange[b.kind] === undefined) continue;
+        let entry = this._limited.get(b.kind);
+        if (!entry) { entry = { capacity, reaches: [], full: null }; this._limited.set(b.kind, entry); }
+        entry.reaches.push(buildingReach(world, b.tx, b.ty, b.kind));
+      }
+    } else if (world.tick % BALANCE.ticksPerDay !== 0) {
+      return;
+    }
+    for (const entry of this._limited.values()) {
+      if (nothingIsFull(world, entry.reaches, entry.capacity)) { entry.full = null; continue; }
+      const { full } = assignSeats(world, entry.reaches, entry.capacity);
+      if (full.size === 0) { entry.full = null; continue; }
+      const mask = new Uint8Array(world.grid.width * world.grid.height);
+      for (const i of full) mask[i] = 1;
+      entry.full = mask;
+    }
   }
 }
