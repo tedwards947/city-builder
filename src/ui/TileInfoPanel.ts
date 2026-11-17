@@ -2,6 +2,8 @@
 // Displays terrain, zone, development level, coverage status, and a clear
 // breakdown of what's blocking the next level of growth.
 
+import { footprintEdge } from '../sim/buildingShapes';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type {World} from "../sim/World";
 import {
   TERRAIN_GRASS,
@@ -111,10 +113,14 @@ const ZONE_NAME: Record<number, string> = {
   [ZONE_I]: "zones.industrial",
 };
 
+const isLargeUtility = (b: number) => b === BUILDING_LARGE_POWER_PLANT || b === BUILDING_LARGE_WATER_PLANT || b === BUILDING_LARGE_SEWAGE_PLANT;
 const BUILDING_NAME: Record<number, string> = {
   [BUILDING_POWER_PLANT]: "buildings.powerPlant",
   [BUILDING_WATER_TOWER]: "buildings.waterTower",
   [BUILDING_SEWAGE_PLANT]: "buildings.sewagePlant",
+  [BUILDING_LARGE_POWER_PLANT]: "buildings.largePowerPlant",
+  [BUILDING_LARGE_WATER_PLANT]: "buildings.largeWaterPlant",
+  [BUILDING_LARGE_SEWAGE_PLANT]: "buildings.largeSewagePlant",
   [BUILDING_POLICE]: "buildings.policeStation",
   [BUILDING_FIRE]: "buildings.fireStation",
   [BUILDING_SCHOOL]: "buildings.school",
@@ -230,19 +236,13 @@ function analyzeZone(
   return {level: dev, maxLevel, reqs};
 }
 
+/** A street or avenue beside any tile of the building at (tx, ty). */
 function isBuildingConnected(world: World, tx: number, ty: number): boolean {
   const {width, height} = world.grid;
   const roadClass = world.layers.roadClass;
-  for (const [dx, dy] of [
-    [0, -1],
-    [0, 1],
-    [-1, 0],
-    [1, 0],
-  ] as const) {
-    const nx = tx + dx,
-      ny = ty + dy;
-    if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-    const rc = roadClass[ny * width + nx];
+  const tiles = world.buildingTilesAt(tx, ty);
+  for (const i of footprintEdge(width, height, tiles.length > 0 ? tiles : [ty * width + tx])) {
+    const rc = roadClass[i];
     if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) return true;
   }
   return false;
@@ -307,10 +307,15 @@ export class TileInfoPanel {
       if (building === BUILDING_SEWAGE_PLANT) {
         html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.plantOutput})}</div>`;
       }
+      // The large plants (several tiles): the same lines from any of their tiles.
+      if (building === BUILDING_LARGE_POWER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.power.largePlantOutput})}</div>`;
+      if (building === BUILDING_LARGE_WATER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.water.largePlantOutput})}</div>`;
+      if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
+      if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
 
       // Connectivity warning for utilities
       if (
-        building <= BUILDING_SEWAGE_PLANT &&
+        (building <= BUILDING_SEWAGE_PLANT || isLargeUtility(building)) &&
         !isBuildingConnected(world, tx, ty)
       ) {
         html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.notConnected")}</div>`;
