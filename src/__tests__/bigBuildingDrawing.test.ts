@@ -37,3 +37,43 @@ describe('shapeTiles', () => {
     expect(shapeTiles(KIND, 10, 20)).toEqual([{ x: 10, y: 20 }, { x: 11, y: 20 }, { x: 10, y: 21 }, { x: 11, y: 21 }]);
   });
 });
+
+import { placementAnchor } from '../input/InputController';
+import { footprintBand } from '../render/clay/bigBuildings';
+
+describe('placementAnchor', () => {
+  it('is the pointer tile for a one-tile building', () => {
+    expect(placementAnchor(KIND, 7, 9)).toEqual({ tx: 7, ty: 9 });
+  });
+  it('holds a 3×3 by its centre tile', () => {
+    setBuildingShape(KIND, block(3, 3));
+    expect(placementAnchor(KIND, 7, 9)).toEqual({ tx: 6, ty: 8 });
+  });
+  it('holds a 2×2 by the top-left of its four tiles', () => {
+    setBuildingShape(KIND, block(2, 2));
+    expect(placementAnchor(KIND, 7, 9)).toEqual({ tx: 7, ty: 9 });
+  });
+  it('allows for a shape that reaches left of its anchor', () => {
+    setBuildingShape(KIND, [[0, 0], [-1, 0], [-2, 0]]);   // a row of three, anchor at the right end
+    expect(placementAnchor(KIND, 7, 9)).toEqual({ tx: 8, ty: 9 });   // tiles 6, 7, 8: the pointer is the middle one
+  });
+});
+
+describe('footprintBand', () => {
+  const length = (es: { x0: number; y0: number; x1: number; y1: number }[]) => es.reduce((s, e) => s + Math.abs(e.x1 - e.x0) + Math.abs(e.y1 - e.y0), 0);
+  it('is the stepped diamond round one tile', () => {
+    // Within 2 steps of one tile: 13 tiles, perimeter 20.
+    expect(length(footprintBand(KIND, 2))).toBe(20);
+  });
+  it('is the footprint itself at distance 0', () => {
+    setBuildingShape(KIND, block(3, 3));
+    expect(length(footprintBand(KIND, 0))).toBe(12);
+  });
+  it('wraps a square footprint, with straight sides as long as the footprint', () => {
+    setBuildingShape(KIND, block(3, 3));
+    const band = footprintBand(KIND, 2);
+    // A diamond of radius 2 stretched by the 3×3: perimeter 4 × (2r + 1) + 4 × (side − 1) = 20 + 8.
+    expect(length(band)).toBe(28);
+    expect(band).toContainEqual({ x0: 0, y0: -2, x1: 3, y1: -2 });   // the top side sits 2 above the footprint
+  });
+});

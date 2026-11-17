@@ -1,3 +1,5 @@
+import { isLargeBuilding } from './sim/buildingShapes';
+import { placementAnchor } from './input/InputController';
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
@@ -533,6 +535,13 @@ function frame(now: number): void {
     pcPreview = hoverPcPreview(state.world, currentTool, hoverTile);
     if (pcPreview) {
       if (buildingKindForTool(currentTool) !== undefined) pcPreview.money = toolPrice(currentTool).cost;
+    } else {
+      // A building on several tiles always shows its price at the pointer, where it can go.
+      const kind = buildingKindForTool(currentTool);
+      if (kind !== undefined && isLargeBuilding(kind)) {
+        const a = placementAnchor(kind, hoverTile.tx, hoverTile.ty);
+        if (state.world.canPlaceBuilding(a.tx, a.ty, kind)) pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+      }
     }
   }
   renderer.render(state.world, camera, {

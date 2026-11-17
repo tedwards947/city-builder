@@ -12,7 +12,7 @@ import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
 } from '../../sim/constants';
-import { tileSetEdges, type TilePoint } from './tileOutline';
+import { tileSetEdges, type TilePoint, type TileEdge } from './tileOutline';
 
 /** The slab every big building's tiles get in the chunk layer. */
 export const BIG_SLAB = '#b7b0a2';
@@ -144,4 +144,30 @@ export function drawBigStandIn(
     }
     box3d(ctx, L + W * 0.12, T + H * 0.7, W * 0.2, H * 0.16, H * 0.1, '#d8d2c6', '#a59d8e');
   }
+}
+
+const bands = new Map<string, { shape: readonly ShapeOffset[]; edges: TileEdge[] }>();
+
+/**
+ * The outline of every tile within `r` steps (manhattan) of a `kind`
+ * building's footprint, as edges relative to its anchor: the ring homes
+ * object within. For one tile this is the stepped diamond. Cached.
+ */
+export function footprintBand(kind: number, r: number): TileEdge[] {
+  const shape = buildingShape(kind), key = kind + ':' + r;
+  const hit = bands.get(key);
+  if (hit && hit.shape === shape) return hit.edges;
+  const seen = new Set<string>(), tiles: TilePoint[] = [];
+  for (const [sx, sy] of shape) {
+    for (let dy = -r; dy <= r; dy++) {
+      const reach = r - Math.abs(dy);
+      for (let dx = -reach; dx <= reach; dx++) {
+        const k = (sx + dx) + ',' + (sy + dy);
+        if (!seen.has(k)) { seen.add(k); tiles.push({ x: sx + dx, y: sy + dy }); }
+      }
+    }
+  }
+  const edges = tileSetEdges(tiles);
+  bands.set(key, { shape, edges });
+  return edges;
 }
