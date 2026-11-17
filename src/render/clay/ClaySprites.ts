@@ -47,7 +47,8 @@ const BUILDING_ID: Record<number, string> = {
 
 /** `wisp` is the small pale chimney smoke of a home or workshop. */
 export type EmitterKind = 'smoke' | 'steam' | 'flare' | 'wisp';
-interface Emitter { kind: EmitterKind; x: number; y: number }
+/** `scale` enlarges the puffs (a wide cooling tower). */
+interface Emitter { kind: EmitterKind; x: number; y: number; scale?: number }
 
 /**
  * Where smoke, steam and flares come out, in 256px sprite coordinates (the
@@ -59,7 +60,7 @@ const EMITTERS: Record<string, Emitter[]> = {
   'ind-2': [{ kind: 'smoke', x: 118, y: 31 }, { kind: 'smoke', x: 148, y: 29 }],
   'ind-3': [{ kind: 'smoke', x: 112, y: 14 }, { kind: 'flare', x: 146, y: 13 }, { kind: 'smoke', x: 177, y: 14 }],
   'power': [{ kind: 'smoke', x: 77, y: 49 }, { kind: 'steam', x: 185, y: 66 }],
-  'power-large': [{ kind: 'smoke', x: 59, y: 30 }, { kind: 'steam', x: 198, y: 50 }],
+  'power-large': [{ kind: 'smoke', x: 59, y: 30 }, { kind: 'steam', x: 198, y: 52, scale: 2.2 }],
   'res-1-b': [{ kind: 'wisp', x: 155, y: 69 }],
   'res-2-b': [{ kind: 'wisp', x: 128, y: 56 }],
   'ind-1-d': [{ kind: 'wisp', x: 155, y: 58 }],
@@ -434,7 +435,7 @@ export function collectClayEffects(s: ClaySprite, sx: number, sy: number, tile: 
       kind: e.kind,
       x: sx + (e.x * toSprite - m.left) * kx,
       y: sy + (e.y * toSprite - top) * ky,
-      u: kx * toSprite * puffScale,
+      u: kx * toSprite * puffScale * (e.scale ?? 1),
       seed: hash(tileIndex, k + 1),
       vibe: s.vibe,
     });
