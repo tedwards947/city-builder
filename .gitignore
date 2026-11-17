@@ -40,3 +40,6 @@ art/clay-set/landscaping/props/
 art/clay-set/landscaping/data.js
 art/clay-set/landscaping/lot-dressing.js
 art/clay-set/landscaping/trees/
+
+# Cities built by `npm run gen-city` (big; rebuild them from the seed)
+cities/

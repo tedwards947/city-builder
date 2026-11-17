@@ -2,9 +2,7 @@
 // hand-built test city the tests use.
 
 import type { World } from '../sim/World';
-import { decodeSaveFile } from '../persistence/SaveFile';
-import { deserialize } from '../persistence/Serializer';
-import { VibeSystem } from '../sim/systems/VibeSystem';
+import { loadCityText } from './harness';
 import { buildLivingCity, population } from '../__tests__/fixtures/testCity';
 
 export interface BenchCity {
@@ -17,7 +15,7 @@ export interface BenchCity {
 export function loadBenchCity(saveText: string | null): BenchCity {
   const world = saveText === null
     ? buildLivingCity().world
-    : deserialize(decodeSaveFile(saveText).snapshot, { bootstrapVibes: (w) => new VibeSystem().bootstrapVibes(w) });
+    : loadCityText(saveText);
   const { width, height } = world.grid;
   let roads = 0;
   for (let i = 0; i < world.layers.roadClass.length; i++) if (world.layers.roadClass[i]) roads++;
