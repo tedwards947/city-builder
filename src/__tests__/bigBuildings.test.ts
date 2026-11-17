@@ -7,10 +7,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import {
   ZONE_R, ZONE_NONE, ROAD_STREET, ROAD_HIGHWAY, ROAD_NONE, BUILDING_NONE,
-  BUILDING_POWER_PLANT, BUILDING_POLICE, BUILDING_PARK,
+  BUILDING_POWER_PLANT, BUILDING_POLICE, BUILDING_PARK, BUILDING_WATER_TOWER, TERRAIN_WATER,
+  BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
 } from '../sim/constants';
 import {
   buildingShape, isLargeBuilding, setBuildingShape, clearBuildingShape, block, footprintTiles, footprintEdge,
+  placementRules, setPlacementRules,
 } from '../sim/buildingShapes';
 import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
@@ -23,6 +25,7 @@ import { computeServiceCoverage } from '../sim/systems/ServiceSystem';
 import { serialize, deserialize } from '../persistence/Serializer';
 import { BALANCE } from '../data/balance';
 import { landWorld } from './pcTestWorld';
+import { pcQuote } from '../sim/politics';
 
 const SQUARE = 200;   // 2×2, anchor top-left
 const ELL = 201;      // anchor (0,0), one tile above it, one up and to the left:  X X
@@ -368,5 +371,91 @@ describe('connection and coverage from the edge of a shape', () => {
     for (let y = 2; y <= 5; y++) w2.setRoad(4, y, ROAD_STREET);     // west of (5, 5)
     expect(computeServiceCoverage(w2, 6, 6, ELL, 3).has(at(w2, 4, 2))).toBe(true);
     expect(computeServiceCoverage(w2, 6, 6, BUILDING_POLICE, 3).has(at(w2, 4, 2))).toBe(false); // one tile at (6, 6) does not
+  });
+});
+
+describe("a kind that must stand at the water's edge", () => {
+  const PUMP = 220;     // test kind: 2×1, needs water beside it
+  let w: World;
+  beforeEach(() => {
+    setBuildingShape(PUMP, [[0, 0], [1, 0]]);
+    setPlacementRules(PUMP, { needsWaterEdge: true });
+    w = landWorld(16);
+    w.budget.money = 1e6;
+    for (let y = 0; y < 16; y++) w.layers.terrain[at(w, 10, y)] = TERRAIN_WATER;   // a river down column 10
+  });
+  afterEach(() => {
+    clearBuildingShape(PUMP);
+    setPlacementRules(PUMP);
+  });
+
+  it('the large water plant is such a kind; the small tower and the other large plants are not', () => {
+    expect(placementRules(BUILDING_LARGE_WATER_PLANT)).toEqual({ needsWaterEdge: true });
+    for (const kind of [BUILDING_WATER_TOWER, BUILDING_POWER_PLANT, BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_PARK]) {
+      expect(placementRules(kind)).toEqual({});
+    }
+  });
+
+  it('goes where a tile beside its shape is water, whichever of its tiles is the one beside it', () => {
+    expect(w.placeBlocker(8, 5, PUMP)).toBeNull();                 // its far tile (9, 5) touches the river
+    expect(w.canPlaceBuilding(8, 5, PUMP)).toBe(true);
+    expect(w.placeBlocker(11, 5, PUMP)).toBeNull();                // its anchor touches it from the other bank
+    expect(w.placeBuilding(8, 5, PUMP)).toBe(true);
+  });
+
+  it('is refused away from water, with the reason', () => {
+    expect(w.placeBlocker(4, 5, PUMP)).toBe('noWater');
+    expect(w.placeBlocker(7, 5, PUMP)).toBe('noWater');            // one tile short of the bank
+    expect(w.checkPlacement(4, 5, PUMP)).toEqual({ ok: false, offMap: false, blocked: [], noWater: true });
+    expect(w.canPlaceBuilding(4, 5, PUMP)).toBe(false);
+    expect(w.placeBuilding(4, 5, PUMP)).toBe(false);
+    expect(w.buildings).toEqual([]);
+  });
+
+  it('water at a corner only does not count', () => {
+    const pond = landWorld(16);
+    pond.layers.terrain[at(pond, 6, 4)] = TERRAIN_WATER;           // diagonal to (5, 5), the pump's far tile
+    expect(pond.placeBlocker(4, 5, PUMP)).toBe('noWater');
+    pond.layers.terrain[at(pond, 5, 4)] = TERRAIN_WATER;           // straight above it
+    expect(pond.placeBlocker(4, 5, PUMP)).toBeNull();
+  });
+
+  it('still cannot stand on the water itself, and that is reported as blocked, not as no water', () => {
+    expect(w.placeBlocker(9, 5, PUMP)).toBe('blocked');            // its far tile would be in the river
+    expect(w.checkPlacement(9, 5, PUMP).blocked).toEqual([at(w, 10, 5)]);
+    expect(w.placeBlocker(15, 5, PUMP)).toBe('offMap');
+  });
+
+  it('the command says why it refused, charges nothing, and quotes nothing', () => {
+    const history = new CommandHistory(w);
+    const away = new PlaceBuildingCommand(4, 5, PUMP);
+    expect(history.run(away)).toBe(false);
+    expect(away.failReason).toBe('noWater');
+    expect(w.budget.money).toBe(1e6);
+    expect(pcQuote(w, { type: 'building', tx: 4, ty: 5, kind: PUMP }).parts).toEqual([]);
+
+    const inRiver = new PlaceBuildingCommand(9, 5, PUMP);          // blocked: no special reason
+    expect(history.run(inRiver)).toBe(false);
+    expect(inRiver.failReason).toBeNull();
+
+    const onBank = new PlaceBuildingCommand(8, 5, PUMP);
+    expect(history.run(onBank)).toBe(true);
+    history.undo();
+    expect(w.buildings).toEqual([]);
+    history.redo();
+    expect(w.buildings).toEqual([{ tx: 8, ty: 5, kind: PUMP }]);
+  });
+
+  it('the real large water plant: refused inland, placed on the shore, and it still needs a road to supply', () => {
+    expect(w.placeBlocker(4, 5, BUILDING_LARGE_WATER_PLANT)).toBe('noWater');
+    expect(w.placeBlocker(8, 5, BUILDING_LARGE_WATER_PLANT)).toBeNull();   // covers x 8–9, y 5–6: the river is beside it
+    expect(w.placeBuilding(8, 5, BUILDING_LARGE_WATER_PLANT)).toBe(true);
+    new NetworkSystem().update(w);
+    expect(spreadUtility(w, new Uint8Array(256), BUILDING_LARGE_WATER_PLANT, 100, 1)).toBe(0);   // on the shore, but no road
+    w.setRoad(7, 5, ROAD_STREET);
+    new NetworkSystem().update(w);
+    expect(spreadUtility(w, new Uint8Array(256), BUILDING_LARGE_WATER_PLANT, 100, 1)).toBe(100);
+    // A small water tower goes anywhere.
+    expect(w.placeBlocker(2, 2, BUILDING_WATER_TOWER)).toBeNull();
   });
 });

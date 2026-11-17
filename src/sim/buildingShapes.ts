@@ -65,6 +65,34 @@ setBuildingShape(BUILDING_LARGE_POWER_PLANT, block(3, 3));
 setBuildingShape(BUILDING_LARGE_WATER_PLANT, block(2, 2));
 setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
 
+// ── Where a kind may stand ───────────────────────────────────────────────────
+
+/** Extra conditions a kind puts on where it can be placed. A kind with none can go on any free land. */
+export interface PlacementRules {
+  /**
+   * The building must stand at the water's edge: at least one tile just
+   * outside its shape (sharing an edge with it) is water. The building itself
+   * still stands on land. For a pump now, a seaport later.
+   */
+  needsWaterEdge?: boolean;
+}
+
+const NO_RULES: PlacementRules = {};
+const RULES = new Map<number, PlacementRules>();
+
+/** The extra placement conditions of `kind` (none for most kinds). */
+export function placementRules(kind: number): PlacementRules {
+  return RULES.get(kind) ?? NO_RULES;
+}
+
+/** Set a kind's placement conditions; `{}` or no argument removes them. Buildings already standing are not touched. */
+export function setPlacementRules(kind: number, rules: PlacementRules = {}): void {
+  if (Object.keys(rules).length === 0) RULES.delete(kind); else RULES.set(kind, { ...rules });
+}
+
+// The large water plant is a pump: it draws from open water.
+setPlacementRules(BUILDING_LARGE_WATER_PLANT, { needsWaterEdge: true });
+
 /**
  * Tile indices a `kind` building anchored at (tx, ty) would stand on, in the
  * shape's order (the anchor is wherever (0, 0) is listed), or null if any of

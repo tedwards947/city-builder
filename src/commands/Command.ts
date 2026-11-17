@@ -7,10 +7,14 @@ import type { World } from '../sim/World';
 import { BUILDING_NONE } from '../sim/constants';
 
 /** Why execute() refused, when the reason is worth telling the player. */
-export type FailReason = 'funds' | 'politicalCapital';
+export type FailReason = 'funds' | 'politicalCapital' | 'noWater';
 
 export abstract class Command {
-  /** Set by execute() when it returns false for lack of money or political capital. */
+  /**
+   * Set by execute() when it returns false for a reason worth telling the
+   * player: lack of money or political capital, or a building that must
+   * stand at the water's edge placed away from water.
+   */
   failReason: FailReason | null = null;
   abstract execute(world: World): boolean;
   abstract undo(world: World): void;

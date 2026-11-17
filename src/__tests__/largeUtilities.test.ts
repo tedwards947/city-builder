@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import {
-  ROAD_STREET,
+  ROAD_STREET, TERRAIN_WATER,
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
 } from '../sim/constants';
@@ -39,6 +39,9 @@ describe('large utilities', () => {
     w = landWorld(24);
     w.budget.money = 1e6;
     for (let x = 2; x <= 20; x++) w.setRoad(x, 10, ROAD_STREET);   // one street; plants go just below it
+    // A pond along the left of where the large plants go: the large water plant is a pump and needs it.
+    for (let y = 11; y <= 14; y++) w.layers.terrain[w.grid.idx(3, y)] = TERRAIN_WATER;
+    w.layers.terrain[w.grid.idx(3, 9)] = TERRAIN_WATER;
   });
 
   for (const u of LARGE) {
