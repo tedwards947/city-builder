@@ -1,12 +1,16 @@
 // What a service building (park, police, fire, school, hospital) is worth to
 // the residents it covers, in political capital. One rule prices both ends:
 //   - opening one earns the total value residents gain;
-//   - closing one costs the total value they lose, times a multiplier of at
-//     least 1, so building and bulldozing cannot be farmed.
+//   - closing one costs the total value they lose. Residents it leaves with
+//     no building of that kind at all count times a multiplier of at least 1:
+//     a closure that strands people hurts, and building and bulldozing cannot
+//     be farmed. Residents still covered by another lose only what this one
+//     was worth to them, with no multiplier.
 // Each resident values each further building of the same kind covering them
 // less than the one before (the first park matters a lot, a second nearby one
-// less), so residents still covered by another lose little: moving a service
-// is cheap.
+// less). So moving a service is cheap: opening the new one beside the old
+// earns the reduced value, closing the old one then costs that same reduced
+// value back, and only the homes the move leaves behind are charged in full.
 //
 // "Covers" is the simulation's own coverage (computeServiceCoverage: along
 // streets and avenues out to the kind's range), so the reward matches the
@@ -34,7 +38,11 @@ export interface ServiceValueConfig {
    * third a quarter.
    */
   repeatFactor: number;
-  /** Closing costs the value lost times this (at least 1). */
+  /**
+   * Closing costs this many times the value lost by residents left with no
+   * building of the kind (at least 1). Residents another building still
+   * covers are charged their loss once.
+   */
   closureMultiplier: number;
 }
 
@@ -185,7 +193,9 @@ export function serviceOpeningValue(
 
 /**
  * What closing the service building standing at (tx, ty) would cost: one part
- * per home it covers. Empty if there is no service building there or its kind
+ * per home it covers. A home it is the only one of its kind for is charged
+ * `closureMultiplier` times its value; a home another still covers, its
+ * reduced value once. Empty if there is no service building there or its kind
  * has no value set.
  */
 export function serviceClosureValue(
@@ -210,7 +220,8 @@ export function serviceClosureValue(
     if (pop === 0) continue;
     const others = (counts.get(i) ?? 1) - 1;
     const strength = cfg.repeatFactor ** others;
-    const amount = pop * rate * strength * cfg.closureMultiplier;
+    // The multiplier is for residents this leaves with nothing of the kind.
+    const amount = pop * rate * strength * (others === 0 ? cfg.closureMultiplier : 1);
     if (amount > 0) parts.push({ tx: i % width, ty: (i - (i % width)) / width, amount: -amount, strength });
   }
   return parts;
