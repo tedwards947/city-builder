@@ -232,3 +232,61 @@ export function homeSeat(world: World, tx: number, ty: number, kind: number): Ho
   }
   return { seatedAt: null, reason: s.seating.full.has(i) ? 'full' : 'outOfReach' };
 }
+
+// ── What-if: opening or closing one building ────────────────────────────────
+
+/** How the city's seats would change if one building of a kind opened or closed. */
+export interface SeatChange {
+  /** Homes (tile indices) with no seat now that would have one. */
+  gained: number[];
+  /** Homes seated now that would have none. Homes that only move to another building are in neither list. */
+  lost: number[];
+  gainedResidents: number;
+  lostResidents: number;
+  /** Opening only: residents the new building itself would seat (some may come from other buildings). */
+  seatedAtNew: number;
+}
+
+let lastChange: { world: World; edits: number; tick: number; key: string; change: SeatChange } | null = null;
+
+function seatChange(world: World, kind: number, key: string, alter: (reaches: BuildingReach[]) => { reaches: BuildingReach[]; added: number }): SeatChange {
+  const capacity = serviceCapacity(kind);
+  const memoKey = kind + ':' + capacity + ':' + (BALANCE.service.coverageRange[kind] ?? -1) + ':' + key;
+  if (lastChange && lastChange.world === world && lastChange.edits === world.grid.edits && lastChange.tick === world.tick && lastChange.key === memoKey) {
+    return lastChange.change;
+  }
+  const standing = kindSeating(world, kind).reaches;
+  // Both seatings are taken now, from the same homes, so only the building makes the difference.
+  const before = assignSeats(world, standing, capacity);
+  const { reaches, added } = alter(standing);
+  const after = assignSeats(world, reaches, capacity);
+  const change: SeatChange = { gained: [], lost: [], gainedResidents: 0, lostResidents: 0, seatedAtNew: added >= 0 ? after.seated[added] : 0 };
+  for (const i of after.seatOf.keys()) {
+    if (!before.seatOf.has(i)) { change.gained.push(i); change.gainedResidents += homeResidents(world, i); }
+  }
+  for (const i of before.seatOf.keys()) {
+    if (!after.seatOf.has(i)) { change.lost.push(i); change.lostResidents += homeResidents(world, i); }
+  }
+  change.gained.sort((a, b) => a - b);
+  change.lost.sort((a, b) => a - b);
+  lastChange = { world, edits: world.grid.edits, tick: world.tick, key: memoKey, change };
+  return change;
+}
+
+/**
+ * How seats would change if a `kind` building opened at (tx, ty). The answer
+ * for the tile last asked about is remembered for the rest of the tick, so a
+ * hover priced every frame costs one seating.
+ */
+export function seatsIfOpened(world: World, tx: number, ty: number, kind: number): SeatChange {
+  return seatChange(world, kind, 'open:' + world.grid.idx(tx, ty), (standing) => ({
+    reaches: [...standing, buildingReach(world, tx, ty, kind)], added: standing.length,
+  }));
+}
+
+/** How seats would change if the `kind` building anchored at tile index `anchor` closed. */
+export function seatsIfClosed(world: World, anchor: number, kind: number): SeatChange {
+  return seatChange(world, kind, 'close:' + anchor, (standing) => ({
+    reaches: standing.filter((r) => r.anchor !== anchor), added: -1,
+  }));
+}

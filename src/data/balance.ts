@@ -461,7 +461,9 @@ export const BALANCE = {
       // building kind (4 police, 5 fire, 6 school, 7 hospital, 8 park).
       perResident: { 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 } as Record<number, number>,
       // Each further building of the same kind covering a resident is worth
-      // this fraction of the one before.
+      // this fraction of the one before. (Not used for a kind that has a
+      // capacity, see service.capacity: those are priced by the residents
+      // who gain or lose a seat.)
       repeatFactor: 0.5,
       // Closing a service costs this many times the value lost by residents
       // it leaves with no building of that kind. (Residents another still
