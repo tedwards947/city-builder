@@ -1,4 +1,4 @@
-// Balance Lab auto-tuner: a deterministic coordinate search over the PC keys
+// Balance Lab auto-tuner: a deterministic steepest-descent search over the PC keys
 // the variants set, scored by the PC targets. It proposes numbers; it never
 // changes the game. See scripts/balance-tune.mjs.
 
@@ -6,7 +6,9 @@ import { VARIANT_VALUES } from '../ui/pcVariantValues';
 import { runLab, type Report } from './lab';
 import type { CitySpec } from './world';
 
-type Tree = Record<string, unknown>;
+/** A PC number set in the shape of VARIANT_VALUES[x] (applied with applyValues). */
+export type ValueTree = Record<string, unknown>;
+type Tree = ValueTree;
 
 /** A lever: one or more keys moved together (a group keeps their ratios). */
 export interface Param {
@@ -105,39 +107,49 @@ export interface TuneResult {
   steps: { param: string; dir: number; level: number; score: number; pass: number }[];
 }
 
+/** Scores many number sets; results in input order. One process: `localEvaluator`; many: scripts/balance-pool.mjs. */
+export type EvaluateMany = (trees: ValueTree[]) => Promise<Eval[]>;
+
+export const localEvaluator = (cities: CitySpec[], days: number): EvaluateMany =>
+  async trees => trees.map(t => evaluate(t, cities, days));
+
+/** Step size per refinement level: a factor for 'mult' levers, a multiple of `step` for 'add' levers. */
+const LEVELS: { mult: number; add: number }[] = [{ mult: 1.5, add: 1 }, { mult: 1.25, add: 0.5 }, { mult: 1.1, add: 0.25 }];
+
 /**
- * Coordinate search from a variant's numbers: try each lever up and down, keep
- * any move that lowers the score, then refine the step (×1.5, ×1.25, ×1.1).
- * Deterministic: same start, cities and budget give the same answer.
+ * Steepest-descent search from a variant's numbers: each round scores every
+ * lever moved one step up and down (one batch, so it runs in parallel), keeps
+ * the best move if it lowers the score, and refines the step when none does.
+ * Deterministic whatever the evaluator's worker count: ties go to the first
+ * candidate in PARAMS order.
  */
-export function tune(start: 'A' | 'B' | 'C' | 'D', cities: CitySpec[], opts: { days?: number; budget?: number; log?: (l: string) => void } = {}): TuneResult {
-  const days = opts.days ?? 300, budget = opts.budget ?? 150, log = opts.log ?? (() => {});
+export async function tune(start: 'A' | 'B' | 'C' | 'D', evaluateMany: EvaluateMany, opts: { budget?: number; log?: (l: string) => void } = {}): Promise<TuneResult> {
+  const budget = opts.budget ?? 150, log = opts.log ?? (() => {});
   const startValues = JSON.parse(JSON.stringify(VARIANT_VALUES[start])) as Tree;
-  let best = evaluate(startValues, cities, days);
+  let [best] = await evaluateMany([startValues]);
   const startEval = { score: best.score, pass: best.pass, graded: best.graded, results: best.results };
   let evals = 1;
   const seen: Eval[] = [best];
   const steps: TuneResult['steps'] = [];
   log(`${start}: start score ${best.score}, ${best.pass}/${best.graded}`);
-  for (const level of [1.5, 1.25, 1.1]) {
-    let improved = true;
-    while (improved && evals < budget) {
-      improved = false;
-      for (const p of PARAMS) {
-        for (const dir of [1, -1] as const) {
-          if (evals >= budget) break;
-          const cand = move(best.values, p, dir, p.mode === 'mult' ? level : level - 0.5 > 0.5 ? 1 : 0.5);
-          if (!cand) continue;
-          const e = evaluate(cand, cities, days);
-          evals++; seen.push(e);
-          if (e.score < best.score - 1e-9) {
-            best = e; improved = true;
-            steps.push({ param: p.id, dir, level, score: e.score, pass: e.pass });
-            log(`${start}: ${p.id} ${dir > 0 ? 'up' : 'down'} ×${level} → score ${e.score}, ${e.pass}/${e.graded} (eval ${evals})`);
-            break;
-          }
-        }
+  for (const level of LEVELS) {
+    while (evals < budget) {
+      const cands: { p: Param; dir: 1 | -1; values: Tree }[] = [];
+      for (const p of PARAMS) for (const dir of [1, -1] as const) {
+        const values = move(best.values, p, dir, p.mode === 'mult' ? level.mult : level.add);
+        if (values) cands.push({ p, dir, values });
       }
+      const batch = cands.slice(0, budget - evals);
+      if (!batch.length) break;
+      const es = await evaluateMany(batch.map(c => c.values));
+      evals += es.length; seen.push(...es);
+      let k = -1;
+      es.forEach((e, i) => { if (e.score < (k < 0 ? best.score - 1e-9 : es[k].score)) k = i; });
+      if (k < 0) break;
+      best = es[k];
+      const { p, dir } = batch[k];
+      steps.push({ param: p.id, dir, level: level.mult, score: best.score, pass: best.pass });
+      log(`${start}: ${p.id} ${dir > 0 ? 'up' : 'down'} ×${level.mult} → score ${best.score}, ${best.pass}/${best.graded} (eval ${evals})`);
     }
   }
   const passedSomewhere: TuneResult['passedSomewhere'] = {};
