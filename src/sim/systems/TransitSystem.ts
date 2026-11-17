@@ -112,6 +112,12 @@ export class TransitSystem {
   private _lotCount = 0;
   private _fresh = true;            // no pass has run yet
   private _tripsScale = 1;          // ordinance multiplier on trips, read once per pass
+  // For each road tile, its four neighbours (W, E, N, S) that are also road
+  // tiles, -1 where there is none: _nb[4 * tile + k]. Rebuilt when the road
+  // layer changes, so the floods, sweeps and spills step along the network
+  // without working out and checking each neighbour again.
+  private _nb!: Int32Array;
+  private _nbStale = true;
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
@@ -173,6 +179,8 @@ export class TransitSystem {
       this._firstIteration = true;
       this._lastInputHash = NaN;
       this._fresh = true;
+      this._nb = new Int32Array(n * 4);
+      this._nbStale = true;
     }
 
     const roadClass = world.layers.roadClass;
@@ -220,6 +228,7 @@ export class TransitSystem {
       // Roads added or removed: wipe what the list-based loops below would
       // otherwise leave behind on tiles that are no longer roads.
       if (roadHash !== this._lastRoadHash) this._clearOffRoad(world);
+      if (roadHash !== this._lastRoadHash || this._nbStale) this._linkRoads(world);
       this._lastRoadHash = roadHash;
       this._iter = 0;
       data.settled = false;
@@ -311,6 +320,23 @@ export class TransitSystem {
     }
   }
 
+  /** Record, for every road tile, which of its four neighbours are road tiles. */
+  private _linkRoads(world: World): void {
+    const { width, height } = world.grid;
+    const roadClass = world.layers.roadClass;
+    const nb = this._nb;
+    const roads = this._roads, roadCount = this._roadCount;
+    nb.fill(-1);
+    for (let q = 0; q < roadCount; q++) {
+      const i = roads[q];
+      for (let k = 0; k < 4; k++) {
+        const ni = neighbourIndex(i, k, width, height);
+        if (ni >= 0 && roadClass[ni] !== ROAD_NONE) nb[i * 4 + k] = ni;
+      }
+    }
+    this._nbStale = false;
+  }
+
   /** Travel cost per road tile from the current volumes: slower when loaded past free flow. */
   private _updateCosts(world: World): void {
     const T = BALANCE.transit;
@@ -366,6 +392,7 @@ export class TransitSystem {
     const dev       = world.layers.devLevel;
     const cost = this._cost;
     const { dist, parent, order, doorCap } = field;
+    const nb = this._nb;
     const roads = this._roads, roadCount = this._roadCount;
     const lots = this._lots, lotCount = this._lotCount;
 
@@ -408,10 +435,9 @@ export class TransitSystem {
       order[count++] = cur;
 
       const curCost = cost[cur];
-      for (let k = 0; k < 4; k++) {
-        const ni = neighbourIndex(cur, k, width, height);
+      for (let k = cur * 4, end = k + 4; k < end; k++) {
+        const ni = nb[k];
         if (ni < 0) continue;
-        if (roadClass[ni] === ROAD_NONE) continue;
         // Half of each tile is crossed when stepping from one to the next.
         const nd = Math.fround(key + (curCost + cost[ni]) * 0.5);
         if (nd < dist[ni]) {
@@ -469,8 +495,8 @@ export class TransitSystem {
    * accumulates the traffic passing through it (into `_raw`). Traffic ends
    * at the first door it reaches.
    */
-  private _sweep(world: World, field: TrafficField, flow: Float32Array): void {
-    const { width, height } = world.grid;
+  private _sweep(_world: World, field: TrafficField, flow: Float32Array): void {
+    const nb = this._nb;
     const { dist, parent, order, count, doorLoad } = field;
     const room = this._room;
     const raw = this._raw;
@@ -501,7 +527,7 @@ export class TransitSystem {
       let n0 = -1, n1 = -1, n2 = -1, n3 = -1;
       let w0 = 0, w1 = 0, w2 = 0, w3 = 0;
       for (let d = 0; d < 4; d++) {
-        const ni = neighbourIndex(ri, d, width, height);
+        const ni = nb[ri * 4 + d];
         if (ni < 0 || !(dist[ni] < here)) continue;
         // How much longer the trip is via this neighbour than via the best one.
         const detour = dist[ni] + (hereCost + cost[ni]) * 0.5 - here;
@@ -525,9 +551,8 @@ export class TransitSystem {
    * Doors are handled in a fixed order and nothing here depends on earlier
    * iterations, so the result is the same every time for the same inputs.
    */
-  private _spill(world: World, field: TrafficField): void {
-    const { width, height } = world.grid;
-    const roadClass = world.layers.roadClass;
+  private _spill(_world: World, field: TrafficField): void {
+    const nb = this._nb;
     const { order, count, parent, doorLoad } = field;
     const room = this._room;
     const raw = this._raw;
@@ -558,8 +583,8 @@ export class TransitSystem {
         }
         if (steps[cur] >= SPILL_RADIUS) continue;
         for (let d = 0; d < 4; d++) {
-          const ni = neighbourIndex(cur, d, width, height);
-          if (ni < 0 || seen[ni] === run || roadClass[ni] === ROAD_NONE) continue;
+          const ni = nb[cur * 4 + d];
+          if (ni < 0 || seen[ni] === run) continue;
           seen[ni] = run; steps[ni] = steps[cur] + 1; from[ni] = cur;
           queue[tail++] = ni;
         }
