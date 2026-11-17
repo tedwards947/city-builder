@@ -10,15 +10,17 @@
 // testcity1.citysave.json; never commit it); every cities/gen-*.citysave.json
 // (generated cities); and any --city <file>.
 //
-// Two suites: "pc" grades the PC targets per PC variant; "econ" grades the
+// Three suites: "pc" grades the PC targets per PC variant; "svc" the services targets per
+// school / hospital capacity preset; "econ" grades the
 // economy targets per economy preset (the Planner on the city's own money).
-// Cities above 20k residents only run the econ suite (--pc-max-pop to change).
+// Cities above 20k residents only run the econ suite (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ          one suite only (default both)
+//   --suite pc|econ|svc      one suite only (default all three)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default all four)
-//   --pc-max-pop 20000       saved cities above this skip the PC suite
+//   --svc-presets off,mid,.. which services capacity presets (src/balance/services.ts; default all)
+//   --pc-max-pop 20000       saved cities above this skip the PC and services suites
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
 //   --days-save 150          game days on saved cities
@@ -72,6 +74,7 @@ try {
     variants,
     customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,
     econPresets: quick ? ['recommended'] : list(opt('--presets')),
+    svcPresets: quick ? ['mid'] : list(opt('--svc-presets')),
     pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
     personas: list(opt('--personas')),
     daysFresh: Number(opt('--days-fresh') ?? (quick ? 120 : 300)),
@@ -89,6 +92,7 @@ try {
   for (const [v, s] of Object.entries(report.summary)) console.log(`pc   ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.best) console.log(`pc best: ${[report.best.variant, ...report.best.tied].join(' = ')} (${report.best.pass}/${report.best.of})`);
   for (const [v, s] of Object.entries(report.econSummary)) console.log(`econ ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.svcSummary ?? {})) console.log(`svc  ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -111,7 +115,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;

@@ -14,9 +14,10 @@ import { BALANCE } from '../data/balance';
 import { ORDINANCE_IDS } from '../sim/ordinances';
 import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
+import type { SvcResult, SvcKindStats } from './services';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ';
+export type Suite = 'pc' | 'econ' | 'svc';
 
 export interface Outcome {
   value: unknown;
@@ -35,6 +36,8 @@ export interface EvalCtx {
   probes: StaticProbes | null;
   refill: { days: number | null; avgSatisfaction: number } | null;
   ordinancesOn: boolean;
+  /** Services suite: seating and probes on the Planner's city at the end of the run. */
+  svc?: SvcResult | null;
 }
 
 export interface Target {
@@ -236,7 +239,46 @@ const ECON_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { const e = econ(c); return e ? { ...range(e.gainInDaysOfExpenses, -Infinity, 40), note: `money ${e.moneyStart} → ${e.moneyEnd}` } : NA('not run'); } },
 ];
 
+
+// ── Services suite (school and hospital capacity), v0 approved by the owner 2026-11-17 ──
+// Graded per capacity preset (src/balance/services.ts) on the Planner's city. Reach decides
+// who CAN use a building; capacity decides how many get a seat. Hard is fine; unfair or invisible isn't.
+type SvcK = SvcKindStats & { growth: { perNewResident: number | null } | null; fix: { share: number | null } | null };
+const perKind = (c: EvalCtx, f: (k: SvcK, name: 'school' | 'hospital') => Outcome): Outcome => {
+  if (!c.svc) return NA('not run');
+  return all({ school: f(c.svc.kinds.school as SvcK, 'school'), hospital: f(c.svc.kinds.hospital as SvcK, 'hospital') });
+};
+const capOff = (c: EvalCtx) => c.variant === 'off';
+const later = (why: string) => (): Outcome => NA(why);
+const SEAT_RULE = 'waits for engine\'s seat-based PC service rule';
+
+const SVC_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'svc.perCapita', metric: 'Schools and hospitals the Planner has per 10k residents (it adds one where homes lack a seat)', target: 'schools 3–6; hospitals 1–2', persona: 'planner', cities: 'all', status: 'graded',
+    why: 'Services scale with population, not sprawl: capacity should bind, but not fill the map.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, (k, n) => (c.svc!.population < 3000 ? NA('under 3k residents') : range(k.per10k, n === 'school' ? 3 : 1, n === 'school' ? 6 : 2))) },
+  { id: 'svc.seated', metric: 'Share of residents with a seat at the end of the Planner\'s run', target: 'schools ≥ 90%; hospitals ≥ 95%', persona: 'planner', cities: 'all', status: 'graded',
+    why: 'A careful player can serve nearly everyone: hard is fine, impossible is not.',
+    evaluate: c => perKind(c, (k, n) => range(k.seatedShare, n === 'school' ? 0.9 : 0.95)) },
+  { id: 'svc.growthShock', metric: 'When 5% of homes (seated at the fullest buildings) grow a level: seats lost per resident added', target: '≤ 1.5 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Growth near a full school costs a few seats, predictably, without a cascade.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => (k.growth?.perNewResident === null || k.growth === null ? NA('nothing to grow') : range(k.growth.perNewResident, -Infinity, 1.5))) },
+  { id: 'svc.fix', metric: 'One new building on the free lot nearest the fullest one: share of its unseated residents then seated', target: '≥ 80% each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'A full school is fixable with the obvious move.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => (k.fix?.share === null || !k.fix ? NA('nothing full') : range(k.fix.share, 0.8))) },
+  { id: 'svc.visible', metric: 'Share of homes whose seat or reason (full / out of reach) matches the buildings\' reach and fill', target: '100% each', persona: 'planner', cities: 'all', status: 'graded',
+    why: 'The player can always see why a home has no school or hospital.',
+    evaluate: c => perKind(c, k => range(k.visibleOk, 1)) },
+  { id: 'svc.reachGap', metric: 'Residents out of reach of every school / hospital, after the Planner\'s run', target: '≤ 5% each', persona: 'planner', cities: 'all', status: 'graded',
+    why: 'Reach should not strand pockets a reasonable plan cannot cover.',
+    evaluate: c => perKind(c, k => range(k.outOfReachShare, -Infinity, 0.05)) },
+  { id: 'svc.pc.overlap', metric: 'PC for a second school over already-seated homes', target: 'exactly 0', persona: 'probe', cities: 'all', status: 'later', why: 'Seat-based service rule: no pay for seats nobody needed.', evaluate: later(SEAT_RULE) },
+  { id: 'svc.pc.relief', metric: 'PC per overflow resident a relieving school seats ÷ first-time pay per resident', target: '≥ 0.8', persona: 'probe', cities: 'all', status: 'later', why: 'Relieving a full school pays like a new one for the residents it seats.', evaluate: later(SEAT_RULE) },
+  { id: 'svc.pc.move', metric: 'Net PC to move a school / hospital where everyone re-seats ÷ cap', target: 'cost ≤ 0.05', persona: 'probe', cities: 'all', status: 'later', why: 'Moving a service is cheap when nobody loses a seat.', evaluate: later(SEAT_RULE) },
+  { id: 'svc.pc.loops', metric: 'Net PC from build / close / reopen loops on schools and hospitals', target: '≤ 0', persona: 'probe', cities: 'all', status: 'later', why: 'No loop nets PC.', evaluate: later(SEAT_RULE) },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
+  ...SVC_TARGETS.map(t => ({ ...t, suite: 'svc' as const })),
 ];
