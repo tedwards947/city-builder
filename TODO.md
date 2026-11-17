@@ -10,7 +10,9 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-Nothing ranked right now; the owner picks the next item from the list below.
+1. **Seaport G2: ships** (`SEAPORT_DESIGN.md`). Stand-in hulls sailing engine's `shipRoute` between the docks and the map edge: wake, a pause at the dock, passing under bridges, a small dash when zoomed out. Waits on engine's ship route. G1 (stand-in yard and docks, placement preview that turns to face open water, X to turn, toolbar entry, inspect name) is in. Not yet seen in a browser: a port with docks to the north or south, the pond message, the X key where more than one way fits.
+2. **School and health map views** (P1, owner: "when we get around to it"; after seaport G1–G2). Overlays for school seats and hospital beds, like the crime and fire overlays, so the capacity marks (fill bar under each building, amber dot on homes turned away) also show without the tool selected. Today they show only while the school or hospital tool is selected or one is inspected.
+3. **Seaport art** [paid] (about 7–10 images: the port in two orientations, 1–2 ship types in two poses, a reference, retries). Waits for the owner's OK after they have played the stand-ins.
 
 ### Waiting on something else
 

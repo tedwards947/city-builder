@@ -11,8 +11,10 @@
 import { TERRAIN_WATER } from '../sim/constants';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
-import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape } from '../sim/buildingShapes';
-import { buildingKindForPlacing, placementAnchor } from '../input/InputController';
+import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
+import { buildingKindForPlacing } from '../input/InputController';
+import { placementFor } from '../input/placement';
+import { openWater } from '../sim/openWater';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -317,7 +319,7 @@ export class CanvasRenderer {
         // A building on several tiles is drawn once, at its draw tile (clay/bigBuildings.ts).
         const big = building !== BUILDING_NONE && isLargeBuilding(building);
         if (big) {
-          const anchor = world.buildingAnchorAt(i), box = shapeBox(building);
+          const anchor = world.buildingAnchorAt(i), box = shapeBox(building, world.buildingRotAt(anchor));
           if (i === anchor + box.drawDx + box.drawDy * world.grid.width) this._drawBigBuilding(ctx, world, camera, anchor, building, now);
         }
         const clay = big ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
@@ -397,7 +399,7 @@ export class CanvasRenderer {
     // Big buildings whose draw tile is off screen but whose body is not.
     for (const b of world.buildings) {
       if (!isLargeBuilding(b.kind)) continue;
-      const box = shapeBox(b.kind), dx = b.tx + box.drawDx, dy = b.ty + box.drawDy;
+      const box = shapeBox(b.kind, b.rot ?? 0), dx = b.tx + box.drawDx, dy = b.ty + box.drawDy;
       if (dx >= bounds.x0 && dx <= bounds.x1 && dy >= bounds.y0 && dy <= bounds.y1) continue;   // drawn in the loop
       if (b.tx + box.maxX < bounds.x0 || b.tx + box.minX > bounds.x1 || b.ty + box.maxY < bounds.y0 || b.ty + box.minY > bounds.y1) continue;
       this._drawBigBuilding(ctx, world, camera, world.grid.idx(b.tx, b.ty), b.kind, now);
@@ -420,10 +422,17 @@ export class CanvasRenderer {
    * meets land: where a building that needs water can go. Stronger (and
    * pulsing) while the spot under the pointer has no water beside it.
    */
-  private _drawShoreHint(ctx: CanvasRenderingContext2D, world: World, at: { tx: number; ty: number }, X: (tx: number) => number, Y: (ty: number) => number, urgent: boolean): void {
+  private _drawShoreHint(ctx: CanvasRenderingContext2D, world: World, at: { tx: number; ty: number }, X: (tx: number) => number, Y: (ty: number) => number, urgent: boolean, open: Uint8Array | null = null): void {
     const R = 18, terrain = world.layers.terrain, grid = world.grid;
-    const isWater = (x: number, y: number) => grid.inBounds(x, y) && terrain[grid.idx(x, y)] === TERRAIN_WATER;
+    // With `open` (a seaport), only water that reaches the map edge counts, and it is washed lightly so it is clear which water that is.
+    const isWater = (x: number, y: number) => grid.inBounds(x, y) && (open ? open[grid.idx(x, y)] === 1 : terrain[grid.idx(x, y)] === TERRAIN_WATER);
     ctx.save();
+    if (open) {
+      ctx.fillStyle = 'rgba(120,220,255,0.16)';
+      for (let y = at.ty - R; y <= at.ty + R; y++) for (let x = at.tx - R; x <= at.tx + R; x++) {
+        if (isWater(x, y)) ctx.fillRect(X(x), Y(y), X(x + 1) - X(x), Y(y + 1) - Y(y));
+      }
+    }
     ctx.lineCap = 'round';
     ctx.lineWidth = urgent ? 3 : 2;
     ctx.strokeStyle = `rgba(120,220,255,${urgent ? 0.7 + 0.3 * Math.sin(performance.now() / 180) : 0.55})`;
@@ -448,6 +457,7 @@ export class CanvasRenderer {
    */
   private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
     const width = world.grid.width, ax = anchor % width, ay = (anchor - ax) / width;
+    const rot = world.buildingRotAt(anchor);
     // A building that stands at the water's edge (the pump) shows a pipe running into the water.
     let water: { x: number; y: number } | null = null;
     if (placementRules(kind).needsWaterEdge) {
@@ -457,10 +467,10 @@ export class CanvasRenderer {
       }
     }
     const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
-    const box = shapeBox(kind), n = box.maxX - box.minX + 1;
+    const box = shapeBox(kind, rot), n = box.maxX - box.minX + 1;
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
     if (!sprite) {
-      drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay), X, Y, now * 0.001, water);
+      drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water);
       return;
     }
     const tile = Math.ceil(camera.zoom * TILE_SIZE), side = n * tile;
@@ -787,7 +797,7 @@ export class CanvasRenderer {
       ctx.beginPath();
       if (big) {
         // A building on several tiles: the ring is measured from its nearest tile, so it wraps the footprint.
-        for (const e of footprintBand(big.kind, r)) { ctx.moveTo(X(big.tx + e.x0), Y(big.ty + e.y0)); ctx.lineTo(X(big.tx + e.x1), Y(big.ty + e.y1)); }
+        for (const e of footprintBand(big.kind, r, big.rot ?? 0)) { ctx.moveTo(X(big.tx + e.x0), Y(big.ty + e.y0)); ctx.lineTo(X(big.tx + e.x1), Y(big.ty + e.y1)); }
         ctx.stroke();
         return;
       }
@@ -841,28 +851,35 @@ export class CanvasRenderer {
     // Placing a building on several tiles: outline where it would stand (anchor under the pointer), red if it cannot go there.
     const placing = buildingKindForPlacing(tool);
     if (placing !== undefined && isLargeBuilding(placing)) {
-      // The pointer holds the middle of the footprint.
-      const a = placementAnchor(placing, hoverTile.tx, hoverTile.ty);
-      const tiles = shapeTiles(placing, a.tx, a.ty);
+      // The pointer holds the middle of the footprint; a seaport also turns to face open water (input/placement.ts).
+      const a = placementFor(world, placing, hoverTile.tx, hoverTile.ty);
+      const tiles = shapeTiles(placing, a.tx, a.ty, a.rot);
       const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
-      const check = world.checkPlacement(a.tx, a.ty, placing);
+      const check = a.check;
       const can = check.ok && !refused;
+      const docks = hasDocks(placing), roles = shapeRoles(placing);
+      // A seaport: wash the open water near the pointer and light its shores; ponds stay dark.
+      if (docks) this._drawShoreHint(ctx, world, hoverTile, X, Y, check.notOpenWater.length > 0, openWater(world));
       // A kind that must stand beside water (the pump): light up the shore near the pointer.
       if (placementRules(placing).needsWaterEdge) this._drawShoreHint(ctx, world, hoverTile, X, Y, check.noWater);
       // A ghost of the building where it would stand.
-      const ghost = bigClaySprite(placing), box = shapeBox(placing);
+      const ghost = bigClaySprite(placing), box = shapeBox(placing, a.rot);
+      // No art yet: the stand-in itself, faint, so the yard, quay and docks show where they would be.
+      if (!ghost && docks && check.ok) { ctx.globalAlpha = 0.6; drawBigStandIn(ctx, placing, tiles, X, Y, 0); ctx.globalAlpha = 1; }
       if (ghost && tiles.length === (box.maxX - box.minX + 1) ** 2) {
         ctx.globalAlpha = 0.55;
         drawClaySprite(ctx, ghost, X(a.tx + box.minX), Y(a.ty + box.minY), (box.maxX - box.minX + 1) * Math.ceil(ts));
         ctx.globalAlpha = 1;
       }
       // Each tile says whether it is the problem: water, a building, a road, or off the map.
-      for (const p of tiles) {
-        if (!world.grid.inBounds(p.x, p.y)) continue;
-        const blocked = check.blocked.includes(world.grid.idx(p.x, p.y));
-        ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : 'rgba(255,255,255,0.16)';
+      tiles.forEach((p, k) => {
+        if (!world.grid.inBounds(p.x, p.y)) return;
+        const i = world.grid.idx(p.x, p.y);
+        // A dock on a pond is a problem tile too; a dock that fits shows blue-white, on the water.
+        const blocked = check.blocked.includes(i) || check.notOpenWater.includes(i);
+        ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : roles[k] === 'dock' ? 'rgba(190,230,255,0.32)' : 'rgba(255,255,255,0.16)';
         ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
-      }
+      });
       ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
       this._strokeTileSet(ctx, tiles, X, Y);
       return;

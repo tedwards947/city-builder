@@ -171,7 +171,10 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
       if (building !== BUILDING_NONE) {
         // A big building's tiles are each a slice of one plain slab; the live
         // layer draws its outline and shapes on top (clay/bigBuildings.ts).
-        if (isLargeBuilding(building)) { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
+        if (isLargeBuilding(building)) {
+          // A dock stands over the water: leave the water showing under it.
+          if (world.buildingPartRoleAt(tx, ty) !== 'dock') { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
+        }
         else drawFlatBuilding(chunkCtx, building, sxi, syi, tsi, ts, localP, visualVariant);
       }
 
