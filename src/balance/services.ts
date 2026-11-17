@@ -21,11 +21,11 @@ export const SVC_NAME: Record<number, 'school' | 'hospital'> = { [BUILDING_SCHOO
 export interface SvcPreset { id: string; name: string; desc: string; capacity: Record<number, number>; range?: Record<number, number> }
 
 export const SVC_PRESETS: SvcPreset[] = [
-  { id: 'off', name: 'No capacity (shipped)', desc: 'Capacity 0 = reach alone decides, as the game ships today.', capacity: { 6: 0, 7: 0 } },
-  { id: 'low', name: 'Small', desc: 'School 1,500, hospital 5,000; shipped reach.', capacity: { 6: 1500, 7: 5000 } },
-  { id: 'mid', name: 'Medium', desc: 'School 2,000, hospital 8,000; shipped reach.', capacity: { 6: 2000, 7: 8000 } },
-  { id: 'high', name: 'Large', desc: 'School 3,000, hospital 12,000; shipped reach.', capacity: { 6: 3000, 7: 12000 } },
-  { id: 'mid-wide', name: 'Medium, wide reach', desc: 'School 2,000 within 16 road steps, hospital 8,000 within 24 (the design doc\'s direction).', capacity: { 6: 2000, 7: 8000 }, range: { 6: 16, 7: 24 } },
+  { id: 'shipped', name: 'Shipped', desc: 'The game\'s numbers (owner, 2026-11-17: school reach 20 / 4,000 seats, hospital reach 30 / 8,000).', capacity: {} },
+  { id: 'nocap', name: 'No capacity', desc: 'Shipped reach, no capacity: reach alone decides.', capacity: { 6: 0, 7: 0 } },
+  { id: 'original', name: 'Original', desc: 'The numbers before 2026-11-17: reach 8, no capacity.', capacity: { 6: 0, 7: 0 }, range: { 6: 8, 7: 8 } },
+  { id: 'tighter', name: 'Fewer seats', desc: 'Shipped reach; school 2,000, hospital 5,000.', capacity: { 6: 2000, 7: 5000 } },
+  { id: 'roomier', name: 'More seats', desc: 'Shipped reach; school 6,000, hospital 12,000.', capacity: { 6: 6000, 7: 12000 } },
 ];
 
 /** Apply a preset to BALANCE.service; returns a function that puts the shipped numbers back. */
