@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ToastPanel } from '../ui/ToastPanel';
+import { ToastPanel, fireReportText } from '../ui/ToastPanel';
 import { World } from '../sim/World';
 
 describe('ToastPanel', () => {
@@ -100,9 +100,25 @@ describe('ToastPanel', () => {
     expect(showToastSpy).not.toHaveBeenCalled();
   });
 
-  it('shows toast when fireIgnition occurs', () => {
+  it('shows no toast for a single ignition or a single damaged building', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('fireIgnition', { tx: 5, ty: 5, zone: 1, devLevel: 1 });
-    expect(showToastSpy).toHaveBeenCalledWith('Fire Alert', expect.stringContaining('5, 5'), 'alert', { x0: 5, y0: 5, x1: 5, y1: 5 });
+    world.events.emit('fireDamage', { tx: 5, ty: 5, zone: 1, level: 2 });
+    expect(showToastSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows one grouped toast for the fire report, pointing at the latest fire', () => {
+    const showToastSpy = vi.spyOn(toastPanel, 'showToast');
+    world.events.emit('fireReport', { burning: 3, started: 3, damaged: 2, tx: 5, ty: 6 });
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith('Fire Alert', '3 fires burning with no fire station in reach · 2 buildings damaged', 'alert', { x0: 5, y0: 6, x1: 5, y1: 6 });
+  });
+
+  it('words the fire report for one fire, no damage, and damage alone', () => {
+    expect(fireReportText(1, 0)).toBe('A fire is burning with no fire station in reach');
+    expect(fireReportText(2, 1)).toBe('2 fires burning with no fire station in reach · 1 building damaged');
+    expect(fireReportText(0, 1)).toBe('Fire damaged a building with no fire station in reach');
+    expect(fireReportText(0, 4)).toBe('Fire damaged 4 buildings with no fire station in reach');
+    expect(fireReportText(0, 0)).toBe('');
   });
 });
