@@ -94,6 +94,11 @@ export interface TranslationSchema {
       low: string;
       veryLow: string;
     };
+    capacity: {
+      full: string;
+      seat: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
+      bed: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
+    };
     debt: {
       ofLimit: string; overLimit: string; voteIn: string; voteIn1: string; meterTip: string; payDown: string;
       overKicker: string; overTitle: string; overText: string; inOffice: string; peakPopulation: string; finalBalance: string;

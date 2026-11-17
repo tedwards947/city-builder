@@ -31,6 +31,8 @@ import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { DebtUi } from './ui/DebtUi';
+import { hasCapacity, seatsIfOpened } from './sim/serviceCapacity';
+import { seatWords } from './ui/capacityFormat';
 import { MusicPanel } from './ui/MusicPanel';
 import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
@@ -553,7 +555,25 @@ function frame(now: number): void {
       }
     }
   }
+  // Seats and beds on the map while placing a school or hospital, or looking at one.
+  let seatView: { kind: number; gained: readonly number[] } | null = null;
+  if (serviceKind !== undefined && hasCapacity(serviceKind)) {
+    const can = hoverTile !== null && state.world.isBuildable(hoverTile.tx, hoverTile.ty, false);
+    const change = can ? seatsIfOpened(state.world, hoverTile!.tx, hoverTile!.ty, serviceKind) : null;
+    seatView = { kind: serviceKind, gained: change ? change.gained : [] };
+    // What the new building would do, under the price, unless the tag already has something to say.
+    if (change && change.gainedResidents > 0 && !pcPreview?.note) {
+      // With no political cost there is no tag yet: show the price so the note has somewhere to go.
+      pcPreview ??= { at: hoverTile!, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+      pcPreview.note = t(seatWords(serviceKind) + '.gain', { n: Math.round(change.gainedResidents).toLocaleString('en-US') });
+      pcPreview.good = true;
+    }
+  } else if (currentTool === 'inspect' && hoverTile) {
+    const kind = state.world.layers.building[state.world.grid.idx(hoverTile.tx, hoverTile.ty)];
+    if (kind !== 0 && hasCapacity(kind)) seatView = { kind, gained: [] };
+  }
   renderer.render(state.world, camera, {
+    seatView,
     pcPreview,
     requestOutcomes: requestFeedback.outcomes(performance.now()),
     areaHighlights: areaHighlights(performance.now()),

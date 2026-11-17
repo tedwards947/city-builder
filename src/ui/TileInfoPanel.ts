@@ -3,6 +3,8 @@
 // breakdown of what's blocking the next level of growth.
 
 import { footprintEdge } from '../sim/buildingShapes';
+import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
+import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type {World} from "../sim/World";
 import {
@@ -300,6 +302,16 @@ export class TileInfoPanel {
         html += `<div class="ti-detail">${t("ui.tileInfo.coverageRadius", {range})}</div>`;
         html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: buildingUpkeep(building)})}</div>`;
       }
+      // Schools and hospitals serve a limited number of residents: seats (or beds) taken, a bar, and who is left out.
+      const seats = hasCapacity(building) ? buildingSeats(world, tx, ty) : null;
+      const sv = seats ? seatsView(seats) : null;
+      if (sv) {
+        const w = seatWords(building), tone = sv.full ? ' full' : '';
+        html += `<div class="ti-detail ti-seats${tone}"><span>${t(w + ".label")}${sv.full ? ` <i>${t("ui.capacity.full")}</i>` : ""}</span><b>${sv.figure}</b></div>`;
+        html += `<div class="ti-meter${tone}"><span style="width:${(sv.fill * 100).toFixed(1)}%"></span></div>`;
+        if (!sv.full) html += `<div class="ti-detail">${t(w + ".free", {n: sv.free.toLocaleString("en-US")})}</div>`;
+        if (sv.leftOut > 0) html += `<div class="ti-detail ti-seats full">${t(w + ".leftOut", {n: sv.leftOut.toLocaleString("en-US")})}</div>`;
+      }
       if (building === BUILDING_POWER_PLANT) {
         html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.power.plantOutput})}</div>`;
       }
@@ -437,6 +449,14 @@ export class TileInfoPanel {
       }
 
       if (zone === ZONE_R) {
+        // A place at the school and the hospital: has one, or why not (full vs. out of reach: bigger vs. closer).
+        for (const kind of [BUILDING_SCHOOL, BUILDING_HOSPITAL]) {
+          const seat = hasCapacity(kind) ? homeSeat(world, tx, ty, kind) : null;
+          if (!seat) continue;
+          const state = homeSeatState(seat), key = state === "full" ? "fullState" : state;
+          const color = state === "has" ? "#7dd87d" : state === "full" ? "#e0b050" : "#e07070";
+          html += `<div class="ti-detail">${t(BUILDING_NAME[kind])}: <span style="color:${color}">${t(seatWords(kind) + "." + key)}</span></div>`;
+        }
         const edu = world.layers.education[i];
         const eduKey =
           edu < 50
