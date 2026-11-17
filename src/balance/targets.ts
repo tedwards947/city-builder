@@ -64,8 +64,9 @@ export function range(v: number | null | undefined, lo: number, hi = Infinity): 
   return { value: r3(v), pass: miss === 0, miss: r3(miss) };
 }
 function all(parts: Record<string, Outcome>): Outcome {
-  const vals = Object.values(parts);
-  if (!vals.length) return NA('nothing measured');
+  // Parts that don't apply (pass null) are reported but neither pass nor fail the whole.
+  const vals = Object.values(parts).filter(o => o.pass !== null);
+  if (!vals.length) return NA(Object.values(parts).map(o => o.note).filter(Boolean)[0] ?? 'nothing measured');
   return { value: Object.fromEntries(Object.entries(parts).map(([k, o]) => [k, o.value])), pass: vals.every(o => o.pass), miss: r3(vals.reduce((m, o) => Math.max(m, o.miss ?? 0), 0)) };
 }
 const pcShare = (r: RunSummary) => r.pcShareMean;
@@ -248,12 +249,12 @@ const perKind = (c: EvalCtx, f: (k: SvcK, name: 'school' | 'hospital') => Outcom
   if (!c.svc) return NA('not run');
   return all({ school: f(c.svc.kinds.school as SvcK, 'school'), hospital: f(c.svc.kinds.hospital as SvcK, 'hospital') });
 };
-const capOff = (c: EvalCtx) => c.variant === 'off';
+const capOff = (c: EvalCtx) => !c.svc || !Object.values(c.svc.capacity ?? {}).some(v => v > 0);
 
 const SVC_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'svc.perCapita', metric: 'Schools and hospitals the Planner has per 10k residents (it adds one where homes lack a seat)', target: 'schools 3–6; hospitals 1–2', persona: 'planner', cities: 'all', status: 'graded',
+  { id: 'svc.perCapita', metric: 'Schools and hospitals needed per 10k residents: a greedy plan seating 99% of residents (each pick seats the most, capacity respected), whatever the city has built', target: 'schools 3–6; hospitals 1–2', persona: 'planner', cities: 'all', status: 'graded',
     why: 'Services scale with population, not sprawl: capacity should bind, but not fill the map.',
-    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, (k, n) => (c.svc!.population < 3000 ? NA('under 3k residents') : range(k.per10k, n === 'school' ? 3 : 1, n === 'school' ? 6 : 2))) },
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, (k, n) => (c.svc!.population < 3000 ? NA('under 3k residents') : { ...range(k.neededPer10k, n === 'school' ? 3 : 1, n === 'school' ? 6 : 2), note: `the Planner has ${k.per10k}/10k` })) },
   { id: 'svc.seated', metric: 'Share of residents with a seat at the end of the Planner\'s run', target: 'schools ≥ 90%; hospitals ≥ 95%', persona: 'planner', cities: 'all', status: 'graded',
     why: 'A careful player can serve nearly everyone: hard is fine, impossible is not.',
     evaluate: c => perKind(c, (k, n) => range(k.seatedShare, n === 'school' ? 0.9 : 0.95)) },

@@ -116,7 +116,7 @@ export function evaluateSvc(values: Tree, cities: CitySpec[], days: number): Eva
       if (o.pass) pass++; else score += 1 + Math.min(o.miss ?? 1, 3);
     }
   }
-  const svc = Object.fromEntries(Object.entries(r.svcRuns.X ?? {}).map(([c, v]) => [c, { population: v.population, ...Object.fromEntries(Object.entries(v.kinds).map(([k, x]) => [k, { buildings: x.buildings, per10k: x.per10k, seated: x.seatedShare, full: x.fullShare, outOfReach: x.outOfReachShare }])) }]));
+  const svc = Object.fromEntries(Object.entries(r.svcRuns.X ?? {}).map(([c, v]) => [c, { population: v.population, ...Object.fromEntries(Object.entries(v.kinds).map(([k, x]) => [k, { buildings: x.buildings, per10k: x.per10k, needed: x.needed, neededPer10k: x.neededPer10k, seated: x.seatedShare, full: x.fullShare, outOfReach: x.outOfReachShare }])) }]));
   return { score: Math.round(score * 1000) / 1000, pass, graded, results, values, svc };
 }
 

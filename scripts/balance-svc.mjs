@@ -36,7 +36,7 @@ if (args.includes('--saves')) {
 
 const points = [];
 if (mode === 'reach') {
-  for (const s of [8, 10, 12, 14, 16, 20]) for (const h of [8, 12, 16, 20, 24, 30]) points.push({ label: `reach school ${s} hospital ${h}`, values: { capacity: { 6: 0, 7: 0 }, range: { 6: s, 7: h } } });
+  for (const s of [8, 10, 12, 14, 16, 20]) for (const h of [12, 20, 30, 45, 60, 90]) points.push({ label: `reach school ${s} hospital ${h}`, values: { capacity: { 6: 0, 7: 0 }, range: { 6: s, 7: h } } });
 } else {
   const range = { 6: Number(opt('--school-range') ?? 16), 7: Number(opt('--hospital-range') ?? 24) };
   for (const s of [1000, 1500, 2000, 3000, 4000]) for (const h of [3000, 5000, 8000, 12000, 20000]) points.push({ label: `capacity school ${s} hospital ${h} (reach ${range[6]}/${range[7]})`, values: { capacity: { 6: s, 7: h }, range } });
@@ -50,7 +50,7 @@ try {
   const rows = points.map((p, k) => ({ ...p, score: evals[k].score, pass: evals[k].pass, graded: evals[k].graded, failing: Object.entries(evals[k].results).filter(([, ok]) => !ok).map(([id]) => id), svc: evals[k].svc }))
     .sort((a, b) => a.score - b.score || points.indexOf(a) - points.indexOf(b));
   for (const r of rows.slice(0, 12)) {
-    const c = Object.entries(r.svc).map(([id, v]) => `${id}: schools ${v.school.per10k}/10k ${Math.round(v.school.seated * 100)}%, hospitals ${v.hospital.per10k}/10k ${Math.round(v.hospital.seated * 100)}%`).join('; ');
+    const c = Object.entries(r.svc).map(([id, v]) => `${id}: need schools ${v.school.neededPer10k}/10k, hospitals ${v.hospital.neededPer10k}/10k`).join('; ');
     console.log(`${String(r.score).padStart(7)}  ${r.pass}/${r.graded}  ${r.label}  | ${c}`);
   }
   mkdirSync(dirname(out), { recursive: true });

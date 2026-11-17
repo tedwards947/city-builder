@@ -38,6 +38,9 @@ export function applySvcPreset(p: SvcPreset): () => void {
 
 export interface SvcKindStats {
   buildings: number;
+  /** Buildings a greedy plan needs to seat 99% of residents (each pick seats the most; capacity respected), and that per 10k residents. */
+  needed: number;
+  neededPer10k: number;
   /** Buildings per 10k residents. */
   per10k: number;
   seatedShare: number;
@@ -76,13 +79,49 @@ export function svcKindStats(w: World, kind: number): SvcKindStats {
     else { out += n; if (!inReach.length) ok++; }
   }
   const fullBuildings = cap ? reaches.filter((_, k) => s.inReachUnseated[k] > 0).length : 0;
+  const needed = greedyNeeded(w, kind, homes, pop);
   return {
     buildings: reaches.length,
+    needed, neededPer10k: r3(needed / (pop / 10_000)),
     per10k: r3(reaches.length / (pop / 10_000)),
     seatedShare: r3(seated / pop), fullShare: r3(full / pop), outOfReachShare: r3(out / pop),
     visibleOk: r3(ok / Math.max(homes.length, 1)),
     fullBuildings,
   };
+}
+
+/**
+ * How many buildings of `kind` a plan needs to seat 99% of residents, independent of
+ * what the city has built: candidate sites on road-side tiles every 3 tiles (any tile,
+ * as if cleared), greedy by residents newly seated, each up to the capacity.
+ */
+export function greedyNeeded(w: World, kind: number, homes: number[], pop: number): number {
+  const { width: W, height: H } = w.grid, rc = w.layers.roadClass, cap = serviceCapacity(kind) || Infinity;
+  const cands: Int32Array[] = [];
+  for (let y = 1; y < H - 1; y += 3) for (let x = 1; x < W - 1; x += 3) {
+    const i = y * W + x;
+    if (rc[i] !== 0) continue;
+    if (![1, -1, W, -W].some(o => rc[i + o] !== 0 && rc[i + o] !== 3)) continue;
+    const r = buildingReach(w, x, y, kind).tiles.filter(t => homeResidents(w, t) > 0);
+    if (r.length) cands.push(r);
+  }
+  const left = new Map(homes.map(i => [i, homeResidents(w, i)] as const));
+  let seated = 0, n = 0;
+  while (seated < 0.99 * pop && n < 2000) {
+    let best = -1, bestGain = 0;
+    for (let k = 0; k < cands.length; k++) {
+      let g = 0;
+      for (const t of cands[k]) { g += left.get(t) ?? 0; if (g >= cap) break; }
+      g = Math.min(g, cap);
+      if (g > bestGain) { bestGain = g; best = k; }
+    }
+    if (best < 0) break;
+    // Seat whole homes, nearest first (reach tiles are in walk order), up to the capacity.
+    let room = cap;
+    for (const t of cands[best]) { const r = left.get(t) ?? 0; if (r && r <= room) { room -= r; seated += r; left.delete(t); } }
+    n++;
+  }
+  return n;
 }
 
 /**
@@ -252,13 +291,15 @@ export function svcPcProbes(w: World, kind: number): SvcPcProbes | null {
 
 export interface SvcResult {
   population: number;
+  /** The capacity per kind this was measured under (0 = no limit). */
+  capacity: Record<number, number>;
   kinds: Record<'school' | 'hospital', SvcKindStats & { growth: ReturnType<typeof growthShock>; fix: ReturnType<typeof fixProbe>; pc?: SvcPcProbes | null }>;
 }
 
 export function svcResult(w: World): SvcResult {
   const kinds = {} as SvcResult['kinds'];
   for (const k of SVC_KINDS) kinds[SVC_NAME[k]] = { ...svcKindStats(w, k), growth: growthShock(w, k), fix: fixProbe(w, k) };
-  return { population: w.stats.population, kinds };
+  return { population: w.stats.population, capacity: Object.fromEntries(SVC_KINDS.map(k => [k, serviceCapacity(k)])), kinds };
 }
 
 /** The PC probes for both kinds, under whatever PC numbers BALANCE holds now. */
