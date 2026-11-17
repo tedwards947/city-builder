@@ -16,7 +16,7 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
-import { footprintTiles } from './buildingShapes';
+import { footprintTiles, footprintEdge, placementRules } from './buildingShapes';
 
 export interface Layers {
   terrain:   Uint8Array;
@@ -101,6 +101,18 @@ export interface Politics {
 }
 
 // Unified entity type for every placed building (utilities and services alike).
+/** The answer to "can this building go here?", with the reasons if not. */
+export interface PlacementCheck {
+  /** It can be placed. */
+  ok: boolean;
+  /** Part of its shape would be off the map. (Then `blocked` and `noWater` say nothing.) */
+  offMap: boolean;
+  /** Tiles of its shape that cannot hold it: water, a building, or (for a kind of several tiles) a road. */
+  blocked: number[];
+  /** The kind must stand at the water's edge and no tile beside its shape is water. */
+  noWater: boolean;
+}
+
 export interface BuildingEntity {
   // The building's anchor tile: offset (0, 0) of its shape (sim/buildingShapes.ts).
   tx: number;
@@ -458,21 +470,46 @@ export class World {
   }
 
   /**
-   * Whether a `kind` building can be placed with its anchor at (tx, ty): every
-   * tile of its shape is on the map, not water and free of buildings. A
-   * building of more than one tile also refuses to stand on a road (a
-   * one-tile building replaces the road under it, as it always has).
+   * Whether a `kind` building can be placed with its anchor at (tx, ty), and
+   * if not, why. It can when every tile of its shape is on the map, not water
+   * and free of buildings, and the kind's own conditions hold
+   * (buildingShapes.placementRules). A building of more than one tile also
+   * refuses to stand on a road (a one-tile building replaces the road under
+   * it, as it always has).
    */
-  canPlaceBuilding(tx: number, ty: number, kind: number): boolean {
+  checkPlacement(tx: number, ty: number, kind: number): PlacementCheck {
     const { width, height } = this.grid;
     const tiles = footprintTiles(width, height, tx, ty, kind);
-    if (!tiles) return false;
+    if (!tiles) return { ok: false, offMap: true, blocked: [], noWater: false };
+    const blocked: number[] = [];
     for (const i of tiles) {
       const x = i % width, y = (i - x) / width;
-      if (!this.isBuildable(x, y)) return false;
-      if (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) return false;
+      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE)) blocked.push(i);
     }
-    return true;
+    let noWater = false;
+    if (placementRules(kind).needsWaterEdge) {
+      noWater = true;
+      for (const i of footprintEdge(width, height, tiles)) {
+        if (this.layers.terrain[i] === TERRAIN_WATER) { noWater = false; break; }
+      }
+    }
+    return { ok: blocked.length === 0 && !noWater, offMap: false, blocked, noWater };
+  }
+
+  /**
+   * Why a `kind` building cannot be placed with its anchor at (tx, ty), in one
+   * word for a preview, or null if it can: 'offMap', 'blocked' (water, a
+   * building or a road under its shape), or 'noWater' (the land is free but
+   * the kind must stand at the water's edge and no water is beside it).
+   */
+  placeBlocker(tx: number, ty: number, kind: number): 'offMap' | 'blocked' | 'noWater' | null {
+    const c = this.checkPlacement(tx, ty, kind);
+    return c.ok ? null : c.offMap ? 'offMap' : c.blocked.length > 0 ? 'blocked' : 'noWater';
+  }
+
+  /** Whether a `kind` building can be placed with its anchor at (tx, ty). See checkPlacement for the reason. */
+  canPlaceBuilding(tx: number, ty: number, kind: number): boolean {
+    return this.checkPlacement(tx, ty, kind).ok;
   }
 
   /** Place a `b` building with its anchor at (tx, ty), on every tile of its shape. */

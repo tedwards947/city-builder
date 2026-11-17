@@ -29,7 +29,12 @@ export class PlaceBuildingCommand extends Command {
   }
 
   execute(world: World): boolean {
-    if (!world.canPlaceBuilding(this.tx, this.ty, this.kind)) return false;
+    const where = world.checkPlacement(this.tx, this.ty, this.kind);
+    if (!where.ok) {
+      // Free land, but this kind needs water beside it: worth saying so.
+      if (world.placeBlocker(this.tx, this.ty, this.kind) === 'noWater') this.failReason = 'noWater';
+      return false;
+    }
     const cost = BALANCE.buildings[this.kind]?.cost ?? 0;
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
