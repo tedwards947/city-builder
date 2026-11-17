@@ -3,10 +3,12 @@ import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { isServiceKind } from '../serviceValue';
 import { ordinanceModifier } from '../ordinances';
+import { updateDebt, type DebtWarnings } from '../debt';
 
 export class EconomySystem {
   private _inDebt = false;
   private _lastWarnTick = -Infinity;
+  private _debtWarned: DebtWarnings = { half: false, limit: false };
 
   update(world: World): void {
     const zone = world.layers.zone;
@@ -69,6 +71,9 @@ export class EconomySystem {
     world.budget.income = income;
     world.budget.expenses = expenses;
     world.stats.population = population;
+
+    // The debt limit, its warnings and countdown, and game over.
+    updateDebt(world, this._debtWarned);
 
     // Budget alerts: once on entering / leaving debt, throttled while heading there.
     const money = world.budget.money;

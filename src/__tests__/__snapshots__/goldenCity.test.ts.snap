@@ -3,7 +3,9 @@
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 1 ticks 1`] = `
 {
   "budget": {
+    "debtOverTicks": 0,
     "expenses": 732.18,
+    "gameOver": false,
     "income": 961.854667,
     "money": 50229.6747,
     "politicalCapital": 100,
@@ -72,7 +74,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 50 ticks 1`] = `
 {
   "budget": {
+    "debtOverTicks": 0,
     "expenses": 732.18,
+    "gameOver": false,
     "income": 1011.27471,
     "money": 66376.6302,
     "politicalCapital": 100,
@@ -145,7 +149,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 200 ticks 1`] = `
 {
   "budget": {
+    "debtOverTicks": 0,
     "expenses": 732.18,
+    "gameOver": false,
     "income": 1088.81832,
     "money": 115546.602,
     "politicalCapital": 100,
@@ -218,7 +224,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 400 ticks 1`] = `
 {
   "budget": {
+    "debtOverTicks": 0,
     "expenses": 732.18,
+    "gameOver": false,
     "income": 1098.27003,
     "money": 188072.759,
     "politicalCapital": 100,
