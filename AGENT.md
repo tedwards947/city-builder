@@ -647,3 +647,15 @@ More than one agent session may be working in this repo at once.
 - **Merge with auto-merge.** `main` is protected: the `check` status must pass, and direct pushes are blocked. Right after `gh pr create`, run `gh pr merge <n> --auto --merge --delete-branch`, and GitHub merges once CI is green, never before.
 - **`main` is live.** Every merge to `main` deploys to the public site (https://city-builder-dmz.pages.dev/, Cloudflare Pages Git integration), and PRs get Cloudflare preview URLs. The owner wants merges to keep flowing at this stage; if a merge breaks the live game, revert it straight away and tell the others.
 - **Never touch a tree that is serving the owner's game** (a running dev server they may be playing on): no edits, pulls, checkouts or restarts. A reload interrupts their play-test.
+
+## Saving tokens (owner's rules, 2026-11-17)
+
+Usage runs out fast with many sessions at once, so every session follows these:
+
+- **Parallel only for independent, substantive work.** Leave a session idle when it has nothing real to do, and don't message idle sessions: every message makes the receiver reload its whole context.
+- **Message only when the receiver must act.** Engineers talk to each other directly (e.g. engine ↔ graphics about an API), not through the PM. Send the PM only owner decisions and finished, merged work, in one short message per PR.
+- **No re-checking what CI already gates.** Don't re-read diffs or re-run checks on another session's green PR.
+- **No polling.** Use auto-merge and wait for notifications; don't loop on CI, the lab or `gh`.
+- **Browser screenshots only when a visual change needs eyes**, and mock pages only when the owner asked for a review.
+- **Routine, well-specified jobs go to HAIKU1** (status checks, small doc edits, re-running scripts, nightly summaries).
+- **Compaction is the owner's job** (`/compact`). When you reach a natural pause (a PR merged, waiting on someone), end your message to the owner or PM with "good time to compact".
