@@ -3,7 +3,7 @@
 
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { coveredBy } from '../sim/serviceValue';
+import { coveredBy, homesWithinReach } from '../sim/serviceValue';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
@@ -40,15 +40,18 @@ export function covered(w: World, kind: number, i: number): boolean {
 }
 
 /** A free tile beside a street or avenue, nearest (x, y) within maxDist (Chebyshev rings, scanned in a fixed order). */
-export function findLot(w: World, x: number, y: number, maxDist: number, skip?: Set<number>): { x: number; y: number } | null {
+/** A free, buildable tile beside a street or avenue (not a highway). */
+export function isFreeLot(w: World, tx: number, ty: number): boolean {
   const { width: W, height: H } = w.grid, L = w.layers;
-  const ok = (tx: number, ty: number) => {
-    if (tx < 1 || ty < 1 || tx >= W - 1 || ty >= H - 1) return false;
-    const i = ty * W + tx;
-    if (skip?.has(i)) return false;
-    if (L.roadClass[i] !== ROAD_NONE || L.zone[i] !== ZONE_NONE || L.building[i] !== BUILDING_NONE || L.terrain[i] === 1) return false;
-    return [1, -1, W, -W].some(o => { const r = L.roadClass[i + o]; return r !== ROAD_NONE && r !== ROAD_HIGHWAY; });
-  };
+  if (tx < 1 || ty < 1 || tx >= W - 1 || ty >= H - 1) return false;
+  const i = ty * W + tx;
+  if (L.roadClass[i] !== ROAD_NONE || L.zone[i] !== ZONE_NONE || L.building[i] !== BUILDING_NONE || L.terrain[i] === 1) return false;
+  return [1, -1, W, -W].some(o => { const r = L.roadClass[i + o]; return r !== ROAD_NONE && r !== ROAD_HIGHWAY; });
+}
+
+export function findLot(w: World, x: number, y: number, maxDist: number, skip?: Set<number>): { x: number; y: number } | null {
+  const W = w.grid.width;
+  const ok = (tx: number, ty: number) => !skip?.has(ty * W + tx) && isFreeLot(w, tx, ty);
   x = Math.round(x); y = Math.round(y);
   for (let d = 0; d <= maxDist; d++) {
     for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
@@ -105,16 +108,29 @@ export function serveLacking(sim: Sim, rec: Recorder, kind: number, tag = KIND_N
   return placeNear(sim, rec, kind, best % W, Math.floor(best / W), 6, tag) !== null;
 }
 
-/** Place a building of `kind` on the free lot nearest a request's seed (the request-chaser's move). */
+/** Answer a request with one building of its kind on the free lot within 10 tiles that serves the most asking homes (the request-chaser's move). */
 export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' | 'noLot' | 'gone' {
   const w = sim.world, W = w.grid.width;
   const r = w.politics.requests.find(q => q.id === reqId) as ({ kind: string; seed?: number; x0: number; y0: number; x1: number; y1: number } | undefined);
   if (!r || REQUEST_BUILDING[r.kind] === undefined) return 'gone';
   const x = r.seed !== undefined ? r.seed % W : (r.x0 + r.x1) / 2, y = r.seed !== undefined ? Math.floor(r.seed / W) : (r.y0 + r.y1) / 2;
-  if (!findLot(w, x, y, 10)) return 'noLot';
-  if (!placeNear(sim, rec, REQUEST_BUILDING[r.kind], x, y, 10, 'request:' + r.kind)) return 'refused';
-  rec.answered.add(reqId);
-  return 'placed';
+  const kind = REQUEST_BUILDING[r.kind];
+  // Free lots within 10 tiles, best first: the share of the asking homes a building there would serve, then nearness.
+  const asking = new Set((r as { homes?: number[] }).homes ?? []);
+  const cx = Math.round(x), cy = Math.round(y), lots: { x: number; y: number; n: number; d: number }[] = [];
+  for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) {
+    if (!isFreeLot(w, cx + dx, cy + dy)) continue;
+    const n = asking.size ? homesWithinReach(w, cx + dx, cy + dy, kind).filter(i => asking.has(i)).length : 0;
+    lots.push({ x: cx + dx, y: cy + dy, n, d: Math.max(Math.abs(dx), Math.abs(dy)) });
+  }
+  if (!lots.length) return 'noLot';
+  lots.sort((a, b) => b.n - a.n || a.d - b.d || a.y - b.y || a.x - b.x);
+  for (const lot of lots.slice(0, 30)) {
+    const cmd = new PlaceBuildingCommand(lot.x, lot.y, kind);
+    if (rec.run(sim.history, cmd, 'request:' + r.kind)) { rec.answered.add(reqId); return 'placed'; }
+    if (cmd.failReason) return 'refused';
+  }
+  return 'refused';
 }
 
 export interface TownOptions {
