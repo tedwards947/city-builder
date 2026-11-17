@@ -63,6 +63,9 @@ const earnedShare = (r: RunSummary) => {
   return total > 0 ? one / total : null;
 };
 const metShare = (r: RunSummary) => { const m = sum(r.requests.met), f = sum(r.requests.failed); return m + f ? m / (m + f) : null; };
+/** The same share over coverage requests only (the kinds one building can answer: park, police, fire, school, hospital). */
+const COVERAGE_KINDS = ['park', 'police', 'fire', 'school', 'hospital'];
+const coverageMetShare = (r: RunSummary) => { const pick = (o: Record<string, number>) => COVERAGE_KINDS.reduce((a, k) => a + (o[k] ?? 0), 0); const m = pick(r.requests.met), f = pick(r.requests.failed); return m + f ? m / (m + f) : null; };
 const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
 const upkeeps = () => ORDINANCE_IDS.map(id => BALANCE.politicalCapital.ordinances[id]?.dailyUpkeep ?? 0).sort((a, b) => a - b);
 
@@ -142,7 +145,7 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.95), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
   { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Requests should be doable.',
-    evaluate: c => c.runs.chaser ? range(metShare(c.runs.chaser), 0.7) : NA('not run') },
+    evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); const cov = coverageMetShare(r); return { ...range(metShare(r), 0.7), note: `coverage requests only: ${cov === null ? 'none' : Math.round(cov * 100) + '%'} (the chaser does not answer trafficJam / utilities)` }; } },
   { id: 'pc.request.neglect', metric: 'Share of requests the Neglecter meets', target: '≤ 20%', persona: 'neglecter', cities: 'fresh', status: 'graded',
     why: 'A deadline should mean something.',
     evaluate: c => { const r = c.runs.neglecter; if (c.cityKind === 'save') return NA(NEGLECT_SAVE); if (!r) return NA('not run'); const s = metShare(r); return s === null ? NA('no request closed') : range(s, 0, 0.2); } },
@@ -170,12 +173,14 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => {
       if (!c.ordinancesOn) return NA('ordinances off');
       const r = c.runs.planner; if (!r) return NA('not run');
-      const u = upkeeps();
+      // Upkeep is charged × cap ÷ max (upkeepScale in src/sim/ordinances.ts), so compare like with like.
       if (c.cityKind === 'fresh') {
         if (r.regenPerDayAt2k === null) return NA('never near 2k residents');
+        const u = upkeeps().map(x => x * (r.upkeepScaleAt2k ?? 1));
         return { ...range(u.reduce((a, b) => a + b, 0) / Math.max(r.regenPerDayAt2k, 1e-9), 1.000001), note: `regen/day at 2k ${r3(r.regenPerDayAt2k)}` };
       }
       const g = r.regenPerDayLate;
+      const u = upkeeps().map(x => x * r.upkeepScaleLate);
       const three = u.slice(0, 3).reduce((a, b) => a + b, 0), five = u.slice(0, 5).reduce((a, b) => a + b, 0);
       return all({ three: range(g / Math.max(three, 1e-9), 1), five: range(g / Math.max(five, 1e-9), -Infinity, 0.999999) });
     } },

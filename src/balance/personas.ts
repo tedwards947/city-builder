@@ -144,7 +144,9 @@ export interface PersonaRun { world: World; rec: Recorder; extra: Record<string,
 
 /** Play `days` game days of a persona on a world (fresh worlds get a Town). */
 export function playPersona(p: Persona, world: World, fresh: boolean, days: number, opts: PersonaOptions = {}): PersonaRun {
-  if (fresh) world.budget.money = opts.realMoney ? BALANCE.startingMoney : Math.max(world.budget.money, 1e7);   // PC suite: PC under test, not money
+  // PC suite: PC under test, not money, so every city (fresh or saved) gets plenty; the econ suite plays on the city's own money.
+  if (!opts.realMoney) world.budget.money = Math.max(world.budget.money, 1e7);
+  else if (fresh) world.budget.money = BALANCE.startingMoney;
   const sim = startSim(world);
   const rec = new Recorder(world);
   const town = fresh ? new Town(sim, rec, p.id === 'industrialist' ? {

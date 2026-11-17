@@ -33,6 +33,9 @@ export interface RunSummary {
   milestoneRatios: number[];
   regenPerDayAt2k: number | null;
   regenPerDayLate: number;
+  /** Ordinance upkeep scale (cap ÷ max, as the sim charges it) over the same days as regenPerDayAt2k / regenPerDayLate. */
+  upkeepScaleAt2k: number | null;
+  upkeepScaleLate: number;
   extra: Record<string, unknown>;
   /** Money: see EconSummary. */
   econ: EconSummary;
@@ -136,6 +139,8 @@ export function summarise(personaKey: string, run: PersonaRun): RunSummary {
     milestoneRatios: rec.milestoneRatios.map(r3),
     regenPerDayAt2k: near2k.length ? r3(near2k.reduce((s, d) => s + d.regen, 0) / near2k.length) : null,
     regenPerDayLate: late.length ? r3(late.reduce((s, d) => s + d.regen, 0) / late.length) : 0,
+    upkeepScaleAt2k: near2k.length ? r3(near2k.reduce((s, d) => s + d.cap, 0) / near2k.length / BALANCE.politicalCapital.max) : null,
+    upkeepScaleLate: late.length ? r3(late.reduce((s, d) => s + d.cap, 0) / late.length / BALANCE.politicalCapital.max) : 1,
     extra: JSON.parse(JSON.stringify(run.extra)),
     econ: econOf(run),
     series: ds.filter((_, k) => k % 10 === 9 || k === ds.length - 1).map(d => ({ day: d.day - ds[0].day + 1, pc: r3(d.pc), cap: r3(d.cap), pop: d.pop, sat: r3(d.sat), money: Math.round(d.money), inc: Math.round(d.inc), exp: Math.round(d.exp) })),
