@@ -19,10 +19,19 @@ export type CityEvents = {
   // Crime
   crimeSpike:       { avgCrime: number; threshold: number; affectedTiles: number };
   // Fire
-  fireIgnition:     { tx: number; ty: number; zone: number; devLevel: number };
+  // `covered`: a fire station reaches the tile, so the fire will be out in a
+  // few ticks and do no damage. (Optional so older emitters still type-check.)
+  fireIgnition:     { tx: number; ty: number; zone: number; devLevel: number; covered?: boolean };
   fireSpreading:    { tx: number; ty: number };
   // A fire burned out without fire station coverage; `level` is the new dev level.
   fireDamage:       { tx: number; ty: number; zone: number; level: number };
+  // The fires with no fire station in reach, summed up: at most one per
+  // BALANCE.fire.reportCooldownTicks, and only when burning > 0 or damaged > 0.
+  // `burning` = burning right now; `started` = began since the last report
+  // (ignitions and spreads); `damaged` = buildings that lost a level since the
+  // last report; (tx, ty) = the latest such fire, or the latest damage if none
+  // started. Covered fires are never counted.
+  fireReport:       { burning: number; started: number; damaged: number; tx: number; ty: number };
   // Budget (emitted by EconomySystem)
   budgetWarning:    { money: number; daysLeft: number }; // cooldown-throttled
   debtEntered:      { money: number };                   // once, when money drops below 0

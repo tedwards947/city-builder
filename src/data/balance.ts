@@ -109,6 +109,9 @@ export const BALANCE = {
     // Dev levels a building loses when a fire burns out on a tile with no fire
     // station coverage. Covered tiles are put out before they take damage.
     damageLevels: 1,
+    // Minimum ticks between fireReport events (the grouped "fires with no
+    // fire station in reach" alert). 40 ticks = 5 game days.
+    reportCooldownTicks: 40,
   },
   education: {
     // Education gain per tick if school[i] === 1.
