@@ -218,6 +218,9 @@ export const BALANCE = {
     // power, and homes and shops touching it cannot grow. At 30 it would be
     // about 30× and blight a ring three tiles deep.
     largePowerPlantOutput: 12,
+    // Added per tick on each tile of a seaport's yard (not its docks).
+    // SWITCHED OFF at 0 until the lab sets it.
+    seaportOutput: 0,
     decayRate: 0.97,     // fraction remaining after decay each tick (0-1)
     diffusionRate: 0.20, // fraction spreading to each of 4 neighbors per tick
     growthThreshold: 20, // 0-255: R/C zones above this can't grow
@@ -288,6 +291,9 @@ export const BALANCE = {
     // Road each export trip takes up: a truck counts as this many cars, so
     // the roads to a busy port fill up.
     truckWeight: 1,
+    // Trade trips (exports plus imports) that make one ship call. Only the
+    // ships graphics draws depend on it: the more trade, the more ships.
+    tripsPerShip: 40,
   },
   // ── Shops need goods (sim/goods.ts) ──────────────────────────────────────────
   // When shops want more goods trips than industry and ports can supply, the
@@ -459,9 +465,10 @@ export const BALANCE = {
       // PC per resident at weight 1, for each industrial tile zoned.
       industrialPerResident: 0,
       // PC per resident at weight 1, by building kind (1 = power plant, 3 =
-      // sewage plant, 9 = large power plant, 11 = large sewage plant). A large
-      // building is felt from its nearest tile.
-      buildingPerResident: { 1: 0, 3: 0, 9: 0, 11: 0 } as Record<number, number>,
+      // sewage plant, 9 = large power plant, 11 = large sewage plant, 12 =
+      // seaport). A large building is felt from its nearest tile (a seaport
+      // from its yard, not its docks).
+      buildingPerResident: { 1: 0, 3: 0, 9: 0, 11: 0, 12: 0 } as Record<number, number>,
     },
     // One-off PC rewards the first time the city's population reaches each
     // threshold, e.g. { population: 1000, reward: 20 }. They may go over the
