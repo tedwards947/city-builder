@@ -174,6 +174,7 @@ export function playPersona(p: Persona, world: World, fresh: boolean, days: numb
   const c: Ctx = { sim, rec, town, opts, extra: {}, pending: [], traffic: [], rand: lcg(world.seed ?? 7) };
   world.events.on('requestOpened', q => { if (CHASER_KINDS.includes(q.kind as string)) c.pending.push(q.id as number); });
   for (let d = 0; d < days; d++) {
+    if (world.budget.gameOver) break;   // headless ticks would carry on after game over; the run ends there
     p.day(c, d);
     for (let k = 0; k < BALANCE.ticksPerDay; k++) { sim.tick(1); rec.afterTick(); }
   }
