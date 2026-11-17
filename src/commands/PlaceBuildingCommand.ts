@@ -33,7 +33,14 @@ export class PlaceBuildingCommand extends Command {
     const cost = BALANCE.buildings[this.kind]?.cost ?? 0;
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 
-    const { displacedPopulation, pcCost } = tileDisruption(world, this.tx, this.ty);
+    // Residents displaced and what that costs, over every tile of the building's shape.
+    let displacedPopulation = 0, pcCost = 0;
+    const { width, height } = world.grid;
+    for (const i of footprintTiles(width, height, this.tx, this.ty, this.kind)!) {
+      const d = tileDisruption(world, i % width, (i - (i % width)) / width);
+      displacedPopulation += d.displacedPopulation;
+      pcCost += d.pcCost;
+    }
     const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 

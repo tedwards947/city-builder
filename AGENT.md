@@ -271,7 +271,7 @@ A kind may have a **shape**: a list of offsets from its **anchor** tile, which i
 - `world.clearTile` on any tile of a building removes the whole building. Commands snapshot every tile (`snapshotTiles` / `restoreTiles` in Command.ts); `restoreTile` adds or removes the entity only when it restores the anchor tile.
 - Connected = a street or avenue on any tile along the shape's edge (`footprintEdge`); used by the utilities and by service coverage seeding.
 - Utilities: `spreadUtility` takes a table of kind → output, so a small and a large plant feed the same utility (`power.largePlantOutput` etc.). A large power plant pollutes from every tile at `pollution.largePowerPlantOutput`.
-- Not yet shape-aware (phase 3): PC quotes and nuisance rings price the anchor tile only.
+- PC: `pcQuote` for a building covers its whole shape: every home under it is displaced, and a nuisance is felt from the building's nearest tile (so preview rings should be drawn from the footprint's edge). Bulldozing any tile of a service building quotes the closure of the whole building.
 
 ---
 
