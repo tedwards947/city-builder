@@ -35,6 +35,7 @@ import {
 } from "../sim/constants";
 import {BALANCE} from "../data/balance";
 import {buildingUpkeep} from "../sim/serviceValue";
+import {taxDemandMult} from "../sim/tax";
 import {t} from "../i18n";
 import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
@@ -503,7 +504,7 @@ export class TileInfoPanel {
             : world.budget.taxRates.I;
       const taxMult = Math.max(
         BALANCE.demand.min,
-        Math.min(BALANCE.demand.max, neutralRate / currentRate),
+        Math.min(BALANCE.demand.max, neutralRate / currentRate * taxDemandMult(world.budget.taxLevel)),
       );
       const taxDelta = Math.round((taxMult - 1) * 100);
       const taxColor = taxDelta >= 0 ? "#5c5" : "#e55";

@@ -48,8 +48,10 @@ export const BALANCE = {
     // The city's tax level (sim/tax.ts): one percentage the player sets, in
     // world.budget.taxLevel. Tax income is multiplied by level ÷ neutral, and
     // satisfaction gains satisfactionPerPoint for every point below neutral
-    // (loses it for every point above). At neutral nothing changes.
-    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01 },
+    // (loses it for every point above). Growth demand in every zone is
+    // multiplied by (neutral ÷ level) ^ demandStrength: 1 = the same rule as
+    // the per-zone rates, 0 = no effect. At neutral nothing changes.
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1 },
   },
   maintenance: {
     road: 0.04,

@@ -4,7 +4,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
-import { taxLevelRange, setTaxLevel, taxEffect, taxIncomeMult, taxSatisfactionDelta } from '../sim/tax';
+import { taxLevelRange, setTaxLevel, taxEffect, taxIncomeMult, taxSatisfactionDelta, taxDemandMult } from '../sim/tax';
+import { LandValueSystem } from '../sim/systems/LandValueSystem';
 import { regenPerTick } from '../sim/politics';
 import { serialize, deserialize } from '../persistence/Serializer';
 import { ZONE_R, ZONE_C, ZONE_I, BUILDING_POWER_PLANT, TERRAIN_GRASS } from '../sim/constants';
@@ -119,6 +120,51 @@ describe('tax level', () => {
     setTaxLevel(w, 0);
     tick();
     expect(taxEffect(w, 10).income).toBe(0);
+  });
+
+  it('lower tax raises growth demand in every zone, higher tax lowers it, like the per-zone rates', () => {
+    const lv = new LandValueSystem();
+    const demand = () => { lv.update(w); return [w.stats.rDemand, w.stats.cDemand, w.stats.iDemand]; };
+    const base = demand();
+    expect(taxDemandMult(10)).toBe(1);
+    expect(taxEffect(w).demandMult).toBe(1);
+    setTaxLevel(w, 20);
+    expect(taxDemandMult(20)).toBe(0.5);
+    const high = demand();
+    setTaxLevel(w, 8);
+    const low = demand();
+    const { min, max } = BALANCE.demand;
+    const clamp = (v: number) => Math.max(min, Math.min(max, v));
+    base.forEach((b, k) => {
+      expect(high[k]).toBeLessThan(b);
+      expect(low[k]).toBeGreaterThanOrEqual(b);
+      expect(high[k]).toBeGreaterThanOrEqual(min);
+      expect(low[k]).toBeLessThanOrEqual(max);
+    });
+    // The same as moving that zone's own rate by the same proportion.
+    setTaxLevel(w, 10);
+    w.budget.taxRates.R = BALANCE.tax.zoneR * 2;
+    expect(demand()[0]).toBeCloseTo(high[0]);
+    w.budget.taxRates.R = BALANCE.tax.zoneR;
+    // The two multiply, within demand's limits.
+    setTaxLevel(w, 20);
+    w.budget.taxRates.R = BALANCE.tax.zoneR / 2;
+    expect(demand()[0]).toBeCloseTo(base[0]);
+    w.budget.taxRates.R = BALANCE.tax.zoneR;
+    // At 0% demand is simply at its ceiling, not infinite.
+    setTaxLevel(w, 0);
+    expect(taxDemandMult(0)).toBe(Infinity);
+    expect(demand().every((d) => d === clamp(d) && Number.isFinite(d))).toBe(true);
+    expect(demand()[0]).toBe(max);
+    // The strength is a balance key: 0 switches the effect off.
+    const L = BALANCE.tax.level as { demandStrength: number };
+    try {
+      L.demandStrength = 0;
+      setTaxLevel(w, 20);
+      expect(demand()).toEqual(base);
+      L.demandStrength = 0.5;
+      expect(taxDemandMult(20)).toBeCloseTo(Math.SQRT1_2);
+    } finally { L.demandStrength = 1; }
   });
 
   it('is saved with the city; a save from before loads at neutral', () => {
