@@ -4,8 +4,11 @@
 // satisfied (so political capital regenerates more slowly); below it, less
 // tax and more satisfaction.
 //
-// It multiplies on top of the per-zone rates in world.budget.taxRates and
-// does not touch growth demand. Numbers live in BALANCE.tax.level and are
+// Growth demand follows too, as it does for the per-zone rates: lower tax,
+// zones grow faster.
+//
+// It is the big lever; the per-zone rates in world.budget.taxRates are fine
+// control, and the two multiply. Numbers live in BALANCE.tax.level and are
 // read live; the level itself is world.budget.taxLevel (saved).
 
 import type { World } from './World';
@@ -30,6 +33,18 @@ export function taxIncomeMult(level: number): number {
 export function taxSatisfactionDelta(level: number): number {
   const { neutral, satisfactionPerPoint } = BALANCE.tax.level;
   return (neutral - level) * satisfactionPerPoint;
+}
+
+/**
+ * What growth demand in every zone is multiplied by at `level`:
+ * (neutral ÷ level) ^ demandStrength, exactly 1 at neutral. With a strength
+ * of 1 it is the same rule the per-zone rates follow; 0 switches it off.
+ * Unbounded as the level nears 0: the caller clamps demand to its range.
+ */
+export function taxDemandMult(level: number): number {
+  const { neutral, demandStrength } = BALANCE.tax.level as { neutral: number; demandStrength: number };
+  if (level === neutral || demandStrength === 0) return 1;
+  return level > 0 ? (neutral / level) ** demandStrength : Infinity;
 }
 
 /** City satisfaction after the tax level's effect, kept within 0–1. `base` is satisfaction before it. */
@@ -66,6 +81,11 @@ export interface TaxEffect {
   incomeChange: number;
   /** Projected income minus current expenses, per tick. */
   net: number;
+  /**
+   * What growth demand in every zone is multiplied by, before the per-zone
+   * rates and demand's own limits (so it can be Infinity at 0%).
+   */
+  demandMult: number;
   /** What the level adds to satisfaction (0–1 scale). */
   satisfactionDelta: number;
   /** Projected city satisfaction, 0–1. */
@@ -97,6 +117,7 @@ export function taxEffect(world: World, level: number = world.budget.taxLevel): 
     income,
     incomeChange: income - current,
     net: income - world.budget.expenses,
+    demandMult: taxDemandMult(level),
     satisfactionDelta,
     satisfaction,
     pcRegenPerDay: regenPerTick(world, satisfaction) * BALANCE.ticksPerDay,

@@ -16,6 +16,7 @@ import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
+import { taxDemandMult } from '../tax';
 import { isEstablished, establishedAfterYears } from '../established';
 import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
@@ -215,9 +216,11 @@ export class LandValueSystem {
     const { taxRates } = world.budget;
     const TAX = BALANCE.tax;
     const taxClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, v));
-    const rTaxMult = taxClamp(TAX.zoneR / taxRates.R);
-    const cTaxMult = taxClamp(TAX.zoneC / taxRates.C);
-    const iTaxMult = taxClamp(TAX.zoneI / taxRates.I);
+    // The city-wide tax level moves all three the same way (exactly 1 at the neutral level).
+    const cityTax = taxDemandMult(world.budget.taxLevel);
+    const rTaxMult = taxClamp(TAX.zoneR / taxRates.R * cityTax);
+    const cTaxMult = taxClamp(TAX.zoneC / taxRates.C * cityTax);
+    const iTaxMult = taxClamp(TAX.zoneI / taxRates.I * cityTax);
 
     const sqrtClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, Math.sqrt(v)));
     world.stats.rDemand = taxClamp(sqrtClamp(rRatio) * rTaxMult);
