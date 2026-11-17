@@ -44,6 +44,41 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   { key: 'goods',    origin: ZONE_C, dest: ZONE_I, rateKey: 'tripsCtoI', capacityKey: 'goodsCapacity' },
 ];
 
+// ── Doors that are not zones ────────────────────────────────────────────────
+//
+// A market's destinations are normally developed zone tiles of `def.dest`.
+// A BUILDING can be a destination too (a seaport takes goods): it registers a
+// door provider, which is asked on every traffic pass for the road tiles its
+// buildings are entered from and how many trips each can take. Those doors
+// behave exactly like zone doors: trips route to the nearest, fill it, and
+// spill to others nearby. With no provider registered nothing changes.
+
+/**
+ * Called once per market per traffic pass. Call `add(roadTile, capacity)` for
+ * each extra door: a street or avenue tile (anything else is ignored) and the
+ * trips it can take (0 or less is ignored). Must be a pure function of the
+ * world and the balance numbers: the pass re-runs only when what it adds changes.
+ */
+export type DoorProvider = (world: World, market: MarketKey, add: (roadTile: number, capacity: number) => void) => void;
+
+const doorProviders: DoorProvider[] = [];
+
+/** Register a door provider. Returns a function that removes it again (for tests). */
+export function addDoorProvider(provider: DoorProvider): () => void {
+  doorProviders.push(provider);
+  return () => { const k = doorProviders.indexOf(provider); if (k >= 0) doorProviders.splice(k, 1); };
+}
+
+/** Whether any building can be a market destination at all (false = the usual, zone-only pass). */
+export function hasDoorProviders(): boolean {
+  return doorProviders.length > 0;
+}
+
+/** Every extra door of `market`, from every provider. */
+export function extraDoors(world: World, market: MarketKey, add: (roadTile: number, capacity: number) => void): void {
+  for (const provider of doorProviders) provider(world, market, add);
+}
+
 /** Trips each origin level sends in this market. */
 export function marketRate(def: MarketDef): number { return BALANCE.transit[def.rateKey]; }
 /** Trips each destination level can take in this market. */

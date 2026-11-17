@@ -53,8 +53,9 @@ import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
-  type TrafficData, type TrafficField,
+  type TrafficData, type TrafficField, type MarketKey,
   makeTrafficData, marketRate, marketCapacity, bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
+  hasDoorProviders, extraDoors,
 } from '../TrafficData';
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
@@ -209,6 +210,16 @@ export class TransitSystem {
       if (live) lots[lotCount++] = i;
     }
     h ^= zonedCount;
+    // Doors that buildings add to a market (a seaport) are an input too.
+    if (hasDoorProviders()) {
+      for (let k = 0; k < data.markets.length; k++) {
+        extraDoors(world, data.markets[k].def.key, (ri, cap) => {
+          h = Math.imul(h ^ (ri * 4 + k), 0x9e3779b1);
+          h = Math.imul(h ^ Math.round(cap * 1000), 0x85ebca6b);
+          h ^= h >>> 15;
+        });
+      }
+    }
     this._roads = roads; this._roadCount = roadCount; this._lotCount = lotCount;
     let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
     for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)}`;
@@ -367,7 +378,7 @@ export class TransitSystem {
     for (let k = 0; k < markets.length; k++) {
       const m = markets[k];
       const { def, field } = m;
-      this._flood(world, def.dest, field, marketCapacity(def));
+      this._flood(world, def.dest, field, marketCapacity(def), def.key);
       const demand = this._inject(world, field, def.origin, marketRate(def) * this._tripsScale, this._flow);
       this._openDoors(field, demand);
       this._sweep(world, field, this._flow);
@@ -383,9 +394,10 @@ export class TransitSystem {
    * Fill `field` with the travel time from every road tile to the nearest
    * developed, non-abandoned zone tile of `zoneType`, and the way there
    * (Dijkstra from all doors at once). A zone is entered from an adjacent
-   * street or avenue; its capacity is shared between its doors.
+   * street or avenue; its capacity is shared between its doors. For a market
+   * (`market` given), buildings registered as destinations add their doors too.
    */
-  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number): void {
+  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, market?: MarketKey): void {
     const { width, height } = world.grid;
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
@@ -417,6 +429,14 @@ export class TransitSystem {
         const rc = roadClass[ri];
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += share;
       }
+    }
+
+    if (market !== undefined && hasDoorProviders()) {
+      extraDoors(world, market, (ri, cap) => {
+        if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
+        const rc = roadClass[ri];
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += cap;
+      });
     }
 
     for (let k = 0; k < roadCount; k++) {
