@@ -73,6 +73,11 @@ export const BALANCE = {
     // (police 15, fire 15, school 8, hospital 8, park 6: widened after the
     // owner's play-test, where one building rarely served a neighbourhood)
     coverageRange: { 4: 15, 5: 15, 6: 8, 7: 8, 8: 6 } as Record<number, number>,
+    // Residents one building can serve, by building kind (6 school, 7
+    // hospital): a home is covered only if a building in reach has room for
+    // it (sim/serviceCapacity.ts). 0 or missing = no limit, reach alone
+    // decides. SWITCHED OFF: both are 0 until the services numbers are set.
+    capacity: { 6: 0, 7: 0 } as Record<number, number>,
   },
   crime: {
     // Base crime added per tick per developed level.
