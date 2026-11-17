@@ -2,7 +2,7 @@
 // so the nightly lab reports it. Replace with a newer tuner result (best.values of
 // balance-results/tune-*.json) when one beats it. The game's debug panel shows the
 // same object as preset T (src/ui/pcVariantValues.ts), so this file is the only copy.
-// Source: tuner from D on main 3ba7d3e, 547 evaluations (2026-11-17).
+// Source: overnight tuner run 2026-11-17 on fresh-128 + testcity1 (from the T re-tune; 337 evaluations), re-graded on main e662224: 51/52 PC on those cities (previous T 45/52).
 
 export const TUNED_T: Record<string, unknown> = {
   "overCapFadePerDay": 0.03,
@@ -12,7 +12,7 @@ export const TUNED_T: Record<string, unknown> = {
   "neutralSatisfaction": 0.7,
   "satisfactionRegenBonus": 1.12,
   "disruptionCosts": {
-    "bulldozePerPop": 3.5,
+    "bulldozePerPop": 2.33,
     "abandonedBuildingReward": 3.5
   },
   "nuisance": {
@@ -38,14 +38,14 @@ export const TUNED_T: Record<string, unknown> = {
   },
   "service": {
     "perResident": {
-      "4": 0.009,
-      "5": 0.009,
-      "6": 0.013,
-      "7": 0.026,
-      "8": 0.012
+      "4": 0.0099,
+      "5": 0.0099,
+      "6": 0.0143,
+      "7": 0.0229,
+      "8": 0.0132
     },
     "repeatFactor": 0.25,
-    "closureMultiplier": 3.75
+    "closureMultiplier": 2.5
   },
   "milestones": [
     {
@@ -78,43 +78,43 @@ export const TUNED_T: Record<string, unknown> = {
     "kinds": {
       "park": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "school": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "hospital": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "police": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "fire": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "utilities": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "trafficJam": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       },
       "blight": {
         "days": 20,
-        "reward": 13.3,
-        "penalty": 10
+        "reward": 5.91,
+        "penalty": 8
       }
     }
   },
@@ -123,7 +123,7 @@ export const TUNED_T: Record<string, unknown> = {
   "ordinances": {
     "neighbourhoodWatch": {
       "enactCost": 15,
-      "dailyUpkeep": 0.12,
+      "dailyUpkeep": 0.18,
       "dailyMoney": 0,
       "modifiers": {
         "crime": 0.75
@@ -131,7 +131,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "curfew": {
       "enactCost": 25,
-      "dailyUpkeep": 0.24,
+      "dailyUpkeep": 0.36,
       "dailyMoney": 0,
       "modifiers": {
         "crime": 0.55,
@@ -140,7 +140,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "cleanAirAct": {
       "enactCost": 30,
-      "dailyUpkeep": 0.2,
+      "dailyUpkeep": 0.3,
       "dailyMoney": 0,
       "modifiers": {
         "industrialPollution": 0.15,
@@ -149,7 +149,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "businessIncentives": {
       "enactCost": 25,
-      "dailyUpkeep": 0.16,
+      "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
         "commercialDemand": 1.4,
@@ -160,7 +160,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "freeTransit": {
       "enactCost": 30,
-      "dailyUpkeep": 0.16,
+      "dailyUpkeep": 0.24,
       "dailyMoney": 700,
       "modifiers": {
         "trafficTrips": 0.7
@@ -168,7 +168,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "fastTrackPermits": {
       "enactCost": 20,
-      "dailyUpkeep": 0.16,
+      "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
         "growth": 1.8,
@@ -187,7 +187,7 @@ export const TUNED_T: Record<string, unknown> = {
     },
     "heritageProtection": {
       "enactCost": 30,
-      "dailyUpkeep": 0.16,
+      "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
         "establishedLandValue": 1.3,
