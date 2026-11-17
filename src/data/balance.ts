@@ -370,7 +370,11 @@ export const BALANCE = {
     // Costs for disruptive actions — applied at execute() time, same as money costs.
     // Gating: if budget.politicalCapital < cost, the action is blocked.
     disruptionCosts: {
-      bulldozePerPop: 3.5, // per displaced resident (level-3 R zone = 20 pop → 70 PC)
+      // Per displaced resident (level-3 R zone = 20 pop → 70 PC), times
+      // cap ÷ max: a bigger city (a bigger cap) pays proportionally more, so
+      // a tower is the same share of the cap at any size. No change while
+      // capPerResident is 0.
+      bulldozePerPop: 3.5,
       abandonedBuildingReward: 2.5, // per abandoned building level cleared (clearing blight is popular)
     },
     // Unpopular things put near homes cost PC for each resident within reach,

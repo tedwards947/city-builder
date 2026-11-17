@@ -5,7 +5,7 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { pcCap, changePc, regenPc, regenRate, regenPerTick, fadeOverCap, overCapFadePerDay } from '../sim/politics';
+import { pcCap, capScale, pcQuote, changePc, regenPc, regenRate, regenPerTick, fadeOverCap, overCapFadePerDay } from '../sim/politics';
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
@@ -104,6 +104,46 @@ describe('politics: the PC write point', () => {
       expect(pcCap(w) / regenPerTick(w, 1)).toBeCloseTo(100 / small);   // ticks from empty to full
       // A drain scales the same way.
       expect(regenPerTick(w, 0)).toBeCloseTo(regenRate(0) * 2);
+    } finally {
+      pc.capPerResident = 0;
+    }
+  });
+
+  it('displacement is the plain rate while the cap is the base cap', () => {
+    w.stats.population = 40_000;                     // capPerResident is 0, so the cap does not move
+    expect(capScale(w)).toBe(1);
+    home(w, 5, 5);
+    expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 5 }).cost).toBe(HOME_COST);
+  });
+
+  it('displacement scales with the cap, so a tower is the same share of the cap at any size', () => {
+    const pc = BALANCE.politicalCapital as { capPerResident: number };
+    const tower = BALANCE.growth.popPerLevel[3] * BALANCE.politicalCapital.disruptionCosts.bulldozePerPop;
+    home(w, 5, 5, 3);
+    home(w, 7, 5);
+    pc.capPerResident = 0.01;
+    try {
+      const share = pcQuote(w, { type: 'bulldoze', tx: 5, ty: 5 }).cost / pcCap(w);   // cap 100
+      expect(share).toBeCloseTo(tower / 100);
+      for (const population of [10_000, 40_000, 150_000]) {
+        w.stats.population = population;
+        expect(capScale(w)).toBeCloseTo(1 + population / 10_000);
+        expect(pcQuote(w, { type: 'bulldoze', tx: 5, ty: 5 }).cost / pcCap(w)).toBeCloseTo(share);
+      }
+      // What is charged is what was quoted, and undo gives exactly that back.
+      w.stats.population = 10_000;                   // cap 200: twice the plain rate
+      w.budget.politicalCapital = 150;
+      const h = new CommandHistory(w);
+      expect(pcQuote(w, { type: 'bulldoze', tx: 7, ty: 5 }).cost).toBe(HOME_COST * 2);
+      expect(h.run(new BulldozeCommand(7, 5))).toBe(true);
+      expect(w.budget.politicalCapital).toBe(150 - HOME_COST * 2);
+      w.stats.population = 40_000;                   // the city changed size before the undo
+      h.undo();
+      expect(w.budget.politicalCapital).toBe(150);
+      // A tower now costs more than the city has: refused.
+      w.stats.population = 10_000;
+      w.budget.politicalCapital = tower * 2 - 1;
+      expect(h.run(new BulldozeCommand(5, 5))).toBe(false);
     } finally {
       pc.capPerResident = 0;
     }

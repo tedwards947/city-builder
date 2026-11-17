@@ -15,7 +15,7 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
-import { changePc, pcCap } from './politics';
+import { changePc, capScale } from './politics';
 
 export const ORDINANCE_IDS = [
   'neighbourhoodWatch', 'curfew', 'cleanAirAct', 'businessIncentives', 'freeTransit',
@@ -176,7 +176,7 @@ export function updateSuspension(world: World): void {
  * while the cap is the base cap.
  */
 export function upkeepScale(world: World): number {
-  return pcCap(world) / BALANCE.politicalCapital.max;
+  return capScale(world);
 }
 
 /** The PC an ordinance costs to keep up per game day in this city (its `dailyUpkeep` × upkeepScale). */
