@@ -4,7 +4,7 @@
 import type { World } from '../sim/World';
 import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
-import { taxLevelRange, setTaxLevel, taxEffect, type TaxEffect } from '../sim/tax';
+import { taxLevelRange, setTaxLevel, taxEffect } from '../sim/tax';
 import { pcCap } from '../sim/politics';
 
 const STEP = 0.1;
@@ -48,26 +48,11 @@ export class EconPanel {
     this.el.classList.toggle('hidden', !this.visible);
   }
 
-  // The tax level the city's latest income was collected at. taxEffect()
-  // projects from that income, so between ticks (and while paused) it must be
-  // asked as if that level were still set, or a change made since reads as no change.
-  private taxTick = -1;
-  private taxLevelAtTick = 0;
-  private taxWorld: World | null = null;
-
-  private _taxEffect(world: World): TaxEffect {
-    if (world !== this.taxWorld || world.tick !== this.taxTick) { this.taxWorld = world; this.taxTick = world.tick; this.taxLevelAtTick = world.budget.taxLevel; }
-    const level = world.budget.taxLevel;
-    if (level === this.taxLevelAtTick) return taxEffect(world);
-    world.budget.taxLevel = this.taxLevelAtTick;
-    try { return taxEffect(world, level); } finally { world.budget.taxLevel = level; }
-  }
-
   private _updateTax(world: World): void {
     const range = taxLevelRange(), slider = document.getElementById('econ-tax-slider') as HTMLInputElement;
     slider.min = String(range.min); slider.max = String(range.max); slider.step = String(range.step);
     if (document.activeElement !== slider || Number(slider.value) !== world.budget.taxLevel) slider.value = String(world.budget.taxLevel);
-    const e = this._taxEffect(world);
+    const e = taxEffect(world);
     const set = (id: string, text: string, sign = 0) => { const el = document.getElementById(id)!; el.textContent = text; el.className = sign > 0 ? 'pos' : sign < 0 ? 'neg' : ''; };
     set('econ-tax-pct', String(world.budget.taxLevel));
     set('econ-tax-min', range.min + '%'); set('econ-tax-max', range.max + '%');
