@@ -9,13 +9,13 @@ import { BALANCE } from '../data/balance';
 const items: ToolbarItem[] = toolbarItems();
 const families = TOOLBAR.flatMap(e => e !== 'sep' && 'family' in e ? [e.family] : []);
 
-const DEBUG_ONLY: Tool[] = ['largePower', 'largeWater', 'largeSewage'];
+const LARGE: Tool[] = ['largePower', 'largeWater', 'largeSewage'];
 
 describe('toolbar list', () => {
-  it('hides the large plants unless the page has ?debug=true', () => {
-    const large = items.filter(i => DEBUG_ONLY.includes(i.tool as Tool));
+  it('offers the large plants in normal play', () => {
+    const large = items.filter(i => LARGE.includes(i.tool as Tool));
     expect(large).toHaveLength(3);
-    for (const i of large) expect(i.shown?.(), i.key).toBe(false);
+    for (const i of large) expect(i.shown, i.key).toBeUndefined();
   });
 
   it('offers every tool exactly once', () => {
@@ -44,8 +44,8 @@ describe('toolbar list', () => {
   it('gives every tool and overlay its own hotkey', () => {
     const keys = items.flatMap(i => i.hotkey ? [i.hotkey] : []);
     expect(new Set(keys).size).toBe(keys.length);
-    // The debug-only tools (the large plants) have no hotkey until they are part of the game.
-    for (const i of items) if ((i.tool !== undefined || i.overlay !== undefined) && !DEBUG_ONLY.includes(i.tool as Tool)) expect(i.hotkey, i.key).toBeTruthy();
+    // The large plants have no hotkey of their own: they sit in the utilities fly-outs.
+    for (const i of items) if ((i.tool !== undefined || i.overlay !== undefined) && !LARGE.includes(i.tool as Tool)) expect(i.hotkey, i.key).toBeTruthy();
     expect(keys).not.toContain(' ');   // space is pause
   });
 

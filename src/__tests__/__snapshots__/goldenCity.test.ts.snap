@@ -3,9 +3,9 @@
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 1 ticks 1`] = `
 {
   "budget": {
-    "expenses": 794.18,
-    "income": 804.14,
-    "money": 50009.96,
+    "expenses": 732.18,
+    "income": 961.854667,
+    "money": 50229.6747,
     "politicalCapital": 100,
     "taxRates": {
       "C": 1,
@@ -72,9 +72,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 50 ticks 1`] = `
 {
   "budget": {
-    "expenses": 794.18,
-    "income": 833.527553,
-    "money": 56101.4403,
+    "expenses": 732.18,
+    "income": 1011.27471,
+    "money": 66376.6302,
     "politicalCapital": 100,
     "taxRates": {
       "C": 1,
@@ -145,9 +145,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 200 ticks 1`] = `
 {
   "budget": {
-    "expenses": 794.18,
-    "income": 864.834931,
-    "money": 64811.5783,
+    "expenses": 732.18,
+    "income": 1088.81832,
+    "money": 115546.602,
     "politicalCapital": 100,
     "taxRates": {
       "C": 1,
@@ -218,9 +218,9 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 exports[`the whole simulation on the test city > gives the stored result, tick for tick > after 400 ticks 1`] = `
 {
   "budget": {
-    "expenses": 794.18,
-    "income": 865.313632,
-    "money": 78942.8703,
+    "expenses": 732.18,
+    "income": 1098.27003,
+    "money": 188072.759,
     "politicalCapital": 100,
     "taxRates": {
       "C": 1,

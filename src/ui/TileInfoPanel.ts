@@ -34,6 +34,7 @@ import {
   BUILDING_PARK,
 } from "../sim/constants";
 import {BALANCE} from "../data/balance";
+import {buildingUpkeep} from "../sim/serviceValue";
 import {t} from "../i18n";
 import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
@@ -296,7 +297,7 @@ export class TileInfoPanel {
       if (building >= BUILDING_POLICE) {
         const range = BALANCE.service.coverageRange[building];
         html += `<div class="ti-detail">${t("ui.tileInfo.coverageRadius", {range})}</div>`;
-        html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
+        html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: buildingUpkeep(building)})}</div>`;
       }
       if (building === BUILDING_POWER_PLANT) {
         html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.power.plantOutput})}</div>`;

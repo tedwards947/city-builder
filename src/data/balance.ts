@@ -42,13 +42,16 @@ export const BALANCE = {
     // down to ~0 land value, which made them pay almost no tax.)
     industryLandValueMult: 0.6,
     // Homes and shops pay land-value-scaled tax: floor + (1 − floor) × lv/128.
-    // 0 = plain lv/128 (shipped). A floor stops homes on cheap land paying almost nothing.
-    landValueFloor: 0,
+    // 0 = plain lv/128. A floor stops homes on cheap land paying almost nothing.
+    // 0.25 since the owner's economy decision of 2026-11-17 (the "Tight" preset).
+    landValueFloor: 0.25,
   },
   maintenance: {
     road: 0.04,
-    // Multiplies the upkeep of service buildings (police, fire, school, hospital, park). 1 = shipped.
-    serviceMult: 1,
+    // Multiplies the upkeep of service buildings (police, fire, school, hospital, park),
+    // so the per-building figures in `buildings` are before this. 0.75 since the
+    // owner's economy decision of 2026-11-17 (the "Tight" preset); it was 1.
+    serviceMult: 0.75,
   },
   power: {
     plantOutput: 350,    // supply per plant
@@ -73,6 +76,11 @@ export const BALANCE = {
     // (police 15, fire 15, school 8, hospital 8, park 6: widened after the
     // owner's play-test, where one building rarely served a neighbourhood)
     coverageRange: { 4: 15, 5: 15, 6: 8, 7: 8, 8: 6 } as Record<number, number>,
+    // Residents one building can serve, by building kind (6 school, 7
+    // hospital): a home is covered only if a building in reach has room for
+    // it (sim/serviceCapacity.ts). 0 or missing = no limit, reach alone
+    // decides. SWITCHED OFF: both are 0 until the services numbers are set.
+    capacity: { 6: 0, 7: 0 } as Record<number, number>,
   },
   crime: {
     // Base crime added per tick per developed level.
@@ -456,7 +464,9 @@ export const BALANCE = {
       // building kind (4 police, 5 fire, 6 school, 7 hospital, 8 park).
       perResident: { 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 } as Record<number, number>,
       // Each further building of the same kind covering a resident is worth
-      // this fraction of the one before.
+      // this fraction of the one before. (Not used for a kind that has a
+      // capacity, see service.capacity: those are priced by the residents
+      // who gain or lose a seat.)
       repeatFactor: 0.5,
       // Closing a service costs this many times the value lost by residents
       // it leaves with no building of that kind. (Residents another still

@@ -6,12 +6,12 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
-import { DEBUG } from '../debug';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
 import { BALANCE } from '../data/balance';
+import { buildingUpkeep } from '../sim/serviceValue';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
@@ -75,9 +75,9 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'water', icon: 'water', tool: 'water', hotkey: '7' },
     { key: 'sewage', icon: 'sewage', tool: 'sewage', hotkey: '8' },
     // Buildings on several tiles (BIG_BUILDINGS_DESIGN.md): ?debug=true only until they are balanced.
-    { key: 'largePlant', icon: 'power', tool: 'largePower', shown: () => DEBUG },
-    { key: 'largeWater', icon: 'water', tool: 'largeWater', shown: () => DEBUG },
-    { key: 'largeSewage', icon: 'sewage', tool: 'largeSewage', shown: () => DEBUG },
+    { key: 'largePlant', icon: 'power', tool: 'largePower' },
+    { key: 'largeWater', icon: 'water', tool: 'largeWater' },
+    { key: 'largeSewage', icon: 'sewage', tool: 'largeSewage' },
   ] },
   { family: 'services', icon: 'police', items: [
     { key: 'police', icon: 'police', tool: 'police', hotkey: '0' },
@@ -151,7 +151,7 @@ export function toolPrice(tool: Tool): { cost?: string; upkeep?: string } {
   const kind = BUILDING_KIND[tool];
   if (kind !== undefined) {
     const b = BALANCE.buildings[kind];
-    return { cost: money(b.cost), upkeep: money(b.maintenance) + '/tick' };
+    return { cost: money(b.cost), upkeep: money(buildingUpkeep(kind)) + '/tick' };
   }
   const flat = flatCost(tool);
   // A tool whose price is set to 0 (zoning, since it became free) is free, not "$0 / tile".

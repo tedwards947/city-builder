@@ -5,6 +5,7 @@ import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { coveredBy, homesWithinReach } from '../sim/serviceValue';
 import { trafficVolume, roadCapacity } from '../sim/TrafficData';
+import { zonesCutOffByHighway } from '../sim/politics';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
@@ -156,19 +157,55 @@ function answerUtilities(sim: Sim, rec: Recorder, reqId: number): 'placed' | 're
 }
 
 /**
- * A traffic-jam request, answered as a plan over several passes: pass 0 upgrades every
- * over-capacity street in and just around the area to an avenue; each later pass (the
- * chaser revisits an open jam every few days, since traffic reroutes) widens the ring by
- * 2 tiles and also upgrades streets running at 80% of capacity, the next bottlenecks.
+ * A traffic-jam request, answered as a plan over several passes (the chaser revisits
+ * an open jam every few days, since traffic reroutes). Each pass widens the ring by 2 tiles.
+ * - pass 0: every over-capacity street in and just around the area becomes an avenue;
+ * - pass 1+: also streets at 80% of capacity (the next bottlenecks), and a parallel street
+ *   alongside each run of 3+ over-capacity avenue tiles, on free land beside it;
+ * - pass 2+: an over-capacity avenue becomes a highway where it fits (no zone is cut off).
  */
 export function answerTraffic(sim: Sim, rec: Recorder, reqId: number, a: { x0: number; y0: number; x1: number; y1: number }, pass = 0): 'placed' | 'refused' {
-  const w = sim.world, { width: W, height: H } = w.grid, t = w.traffic;
+  const w = sim.world, { width: W, height: H } = w.grid, t = w.traffic, L = w.layers;
   if (!t) return 'refused';
   const pad = Math.min(2 + 2 * pass, 8), load = pass === 0 ? 1 : 0.8;
+  const X0 = Math.max(1, a.x0 - pad), X1 = Math.min(W - 2, a.x1 + pad), Y0 = Math.max(1, a.y0 - pad), Y1 = Math.min(H - 2, a.y1 + pad);
+  const over = (i: number, f = 1) => trafficVolume(t, i) > f * roadCapacity(L.roadClass[i]);
+  const run = (x: number, y: number, cls: number) => rec.run(sim.history, new BuildRoadCommand(x, y, cls), 'request:trafficJam');
   let n = 0;
-  for (let y = Math.max(0, a.y0 - pad); y <= Math.min(H - 1, a.y1 + pad); y++) for (let x = Math.max(0, a.x0 - pad); x <= Math.min(W - 1, a.x1 + pad); x++) {
-    const i = y * W + x, rc = w.layers.roadClass[i];
-    if (rc === ROAD_STREET && trafficVolume(t, i) > load * roadCapacity(rc) && rec.run(sim.history, new BuildRoadCommand(x, y, ROAD_AVENUE), 'request:trafficJam')) n++;
+  for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+    const i = y * W + x;
+    if (L.roadClass[i] === ROAD_STREET && over(i, load) && run(x, y, ROAD_AVENUE)) n++;
+  }
+  if (pass >= 1) {
+    const free = (x: number, y: number) => { const i = y * W + x; return L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE && L.building[i] === BUILDING_NONE && L.terrain[i] !== 1; };
+    const jammedAvenue = (x: number, y: number) => { const i = y * W + x; return L.roadClass[i] === ROAD_AVENUE && over(i); };
+    // Runs along rows (dir 0) and columns (dir 1).
+    for (const dir of [0, 1]) {
+      const outer = dir ? [X0, X1] : [Y0, Y1], inner = dir ? [Y0, Y1] : [X0, X1];
+      for (let u = outer[0]; u <= outer[1]; u++) {
+        let v = inner[0];
+        while (v <= inner[1]) {
+          const at = (vv: number) => (dir ? jammedAvenue(u, vv) : jammedAvenue(vv, u));
+          if (!at(v)) { v++; continue; }
+          let e = v; while (e + 1 <= inner[1] && at(e + 1)) e++;
+          if (e - v >= 2) {
+            for (const off of [1, -1]) {
+              const tiles: [number, number][] = [];
+              for (let k = v; k <= e; k++) tiles.push(dir ? [u + off, k] : [k, u + off]);
+              if (tiles.every(([x, y]) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && (free(x, y) || L.roadClass[y * W + x] !== ROAD_NONE))) {
+                for (const [x, y] of tiles) if (L.roadClass[y * W + x] === ROAD_NONE && run(x, y, ROAD_STREET)) n++;
+                break;
+              }
+            }
+          }
+          v = e + 1;
+        }
+      }
+    }
+  }
+  if (pass >= 2) for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+    const i = y * W + x;
+    if (L.roadClass[i] === ROAD_AVENUE && over(i) && zonesCutOffByHighway(w, x, y).length === 0 && run(x, y, ROAD_HIGHWAY)) n++;
   }
   if (n) rec.answeredOther.add(reqId);
   return n ? 'placed' : 'refused';

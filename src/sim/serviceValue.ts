@@ -16,6 +16,18 @@
 // streets and avenues out to the kind's range), so the reward matches the
 // coverage preview the player already sees.
 //
+// Kinds with a capacity (schools and hospitals once BALANCE.service.capacity
+// is set; see sim/serviceCapacity.ts) are priced by seats instead, with no
+// repeat discount:
+//   - a home that gains a seat because of the building earns its value;
+//   - a home that loses its seat costs its value times the closure multiplier;
+//   - a home that only moves to another building costs and earns nothing.
+// So a second school over homes that already have seats earns nothing, one
+// that relieves a full school earns for the overflow it seats, moving stays
+// cheap, and closing the only hospital costs the whole city. Opening and
+// closing price the same two seatings from either side, so a loop never
+// comes out ahead while the multiplier is at least 1.
+//
 // Pure: reads the world, changes nothing. Coverage of the buildings already
 // standing is remembered until the map next changes, so pricing a hover every
 // frame walks the roads once for the hovered tile and no more.
@@ -25,6 +37,7 @@ import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY } from './constants';
 import { BALANCE } from '../data/balance';
 import { computeServiceCoverage } from './systems/ServiceSystem';
 import { footprintTiles, footprintEdge } from './buildingShapes';
+import { hasCapacity, seatsIfOpened, seatsIfClosed, type SeatChange } from './serviceCapacity';
 
 export interface ServiceValueConfig {
   /**
@@ -161,6 +174,16 @@ export function isServiceKind(kind: number): boolean {
   return BALANCE.service.coverageRange[kind] !== undefined;
 }
 
+/**
+ * What a building of `kind` costs to keep up per tick: its `maintenance` in
+ * the balance table, times `maintenance.serviceMult` for a service building.
+ * The one figure the budget charges and the UI shows.
+ */
+export function buildingUpkeep(kind: number): number {
+  const m = BALANCE.buildings[kind]?.maintenance ?? 0;
+  return isServiceKind(kind) ? m * BALANCE.maintenance.serviceMult : m;
+}
+
 /** Residents of an occupied, non-abandoned home on tile `i`; 0 for anything else. */
 function residentsAt(world: World, i: number): number {
   const { zone, devLevel, abandoned } = world.layers;
@@ -168,9 +191,23 @@ function residentsAt(world: World, i: number): number {
   return BALANCE.growth.popPerLevel[devLevel[i]] ?? 0;
 }
 
+/** Parts for a change of seats: homes that gain one earn, homes that lose one cost `closureMultiplier` times as much. */
+function seatParts(world: World, change: SeatChange, rate: number, cfg: ServiceValueConfig): ServiceValuePart[] {
+  const parts: ServiceValuePart[] = [];
+  const width = world.grid.width;
+  for (const i of change.gained) {
+    parts.push({ tx: i % width, ty: (i - (i % width)) / width, amount: residentsAt(world, i) * rate, strength: 1 });
+  }
+  for (const i of change.lost) {
+    parts.push({ tx: i % width, ty: (i - (i % width)) / width, amount: -residentsAt(world, i) * rate * cfg.closureMultiplier, strength: 1 });
+  }
+  return parts;
+}
+
 /**
  * What opening a `kind` building at (tx, ty) would earn: one part per home it
- * would cover. Empty if the kind has no value set.
+ * would cover (for a kind with a capacity, per home whose seat it changes).
+ * Empty if the kind has no value set.
  */
 export function serviceOpeningValue(
   world: World, tx: number, ty: number, kind: number,
@@ -178,6 +215,7 @@ export function serviceOpeningValue(
 ): ServiceValuePart[] {
   const rate = cfg.perResident[kind] ?? 0;
   if (rate <= 0) return [];
+  if (hasCapacity(kind)) return seatParts(world, seatsIfOpened(world, tx, ty, kind), rate, cfg);
   const parts: ServiceValuePart[] = [];
   const { counts } = kindCoverage(world, kind);
   const width = world.grid.width;
@@ -209,6 +247,7 @@ export function serviceClosureValue(
   const kind = world.layers.building[at];
   const rate = cfg.perResident[kind] ?? 0;
   if (rate <= 0) return [];
+  if (hasCapacity(kind)) return seatParts(world, seatsIfClosed(world, at, kind), rate, cfg);
   const { counts, own } = kindCoverage(world, kind);
   const tiles = own.get(at);
   if (!tiles) return [];

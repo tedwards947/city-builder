@@ -5,6 +5,7 @@ import { BALANCE } from '../data/balance';
 import { PC_VARIANTS } from '../ui/pcPresets';
 import { applyValues } from '../ui/pcPresets';
 import { TUNED_T } from './tunedT';
+import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset, type SvcResult } from './services';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
 import { PERSONAS, playPersona, type PersonaId, type PersonaRun } from './personas';
@@ -69,11 +70,12 @@ export interface LabOptions {
   suites?: Suite[];
   variants?: string[];          // PC suite: 'Off', 'A'..'D', 'T' (default: all)
   econPresets?: string[];       // economy suite: ids from ECON_PRESETS
+  svcPresets?: string[];        // services suite: ids from SVC_PRESETS (src/balance/services.ts)
   cities: CitySpec[];
   personas?: PersonaId[];
   daysFresh?: number;
   daysSave?: number;
-  /** Saved cities above this population are left out of the PC suite (it plays many personas; big cities are slow). Default 20k. */
+  /** Saved cities above this population are left out of the PC and services suites (big cities are slow). Default 20k. */
   pcMaxPopulation?: number;
   /** Extra PC number sets by id (e.g. the auto-tuner's 'T'), each a partial BALANCE.politicalCapital tree like a variant's. */
   customVariants?: Record<string, { name: string; desc: string; values: Record<string, unknown> }>;
@@ -91,7 +93,7 @@ export interface Report {
   schema: string;
   generatedAt: string;
   about: string;
-  options: { suites: Suite[]; variants: string[]; econPresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
+  options: { suites: Suite[]; variants: string[]; econPresets: string[]; svcPresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
   variants: { id: string; name: string; desc: string }[];
   econPresets: { id: string; name: string; desc: string; values: Record<string, unknown> }[];
   personas: { id: string; desc: string }[];
@@ -106,6 +108,12 @@ export interface Report {
   econBest: Best | null;
   /** Plain-text answer: which preset gets closest, and whether a money sink is needed at scale. */
   econVerdict: string | null;
+  /** Services suite, per capacity preset. */
+  svcPresets: SvcPreset[];
+  svcSummary: Record<string, Summary>;
+  svcBest: Best | null;
+  /** Services suite: seating and probes on the Planner's city, per preset and city. */
+  svcRuns: Record<string, Record<string, SvcResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -183,11 +191,12 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
   const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id)) : [];
+  const svcIds = suites.includes('svc') ? (o.svcPresets ?? SVC_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -197,8 +206,8 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Two suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]), with PC at the shipped numbers. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
-    options: { suites, variants, econPresets: presets, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    options: { suites, variants, econPresets: presets, svcPresets: svcIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
       : (() => { const p = PC_VARIANTS.find(x => x.id === v)!; return { id: p.id, name: p.name, desc: p.desc }; })()),
@@ -211,6 +220,10 @@ export function runLab(o: LabOptions): Report {
     econSummary: {},
     econBest: null,
     econVerdict: null,
+    svcPresets: SVC_PRESETS.filter(p => svcIds.includes(p.id)),
+    svcSummary: {},
+    svcBest: null,
+    svcRuns: {},
     runs: {},
     probes: {},
     econRuns: {},
@@ -276,6 +289,27 @@ export function runLab(o: LabOptions): Report {
         grade('econ', id, city, { runs: { planner: s }, probes: null, refill: null, ordinancesOn: false });
       }
     }
+    Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
+    // ── Services suite: the Planner per capacity / reach preset, PC and economy as shipped ──
+    for (const id of svcIds) {
+      const restore = applySvcPreset(SVC_PRESETS.find(p => p.id === id)!);
+      try {
+        report.svcRuns[id] = {};
+        for (const city of o.cities) {
+          const fresh = city.kind === 'fresh';
+          if (!fresh && popOf(city) > pcMaxPop) continue;
+          const t0 = Date.now();
+          const run = playPersona(PERSONAS.find(p => p.id === 'planner')!, loadCity(city), fresh, fresh ? daysFresh : daysSave);
+          const svc = svcResult(run.world);
+          // PC rule probes under the tuned PC numbers (shipped PC pays nothing).
+          applyValues(BALANCE.politicalCapital as never, (o.customVariants?.T?.values ?? TUNED_T) as never);
+          try { addSvcPcProbes(svc, run.world); } finally { applyValues(BALANCE.politicalCapital as never, shippedPc); }
+          report.svcRuns[id][city.id] = svc;
+          log(`svc ${id} ${city.id}: pop ${svc.population}, schools ${svc.kinds.school.buildings} (${Math.round(svc.kinds.school.seatedShare * 100)}% seated), hospitals ${svc.kinds.hospital.buildings} (${Math.round(svc.kinds.hospital.seatedShare * 100)}%) (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          grade('svc', id, city, { runs: { planner: summarise('planner', run) }, probes: null, refill: null, ordinancesOn: false, svc });
+        }
+      } finally { restore(); }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax);
@@ -295,7 +329,7 @@ export function runLab(o: LabOptions): Report {
       }
       into[k] = s;
     }
-    const ranked = keys.filter(k => k !== 'Off' && k !== 'shipped').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
+    const ranked = keys.filter(k => k !== 'Off' && k !== 'shipped' && k !== 'off').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
     if (!ranked.length) return null;
     const share = (x: { pass: number; of: number }) => x.pass / Math.max(x.of, 1);
     return { ...ranked[0], tied: ranked.slice(1).filter(x => share(x) === share(ranked[0])).map(x => x.variant) };
@@ -303,6 +337,7 @@ export function runLab(o: LabOptions): Report {
   report.best = summarize('pc', variants, report.summary);
   report.econBest = summarize('econ', presets, report.econSummary);
   report.econVerdict = presets.length ? econVerdict(report) : null;
+  report.svcBest = summarize('svc', svcIds, report.svcSummary);
   return report;
 }
 
