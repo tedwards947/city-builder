@@ -5,7 +5,7 @@
 // The work is in utilityCoverage.ts, shared with power and sewage.
 
 import { World } from '../World';
-import { BUILDING_WATER_TOWER } from '../constants';
+import { BUILDING_WATER_TOWER, BUILDING_LARGE_WATER_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { spreadUtility, utilityDemand } from './utilityCoverage';
 
@@ -14,7 +14,9 @@ export class WaterSystem {
 
   update(world: World): void {
     const totalSupply = spreadUtility(
-      world, world.layers.water, BUILDING_WATER_TOWER, BALANCE.water.towerOutput, BALANCE.water.propagationRange,
+      world, world.layers.water,
+      { [BUILDING_WATER_TOWER]: BALANCE.water.towerOutput, [BUILDING_LARGE_WATER_PLANT]: BALANCE.water.largePlantOutput },
+      0, BALANCE.water.propagationRange,
     );
     // Demand from developed zones (abandoned tiles consume nothing).
     const totalDemand = utilityDemand(world, 1, BALANCE.water.perDevLevel);

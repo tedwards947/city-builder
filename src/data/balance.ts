@@ -24,6 +24,13 @@ export const BALANCE = {
     6: { cost: 1500, maintenance: 15  }, // BUILDING_SCHOOL
     7: { cost: 3000, maintenance: 25  }, // BUILDING_HOSPITAL
     8: { cost: 300,  maintenance: 4   }, // BUILDING_PARK
+    // Large utilities. PLACEHOLDERS until the balance lab sets them: more
+    // output per $ than the small ones (3×3: about 12× the output for 8× the
+    // cost and upkeep; 2×2: about 5× for 3.5×). Outputs are under power /
+    // water / sewage below.
+    9:  { cost: 16000, maintenance: 120 }, // BUILDING_LARGE_POWER_PLANT (3×3)
+    10: { cost: 1750,  maintenance: 21  }, // BUILDING_LARGE_WATER_PLANT (2×2)
+    11: { cost: 5250,  maintenance: 35  }, // BUILDING_LARGE_SEWAGE_PLANT (2×2)
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -45,16 +52,19 @@ export const BALANCE = {
   },
   power: {
     plantOutput: 350,    // supply per plant
+    largePlantOutput: 4200, // supply per large (3×3) plant. Placeholder: 12 small plants.
     perDevLevel: 2,      // demand per developed level
     propagationRange: 1, // tiles off road that receive power
   },
   water: {
     towerOutput: 250,    // supply per tower (zones it can serve)
+    largePlantOutput: 1250, // supply per large (2×2) plant. Placeholder: 5 towers.
     perDevLevel: 1,      // demand per developed level
     propagationRange: 1, // tiles off road that receive water
   },
   sewage: {
     plantOutput: 300,    // capacity per plant (dev-level units)
+    largePlantOutput: 1500, // capacity per large (2×2) plant. Placeholder: 5 small plants.
     perDevLevel: 2,      // demand per developed level (high-density zones produce more)
     propagationRange: 1, // tiles off road that receive sewage coverage
   },
@@ -179,6 +189,13 @@ export const BALANCE = {
   pollution: {
     industryOutput: 40,  // added per industrial dev level per tick
     powerPlantOutput: 30,// added per power plant per tick
+    // Added per tick on EACH tile of a large (3×3) power plant. Placeholder.
+    // Pollution does not add up in a straight line (nine tiles side by side
+    // keep each other topped up), so this is well under powerPlantOutput: at
+    // 12 a large plant holds about 8× a small one's pollution for 12× the
+    // power, and homes and shops touching it cannot grow. At 30 it would be
+    // about 30× and blight a ring three tiles deep.
+    largePowerPlantOutput: 12,
     decayRate: 0.97,     // fraction remaining after decay each tick (0-1)
     diffusionRate: 0.20, // fraction spreading to each of 4 neighbors per tick
     growthThreshold: 20, // 0-255: R/C zones above this can't grow

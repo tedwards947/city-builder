@@ -11,7 +11,7 @@
 // stays 0, so the result is the same as a whole-map pass.
 
 import { World } from '../World';
-import { ZONE_I, BUILDING_POWER_PLANT, VEG_NONE } from '../constants';
+import { ZONE_I, BUILDING_POWER_PLANT, BUILDING_LARGE_POWER_PLANT, VEG_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import { FieldBounds, unionRect, growRect } from '../FieldBounds';
@@ -38,6 +38,8 @@ export class PollutionSystem {
     const all = ordinanceModifier(world, 'pollution');
     const industryOutput = BALANCE.pollution.industryOutput * all * ordinanceModifier(world, 'industrialPollution');
     const powerPlantOutput = BALANCE.pollution.powerPlantOutput * all;
+    // A large power plant smokes from every one of its tiles.
+    const largePowerPlantOutput = BALANCE.pollution.largePowerPlantOutput * all;
 
     if (this.prevPol.length !== n) this.prevPol = new Uint8Array(n);
     if (this.diffBuf.length !== n) this.diffBuf = new Float32Array(n);
@@ -68,6 +70,7 @@ export class PollutionSystem {
         // 2. Add sources.
         if (zone[i] === ZONE_I && dev[i] > 0) p = Math.min(255, Math.round(p + dev[i] * industryOutput));
         if (building[i] === BUILDING_POWER_PLANT) p = Math.min(255, Math.round(p + powerPlantOutput));
+        else if (building[i] === BUILDING_LARGE_POWER_PLANT) p = Math.min(255, Math.round(p + largePowerPlantOutput));
         pol[i] = p;
       }
     }

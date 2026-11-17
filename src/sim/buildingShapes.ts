@@ -12,6 +12,8 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from './constants';
+
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
 
@@ -57,6 +59,11 @@ export function block(w: number, h: number): ShapeOffset[] {
   for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) out.push([dx, dy]);
   return out;
 }
+
+// The kinds that have a shape. Everything else is one tile.
+setBuildingShape(BUILDING_LARGE_POWER_PLANT, block(3, 3));
+setBuildingShape(BUILDING_LARGE_WATER_PLANT, block(2, 2));
+setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
 
 /**
  * Tile indices a `kind` building anchored at (tx, ty) would stand on, in the

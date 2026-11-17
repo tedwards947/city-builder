@@ -10,13 +10,16 @@ import { ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { footprintTiles, footprintEdge } from '../buildingShapes';
 
 /**
- * Recompute a coverage layer (1 = covered, 0 = not) for one kind of utility
- * building. Returns the total supply: `outputPerBuilding` for each building
- * that is connected to a street or avenue.
+ * Recompute a coverage layer (1 = covered, 0 = not) for one utility. Returns
+ * the total supply: each building's output, for each building that is
+ * connected to a street or avenue. `output` is either one building kind and
+ * its output, or a table of kind → output when several kinds supply the same
+ * utility (a small and a large plant).
  */
 export function spreadUtility(
-  world: World, layer: Uint8Array, buildingKind: number, outputPerBuilding: number, range: number,
+  world: World, layer: Uint8Array, buildingKind: number | Readonly<Record<number, number>>, outputPerBuilding: number, range: number,
 ): number {
+  const outputs = typeof buildingKind === 'number' ? null : buildingKind;
   const { width, height } = world.grid;
   const roadClass = world.layers.roadClass;
   const roadNet = world.layers.roadNet;
@@ -26,7 +29,8 @@ export function spreadUtility(
   const served = new Set<number>();
   let supply = 0;
   for (const b of world.buildings) {
-    if (b.kind !== buildingKind) continue;
+    const output = outputs ? outputs[b.kind] : b.kind === buildingKind ? outputPerBuilding : undefined;
+    if (output === undefined) continue;
     // Connected if any tile along the building's edge is a street or avenue.
     const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind) ?? [b.ty * width + b.tx];
     let connected = false;
@@ -38,7 +42,7 @@ export function spreadUtility(
       }
     }
     if (connected) {
-      supply += outputPerBuilding;
+      supply += output;
       for (const i of tiles) layer[i] = 1;
     }
   }
