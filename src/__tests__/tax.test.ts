@@ -116,10 +116,39 @@ describe('tax level', () => {
     // Previewing from a non-neutral level works back to the same base.
     expect(taxEffect(w, 10).income).toBeCloseTo(now.income);
     expect(taxEffect(w, 10).satisfaction).toBeCloseTo(now.satisfaction);
-    // At 0% there is no income to scale back from: the preview says 0 rather than guess.
+    // At 0% the preview still knows what the city would collect at other levels.
     setTaxLevel(w, 0);
     tick();
-    expect(taxEffect(w, 10).income).toBe(0);
+    expect(w.budget.income).toBe(0);
+    expect(taxEffect(w, 10).income).toBeCloseTo(now.income);
+  });
+
+  it('previews correctly while paused: the slider moved but no tick has run since', () => {
+    tick();
+    const collected = w.budget.income;
+    const sat = w.stats.satisfaction;
+    setTaxLevel(w, 20);                               // paused: income and satisfaction are still the 10% figures
+    const e = taxEffect(w);
+    expect(e.income).toBeCloseTo(collected * 2);
+    expect(e.incomeChange).toBeCloseTo(collected);
+    expect(e.satisfaction).toBeCloseTo(sat - 0.10);
+    expect(taxEffect(w, 10).incomeChange).toBeCloseTo(0);
+    tick();
+    expect(w.budget.income).toBeCloseTo(e.income);
+    expect(w.stats.satisfaction).toBeCloseTo(e.satisfaction);
+    // Satisfaction pinned at an end by the current level does not throw the preview off.
+    const L = BALANCE.tax.level as { satisfactionPerPoint: number };
+    const shipped = L.satisfactionPerPoint;
+    try {
+      L.satisfactionPerPoint = 1;
+      setTaxLevel(w, 0); tick();
+      expect(w.stats.satisfaction).toBe(1);
+      L.satisfactionPerPoint = shipped;
+      expect(taxEffect(w, 10).satisfaction).toBeCloseTo(sat);
+    } finally { L.satisfactionPerPoint = shipped; }
+    // Before any tick (straight after a load) it works back from the saved figures.
+    const loaded = deserialize(serialize(w));
+    expect(taxEffect(loaded, loaded.budget.taxLevel).income).toBeCloseTo(loaded.budget.income);
   });
 
   it('lower tax raises growth demand in every zone, higher tax lowers it, like the per-zone rates', () => {

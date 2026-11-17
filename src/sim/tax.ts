@@ -70,6 +70,24 @@ export function setTaxLevel(world: World, level: number): number {
   return next;
 }
 
+// What the last tick's income and satisfaction were before the tax level
+// touched them, so a preview does not have to work back from figures that may
+// predate the current level (the game can be paused when the slider moves).
+// Derived, not saved: after a load it is filled in by the first tick.
+const bases = new WeakMap<World, { income?: number; satisfaction?: number }>();
+
+/** EconomySystem: this tick's tax income before the tax level's multiplier. */
+export function noteIncomeBeforeTaxLevel(world: World, income: number): void {
+  const b = bases.get(world);
+  if (b) b.income = income; else bases.set(world, { income });
+}
+
+/** PoliticsSystem: this tick's satisfaction before the tax level's effect. */
+export function noteSatisfactionBeforeTaxLevel(world: World, satisfaction: number): void {
+  const b = bases.get(world);
+  if (b) b.satisfaction = satisfaction; else bases.set(world, { satisfaction });
+}
+
 /** What a tax level would do, for the readout beside the slider. Per-tick money figures. */
 export interface TaxEffect {
   level: number;
@@ -100,16 +118,21 @@ export interface TaxEffect {
 
 /**
  * What `level` (default: the current one) would do to income and
- * satisfaction, from the city's latest tick. Pure: changes nothing.
+ * satisfaction, from the city's latest tick. Pure: changes nothing. It is
+ * right while the game is paused too: `incomeChange` compares with the income
+ * last collected, whatever level that was collected at.
  */
 export function taxEffect(world: World, level: number = world.budget.taxLevel): TaxEffect {
+  const base = bases.get(world);
   const now = taxIncomeMult(world.budget.taxLevel);
   const incomeMult = taxIncomeMult(level);
   const current = world.budget.income;
-  // Income before the tax level's multiplier. At a current level of 0 there is none to scale back from.
-  const income = now > 0 ? (current / now) * incomeMult : 0;
+  // Income before the tax level's multiplier: as the last tick collected it, or (before any tick,
+  // e.g. straight after a load) worked back from the current figure and level.
+  const incomeBase = base?.income ?? (now > 0 ? current / now : 0);
+  const income = incomeBase * incomeMult;
   const satisfactionDelta = taxSatisfactionDelta(level);
-  const before = world.stats.satisfaction - taxSatisfactionDelta(world.budget.taxLevel);
+  const before = base?.satisfaction ?? world.stats.satisfaction - taxSatisfactionDelta(world.budget.taxLevel);
   const satisfaction = Math.max(0, Math.min(1, before + satisfactionDelta));
   return {
     level,

@@ -4,7 +4,7 @@ import { BALANCE } from '../../data/balance';
 import { isServiceKind } from '../serviceValue';
 import { ordinanceModifier } from '../ordinances';
 import { updateDebt, type DebtWarnings } from '../debt';
-import { taxIncomeMult } from '../tax';
+import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -59,6 +59,7 @@ export class EconomySystem {
       }
     }
     // The city's tax level scales all tax income (exactly 1 at the neutral level).
+    noteIncomeBeforeTaxLevel(world, income);
     income *= taxIncomeMult(world.budget.taxLevel);
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
