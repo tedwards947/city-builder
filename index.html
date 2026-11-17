@@ -255,7 +255,9 @@
     .mp-menu-item.current::after { content: '♪'; margin-left: 8px; color: #8cc8e8; }    .mp-menu-empty { color: #8aa; padding: 6px 8px; }
 
     /* ── Toast system ── */
-    #toast-container { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 1000; width: 280px; align-items: center; }
+    /* Toasts start below the music panel: beside it on a wide window (the panel ends at 56px), under it on a narrow one, where the panel is centred beneath the speed bar. */
+    #toast-container { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 1000; width: 280px; align-items: center; }
+    @media (max-width: 1140px) { #toast-container { top: 104px; } }
     .toast { background: rgba(10, 20, 30, 0.9); color: #eee; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; font-size: 12px; backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: toast-in 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.2) forwards; width: 100%; text-align: center; line-height: 1.3; border-left-width: 4px; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: auto; }
     .toast.toast-out { opacity: 0; transform: translateY(-20px); }
     .toast.alert   { border-left-color: #e07070; }
