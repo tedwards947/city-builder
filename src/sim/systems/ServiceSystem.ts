@@ -10,10 +10,10 @@
 // is left out of that kind's coverage. See sim/serviceCapacity.ts.
 
 import type { World } from '../World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { footprintTiles, footprintEdge } from '../buildingShapes';
-import { serviceCapacity, nothingIsFull, assignSeats, buildingReach, type BuildingReach } from '../serviceCapacity';
+import { serviceCapacity, seatHomes, type BuildingReach } from '../serviceCapacity';
 
 /**
  * BFS coverage for a single service building placed at (tx, ty) of kind `kind`.
@@ -97,32 +97,65 @@ export function computeServiceCoverage(
   return covered;
 }
 
+/** The five coverage layers, in the order ServiceSystem keeps its copies. */
+const LAYER_OF_KIND: Record<number, number> = {
+  [BUILDING_POLICE]: 1, [BUILDING_FIRE]: 2, [BUILDING_SCHOOL]: 3, [BUILDING_HOSPITAL]: 4,
+};
+
+/** Everything ServiceSystem remembers about one kind of service building. */
+interface KindCover {
+  kind: number;
+  /** Every tile some building of the kind reaches, each once. */
+  union: Int32Array;
+  // Kinds with a capacity only (serviceCapacity > 0):
+  capacity: number;
+  /** Each building's reach, tiles nearest first, with distances. */
+  reaches: BuildingReach[];
+  /** Per tile of `union`: which building (index into `reaches`) is nearest, ties to the lower anchor. */
+  nearest: Int32Array | null;
+  /** Per tile: 1 for a home every building in reach is too full for. Null = nobody is turned away. */
+  full: Uint8Array | null;
+}
+
 export class ServiceSystem {
-  // Coverage only depends on where the roads and buildings are, so the
-  // per-building road walks are redone only when one of those changes; every
-  // other tick the layers are refilled from the remembered tiles.
+  // Coverage depends only on where the roads and buildings are, plus (for a
+  // kind with a capacity) on who lives in reach. So the road walks are redone
+  // only when a road or building changes, the seating when that happens or
+  // once a game day, and on every other tick the five layers are copied back
+  // from what was worked out then.
   private _world: World | null = null;
   private _key = NaN;
-  private _coverage: { kind: number; tiles: Int32Array }[] = [];
-  // Kinds with a capacity: each building's reach with distances (redone with
-  // the walks), and the homes left without a seat (redone with the walks, when
-  // a capacity changes, and once a game day). `full` is null while every
-  // building has room for everyone it reaches, which is the usual case and
-  // costs one pass over the reach tiles a day.
-  private _limited = new Map<number, { capacity: number; reaches: BuildingReach[]; full: Uint8Array | null }>();
   private _capacityKey = '';
+  private _kinds: KindCover[] = [];
+  private _final: Uint8Array[] = [];            // services, police, fire, school, hospital
+  // Scratch for the road walks and the seating: sized to the map, reused.
+  private _n = 0;
+  private _stampCovered!: Uint32Array;
+  private _stampVisited!: Uint32Array;
+  private _stamp = 0;
+  private _queue!: Int32Array;
+  private _queueDist!: Uint16Array;
+  private _outTiles!: Int32Array;
+  private _outDist!: Uint16Array;
+  private _seatAt!: Int32Array;
+  private _nearDist!: Uint16Array;
 
   update(world: World): void {
-    const services = world.layers.services;
-    const police = world.layers.police;
-    const fireStation = world.layers.fireStation;
-    const school = world.layers.school;
-    const hospital = world.layers.hospital;
-    services.fill(0);
-    police.fill(0);
-    fireStation.fill(0);
-    school.fill(0);
-    hospital.fill(0);
+    const n = world.grid.width * world.grid.height;
+    if (n !== this._n) {
+      this._n = n;
+      this._stampCovered = new Uint32Array(n);
+      this._stampVisited = new Uint32Array(n);
+      this._stamp = 0;
+      this._queue = new Int32Array(n);
+      this._queueDist = new Uint16Array(n);
+      this._outTiles = new Int32Array(n);
+      this._outDist = new Uint16Array(n);
+      this._seatAt = new Int32Array(n);
+      this._nearDist = new Uint16Array(n);
+      this._final = [0, 1, 2, 3, 4].map(() => new Uint8Array(n));
+      this._world = null;
+    }
 
     // A fingerprint of everything coverage depends on: each road tile and its
     // class, each building and its kind, and the coverage ranges.
@@ -143,44 +176,28 @@ export class ServiceSystem {
       const c = serviceCapacity(+kind);
       if (c > 0) capacityKey += kind + ':' + c + ';';
     }
-    const walked = world !== this._world || key !== this._key;
+
+    const walked = world !== this._world || key !== this._key || capacityKey !== this._capacityKey;
     if (walked) {
       this._world = world;
       this._key = key;
-      this._coverage = [];
-      for (const b of world.buildings) {
-        if (BALANCE.service.coverageRange[b.kind] === undefined) continue; // not a service building
-        this._coverage.push({ kind: b.kind, tiles: Int32Array.from(computeServiceCoverage(world, b.tx, b.ty, b.kind)) });
-      }
+      this._capacityKey = capacityKey;
+      this._walk(world);
     }
-    if (capacityKey !== '' || this._capacityKey !== '') {
-      this._seat(world, walked || capacityKey !== this._capacityKey);
+    if (walked || world.tick % BALANCE.ticksPerDay === 0) {
+      // Seat (only the homes can have changed since the walk); rebuild the layers if anything moved.
+      if (this._seat(world) || walked) this._compose();
     }
-    this._capacityKey = capacityKey;
 
-    for (const { kind, tiles } of this._coverage) {
-      const own = kind === BUILDING_POLICE ? police
-                : kind === BUILDING_FIRE ? fireStation
-                : kind === BUILDING_SCHOOL ? school
-                : kind === BUILDING_HOSPITAL ? hospital
-                : null;
-      const full = this._limited.get(kind)?.full;
-      if (full) {
-        // Some homes this kind reaches have no seat: they are not covered by it.
-        for (let k = 0; k < tiles.length; k++) {
-          if (full[tiles[k]]) continue;
-          services[tiles[k]] = 1;
-          if (own) own[tiles[k]] = 1;
-        }
-        continue;
-      }
-      for (let k = 0; k < tiles.length; k++) {
-        services[tiles[k]] = 1;
-        if (own) own[tiles[k]] = 1;
-      }
-    }
+    const L = world.layers;
+    L.services.set(this._final[0]);
+    L.police.set(this._final[1]);
+    L.fireStation.set(this._final[2]);
+    L.school.set(this._final[3]);
+    L.hospital.set(this._final[4]);
 
     // Count covered developed zones for HUD stat.
+    const services = L.services;
     const zone = world.layers.zone;
     const dev = world.layers.devLevel;
     let covered = 0;
@@ -193,31 +210,161 @@ export class ServiceSystem {
   }
 
   /**
-   * Keep the seating of the kinds that have a capacity up to date. `rebuild`:
-   * the roads, buildings or capacities changed, so walk the reaches again and
-   * seat now. Otherwise seat once a game day, since only the homes can have
-   * changed. Seating itself runs only if some building is over its capacity.
+   * One building's road walk: the same tiles, in the same order and with the
+   * same distances, as computeServiceCoverage with `distOut` (a test holds
+   * the two together), on reused typed arrays instead of a Set and a Map.
+   * Returns how many tiles were written to _outTiles / _outDist.
    */
-  private _seat(world: World, rebuild: boolean): void {
-    if (rebuild) {
-      this._limited.clear();
-      for (const b of world.buildings) {
-        const capacity = serviceCapacity(b.kind);
-        if (capacity === 0 || BALANCE.service.coverageRange[b.kind] === undefined) continue;
-        let entry = this._limited.get(b.kind);
-        if (!entry) { entry = { capacity, reaches: [], full: null }; this._limited.set(b.kind, entry); }
-        entry.reaches.push(buildingReach(world, b.tx, b.ty, b.kind));
+  private _walkOne(world: World, tx: number, ty: number, kind: number, range: number): number {
+    const { width, height } = world.grid;
+    const roadClass = world.layers.roadClass;
+    const covered = this._stampCovered, visited = this._stampVisited;
+    const stamp = ++this._stamp;
+    const queue = this._queue, queueDist = this._queueDist;
+    const out = this._outTiles, outDist = this._outDist;
+    let m = 0, tail = 0;
+
+    const own = footprintTiles(width, height, tx, ty, kind) ?? [ty * width + tx];
+    for (const i of own) { if (covered[i] !== stamp) { covered[i] = stamp; out[m] = i; outDist[m++] = 0; } }
+    const seed = (i: number) => {
+      const rc = roadClass[i];
+      if (rc === ROAD_NONE || rc === ROAD_HIGHWAY || visited[i] === stamp) return;
+      visited[i] = stamp;
+      queue[tail] = i; queueDist[tail++] = 0;
+    };
+    for (const i of own) seed(i);
+    for (const i of footprintEdge(width, height, own)) seed(i);
+
+    for (let head = 0; head < tail; head++) {
+      const idx = queue[head], dist = queueDist[head];
+      const rtx = idx % width, rty = (idx - rtx) / width;
+      const y0 = rty > 0 ? rty - 1 : 0, y1 = rty < height - 1 ? rty + 1 : rty;
+      const x0 = rtx > 0 ? rtx - 1 : 0, x1 = rtx < width - 1 ? rtx + 1 : rtx;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0, t = y * width + x0; x <= x1; x++, t++) {
+          if (covered[t] !== stamp) { covered[t] = stamp; out[m] = t; outDist[m++] = dist; }
+        }
       }
-    } else if (world.tick % BALANCE.ticksPerDay !== 0) {
-      return;
+      if (dist < range) {
+        // West, east, north, south: the order computeServiceCoverage expands in.
+        if (rtx > 0)          { const ni = idx - 1;     if (roadClass[ni] !== ROAD_NONE && visited[ni] !== stamp) { visited[ni] = stamp; queue[tail] = ni; queueDist[tail++] = dist + 1; } }
+        if (rtx < width - 1)  { const ni = idx + 1;     if (roadClass[ni] !== ROAD_NONE && visited[ni] !== stamp) { visited[ni] = stamp; queue[tail] = ni; queueDist[tail++] = dist + 1; } }
+        if (rty > 0)          { const ni = idx - width; if (roadClass[ni] !== ROAD_NONE && visited[ni] !== stamp) { visited[ni] = stamp; queue[tail] = ni; queueDist[tail++] = dist + 1; } }
+        if (rty < height - 1) { const ni = idx + width; if (roadClass[ni] !== ROAD_NONE && visited[ni] !== stamp) { visited[ni] = stamp; queue[tail] = ni; queueDist[tail++] = dist + 1; } }
+      }
     }
-    for (const entry of this._limited.values()) {
-      if (nothingIsFull(world, entry.reaches, entry.capacity)) { entry.full = null; continue; }
-      const { full } = assignSeats(world, entry.reaches, entry.capacity);
-      if (full.size === 0) { entry.full = null; continue; }
-      const mask = new Uint8Array(world.grid.width * world.grid.height);
-      for (const i of full) mask[i] = 1;
-      entry.full = mask;
+    return m;
+  }
+
+  /** The reach of one service building, as ServiceSystem works it out. For tests. */
+  reachOf(world: World, tx: number, ty: number, kind: number): BuildingReach {
+    this.update(world);   // sizes the scratch arrays
+    const m = this._walkOne(world, tx, ty, kind, BALANCE.service.coverageRange[kind] ?? 4);
+    return { anchor: ty * world.grid.width + tx, tiles: this._outTiles.slice(0, m), dist: this._outDist.slice(0, m) };
+  }
+
+  /** Walk every service building again and gather, per kind, what it reaches. */
+  private _walk(world: World): void {
+    const width = world.grid.width;
+    const byKind = new Map<number, { capacity: number; reaches: BuildingReach[] }>();
+    for (const b of world.buildings) {
+      const range = BALANCE.service.coverageRange[b.kind];
+      if (range === undefined) continue; // not a service building
+      let entry = byKind.get(b.kind);
+      if (!entry) { entry = { capacity: serviceCapacity(b.kind), reaches: [] }; byKind.set(b.kind, entry); }
+      const m = this._walkOne(world, b.tx, b.ty, b.kind, range);
+      entry.reaches.push({
+        anchor: b.ty * width + b.tx,
+        tiles: this._outTiles.slice(0, m),
+        // Distances are only needed to seat people.
+        dist: entry.capacity > 0 ? this._outDist.slice(0, m) : EMPTY_DIST,
+      });
+    }
+
+    this._kinds = [];
+    const seen = this._stampCovered, nearDist = this._nearDist, out = this._outTiles;
+    for (const [kind, { capacity, reaches }] of byKind) {
+      // The union of the kind's reaches; for a kind with a capacity, also each tile's nearest building.
+      const stamp = ++this._stamp;
+      const limited = capacity > 0;
+      const order = limited ? reaches.map((_, k) => k).sort((x, y) => reaches[x].anchor - reaches[y].anchor) : null;
+      const nearest = limited ? this._seatAt : null;     // borrowed as scratch: building index per tile
+      let m = 0;
+      for (let r = 0; r < reaches.length; r++) {
+        const bi = order ? order[r] : r;
+        const { tiles, dist } = reaches[bi];
+        for (let k = 0; k < tiles.length; k++) {
+          const t = tiles[k];
+          if (seen[t] !== stamp) {
+            seen[t] = stamp; out[m++] = t;
+            if (nearest) { nearest[t] = bi; nearDist[t] = dist[k]; }
+          } else if (nearest && dist[k] < nearDist[t]) {
+            nearest[t] = bi; nearDist[t] = dist[k];
+          }
+        }
+      }
+      const union = out.slice(0, m);
+      let near: Int32Array | null = null;
+      if (nearest) { near = new Int32Array(m); for (let k = 0; k < m; k++) near[k] = nearest[union[k]]; }
+      this._kinds.push({ kind, union, capacity, reaches: limited ? reaches : [], nearest: near, full: null });
+    }
+  }
+
+  /**
+   * Seat the homes of every kind that has a capacity. Returns whether any
+   * kind's unseated homes changed (so the layers must be rebuilt).
+   *
+   * Quick test first, one pass over the tiles the kind reaches: if every home
+   * fits at its nearest building, that IS the seating and nobody is turned
+   * away. Only otherwise is the full seating run.
+   */
+  private _seat(world: World): boolean {
+    const { zone, devLevel, abandoned } = world.layers;
+    const popPerLevel = BALANCE.growth.popPerLevel;
+    let changed = false;
+    for (const entry of this._kinds) {
+      if (entry.capacity <= 0 || !entry.nearest) continue;
+      const { union, nearest, reaches, capacity } = entry;
+      const load = new Float64Array(reaches.length);
+      let fits = true;
+      for (let k = 0; k < union.length; k++) {
+        const i = union[k];
+        if (zone[i] !== ZONE_R || devLevel[i] === 0 || abandoned[i] !== 0) continue;
+        const b = nearest[k];
+        load[b] += popPerLevel[devLevel[i]] ?? 0;
+        if (load[b] > capacity) { fits = false; break; }
+      }
+      let full: Uint8Array | null = null;
+      if (!fits) {
+        const seatAt = this._seatAt;
+        for (let k = 0; k < union.length; k++) seatAt[union[k]] = -1;
+        if (seatHomes(world, reaches, capacity, seatAt, load) > 0) {
+          full = new Uint8Array(this._n);
+          for (let k = 0; k < union.length; k++) if (seatAt[union[k]] === -2) full[union[k]] = 1;
+        }
+      }
+      if (full || entry.full) changed = true;   // (an unchanged non-empty mask is rebuilt too: once a day at most)
+      entry.full = full;
+    }
+    return changed;
+  }
+
+  /** Rebuild the five layers from each kind's reach, leaving out homes with no seat. */
+  private _compose(): void {
+    const services = this._final[0];
+    for (const f of this._final) f.fill(0);
+    for (const { kind, union, full } of this._kinds) {
+      const layer = LAYER_OF_KIND[kind];
+      const own = layer ? this._final[layer] : null;
+      for (let k = 0; k < union.length; k++) {
+        const t = union[k];
+        // A home this kind reaches but has no seat for is not covered by it.
+        if (full && full[t]) continue;
+        services[t] = 1;
+        if (own) own[t] = 1;
+      }
     }
   }
 }
+
+const EMPTY_DIST = new Uint16Array(0);

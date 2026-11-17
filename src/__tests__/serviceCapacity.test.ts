@@ -9,6 +9,7 @@ import { serviceCapacity, hasCapacity, buildingReach, assignSeats, nothingIsFull
 import { ROAD_STREET, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_POLICE, BUILDING_FIRE, BUILDING_PARK } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home } from './pcTestWorld';
+import { buildLivingCity } from './fixtures/testCity';
 
 const capacity = BALANCE.service.capacity as Record<number, number>;
 const reach = BALANCE.service.coverageRange as Record<number, number>;
@@ -173,6 +174,53 @@ describe('service capacity', () => {
     capacity[BUILDING_SCHOOL] = 0;
     w.tick = BALANCE.ticksPerDay + 3;
     expect(covered([10, 11, 12])).toEqual([10, 11, 12]);
+  });
+
+  it("the system's own road walk gives the same tiles, order and distances as computeServiceCoverage", () => {
+    const { world } = buildLivingCity();
+    reach[BUILDING_SCHOOL] = 20; reach[BUILDING_HOSPITAL] = 30;
+    const system = new ServiceSystem();
+    let checked = 0;
+    for (const b of world.buildings) {
+      if (BALANCE.service.coverageRange[b.kind] === undefined) continue;
+      const want = buildingReach(world, b.tx, b.ty, b.kind);
+      const got = system.reachOf(world, b.tx, b.ty, b.kind);
+      expect(Array.from(got.tiles)).toEqual(Array.from(want.tiles));
+      expect(Array.from(got.dist)).toEqual(Array.from(want.dist));
+      // Nearest first: the seating relies on it.
+      for (let k = 1; k < got.dist.length; k++) expect(got.dist[k]).toBeGreaterThanOrEqual(got.dist[k - 1]);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(10);
+  });
+
+  it('the layers the system writes are exactly the reach minus the homes assignSeats leaves without a seat', () => {
+    const { world } = buildLivingCity();
+    reach[BUILDING_SCHOOL] = 20; reach[BUILDING_HOSPITAL] = 30;
+    const kinds = [[BUILDING_SCHOOL, world.layers.school], [BUILDING_HOSPITAL, world.layers.hospital]] as const;
+    // From plenty of room (the quick test passes) down to hardly any (most homes turned away).
+    for (const cap of [1e9, 4000, 1500, 600, 200, 40]) {
+      capacity[BUILDING_SCHOOL] = cap; capacity[BUILDING_HOSPITAL] = cap * 2;
+      new ServiceSystem().update(world);
+      for (const [kind, layer] of kinds) {
+        const reaches = world.buildings.filter((b) => b.kind === kind).map((b) => buildingReach(world, b.tx, b.ty, kind));
+        const { full } = assignSeats(world, reaches, serviceCapacity(kind));
+        const want = new Uint8Array(layer.length);
+        for (const r of reaches) for (const t of r.tiles) if (!full.has(t)) want[t] = 1;
+        expect(Array.from(layer).join('')).toBe(Array.from(want).join(''));
+        if (cap <= 200) expect(full.size).toBeGreaterThan(0);
+        if (cap === 1e9) expect(full.size).toBe(0);
+      }
+    }
+  });
+
+  it('seating a home at its nearest building when everyone fits is what the full seating gives', () => {
+    street([8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    school(9); school(15);
+    // 50 each: the quick test passes (nearest loads are 50 and 40) and nobody is turned away.
+    capacity[BUILDING_SCHOOL] = 50;
+    expect(covered([8, 9, 10, 11, 12, 13, 14, 15, 16]).length).toBe(9);
+    expect([8, 9, 10, 11, 12, 13, 14, 15, 16].map(seatX)).toEqual([9, 9, 9, 9, 9, 15, 15, 15, 15]);
   });
 
   it('the quick test and the full seating agree on whether anyone is turned away', () => {
