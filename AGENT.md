@@ -559,6 +559,18 @@ Prints the time of a sim tick (in Node and in Chrome, with the cost of each syst
 - A big exported city tells you more than the built-in one. The code is in `src/bench/` and `scripts/bench.mjs`; it is not part of the game build.
 - CI runs the Node part on the built-in city for every PR and puts the numbers in the job summary. It fails only on a large slowdown (limits in `scripts/bench-check.mjs`), so measure smaller changes yourself.
 
+### Balance Lab
+
+```
+npm run balance                 # every PC variant (Off, A–D) × personas × cities
+npm run balance -- --quick      # variant B, fresh city, 120 days: a few seconds
+```
+
+Scripted players ("personas": Planner, Sprawler, Demolisher, Neglecter, Request-chaser, Industrialist, Exploiter) play through the real commands and sim, with no browser, and the result is graded against the owner-approved targets in `src/balance/targets.ts`. The report goes to `balance-results/latest.json`; the previous run is kept as `previous.json` and each result says whether it got better or worse. Cities: a fresh 128×128 town, plus the owner's `testcity1` if it is on this machine (`cities/` or `~/Downloads/`), plus every `cities/gen-*.citysave.json`. `cities/` and `balance-results/` are gitignored; never commit a save. Options are listed at the top of `scripts/balance.mjs`.
+
+- Target ids are stable; change a range in `targets.ts`, not an id. A new target needs the owner's OK (through the PM).
+- The lab only reads BALANCE (it applies a variant, then puts the shipped numbers back). It is not part of the game build, and its test (`src/balance/lab.test.ts`) only checks that it runs, is deterministic and restores BALANCE.
+
 Test files:
 - `systems.test.ts` — per-system behavior (large; add new system tests here or in a new file)
 - `abandonment`, `crime`, `fire`, `education`, `vibes` — one file per system

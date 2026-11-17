@@ -43,3 +43,5 @@ art/clay-set/landscaping/trees/
 
 # Cities built by `npm run gen-city` (big; rebuild them from the seed)
 cities/
+# Balance Lab reports
+balance-results/
