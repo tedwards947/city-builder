@@ -14,7 +14,8 @@
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
-import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad } from './serviceValue';
+import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad, shapeTouchesAccessRoad } from './serviceValue';
+import { footprintTiles } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { isEstablished } from './established';
@@ -419,6 +420,8 @@ function canAfford(world: World, cost: number): boolean {
  * What `action` would cost or earn in political capital right now, and why.
  * Reads the world, changes nothing. An action that would do nothing (painting
  * a zone a tile already has, a road where one cannot go) quotes as empty.
+ * A building is priced over its whole shape, anchored at (tx, ty): every home
+ * under it is displaced, and a nuisance is felt from its nearest tile.
  * It scans at most the nuisance radius round the tile, so it is cheap enough
  * to call every frame for a hover preview. (A service building also walks
  * the roads its coverage would follow, as the coverage preview already does.)
@@ -435,6 +438,10 @@ export function pcQuote(
   if (!grid.inBounds(tx, ty)) return q;
   const i = grid.idx(tx, ty);
   const d = tileDisruption(world, tx, ty);
+  // The tiles the action stands on: a building's whole shape, otherwise the tile.
+  let footprint: readonly number[] = [i];
+  // Residents displaced from tiles other than (tx, ty) itself.
+  let displacedElsewhere = 0;
 
   switch (action.type) {
     case 'bulldoze':
@@ -454,9 +461,17 @@ export function pcQuote(
     }
     case 'building':
       // Building over a ruin earns nothing: only bulldozing or rezoning clears blight.
-      if (!world.isBuildable(tx, ty)) return q;
-      addPart(q, 'displacement', tx, ty, -d.pcCost);
-      if (isServiceKind(action.kind) && !touchesAccessRoad(world, tx, ty)) q.notConnected = true;
+      if (!world.canPlaceBuilding(tx, ty, action.kind)) return q;
+      footprint = footprintTiles(grid.width, grid.height, tx, ty, action.kind)!;
+      // Every home under the building's shape is displaced.
+      for (const fi of footprint) {
+        if (fi === i) { addPart(q, 'displacement', tx, ty, -d.pcCost); continue; }
+        const fx = fi % grid.width, fy = (fi - fx) / grid.width;
+        const fd = tileDisruption(world, fx, fy);
+        addPart(q, 'displacement', fx, fy, -fd.pcCost);
+        displacedElsewhere += fd.displacedPopulation;
+      }
+      if (isServiceKind(action.kind) && !(footprint.length === 1 ? touchesAccessRoad(world, tx, ty) : shapeTouchesAccessRoad(world, footprint))) q.notConnected = true;
       // Opening a service: the residents it will cover are pleased.
       for (const p of serviceOpeningValue(world, tx, ty, action.kind, service)) {
         addPart(q, 'serviceOpened', p.tx, p.ty, p.amount, p.strength);
@@ -480,6 +495,7 @@ export function pcQuote(
   if (q.parts.some(p => p.reason === 'displacement' && p.tx === tx && p.ty === ty)) {
     q.displacedPopulation = d.displacedPopulation;
   }
+  q.displacedPopulation += displacedElsewhere;
 
   // Homes nearby object to a nuisance. Land that is already industrial is not a new one.
   const rate = action.type === 'zone' ? nuisanceRate({ zone: action.zone }, nuisance)
@@ -488,15 +504,27 @@ export function pcQuote(
   const alreadyIndustrial = action.type === 'zone' && layers.zone[i] === ZONE_I;
   if (rate > 0 && !alreadyIndustrial && nuisance.bands.length > 0) {
     const radius = nuisance.bands[nuisance.bands.length - 1].within;
-    for (let dy = -radius; dy <= radius; dy++) {
-      const span = radius - Math.abs(dy);
-      for (let dx = -span; dx <= span; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const hx = tx + dx, hy = ty + dy;
+    // A home's distance is to the nearest tile of what is being placed, so a
+    // large building is a nuisance from its edge, not from its anchor.
+    const width = grid.width;
+    let fx0 = tx, fx1 = tx, fy0 = ty, fy1 = ty;
+    for (const fi of footprint) {
+      const fx = fi % width, fy = (fi - fx) / width;
+      if (fx < fx0) fx0 = fx; if (fx > fx1) fx1 = fx;
+      if (fy < fy0) fy0 = fy; if (fy > fy1) fy1 = fy;
+    }
+    for (let hy = fy0 - radius; hy <= fy1 + radius; hy++) {
+      for (let hx = fx0 - radius; hx <= fx1 + radius; hx++) {
         if (!grid.inBounds(hx, hy)) continue;
+        let dist = Infinity;
+        for (const fi of footprint) {
+          const fx = fi % width, fy = (fi - fx) / width;
+          const m = Math.abs(hx - fx) + Math.abs(hy - fy);
+          if (m < dist) dist = m;
+        }
+        if (dist === 0 || dist > radius) continue;
         const hi = grid.idx(hx, hy);
         if (layers.zone[hi] !== ZONE_R || layers.devLevel[hi] === 0 || layers.abandoned[hi] !== 0) continue;
-        const dist = Math.abs(dx) + Math.abs(dy);
         let weight = 0;
         for (const b of nuisance.bands) if (dist <= b.within) { weight = b.weight; break; }
         const pop = BALANCE.growth.popPerLevel[layers.devLevel[hi]] ?? 0;

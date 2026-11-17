@@ -20,6 +20,7 @@ import type { World } from './World';
 import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY } from './constants';
 import { BALANCE } from '../data/balance';
 import { computeServiceCoverage } from './systems/ServiceSystem';
+import { footprintTiles, footprintEdge } from './buildingShapes';
 
 export interface ServiceValueConfig {
   /**
@@ -114,11 +115,22 @@ export function touchesAccessRoad(world: World, tx: number, ty: number): boolean
   return false;
 }
 
-/** What a `kind` building at (tx, ty) would reach, for a placement warning or an inspect line. */
+/** Whether a street or avenue runs along the edge of a building standing on `tiles` (its whole shape). */
+export function shapeTouchesAccessRoad(world: World, tiles: readonly number[]): boolean {
+  const roadClass = world.layers.roadClass;
+  for (const i of footprintEdge(world.grid.width, world.grid.height, tiles)) {
+    if (roadClass[i] !== ROAD_NONE && roadClass[i] !== ROAD_HIGHWAY) return true;
+  }
+  return false;
+}
+
+/** What a `kind` building anchored at (tx, ty) would reach, for a placement warning or an inspect line. */
 export function serviceReach(world: World, tx: number, ty: number, kind: number): ServiceReach {
   let homesCovered = 0;
   for (const i of computeServiceCoverage(world, tx, ty, kind)) if (residentsAt(world, i) > 0) homesCovered++;
-  return { touchesRoad: touchesAccessRoad(world, tx, ty), homesCovered };
+  const tiles = footprintTiles(world.grid.width, world.grid.height, tx, ty, kind);
+  const touchesRoad = tiles && tiles.length > 1 ? shapeTouchesAccessRoad(world, tiles) : touchesAccessRoad(world, tx, ty);
+  return { touchesRoad, homesCovered };
 }
 
 /**

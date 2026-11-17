@@ -387,8 +387,10 @@ export const BALANCE = {
       ] as { within: number; weight: number }[],
       // PC per resident at weight 1, for each industrial tile zoned.
       industrialPerResident: 0,
-      // PC per resident at weight 1, by building kind (1 = power plant, 3 = sewage plant).
-      buildingPerResident: { 1: 0, 3: 0 } as Record<number, number>,
+      // PC per resident at weight 1, by building kind (1 = power plant, 3 =
+      // sewage plant, 9 = large power plant, 11 = large sewage plant). A large
+      // building is felt from its nearest tile.
+      buildingPerResident: { 1: 0, 3: 0, 9: 0, 11: 0 } as Record<number, number>,
     },
     // One-off PC rewards the first time the city's population reaches each
     // threshold, e.g. { population: 1000, reward: 20 }. They may go over the
