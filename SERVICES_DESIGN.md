@@ -1,6 +1,6 @@
 # Services: proposal
 
-*Status (2026-11-17): built and switched off. #179 adds the capacity model (capacity 0 = no limit; within the 1 ms budget at 0.05–0.18 ms per tick), and #180 bases the PC service rule on seats. Owner decisions: hospitals keep a real reach (~20–25 road steps), police and fire stay road-based, and the services lab targets v0 are approved. Next: ENGINEER 3 tunes capacities and reaches, then graphics' capacity UI (mock first). Later: possibly 2×2 schools and hospitals (TODO DESIGN e).*
+*Status: switched ON 2026-11-17: school reach 20, capacity 4,000; hospital reach 30, capacity 8,000 (owner kept hospital proximity). Tick cost ~0.13 ms amortised, 0.6 ms daily re-seat, 6–12 ms on the tick after a road/building edit. School and hospital PC pay is 0 until ENGINEER 3 re-tunes.*
 
 ## Why
 Placing services is tedious and expensive. Even with the new ranges (police 15, fire 15, school 8, hospital 8, park 6), a small city needs about one school and one hospital per neighbourhood. The number of buildings grows with **how much map you cover**, not **how many people you have**, so every new patch of homes asks for its own set of buildings. Real cities have one hospital per tens of thousands of people.
