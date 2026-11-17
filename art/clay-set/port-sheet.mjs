@@ -101,7 +101,8 @@ function png(path, W, H, px) {
 const K1 = 0.8 * 128 / 132, K2 = 0.8 * 128 / 202;
 const GAME = {
   'sheet-1-1': ['crane-end', K1], 'sheet-1-3': ['crane-side', K1],
-  'sheet-2-1': ['office', K2], 'sheet-2-2': ['gate', K2], 'sheet-2-3': ['boxes-long', K2 * 1.1], 'sheet-2-4': ['boxes-end', K2 * 1.1],
+  // The office: option 4 of sheet 3 (corrugated steel, the owner's pick), 0.9 of a tile wide.
+  'sheet-3-4': ['office', 0.9 * 128 / 425], 'sheet-2-2': ['gate', K2], 'sheet-2-3': ['boxes-long', K2 * 1.1], 'sheet-2-4': ['boxes-end', K2 * 1.1],
 };
 const GAME_OUT = join(here, '../../public/sprites/clay/port');
 const GAME_DATA = join(here, '../../src/render/clay/portSpriteData.ts');
