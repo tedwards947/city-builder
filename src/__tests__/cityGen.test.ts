@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateCity } from '../gen/cityGen';
+import { generateCity, STYLES } from '../gen/cityGen';
 import { saveCityText, loadCityText, cityStats } from '../bench/harness';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE } from '../sim/constants';
 
@@ -11,7 +11,7 @@ describe('large-city generator', () => {
 
   it('grows to about the target population', () => {
     expect(a.population).toBeGreaterThanOrEqual(2500 * 0.9);
-    expect(a.population).toBeLessThan(2500 * 2);
+    expect(a.population).toBeLessThan(2500 * 1.35);
     const s = cityStats(a.world);
     expect(s.zones.R.tiles).toBeGreaterThan(0);
     expect(s.zones.C.tiles).toBeGreaterThan(0);
@@ -45,4 +45,15 @@ describe('large-city generator', () => {
     expect(back.buildings.length).toBe(a.world.buildings.length);
     expect(Array.from(back.layers.devLevel)).toEqual(Array.from(a.world.layers.devLevel));
   });
+
+  for (const style of STYLES) {
+    it(`builds a working ${style} city`, () => {
+      const c = generateCity({ seed: 5, target: 2000, size: 128, style, settleTicks: 20 });
+      expect(c.population).toBeGreaterThanOrEqual(2000 * 0.9);
+      const L = c.world.layers;
+      const nets = new Set<number>();
+      for (let i = 0; i < L.roadClass.length; i++) if (L.roadClass[i] !== ROAD_NONE) nets.add(L.roadNet[i]);
+      expect(nets.size).toBe(1);
+    });
+  }
 });
