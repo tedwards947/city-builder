@@ -151,9 +151,9 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.cap.growth', metric: 'Cap at 10k residents ÷ cap at 0', target: '1.5–3.0', persona: 'static', cities: 'all', status: 'graded',
     why: 'Rule 2: the cap grows with population, not so far that saving up beats it.',
     evaluate: c => range(c.probes?.capGrowth as number | undefined, 1.5, 3) },
-  { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 95%', persona: 'chaser', cities: 'all', status: 'graded',
-    why: 'Agreed dry-run goal.',
-    evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.95), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
+  { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 80%', persona: 'chaser', cities: 'all', status: 'graded',
+    why: 'A reasonable answer usually works (owner, 2026-11-17: lowered from 95% so some requests can take more thought).',
+    evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.8), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
   { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets. Coverage and utilities: one building each (leaving out coverage requests it skips because no free lot within 10 tiles could serve half the asking homes). Traffic jams: a plan over several passes (avenues, then a wider ring and the next bottlenecks)', target: 'coverage + utilities ≥ 70%; traffic jams ≥ 50%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17). Traffic jams are meant to be hard (the principle above): the check is that a deliberate plan resolves most of them, not that one upgrade does. The 50% is a proposal for the owner.',
     evaluate: c => {
@@ -218,9 +218,13 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
 const econ = (c: EvalCtx) => c.runs.planner?.econ;
 
 const ECON_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'econ.firstServices', metric: 'Days in debt before a new city first has a police station, fire station, school and hospital', target: '≤ 10', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
-    why: 'A new city gets its first services without a long spell in debt.',
-    evaluate: c => { if (c.cityKind === 'save') return NA('fresh cities only'); const e = econ(c); if (!e) return NA('not run'); return { ...range(e.debtDaysBeforeServices, 0, 10), note: e.servicesCompleteDay === null ? 'never had all four' : `all four by day ${e.servicesCompleteDay}` }; } },
+  { id: 'econ.firstServices', metric: 'A new city on its own money gets a police station, fire station, school and hospital within the run (a softlock check)', target: 'all four built', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-17): a softlock check only. A short early squeeze is fine; being unable ever to afford the first services is not. Long stuck debt is econ.noSoftlock.',
+    evaluate: c => {
+      if (c.cityKind === 'save') return NA('fresh cities only'); const e = econ(c); if (!e) return NA('not run');
+      const ok = e.servicesCompleteDay !== null;
+      return { value: e.servicesCompleteDay, pass: ok, miss: ok ? 0 : 1, note: `${e.debtDaysBeforeServices} days in debt before then` };
+    } },
   { id: 'econ.noSoftlock', metric: 'Longest run of days in debt', target: '≤ 30', persona: 'planner (own money)', cities: 'all', status: 'graded',
     why: 'No city should be stuck in debt.',
     evaluate: c => { const e = econ(c); return e ? range(e.longestDebtRun, 0, 30) : NA('not run'); } },

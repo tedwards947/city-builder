@@ -124,9 +124,9 @@ const LEVELS: { mult: number; add: number }[] = [{ mult: 1.5, add: 1 }, { mult: 
  * Deterministic whatever the evaluator's worker count: ties go to the first
  * candidate in PARAMS order.
  */
-export async function tune(start: 'A' | 'B' | 'C' | 'D' | 'T', evaluateMany: EvaluateMany, opts: { budget?: number; log?: (l: string) => void } = {}): Promise<TuneResult> {
+export async function tune(start: 'A' | 'B' | 'C' | 'D' | 'T', evaluateMany: EvaluateMany, opts: { budget?: number; log?: (l: string) => void; startValues?: ValueTree } = {}): Promise<TuneResult> {
   const budget = opts.budget ?? 900, log = opts.log ?? (() => {});
-  const startValues = JSON.parse(JSON.stringify(start === 'T' ? TUNED_T : VARIANT_VALUES[start])) as Tree;
+  const startValues = JSON.parse(JSON.stringify(opts.startValues ?? (start === 'T' ? TUNED_T : VARIANT_VALUES[start]))) as Tree;
   let [best] = await evaluateMany([startValues]);
   const startEval = { score: best.score, pass: best.pass, graded: best.graded, results: best.results };
   let evals = 1;
