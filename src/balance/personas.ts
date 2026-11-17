@@ -9,7 +9,7 @@ import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { Recorder } from './recorder';
 import { startSim, type Sim } from './world';
 import type { World } from '../sim/World';
-import { Town, SERVICE_KINDS, CHASER_KINDS, serveLacking, answerRequest, isHome, ZONE_R, ZONE_C, ZONE_I } from './town';
+import { Town, SERVICE_KINDS, CHASER_KINDS, serveLacking, answerRequest, answerTraffic, isHome, ZONE_R, ZONE_C, ZONE_I } from './town';
 import { exploitLoops } from './probes';
 
 export type PersonaId = 'planner' | 'sprawler' | 'demolisher' | 'neglecter' | 'chaser' | 'industrialist' | 'exploiter';
@@ -30,6 +30,8 @@ export interface Ctx {
   extra: Record<string, unknown>;
   /** Requests waiting for the chaser's answer. */
   pending: number[];
+  /** Open traffic-jam requests the chaser is still working on. */
+  traffic: { id: number; pass: number }[];
   /** A small seeded generator, so choices are the same every run. */
   rand: () => number;
 }
@@ -89,8 +91,23 @@ function services(c: Ctx, day: number) {
   }
 }
 
-function answer(c: Ctx) {
-  while (c.pending.length) answerRequest(c.sim, c.rec, c.pending.shift()!);
+/** Traffic-jam requests still open, revisited every 3 days with a wider plan (up to 3 more passes). */
+const TRAFFIC_REVISIT_DAYS = 3, TRAFFIC_PASSES = 3;
+
+function answer(c: Ctx, day: number) {
+  while (c.pending.length) {
+    const id = c.pending.shift()!;
+    const q = c.sim.world.politics.requests.find(r => r.id === id);
+    if (q?.kind === 'trafficJam') c.traffic.push({ id, pass: 0 });
+    answerRequest(c.sim, c.rec, id);
+  }
+  if (day % TRAFFIC_REVISIT_DAYS) return;
+  c.traffic = c.traffic.filter(t => {
+    const q = c.sim.world.politics.requests.find(r => r.id === t.id) as ({ x0: number; y0: number; x1: number; y1: number } | undefined);
+    if (!q || t.pass >= TRAFFIC_PASSES) return false;
+    answerTraffic(c.sim, c.rec, t.id, q, ++t.pass);
+    return true;
+  });
 }
 
 /** Bulldoze a block of homes and zone it again (it regrows later). */
@@ -120,8 +137,8 @@ export const PERSONAS: Persona[] = [
     day: (c, d) => { grow(c, d, 3); services(c, d); ordinanceHabits(c, d, null); if (d >= 40 && d % 2 === 0) demolish(c); } },
   { id: 'neglecter', desc: 'Builds for 60 days, then stops: no services, no new utilities, no answers.', fresh: true, save: true,
     day: (c, d) => grow(c, d, 3, 60) },
-  { id: 'chaser', desc: 'Grows steadily and answers every request: one service building on the lot that serves the asking homes (skipping ones no free lot could meet), a plant for a utilities shortage, avenues for a traffic jam.', fresh: true, save: true,
-    day: (c, d) => { grow(c, d, 3); answer(c); } },
+  { id: 'chaser', desc: 'Grows steadily and answers every request: one service building on the lot that serves the asking homes (skipping ones no free lot could meet), a plant for a utilities shortage, avenues for a traffic jam, revisiting a jam that persists with a wider plan.', fresh: true, save: true,
+    day: (c, d) => { grow(c, d, 3); answer(c, d); } },
   { id: 'industrialist', desc: 'An industry district behind a buffer of shops, power plants among the homes, and every 10 days industry painted inside a home block.', fresh: true, save: false,
     day: (c, d) => {
       grow(c, d, 3); services(c, d);
@@ -154,7 +171,7 @@ export function playPersona(p: Persona, world: World, fresh: boolean, days: numb
     tagOf: z => (z === ZONE_I ? 'industryFar' : 'zone'),
     utilitiesInTown: true,
   } : {}) : null;
-  const c: Ctx = { sim, rec, town, opts, extra: {}, pending: [], rand: lcg(world.seed ?? 7) };
+  const c: Ctx = { sim, rec, town, opts, extra: {}, pending: [], traffic: [], rand: lcg(world.seed ?? 7) };
   world.events.on('requestOpened', q => { if (CHASER_KINDS.includes(q.kind as string)) c.pending.push(q.id as number); });
   for (let d = 0; d < days; d++) {
     p.day(c, d);

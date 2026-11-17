@@ -155,14 +155,20 @@ function answerUtilities(sim: Sim, rec: Recorder, reqId: number): 'placed' | 're
   return placed ? 'placed' : 'refused';
 }
 
-/** A traffic-jam request: upgrade every over-capacity street in and around the area to an avenue. */
-function answerTraffic(sim: Sim, rec: Recorder, reqId: number, a: { x0: number; y0: number; x1: number; y1: number }): 'placed' | 'refused' {
+/**
+ * A traffic-jam request, answered as a plan over several passes: pass 0 upgrades every
+ * over-capacity street in and just around the area to an avenue; each later pass (the
+ * chaser revisits an open jam every few days, since traffic reroutes) widens the ring by
+ * 2 tiles and also upgrades streets running at 80% of capacity, the next bottlenecks.
+ */
+export function answerTraffic(sim: Sim, rec: Recorder, reqId: number, a: { x0: number; y0: number; x1: number; y1: number }, pass = 0): 'placed' | 'refused' {
   const w = sim.world, { width: W, height: H } = w.grid, t = w.traffic;
   if (!t) return 'refused';
+  const pad = Math.min(2 + 2 * pass, 8), load = pass === 0 ? 1 : 0.8;
   let n = 0;
-  for (let y = Math.max(0, a.y0 - 2); y <= Math.min(H - 1, a.y1 + 2); y++) for (let x = Math.max(0, a.x0 - 2); x <= Math.min(W - 1, a.x1 + 2); x++) {
+  for (let y = Math.max(0, a.y0 - pad); y <= Math.min(H - 1, a.y1 + pad); y++) for (let x = Math.max(0, a.x0 - pad); x <= Math.min(W - 1, a.x1 + pad); x++) {
     const i = y * W + x, rc = w.layers.roadClass[i];
-    if (rc === ROAD_STREET && trafficVolume(t, i) > roadCapacity(rc) && rec.run(sim.history, new BuildRoadCommand(x, y, ROAD_AVENUE), 'request:trafficJam')) n++;
+    if (rc === ROAD_STREET && trafficVolume(t, i) > load * roadCapacity(rc) && rec.run(sim.history, new BuildRoadCommand(x, y, ROAD_AVENUE), 'request:trafficJam')) n++;
   }
   if (n) rec.answeredOther.add(reqId);
   return n ? 'placed' : 'refused';
