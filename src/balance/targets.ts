@@ -14,7 +14,7 @@ import { BALANCE } from '../data/balance';
 import { ORDINANCE_IDS } from '../sim/ordinances';
 import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
-import type { SvcResult, SvcKindStats } from './services';
+import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
 
 export type Status = 'graded' | 'later';
 export type Suite = 'pc' | 'econ' | 'svc';
@@ -243,14 +243,12 @@ const ECON_TARGETS: Omit<Target, 'suite'>[] = [
 // ── Services suite (school and hospital capacity), v0 approved by the owner 2026-11-17 ──
 // Graded per capacity preset (src/balance/services.ts) on the Planner's city. Reach decides
 // who CAN use a building; capacity decides how many get a seat. Hard is fine; unfair or invisible isn't.
-type SvcK = SvcKindStats & { growth: { perNewResident: number | null } | null; fix: { share: number | null } | null };
+type SvcK = SvcKindStats & { growth: { perNewResident: number | null } | null; fix: { share: number | null } | null; pc?: SvcPcProbes | null };
 const perKind = (c: EvalCtx, f: (k: SvcK, name: 'school' | 'hospital') => Outcome): Outcome => {
   if (!c.svc) return NA('not run');
   return all({ school: f(c.svc.kinds.school as SvcK, 'school'), hospital: f(c.svc.kinds.hospital as SvcK, 'hospital') });
 };
 const capOff = (c: EvalCtx) => c.variant === 'off';
-const later = (why: string) => (): Outcome => NA(why);
-const SEAT_RULE = 'waits for engine\'s seat-based PC service rule';
 
 const SVC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'svc.perCapita', metric: 'Schools and hospitals the Planner has per 10k residents (it adds one where homes lack a seat)', target: 'schools 3–6; hospitals 1–2', persona: 'planner', cities: 'all', status: 'graded',
@@ -271,10 +269,18 @@ const SVC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'svc.reachGap', metric: 'Residents out of reach of every school / hospital, after the Planner\'s run', target: '≤ 5% each', persona: 'planner', cities: 'all', status: 'graded',
     why: 'Reach should not strand pockets a reasonable plan cannot cover.',
     evaluate: c => perKind(c, k => range(k.outOfReachShare, -Infinity, 0.05)) },
-  { id: 'svc.pc.overlap', metric: 'PC for a second school over already-seated homes', target: 'exactly 0', persona: 'probe', cities: 'all', status: 'later', why: 'Seat-based service rule: no pay for seats nobody needed.', evaluate: later(SEAT_RULE) },
-  { id: 'svc.pc.relief', metric: 'PC per overflow resident a relieving school seats ÷ first-time pay per resident', target: '≥ 0.8', persona: 'probe', cities: 'all', status: 'later', why: 'Relieving a full school pays like a new one for the residents it seats.', evaluate: later(SEAT_RULE) },
-  { id: 'svc.pc.move', metric: 'Net PC to move a school / hospital where everyone re-seats ÷ cap', target: 'cost ≤ 0.05', persona: 'probe', cities: 'all', status: 'later', why: 'Moving a service is cheap when nobody loses a seat.', evaluate: later(SEAT_RULE) },
-  { id: 'svc.pc.loops', metric: 'Net PC from build / close / reopen loops on schools and hospitals', target: '≤ 0', persona: 'probe', cities: 'all', status: 'later', why: 'No loop nets PC.', evaluate: later(SEAT_RULE) },
+  { id: 'svc.pc.overlap', metric: 'PC for a school / hospital that only re-seats homes already seated (gains no seat), under the tuned PC numbers', target: 'exactly 0', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Seat-based service rule: no pay for seats nobody needed.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const v = k.pc?.overlap; return v === null || v === undefined ? NA('no such lot') : range(Math.abs(v), 0, 1e-9); }) },
+  { id: 'svc.pc.relief', metric: 'PC per resident a building beside the fullest one seats ÷ the first building\'s pay per resident', target: '≥ 0.8 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Relieving a full school pays like a new one for the residents it seats.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const v = k.pc?.relief; return v === null || v === undefined ? NA('nothing full') : range(v, 0.8); }) },
+  { id: 'svc.pc.move', metric: 'Net PC ÷ cap to move the busiest school / hospital to the nearby lot where fewest residents lose a seat', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Moving a service is cheap when nobody loses a seat.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const v = k.pc?.move; return v === null || v === undefined ? NA('no lot') : { ...range(v, -0.05), note: `${k.pc?.moveLost ?? 0} residents lose a seat` }; }) },
+  { id: 'svc.pc.loops', metric: 'Net PC of 10 rounds of open-and-close beside the fullest building, and of close-and-reopen of a standing one', target: '≤ 0 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'No loop nets PC.',
+    evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const a = k.pc?.loopBuildClose, b = k.pc?.loopCloseReopen; const parts: Record<string, Outcome> = {}; if (a !== null && a !== undefined) parts.buildClose = range(a, -Infinity, 0); if (b !== null && b !== undefined) parts.closeReopen = range(b, -Infinity, 0); return Object.keys(parts).length ? all(parts) : NA('not measured'); }) },
 ];
 
 export const TARGETS: Target[] = [

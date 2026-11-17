@@ -5,7 +5,7 @@ import { BALANCE } from '../data/balance';
 import { PC_VARIANTS } from '../ui/pcPresets';
 import { applyValues } from '../ui/pcPresets';
 import { TUNED_T } from './tunedT';
-import { SVC_PRESETS, applySvcPreset, svcResult, type SvcPreset, type SvcResult } from './services';
+import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset, type SvcResult } from './services';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
 import { PERSONAS, playPersona, type PersonaId, type PersonaRun } from './personas';
@@ -301,6 +301,9 @@ export function runLab(o: LabOptions): Report {
           const t0 = Date.now();
           const run = playPersona(PERSONAS.find(p => p.id === 'planner')!, loadCity(city), fresh, fresh ? daysFresh : daysSave);
           const svc = svcResult(run.world);
+          // PC rule probes under the tuned PC numbers (shipped PC pays nothing).
+          applyValues(BALANCE.politicalCapital as never, (o.customVariants?.T?.values ?? TUNED_T) as never);
+          try { addSvcPcProbes(svc, run.world); } finally { applyValues(BALANCE.politicalCapital as never, shippedPc); }
           report.svcRuns[id][city.id] = svc;
           log(`svc ${id} ${city.id}: pop ${svc.population}, schools ${svc.kinds.school.buildings} (${Math.round(svc.kinds.school.seatedShare * 100)}% seated), hospitals ${svc.kinds.hospital.buildings} (${Math.round(svc.kinds.hospital.seatedShare * 100)}%) (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
           grade('svc', id, city, { runs: { planner: summarise('planner', run) }, probes: null, refill: null, ordinancesOn: false, svc });
