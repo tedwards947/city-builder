@@ -15,6 +15,8 @@ import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildin
 import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
+import { seaports, portTrade, shipRoute } from '../sim/seaport';
+import { shipPath, shipAt, drawShip, SHIP_SIZE, type ShipPath, type Berth } from './clay/ships';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -142,6 +144,10 @@ export class CanvasRenderer {
   private readonly canvas: HTMLCanvasElement;
 
   private _clayEffects: ClayEffect[] = [];
+  /** Per frame: seconds since a ship tied up at each seaport (by anchor), for its cranes. */
+  private _portWork = new Map<number, number>();
+  /** Each seaport's sailing path and berth, kept while its route (cached by the sim until the map changes) is the same. */
+  private _shipPaths = new WeakMap<readonly number[], { path: ShipPath; berth: Berth }>();
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
   private _markerQueue: number[] = [];
   private _utilityQueue: number[] = [];
@@ -204,6 +210,9 @@ export class CanvasRenderer {
     // 1. The static layer.
     this.chunks.update(world, bounds, camera.zoom, now);
     this.chunks.draw(ctx, world, camera, bounds);
+
+    // 1b. Ships, on the water and under everything that stands (cranes reach over them).
+    this._drawShips(ctx, world, camera, bounds, now);
 
     // 2. Trees, sprites, overlay tints, cars, then smoke and fire above them.
     this._drawLots(ctx, world, camera, bounds, ts, overlay, now);
@@ -451,6 +460,48 @@ export class CanvasRenderer {
   }
 
   /**
+   * Ships calling at each seaport that trades (clay/ships.ts). A ship's place
+   * comes from the clock, its port's route and ships a day, so nothing is
+   * stored. Bridge tiles are cut out of the drawing, so ships pass under them.
+   */
+  private _drawShips(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, now: number): void {
+    this._portWork.clear();
+    const { width, height } = world.grid, { terrain, roadClass } = world.layers;
+    const tile = camera.zoom * TILE_SIZE, t = now * 0.001;   // exact, so ships stay on their tiles across a big map
+    const ox = camera.worldToScreenX(0), oy = camera.worldToScreenY(0);
+    for (const port of seaports(world)) {
+      const anchor = world.grid.idx(port.tx, port.ty);
+      const trade = portTrade(world, anchor);
+      if (!trade || trade.shipsPerDay <= 0) continue;
+      const route = shipRoute(world, anchor);
+      if (!route || route.length === 0) continue;
+      let p = this._shipPaths.get(route);
+      if (!p) { const berth = portBerth(world, anchor, route); p = { berth, path: shipPath(route, width, height, berth) }; this._shipPaths.set(route, p); }
+      const seed = ((anchor * 2654435761) >>> 0) / 4294967296;
+      const st = shipAt(p.path, p.berth, t, trade.shipsPerDay, seed);
+      if (!st) continue;
+      if (st.work >= 0) this._portWork.set(anchor, st.work);
+      const r = SHIP_SIZE[st.type].L / 2 + 2.5;
+      if (st.x + r < bounds.x0 || st.x - r > bounds.x1 + 1 || st.y + r < bounds.y0 || st.y - r > bounds.y1 + 2) continue;
+      // Cut bridge tiles near the ship out of the drawing.
+      ctx.save();
+      let clipped = false;
+      const x0 = Math.max(0, Math.floor(st.x - r)), x1 = Math.min(width - 1, Math.ceil(st.x + r));
+      const y0 = Math.max(0, Math.floor(st.y - r)), y1 = Math.min(height - 1, Math.ceil(st.y + r));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const i = y * width + x;
+        if (terrain[i] !== TERRAIN_WATER || roadClass[i] === ROAD_NONE) continue;
+        if (!clipped) { ctx.beginPath(); ctx.rect(0, 0, camera.viewportW, camera.viewportH); clipped = true; }
+        const L = Math.floor(ox + x * tile), T = Math.floor(oy + y * tile);
+        ctx.rect(L, T, Math.floor(ox + (x + 1) * tile) - L, Math.floor(oy + (y + 1) * tile) - T);
+      }
+      if (clipped) ctx.clip('evenodd');
+      drawShip(ctx, st, ox, oy, tile, t, Math.floor(t / 1000) + anchor);
+      ctx.restore();
+    }
+  }
+
+  /**
    * A building on several tiles, anchored at tile index `anchor`: its clay
    * sprite across the whole footprint with what moves drawn over it, or the
    * code-drawn stand-in while it has no art or the art has not loaded.
@@ -470,7 +521,7 @@ export class CanvasRenderer {
     const box = shapeBox(kind, rot), n = box.maxX - box.minX + 1;
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
     if (!sprite) {
-      drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water);
+      drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, this._portWork.get(anchor) ?? -1);
       return;
     }
     const tile = Math.ceil(camera.zoom * TILE_SIZE), side = n * tile;
@@ -926,4 +977,23 @@ export class CanvasRenderer {
     ctx.fillStyle = 'rgba(38,84,40,0.4)';
     ctx.fill();
   }
+}
+
+/**
+ * Where ships lie at a seaport: one tile out beyond the middle of its docks,
+ * along the quay, or (if that is not open water) where its route starts.
+ */
+function portBerth(world: World, anchor: number, route: readonly number[]): Berth {
+  const { width, height } = world.grid, ax = anchor % width, ay = (anchor - ax) / width;
+  const tiles = world.buildingTilesAt(ax, ay), roles = shapeRoles(world.layers.building[anchor]);
+  const docks = tiles.filter((_, k) => roles[k] === 'dock'), yard = tiles.filter((_, k) => roles[k] !== 'dock');
+  const w = (i: number) => ({ x: i % width, y: (i - (i % width)) / width });
+  const start = w(route[0]);
+  if (docks.length === 0 || yard.length === 0) return { x: start.x + 0.5, y: start.y + 0.5, qx: 1, qy: 0 };
+  const mid = (pts: { x: number; y: number }[]) => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length + 0.5, y: pts.reduce((s, p) => s + p.y, 0) / pts.length + 0.5 });
+  const d = mid(docks.map(w)), yd = mid(yard.map(w));
+  const ex = Math.sign(Math.round(d.x - yd.x)), ey = ex !== 0 ? 0 : Math.sign(d.y - yd.y);
+  const bx = d.x + ex, by = d.y + ey, tx = Math.floor(bx), ty = Math.floor(by);
+  const ok = tx >= 0 && ty >= 0 && tx < width && ty < height && world.layers.terrain[ty * width + tx] === TERRAIN_WATER;
+  return ok ? { x: bx, y: by, qx: ex !== 0 ? 0 : 1, qy: ex !== 0 ? 1 : 0 } : { x: start.x + 0.5, y: start.y + 0.5, qx: ex !== 0 ? 0 : 1, qy: ex !== 0 ? 1 : 0 };
 }

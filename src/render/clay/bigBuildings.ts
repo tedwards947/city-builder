@@ -13,6 +13,7 @@ import {
   BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT,
 } from '../../sim/constants';
 import { tileSetEdges, type TilePoint, type TileEdge } from './tileOutline';
+import { portArtReady, drawPortArt } from './portArt';
 
 /** The slab every big building's tiles get in the chunk layer. */
 export const BIG_SLAB = '#b7b0a2';
@@ -81,10 +82,10 @@ function drum(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
 export function drawBigStandIn(
   ctx: CanvasRenderingContext2D, kind: number, tiles: readonly TilePoint[],
   X: (tx: number) => number, Y: (ty: number) => number, t: number,
-  water: TilePoint | null = null,
+  water: TilePoint | null = null, work = -1,
 ): void {
   if (tiles.length === 0) return;
-  if (kind === BUILDING_SEAPORT) { drawPortStandIn(ctx, kind, tiles, X, Y, t); return; }
+  if (kind === BUILDING_SEAPORT) { drawPortStandIn(ctx, kind, tiles, X, Y, t, work); return; }
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of tiles) { if (p.x < x0) x0 = p.x; if (p.y < y0) y0 = p.y; if (p.x > x1) x1 = p.x; if (p.y > y1) y1 = p.y; }
   const tile = X(x0 + 1) - X(x0);
@@ -161,7 +162,7 @@ const CONTAINERS = ['#c0574a', '#4f7fb5', '#d9a441', '#5a8f6a', '#8d6fb0', '#c97
  */
 export function drawPortStandIn(
   ctx: CanvasRenderingContext2D, kind: number, tiles: readonly TilePoint[],
-  X: (tx: number) => number, Y: (ty: number) => number, t: number,
+  X: (tx: number) => number, Y: (ty: number) => number, t: number, work = -1,
 ): void {
   const roles = shapeRoles(kind);
   const yard: TilePoint[] = [], docks: TilePoint[] = [];
@@ -174,8 +175,10 @@ export function drawPortStandIn(
   let dx = 0, dy = -1;
   if (docks.length > 0) { const d = docks[0]; dx = d.x < x0 ? -1 : d.x > x1 ? 1 : 0; dy = d.y < y0 ? -1 : d.y > y1 ? 1 : 0; }
 
+  const art = tile >= 6 && portArtReady();
+  if (art) drawStoneDocks(ctx, docks, X, Y, dx, dy);
   // Docks: a shadow on the water, a plank deck short of the seaward edge, piles and bollards.
-  for (const p of docks) {
+  else for (const p of docks) {
     const px = X(p.x), py = Y(p.y), T = X(p.x + 1) - px;
     const inset = Math.round(T * 0.18);
     // The deck leaves the seaward side of the tile open.
@@ -226,6 +229,7 @@ export function drawPortStandIn(
   const at = (u: number, v: number): [number, number] => along
     ? [L + W * u, dy < 0 ? T + H * v : T + H * (1 - v)]
     : [dx < 0 ? L + W * v : L + W * (1 - v), T + H * u];
+  if (art) { drawPortArt(ctx, at, dx, dy, tile, work); return; }
   // A shed along the back.
   {
     const [ax, ay] = at(0.08, 0.95), [bx, by] = at(0.5, 0.68);
@@ -268,6 +272,41 @@ export function drawPortStandIn(
     ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty + leg * 0.55); ctx.stroke();
     ctx.fillStyle = CONTAINERS[1];
     ctx.fillRect(tx - tile * 0.1, ty + leg * 0.55, tile * 0.2, tile * 0.1);
+  }
+}
+
+/** The seaport's docks as a stone quay (pick B3): a shadow on the water, stone courses, tyre fenders along the seaward edge. */
+function drawStoneDocks(ctx: CanvasRenderingContext2D, docks: readonly TilePoint[], X: (tx: number) => number, Y: (ty: number) => number, dx: number, dy: number): void {
+  for (const p of docks) {
+    const px = X(p.x), py = Y(p.y), T = X(p.x + 1) - px;
+    // The deck stops a little short of the seaward edge, so water shows beyond the fenders.
+    const inset = Math.round(T * 0.1);
+    const L = px + (dx < 0 ? inset : 0), R = px + T - (dx > 0 ? inset : 0);
+    const Tp = py + (dy < 0 ? inset : 0), B = py + T - (dy > 0 ? inset : 0);
+    ctx.fillStyle = 'rgba(8,24,44,0.35)';
+    ctx.fillRect(L + T * 0.06, Tp + T * 0.08, R - L, B - Tp);
+    ctx.fillStyle = '#9b9284';
+    ctx.fillRect(L, Tp, R - L, B - Tp);
+    if (T < 8) continue;
+    // Stone courses: joints across the way out to sea, staggered rows along it.
+    ctx.strokeStyle = 'rgba(60,55,48,0.28)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let k = 1; k < 4; k++) {
+      if (dy !== 0) { const x = Math.round(L + (R - L) * k / 4) + 0.5; ctx.moveTo(x, Tp); ctx.lineTo(x, B); }
+      else { const y = Math.round(Tp + (B - Tp) * k / 4) + 0.5; ctx.moveTo(L, y); ctx.lineTo(R, y); }
+    }
+    for (let k = 1; k < 3; k++) {
+      if (dy !== 0) { const y = Math.round(Tp + (B - Tp) * k / 3) + 0.5; ctx.moveTo(L, y); ctx.lineTo(R, y); }
+      else { const x = Math.round(L + (R - L) * k / 3) + 0.5; ctx.moveTo(x, Tp); ctx.lineTo(x, B); }
+    }
+    ctx.stroke();
+    // Two tyre fenders on the seaward face.
+    const r = Math.max(1.5, T * 0.09);
+    for (const f of [0.25, 0.75]) {
+      const cx = dx > 0 ? R : dx < 0 ? L : L + (R - L) * f, cy = dy > 0 ? B : dy < 0 ? Tp : Tp + (B - Tp) * f;
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2); ctx.fill();
+    }
   }
 }
 
