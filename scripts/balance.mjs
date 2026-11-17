@@ -12,13 +12,13 @@
 //
 // Two suites: "pc" grades the PC targets per PC variant; "econ" grades the
 // economy targets per economy preset (the Planner on the city's own money).
-// Cities above 60k residents only run the econ suite (--pc-max-pop to change).
+// Cities above 20k residents only run the econ suite (--pc-max-pop to change).
 //
 // Options:
 //   --suite pc|econ          one suite only (default both)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default all four)
-//   --pc-max-pop 60000       saved cities above this skip the PC suite
+//   --pc-max-pop 20000       saved cities above this skip the PC suite
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
 //   --days-save 150          game days on saved cities

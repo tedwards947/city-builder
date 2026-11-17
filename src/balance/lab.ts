@@ -66,7 +66,7 @@ export interface LabOptions {
   personas?: PersonaId[];
   daysFresh?: number;
   daysSave?: number;
-  /** Saved cities above this population are left out of the PC suite (it plays many personas; big cities are slow). Default 60k. */
+  /** Saved cities above this population are left out of the PC suite (it plays many personas; big cities are slow). Default 20k. */
   pcMaxPopulation?: number;
   /** The previous report, for trends. */
   previous?: Report | null;
@@ -175,7 +175,7 @@ export function runLab(o: LabOptions): Report {
   const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
-  const pcMaxPop = o.pcMaxPopulation ?? 60_000;
+  const pcMaxPop = o.pcMaxPopulation ?? 20_000;
   const log = o.log ?? (() => {});
   const shippedPc = JSON.parse(JSON.stringify(BALANCE.politicalCapital));
   const shippedEcon = { maintenance: { ...BALANCE.maintenance }, tax: { ...BALANCE.tax } };
