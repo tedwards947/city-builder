@@ -174,6 +174,16 @@ export function isServiceKind(kind: number): boolean {
   return BALANCE.service.coverageRange[kind] !== undefined;
 }
 
+/**
+ * What a building of `kind` costs to keep up per tick: its `maintenance` in
+ * the balance table, times `maintenance.serviceMult` for a service building.
+ * The one figure the budget charges and the UI shows.
+ */
+export function buildingUpkeep(kind: number): number {
+  const m = BALANCE.buildings[kind]?.maintenance ?? 0;
+  return isServiceKind(kind) ? m * BALANCE.maintenance.serviceMult : m;
+}
+
 /** Residents of an occupied, non-abandoned home on tile `i`; 0 for anything else. */
 function residentsAt(world: World, i: number): number {
   const { zone, devLevel, abandoned } = world.layers;

@@ -42,13 +42,16 @@ export const BALANCE = {
     // down to ~0 land value, which made them pay almost no tax.)
     industryLandValueMult: 0.6,
     // Homes and shops pay land-value-scaled tax: floor + (1 − floor) × lv/128.
-    // 0 = plain lv/128 (shipped). A floor stops homes on cheap land paying almost nothing.
-    landValueFloor: 0,
+    // 0 = plain lv/128. A floor stops homes on cheap land paying almost nothing.
+    // 0.25 since the owner's economy decision of 2026-11-17 (the "Tight" preset).
+    landValueFloor: 0.25,
   },
   maintenance: {
     road: 0.04,
-    // Multiplies the upkeep of service buildings (police, fire, school, hospital, park). 1 = shipped.
-    serviceMult: 1,
+    // Multiplies the upkeep of service buildings (police, fire, school, hospital, park),
+    // so the per-building figures in `buildings` are before this. 0.75 since the
+    // owner's economy decision of 2026-11-17 (the "Tight" preset); it was 1.
+    serviceMult: 0.75,
   },
   power: {
     plantOutput: 350,    // supply per plant

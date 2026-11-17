@@ -501,7 +501,8 @@ transit:      flowInterval=8, tripsRtoC=0.33, tripsRtoI=0.34, tripsCtoI=0.38 (pe
 buildings:    powerPlant={cost:2000,maint:15}, waterTower={500,6}, sewagePlant={1500,10}
               police={1200,12}, fire={800,10}, school={1500,15}, hospital={3000,25}, park={300,4}
 tax/tick:     zoneR=0.65, zoneC=1.0, zoneI=1.25  (per dev level)
-              R/C scale by landValue/128; I uses fixed industryLandValueMult=0.6
+              R/C scale by landValueFloor + (1 − landValueFloor) × landValue/128, landValueFloor=0.25; I uses fixed industryLandValueMult=0.6
+              service buildings' upkeep × maintenance.serviceMult=0.75
 service:      coverageRange: police=15, fire=15, school=8, hospital=8, park=6  (road steps along streets and avenues)
               capacity: school=0, hospital=0  (residents per building; 0 = no limit)
 power:        plantOutput=350, perDevLevel=2, propagationRange=1
