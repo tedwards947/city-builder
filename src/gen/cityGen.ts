@@ -19,7 +19,12 @@
 //     batches the simulation runs; power, water and sewage are added in the
 //     utility yards whenever supply nears demand, police, fire, schools,
 //     hospitals and parks where new lots lack them, and more districts once
-//     the empty lots run low or growth stalls.
+//     the empty lots run low or growth stalls, until what is built would hold
+//     the target once it fills in. Roads that can't reach the network (cut off
+//     by water) are taken out again.
+//
+// --style picks the layout (grid, suburban, organic, dense-core; see STYLES),
+// so tests can compare how coverage and political capital behave across them.
 //
 // Deterministic: the same options give the same city. The layout uses its own
 // random numbers; the simulation uses the world's, as in the game.
@@ -35,6 +40,7 @@ import { BALANCE } from '../data/balance';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
+import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { computeServiceCoverage } from '../sim/systems/ServiceSystem';
 import { startCity, cityStats } from '../bench/harness';
 
@@ -52,7 +58,9 @@ export interface GenOptions {
    * nothing else is built.
    */
   settleTicks?: number;
-  /** Tiles between avenues (default 22). */
+  /** Street layout (default 'grid'); see STYLES. */
+  style?: CityStyle;
+  /** Tiles between avenues (default from the style). */
   spacing?: number;
   /** Progress lines. */
   log?: (line: string) => void;
@@ -65,6 +73,38 @@ export interface GenResult {
   /** Districts built, by type. */
   districts: Record<string, number>;
 }
+
+/**
+ * Layouts, so tests can compare how coverage, traffic and political capital
+ * behave across them:
+ *   grid       avenue grid, district street grids, a third of the suburbs as cul-de-sacs
+ *   suburban   wider-spaced avenues, every residential district a spine (collector) with cul-de-sacs off it
+ *   organic    avenues that wander further, streets that jog, uneven blocks, more dead ends
+ *   dense-core twice as many avenues in a wider centre full of shops, cul-de-sac suburbs outside
+ */
+export const STYLES = ['grid', 'suburban', 'organic', 'dense-core'] as const;
+export type CityStyle = typeof STYLES[number];
+
+interface StyleDef {
+  spacing: number;      // tiles between avenues on a 256+ map
+  wander: number;       // how far an avenue strays from its line
+  bend: number;         // chance per tile that it steps sideways
+  coreRadius: number;   // centre districts, in avenue spacings
+  coreAvenues: boolean; // an extra avenue between each pair in the centre
+  culs: number;         // share of residential districts laid out as spine + cul-de-sacs
+  cut: number;          // chance a grid street stops short of an avenue
+  jog: number;          // chance per tile that a street jogs a tile sideways
+  wideBlock: number;    // chance a block is 3 lots deep instead of 2
+  coreShops: number;    // share of centre lots on an avenue zoned for shops
+  coreInnerShops: number; // share of the other centre lots zoned for shops
+}
+
+const STYLE_DEFS: Record<CityStyle, StyleDef> = {
+  'grid':       { spacing: 22, wander: 3, bend: 0.07, coreRadius: 1.1, coreAvenues: false, culs: 0.35, cut: 0.18, jog: 0,    wideBlock: 0,    coreShops: 1,   coreInnerShops: 0.08 },
+  'suburban':   { spacing: 28, wander: 3, bend: 0.05, coreRadius: 1.0, coreAvenues: false, culs: 1,    cut: 0.1,  jog: 0,    wideBlock: 0,    coreShops: 1,   coreInnerShops: 0.08 },
+  'organic':    { spacing: 22, wander: 6, bend: 0.16, coreRadius: 1.1, coreAvenues: false, culs: 0.25, cut: 0.35, jog: 0.08, wideBlock: 0.25, coreShops: 1,   coreInnerShops: 0.08 },
+  'dense-core': { spacing: 22, wander: 3, bend: 0.07, coreRadius: 1.7, coreAvenues: true,  culs: 0.8,  cut: 0.18, jog: 0,    wideBlock: 0,    coreShops: 0.6, coreInnerShops: 0.15 },
+};
 
 type DistrictType = 'core' | 'res' | 'industry' | 'utility' | 'none';
 
@@ -91,7 +131,10 @@ export function defaultSize(target: number): number {
 
 export function generateCity(opts: GenOptions): GenResult {
   const size = opts.size ?? defaultSize(opts.target);
-  const S = opts.spacing ?? (size <= 128 ? 16 : 22);
+  const style = STYLE_DEFS[opts.style ?? 'grid'];
+  if (!style) throw new Error(`unknown style "${opts.style}" (one of ${STYLES.join(', ')})`);
+  const S = opts.spacing ?? Math.round(style.spacing * (size <= 128 ? 16 / 22 : 1));
+  const coreR = S * style.coreRadius;
   const maxTicks = opts.maxTicks ?? 12000;
   const settleTicks = opts.settleTicks ?? 400;
   const log = opts.log ?? (() => {});
@@ -129,17 +172,19 @@ export function generateCity(opts: GenOptions): GenResult {
     for (let p = first; p < extent; p += S) out.push(p + Math.floor(rng() * 5) - 2);
     return out;
   };
-  const layLine = (base: number, horizontal: boolean) => {
+  const layLine = (base: number, horizontal: boolean, within = Infinity) => {
     const path: number[] = [];
     let off = 0;
     const len = horizontal ? W : H;
     for (let t = 0; t < len; t++) {
       const prev = off;
-      if (rng() < 0.07) off = Math.max(-3, Math.min(3, off + (rng() < 0.5 ? -1 : 1)));
+      if (rng() < style.bend) off = Math.max(-style.wander, Math.min(style.wander, off + (rng() < 0.5 ? -1 : 1)));
       const at = (o: number) => {
         const p = base + o;
         if (p < 1 || p >= (horizontal ? H : W) - 1) return -1;
-        return horizontal ? p * W + t : t * W + p;
+        const [x, y] = horizontal ? [t, p] : [p, t];
+        if (within !== Infinity && Math.max(Math.abs(x - X0), Math.abs(y - Y0)) > within) return -1;
+        return y * W + x;
       };
       if (off !== prev) { const j = at(prev); if (j >= 0) path.push(j); }
       const j = at(off);
@@ -155,8 +200,15 @@ export function generateCity(opts: GenOptions): GenResult {
       k = e;
     }
   };
-  for (const y of lineOffsets(Y0, H)) layLine(y, true);
-  for (const x of lineOffsets(X0, W)) layLine(x, false);
+  const rows = lineOffsets(Y0, H), cols = lineOffsets(X0, W);
+  for (const y of rows) layLine(y, true);
+  for (const x of cols) layLine(x, false);
+  if (style.coreAvenues) {
+    // Halfway between each pair of avenues near the centre, out to the next avenue past the core.
+    const reach = coreR + (S >> 1);
+    for (let k = 1; k < rows.length; k++) { const m = (rows[k - 1] + rows[k]) >> 1; if (Math.abs(m - Y0) < reach) layLine(m, true, reach); }
+    for (let k = 1; k < cols.length; k++) { const m = (cols[k - 1] + cols[k]) >> 1; if (Math.abs(m - X0) < reach) layLine(m, false, reach); }
+  }
 
   // ── Districts: the regions the avenues enclose ───────────────────────────
   const cellOf = new Int32Array(N).fill(-1);
@@ -185,7 +237,7 @@ export function generateCity(opts: GenOptions): GenResult {
     const angle = angleBetween(Math.atan2(cy - Y0, cx - X0), axis);
     let type: DistrictType;
     if (land < 30 || land > S * S * 4) type = 'none';
-    else if (dist < S * 1.1) type = 'core';
+    else if (dist < coreR) type = 'core';
     else if (angle < 32) type = 'industry';
     else if (angle < 52) type = 'utility';
     else type = 'res';
@@ -222,6 +274,35 @@ export function generateCity(opts: GenOptions): GenResult {
   const utilitySlots: number[] = [];
   const serviceTargets: number[] = [];
 
+  /**
+   * Remove roads just built that can't reach the city's network (an avenue
+   * piece cut off by a lake, say). They come back if a later district
+   * reaches them. The network is whatever joins the first road built.
+   */
+  let hub = -1;
+  const reach = new Uint8Array(N);
+  const pruneCutOff = (built: number[]) => {
+    if (hub < 0 || L.roadClass[hub] === ROAD_NONE) {
+      // The first district's road nearest the centre.
+      let d = Infinity;
+      for (const i of built) { const x = i % W, dd = Math.abs(x - X0) + Math.abs((i - x) / W - Y0); if (dd < d) { d = dd; hub = i; } }
+      if (hub < 0) return;
+    }
+    reach.fill(0);
+    const isRoad = (j: number) => L.roadClass[j] !== ROAD_NONE && L.roadClass[j] !== ROAD_HIGHWAY;
+    const stack = [hub];
+    reach[hub] = 1;
+    while (stack.length) {
+      const i = stack.pop()!;
+      const x = i % W, y = (i - x) / W;
+      if (x > 0 && !reach[i - 1] && isRoad(i - 1)) { reach[i - 1] = 1; stack.push(i - 1); }
+      if (x < W - 1 && !reach[i + 1] && isRoad(i + 1)) { reach[i + 1] = 1; stack.push(i + 1); }
+      if (y > 0 && !reach[i - W] && isRoad(i - W)) { reach[i - W] = 1; stack.push(i - W); }
+      if (y < H - 1 && !reach[i + W] && isRoad(i + W)) { reach[i + W] = 1; stack.push(i + W); }
+    }
+    for (const i of built) if (!reach[i] && isRoad(i)) new BulldozeCommand(i % W, (i / W) | 0).execute(world);
+  };
+
   /** Local streets for one district, as tile indices. Streets that can't reach an avenue are dropped. */
   const planStreets = (c: Cell): number[] => {
     const inCell = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && cellOf[y * W + x] === c.id && !isWater(y * W + x);
@@ -233,18 +314,27 @@ export function generateCity(opts: GenOptions): GenResult {
     const tile = (u: number, v: number) => horizontal ? [u, v] : [v, u];
     const plan = new Set<number>();
     const put = (u: number, v: number) => { const [x, y] = tile(u, v); if (inCell(x, y)) plan.add(y * W + x); };
-    const culs = c.type === 'res' && rng() < 0.35;
+    const culs = c.type === 'res' && rng() < style.culs;
     const spine = (u0 + u1) >> 1;
-    for (let v = v0 + 2; v <= v1 - 1; v += 3) {
+    for (let v = v0 + 2; v <= v1 - 1; v += rng() < style.wideBlock ? 4 : 3) {
       // Each parallel street runs the width of the district; some stop short of an avenue.
       let a = u0, b = u1;
       if (culs) {
         if (rng() < 0.7) a = Math.min(spine, u0 + 2 + Math.floor(rng() * 3));
         if (rng() < 0.7) b = Math.max(spine, u1 - 2 - Math.floor(rng() * 3));
-      } else if (rng() < 0.18) {
+      } else if (rng() < style.cut) {
         if (rng() < 0.5) a += 2 + Math.floor(rng() * 4); else b -= 2 + Math.floor(rng() * 4);
       }
-      for (let u = a; u <= b; u++) put(u, v);
+      // Organic streets jog a tile to one side and back now and then.
+      let jog = 0;
+      for (let u = a; u <= b; u++) {
+        if (style.jog && rng() < style.jog) {
+          const next = jog === 0 ? (rng() < 0.5 ? -1 : 1) : 0;
+          put(u, v + jog);
+          jog = next;
+        }
+        put(u, v + jog);
+      }
     }
     // Cross streets: a spine for cul-de-sac districts, otherwise every 9–13 tiles, some only part way.
     const crosses = culs ? [spine] : [];
@@ -277,8 +367,10 @@ export function generateCity(opts: GenOptions): GenResult {
 
   const buildCell = (c: Cell) => {
     c.built = true;
-    for (const i of c.arterial) road(i, ROAD_AVENUE);
-    for (const i of planStreets(c)) road(i, ROAD_STREET);
+    const built: number[] = [];
+    for (const i of c.arterial) if (road(i, ROAD_AVENUE)) built.push(i);
+    for (const i of planStreets(c)) if (road(i, ROAD_STREET)) built.push(i);
+    pruneCutOff(built);
     const lots = c.tiles.filter((i) => freeLot(i) && accessRoad(i));
     if (c.type === 'utility') { utilitySlots.push(...lots); return; }
     const onAvenue = (i: number) => {
@@ -294,7 +386,7 @@ export function generateCity(opts: GenOptions): GenResult {
     for (const i of lots) {
       let z: number;
       if (c.type === 'industry') z = ZONE_I;
-      else if (c.type === 'core') z = onAvenue(i) ? ZONE_C : (rng() < 0.08 ? ZONE_C : ZONE_R);
+      else if (c.type === 'core') z = rng() < (onAvenue(i) ? style.coreShops : style.coreInnerShops) ? ZONE_C : ZONE_R;
       else z = onAvenue(i) && rng() < shopShare ? ZONE_C : ZONE_R;
       if (zone(i, z)) serviceTargets.push(i);
     }
@@ -395,22 +487,22 @@ export function generateCity(opts: GenOptions): GenResult {
     return pick;
   };
   const build = (c: Cell) => { buildCell(c); counts[c.type] = (counts[c.type] ?? 0) + 1; };
+  /** Build toward the nearest district of type `t` until one is built (a few districts at most). */
+  const buildType = (t: DistrictType): boolean => {
+    for (let k = 0; k < 20; k++) {
+      const c = nextCell(t);
+      if (!c) return false;
+      build(c);
+      if (c.type === t) return true;
+    }
+    return false;
+  };
 
   const city = startCity(world);
-  // Start with the core and the nearest yard and industry.
-  for (let c = nextCell(null); c && c.type === 'core'; c = nextCell(null)) build(c);
-  if (!cells.some((c) => c.built)) { const c = nextCell(null); if (c) build(c); }
-  for (const t of ['utility', 'industry'] as const) {
-    const c = nextCell(t);
-    if (c) build(c);
-  }
-  placeServices();
-  topUpUtilities();
-
   // Build while what is built would not hold the target once it fills in,
   // then let it fill in. Room to grow is estimated from the homes not yet at
   // the top level; `fill` is the share of that room that ends up used.
-  const fill = 0.8;
+  const fill = 0.9;
   const top = BALANCE.growth.popPerLevel[BALANCE.growth.maxLevel] ?? 20;
   const room = () => {
     let homes = 0, emptyR = 0, emptyC = 0, emptyI = 0, zonedR = 0;
@@ -427,6 +519,19 @@ export function generateCity(opts: GenOptions): GenResult {
     return { homes, emptyR, emptyC, emptyI, zonedR };
   };
 
+  const projected = () => world.stats.population + room().homes * fill;
+
+  // Start with the core (as much of it as the target needs) and the nearest yard and industry.
+  for (let c = nextCell(null); c && c.type === 'core'; c = nextCell(null)) {
+    build(c);
+    if (projected() >= opts.target) break;
+  }
+  if (!cells.some((c) => c.built)) { const c = nextCell(null); if (c) build(c); }
+  buildType('utility');
+  buildType('industry');
+  placeServices();
+  topUpUtilities();
+
   let lastPop = 0, lastCheck = 0, stalls = 0, building = true, settledFrom = -1;
   while (world.tick < maxTicks) {
     city.tick(10);
@@ -438,11 +543,12 @@ export function generateCity(opts: GenOptions): GenResult {
     stalls = grew < Math.max(20, pop * 0.004) ? stalls + 1 : 0;
     lastPop = pop; lastCheck = world.tick;
     const s = world.stats;
-    const projected = pop + r.homes * fill;
+    const willHold = pop + r.homes * fill;
 
     if (!building) {
       // Filling in. Done once growth has stopped (or the target is passed) and
       // it has had settleTicks to settle; back to building if it fell short.
+      if (short && buildType('utility')) { placeServices(); continue; }
       if (pop < opts.target * 0.95 && stalls >= 3 && nextCell(null)) { building = true; settledFrom = -1; }
       else {
         if (settledFrom < 0 && (stalls >= 3 || pop >= opts.target)) settledFrom = world.tick;
@@ -450,9 +556,9 @@ export function generateCity(opts: GenOptions): GenResult {
         continue;
       }
     }
-    if (projected >= opts.target) {
+    if (willHold >= opts.target) {
       building = false;
-      log(`tick ${world.tick}  pop ${pop}  enough built for about ${Math.round(projected)}; letting it fill in`);
+      log(`tick ${world.tick}  pop ${pop}  enough built for about ${Math.round(willHold)}; letting it fill in`);
       continue;
     }
     const roomy = r.emptyR > Math.max(60, r.zonedR * 0.22) && stalls < 3;
@@ -461,7 +567,7 @@ export function generateCity(opts: GenOptions): GenResult {
     // Build about a quarter as much again, leaning to whatever is in demand.
     const before = serviceTargets.length;
     let added = 0;
-    while (serviceTargets.length - before < Math.max(150, before * 0.25)) {
+    while (serviceTargets.length - before < Math.max(150, before * 0.25) && projected() < opts.target) {
       const prefer: DistrictType | null = short ? 'utility'
         : s.iDemand > 1.3 && r.emptyI < 40 ? 'industry'
         : null;
