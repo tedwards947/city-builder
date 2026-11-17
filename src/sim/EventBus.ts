@@ -36,6 +36,8 @@ export type CityEvents = {
   budgetWarning:    { money: number; daysLeft: number }; // cooldown-throttled
   debtEntered:      { money: number };                   // once, when money drops below 0
   debtCleared:      { money: number };                   // once, when money is back to >= 0
+  // The player moved the city's tax level (sim/tax.ts); percentages.
+  taxLevelChanged:  { level: number; previous: number };
   // Debt as a failure condition (sim/debt.ts). `limit` is how far below zero money may go (positive).
   debtWarning:      { level: 'half' | 'limit'; money: number; limit: number }; // once each time money falls past the mark
   debtCountdown:    { daysLeft: number; money: number; limit: number };        // once a game day while past the limit

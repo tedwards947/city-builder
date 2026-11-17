@@ -9,6 +9,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "income": 961.854667,
     "money": 50229.6747,
     "politicalCapital": 100,
+    "taxLevel": 10,
     "taxRates": {
       "C": 1,
       "I": 1.25,
@@ -80,6 +81,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "income": 1011.27471,
     "money": 66376.6302,
     "politicalCapital": 100,
+    "taxLevel": 10,
     "taxRates": {
       "C": 1,
       "I": 1.25,
@@ -155,6 +157,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "income": 1088.81832,
     "money": 115546.602,
     "politicalCapital": 100,
+    "taxLevel": 10,
     "taxRates": {
       "C": 1,
       "I": 1.25,
@@ -230,6 +233,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "income": 1098.27003,
     "money": 188072.759,
     "politicalCapital": 100,
+    "taxLevel": 10,
     "taxRates": {
       "C": 1,
       "I": 1.25,

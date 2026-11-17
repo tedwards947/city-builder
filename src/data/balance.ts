@@ -45,6 +45,11 @@ export const BALANCE = {
     // 0 = plain lv/128. A floor stops homes on cheap land paying almost nothing.
     // 0.25 since the owner's economy decision of 2026-11-17 (the "Tight" preset).
     landValueFloor: 0.25,
+    // The city's tax level (sim/tax.ts): one percentage the player sets, in
+    // world.budget.taxLevel. Tax income is multiplied by level ÷ neutral, and
+    // satisfaction gains satisfactionPerPoint for every point below neutral
+    // (loses it for every point above). At neutral nothing changes.
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01 },
   },
   maintenance: {
     road: 0.04,
