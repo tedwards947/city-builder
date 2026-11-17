@@ -18,7 +18,7 @@
 // Options:
 //   --suite pc|econ|svc      one suite only (default all three)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
-//   --presets shipped,...    which economy presets (default all four)
+//   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets off,mid,.. which services capacity presets (src/balance/services.ts; default all)
 //   --pc-max-pop 20000       saved cities above this skip the PC and services suites
 //   --personas planner,...   which personas (default all)

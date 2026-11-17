@@ -45,6 +45,11 @@ export const BALANCE = {
     // 0 = plain lv/128. A floor stops homes on cheap land paying almost nothing.
     // 0.25 since the owner's economy decision of 2026-11-17 (the "Tight" preset).
     landValueFloor: 0.25,
+    // The city's tax level (sim/tax.ts): one percentage the player sets, in
+    // world.budget.taxLevel. Tax income is multiplied by level ÷ neutral, and
+    // satisfaction gains satisfactionPerPoint for every point below neutral
+    // (loses it for every point above). At neutral nothing changes.
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01 },
   },
   maintenance: {
     road: 0.04,
@@ -331,6 +336,20 @@ export const BALANCE = {
     lowFundsWarningDays: 30,
     // Minimum ticks between repeated low-funds warnings.
     warningCooldownTicks: 240,
+    // Debt as a failure condition (sim/debt.ts). Money may fall to minus the
+    // debt limit: this many game days of the city's current expenses, and
+    // never less than debtLimitMin. Warnings go out at half the limit and at
+    // the limit.
+    debtLimitDays: 30,
+    debtLimitMin: 2000,
+    // Past the limit for this many game days in a row: game over. Getting
+    // back within the limit resets the count. The owner's number is 30.
+    // SWITCHED OFF at 0 (the limit only warns) until the game-over screen is
+    // in: without it a removed city would just stop with no explanation.
+    debtGraceDays: 0,
+    // PC lost per game day while money is below zero, times cap ÷ max like
+    // regeneration. SWITCHED OFF at 0 until the Political Capital numbers pass.
+    debtPcDrainPerDay: 0,
   },
 
   ticksPerDay: 8,

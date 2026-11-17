@@ -197,7 +197,8 @@ export function runLab(o: LabOptions): Report {
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
-  const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id)) : [];
+  // 'tight' is the shipped numbers spelled out (since #184), so the default list leaves it out.
+  const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id).filter(id => id !== 'tight')) : [];
   const svcPresetOf = (id: string): SvcPreset => o.customSvcPresets?.[id] ?? SVC_PRESETS.find(p => p.id === id)!;
   const svcIds = suites.includes('svc') ? (o.svcPresets ?? SVC_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
@@ -209,7 +210,7 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
     options: { suites, variants, econPresets: presets, svcPresets: svcIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
@@ -332,7 +333,7 @@ export function runLab(o: LabOptions): Report {
       }
       into[k] = s;
     }
-    const ranked = keys.filter(k => k !== 'Off' && k !== 'shipped' && k !== 'off').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
+    const ranked = keys.filter(k => k !== 'Off' && k !== 'original' && k !== 'off').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
     if (!ranked.length) return null;
     const share = (x: { pass: number; of: number }) => x.pass / Math.max(x.of, 1);
     return { ...ranked[0], tied: ranked.slice(1).filter(x => share(x) === share(ranked[0])).map(x => x.variant) };
@@ -358,7 +359,8 @@ function econVerdict(r: Report): string {
     const earlyOk = ok('econ.firstServices', p, early) && ok('econ.noSoftlock', p, early);
     const surplus = big.map(c => `${c} ${r.econRuns[p]?.[c]?.econ.surplusLate ?? '?'}`).join(', ');
     const tax = big.map(c => r.econRuns[p]?.[c]?.econ.taxForMidSurplus).filter((x): x is number => x !== null && x !== undefined);
-    lines.push(`${p}: early game ${earlyOk ? 'ok' : 'NOT ok'}; mature surplus ${surplus || 'no big city'}${tax.length ? `; tax ×${Math.min(...tax)}–${Math.max(...tax)} would centre it` : ''}.`);
+    const label = r.econPresets.find(x => x.id === p)?.name ?? p;
+    lines.push(`${label}: early game ${earlyOk ? 'ok' : 'NOT ok'}; mature surplus ${surplus || 'no big city'}${tax.length ? `; tax ×${Math.min(...tax)}–${Math.max(...tax)} would centre it` : ''}.`);
   }
   const fits = r.econPresets.map(x => x.id).filter(p => ok('econ.firstServices', p, early) && ok('econ.noSoftlock', p, early) && big.length > 0 && ok('econ.matureSurplus', p, big));
   const head = !big.length ? 'No big city (≥ 40k) in this run: run npm run gen-city first to judge scale.'

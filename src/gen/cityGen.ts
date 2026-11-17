@@ -9,9 +9,13 @@
 //     wandering a few tiles off its line. They bridge short stretches of water
 //     and stop at long ones.
 //   • The land between them is cut into districts (cells). Districts near the
-//     centre are the core; a wedge of the city, on the side with the most
-//     water, is industry, with utility yards on either side of it as a buffer;
-//     the rest is residential (Hoyt's sector model, roughly).
+//     centre are the core; three narrow wedges (the first on the side with
+//     the most water) are industry, with utility yards on either side of each; the rest is residential (Hoyt's sector model,
+//     roughly). Several wedges keep commutes and goods runs short: with one,
+//     jobs traffic crossed the whole city and jammed its avenues. Homes and
+//     shops stay BUFFER tiles clear of industry districts (those lots become
+//     utility slots or are left open), as pollution is over the growth limit
+//     that far out. Avenues are closer together (×17/22) from 50k people.
 //   • Each district gets local streets 3 tiles apart (so every lot touches a
 //     road), as a grid or as a spine with cul-de-sacs, with some streets cut
 //     short. Shops go along the avenues, homes behind them.
@@ -25,6 +29,9 @@
 //
 // --style picks the layout (grid, suburban, organic, dense-core; see STYLES),
 // so tests can compare how coverage and political capital behave across them.
+// legacyLayout gives the layout before 2026-11-17 (one industrial wedge, no
+// buffer, the style's avenue spacing at every size), for comparing old and new
+// cities.
 //
 // Deterministic: the same options give the same city. The layout uses its own
 // random numbers; the simulation uses the world's, as in the game.
@@ -60,8 +67,12 @@ export interface GenOptions {
   settleTicks?: number;
   /** Street layout (default 'grid'); see STYLES. */
   style?: CityStyle;
-  /** Tiles between avenues (default from the style). */
+  /** Tiles between avenues (default from the style and the target). */
   spacing?: number;
+  /** Industrial wedges (default 3). Together they keep the same share of the city as 3 would. */
+  wedges?: number;
+  /** The layout before 2026-11-17: one industrial wedge, no buffer, no closer avenues at 50k+. */
+  legacyLayout?: boolean;
   /** Progress lines. */
   log?: (line: string) => void;
 }
@@ -114,7 +125,8 @@ interface Cell {
   land: number;         // how many of them are land
   cx: number; cy: number;
   dist: number;         // from the city centre, in tiles
-  angle: number;        // from the industrial wedge's axis, in degrees (0–180)
+  angle: number;        // from the nearest industrial wedge's axis, in degrees (0–180)
+  wedge: number;        // which wedge that is
   type: DistrictType;
   arterial: number[];   // avenue tiles along its edge
   neighbours: Set<number>;
@@ -123,6 +135,10 @@ interface Cell {
 
 const SERVICE_KINDS = [BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL] as const;
 const MAX_BRIDGE = 8;              // longest stretch of water an avenue crosses
+const BUFFER = 6;                                   // tiles kept free of homes and shops around industry
+const DENSE_TARGET = 50_000;       // from here avenues are closer together
+const DENSE_SPACING = 17 / 22;
+const INDUSTRY_SHARE = 0.2;        // industrial lots kept to at least this share of home lots
 const LAYOUT_SALT = 0x9E3779B1;
 
 export function defaultSize(target: number): number {
@@ -133,7 +149,14 @@ export function generateCity(opts: GenOptions): GenResult {
   const size = opts.size ?? defaultSize(opts.target);
   const style = STYLE_DEFS[opts.style ?? 'grid'];
   if (!style) throw new Error(`unknown style "${opts.style}" (one of ${STYLES.join(', ')})`);
-  const S = opts.spacing ?? Math.round(style.spacing * (size <= 128 ? 16 / 22 : 1));
+  const legacy = opts.legacyLayout ?? false;
+  const dense = !legacy && opts.target >= DENSE_TARGET ? DENSE_SPACING : 1;
+  const S = opts.spacing ?? Math.round(style.spacing * (size <= 128 ? 16 / 22 : 1) * dense);
+  const wedges = legacy ? 1 : Math.max(1, Math.round(opts.wedges ?? 3));
+  // Each wedge's half-width, and where its utility yards end. Three wedges of
+  // 13° keep industry near the old share of the city (wider ones built up to
+  // three times as much of it at 150k people).
+  const [industryAngle, utilityAngle] = legacy ? [32, 52] : [39 / wedges, 39 / wedges + 8];
   const coreR = S * style.coreRadius;
   const maxTicks = opts.maxTicks ?? 12000;
   const settleTicks = opts.settleTicks ?? 400;
@@ -145,7 +168,7 @@ export function generateCity(opts: GenOptions): GenResult {
   const L = world.layers;
   const isWater = (i: number) => L.terrain[i] === TERRAIN_WATER;
 
-  // ── Centre and the industrial wedge ──────────────────────────────────────
+  // ── Centre and the industrial wedges ─────────────────────────────────────
   let X0 = W >> 1, Y0 = H >> 1;
   for (let r = 0; r < W && isWater(Y0 * W + X0); r++) { X0 = (W >> 1) + r; }
   const cityRadius = Math.min(W * 0.48, Math.sqrt((opts.target / 12) * 2.4 / Math.PI) + S);
@@ -163,6 +186,17 @@ export function generateCity(opts: GenOptions): GenResult {
     const score = water + rng() * 4;
     if (score > best) { best = score; axis = a; }
   }
+  // The other wedges are spread evenly from the first.
+  const nearestWedge = (x: number, y: number): [angle: number, wedge: number] => {
+    const dir = Math.atan2(y - Y0, x - X0);
+    let a = 180, w = 0;
+    for (let k = 0; k < wedges; k++) {
+      const d = angleBetween(dir, axis + k * 2 * Math.PI / wedges);
+      if (d < a) { a = d; w = k; }
+    }
+    return [a, w];
+  };
+  const wedgeAngle = (x: number, y: number) => nearestWedge(x, y)[0];
 
   // ── Avenues ──────────────────────────────────────────────────────────────
   const art = new Uint8Array(N);
@@ -234,14 +268,14 @@ export function generateCity(opts: GenOptions): GenResult {
     for (const i of tiles) { const x = i % W; sx += x; sy += (i - x) / W; if (!isWater(i)) land++; }
     const cx = sx / tiles.length, cy = sy / tiles.length;
     const dist = Math.hypot(cx - X0, cy - Y0);
-    const angle = angleBetween(Math.atan2(cy - Y0, cx - X0), axis);
+    const [angle, wedge] = nearestWedge(cx, cy);
     let type: DistrictType;
     if (land < 30 || land > S * S * 4) type = 'none';
     else if (dist < coreR) type = 'core';
-    else if (angle < 32) type = 'industry';
-    else if (angle < 52) type = 'utility';
+    else if (angle < industryAngle) type = 'industry';
+    else if (angle < utilityAngle) type = 'utility';
     else type = 'res';
-    cells.push({ id, tiles, land, cx, cy, dist, angle, type, arterial: [], neighbours: new Set(), built: false });
+    cells.push({ id, tiles, land, cx, cy, dist, angle, wedge, type, arterial: [], neighbours: new Set(), built: false });
   }
   for (let i = 0; i < N; i++) {
     if (!art[i]) continue;
@@ -259,6 +293,22 @@ export function generateCity(opts: GenOptions): GenResult {
     }
   }
 
+  // ── The buffer: tiles within BUFFER of an industry district ──────────────
+  const nearIndustry = new Uint8Array(N);
+  if (!legacy) {
+    const dist = new Int32Array(N).fill(-1);
+    const queue: number[] = [];
+    for (const c of cells) if (c.type === 'industry') for (const i of c.tiles) if (!isWater(i)) { dist[i] = 0; queue.push(i); }
+    for (let h = 0; h < queue.length; h++) {
+      const i = queue[h];
+      if (dist[i] >= BUFFER) continue;
+      const x = i % W, y = (i - x) / W;
+      for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y > 0 ? i - W : -1, y < H - 1 ? i + W : -1]) {
+        if (j >= 0 && dist[j] < 0) { dist[j] = dist[i] + 1; nearIndustry[j] = 1; queue.push(j); }
+      }
+    }
+  }
+
   // ── Building helpers (the player's commands, with the money topped up) ───
   const fund = () => { if (world.budget.money < 1e7) world.budget.money = 1e8; };
   const road = (i: number, cls: number) => { fund(); return new BuildRoadCommand(i % W, (i / W) | 0, cls).execute(world); };
@@ -272,7 +322,12 @@ export function generateCity(opts: GenOptions): GenResult {
   const freeLot = (i: number) => !isWater(i) && L.roadClass[i] === ROAD_NONE && L.building[i] === BUILDING_NONE;
 
   const utilitySlots: number[] = [];
+  const bufferSlot = new Uint8Array(N); // utility slots in the buffer: no power plants (they pollute the homes beside them)
   const serviceTargets: number[] = [];
+  // Home lots held back once what is zoned would hold the target with room
+  // to spare (districts built only to reach a yard or industry would
+  // otherwise overshoot it); zoned later if the city falls short.
+  const reserve: number[] = [];
 
   /**
    * Remove roads just built that can't reach the city's network (an avenue
@@ -373,6 +428,8 @@ export function generateCity(opts: GenOptions): GenResult {
     pruneCutOff(built);
     const lots = c.tiles.filter((i) => freeLot(i) && accessRoad(i));
     if (c.type === 'utility') { utilitySlots.push(...lots); return; }
+    // Homes and shops stay out of the buffer; its lots can take utilities.
+    if (c.type !== 'industry') for (const i of lots) if (nearIndustry[i]) { utilitySlots.push(i); bufferSlot[i] = 1; }
     const onAvenue = (i: number) => {
       const x = i % W, y = (i - x) / W;
       return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
@@ -383,12 +440,15 @@ export function generateCity(opts: GenOptions): GenResult {
     // Shops along the avenues, more of them while shops are in demand.
     const s = world.stats;
     const shopShare = Math.max(0.15, Math.min(0.85, 0.4 * s.cDemand / Math.max(0.25, s.rDemand)));
+    let homesLeft = legacy ? Infinity : opts.target * 1.1 - projected();
     for (const i of lots) {
+      if (c.type !== 'industry' && nearIndustry[i]) continue;
       let z: number;
       if (c.type === 'industry') z = ZONE_I;
       else if (c.type === 'core') z = rng() < (onAvenue(i) ? style.coreShops : style.coreInnerShops) ? ZONE_C : ZONE_R;
       else z = onAvenue(i) && rng() < shopShare ? ZONE_C : ZONE_R;
-      if (zone(i, z)) serviceTargets.push(i);
+      if (z === ZONE_R && homesLeft <= 0) { reserve.push(i); continue; }
+      if (zone(i, z)) { serviceTargets.push(i); if (z === ZONE_R) homesLeft -= top * fill; }
     }
   };
 
@@ -456,9 +516,9 @@ export function generateCity(opts: GenOptions): GenResult {
         let pick = -1, key = Infinity;
         for (let k = 0; k < utilitySlots.length; k++) {
           const t = utilitySlots[k];
-          if (!freeLot(t) || !accessRoad(t)) continue;
+          if (!freeLot(t) || !accessRoad(t) || (kind === BUILDING_POWER_PLANT && bufferSlot[t])) continue;
           const x = t % W, y = (t - x) / W;
-          const a = angleBetween(Math.atan2(y - Y0, x - X0), axis);
+          const a = wedgeAngle(x, y);
           const kk = kind === BUILDING_POWER_PLANT ? a - Math.hypot(x - X0, y - Y0) * 0.05 : -a;
           if (kk < key) { key = kk; pick = t; }
         }
@@ -473,20 +533,27 @@ export function generateCity(opts: GenOptions): GenResult {
 
   // ── Grow the city ────────────────────────────────────────────────────────
   const counts: Record<string, number> = {};
+  const industryIn = new Array<number>(wedges).fill(0); // industry districts built per wedge
   const nextCell = (prefer: DistrictType | null): Cell | null => {
     const anyBuilt = cells.some((c) => c.built);
-    let pick: Cell | null = null, pickScore = Infinity, pref: Cell | null = null, prefScore = Infinity;
+    let pick: Cell | null = null, pickScore = Infinity, pref: Cell | null = null, prefScore = Infinity, prefRank = Infinity;
     for (const c of cells) {
       if (c.built || c.type === 'none') continue;
       if (anyBuilt && ![...c.neighbours].some((n) => cells[n].built)) continue;
       const score = c.dist + (c.id * 2654435761 % 97) / 97 * S * 0.4;
       if (score < pickScore) { pickScore = score; pick = c; }
-      if (c.type === prefer && score < prefScore) { prefScore = score; pref = c; }
+      // New industry goes to the wedge with the least so far, so every part of the city has jobs near it.
+      const rank = score + (!legacy && c.type === 'industry' ? industryIn[c.wedge] * S * 3 : 0);
+      if (c.type === prefer && rank < prefRank) { prefRank = rank; prefScore = score; pref = c; }
     }
     if (pref && pick && prefScore <= pickScore + S * 2.5) return pref;
     return pick;
   };
-  const build = (c: Cell) => { buildCell(c); counts[c.type] = (counts[c.type] ?? 0) + 1; };
+  const build = (c: Cell) => {
+    buildCell(c);
+    counts[c.type] = (counts[c.type] ?? 0) + 1;
+    if (c.type === 'industry') industryIn[c.wedge]++;
+  };
   /** Build toward the nearest district of type `t` until one is built (a few districts at most). */
   const buildType = (t: DistrictType): boolean => {
     for (let k = 0; k < 20; k++) {
@@ -505,7 +572,7 @@ export function generateCity(opts: GenOptions): GenResult {
   const fill = 0.9;
   const top = BALANCE.growth.popPerLevel[BALANCE.growth.maxLevel] ?? 20;
   const room = () => {
-    let homes = 0, emptyR = 0, emptyC = 0, emptyI = 0, zonedR = 0;
+    let homes = 0, emptyR = 0, emptyC = 0, emptyI = 0, zonedR = 0, zonedI = 0;
     for (const i of serviceTargets) {
       const z = L.zone[i];
       if (L.abandoned[i]) continue;
@@ -514,9 +581,9 @@ export function generateCity(opts: GenOptions): GenResult {
         if (L.devLevel[i] === 0) emptyR++;
         homes += top - (BALANCE.growth.popPerLevel[L.devLevel[i]] ?? 0);
       } else if (z === ZONE_C && L.devLevel[i] === 0) emptyC++;
-      else if (z === ZONE_I && L.devLevel[i] === 0) emptyI++;
+      else if (z === ZONE_I) { zonedI++; if (L.devLevel[i] === 0) emptyI++; }
     }
-    return { homes, emptyR, emptyC, emptyI, zonedR };
+    return { homes, emptyR, emptyC, emptyI, zonedR, zonedI };
   };
 
   const projected = () => world.stats.population + room().homes * fill;
@@ -564,12 +631,29 @@ export function generateCity(opts: GenOptions): GenResult {
     const roomy = r.emptyR > Math.max(60, r.zonedR * 0.22) && stalls < 3;
     if (roomy && !short) continue;
 
-    // Build about a quarter as much again, leaning to whatever is in demand.
+    // Zone held-back home lots first, if there are any.
     const before = serviceTargets.length;
+    if (reserve.length && !short) {
+      let homesLeft = opts.target * 1.1 - projected(), zoned = 0;
+      while (reserve.length && homesLeft > 0 && zoned < Math.max(150, before * 0.25)) {
+        const i = reserve.shift()!;
+        if (!freeLot(i) || !accessRoad(i) || L.zone[i] !== ZONE_NONE || !zone(i, ZONE_R)) continue;
+        serviceTargets.push(i); zoned++; homesLeft -= top * fill;
+      }
+      if (zoned > 0) {
+        const placed = placeServices();
+        log(`tick ${world.tick}  pop ${pop}  zoned ${zoned} held-back home lots  services ${JSON.stringify(placed)}`);
+        stalls = 0;
+        continue;
+      }
+    }
+
+    // Build about a quarter as much again, leaning to whatever is in demand.
     let added = 0;
     while (serviceTargets.length - before < Math.max(150, before * 0.25) && projected() < opts.target) {
+      const rr = legacy ? r : room(); // up to date, so one batch doesn't build industry it no longer needs
       const prefer: DistrictType | null = short ? 'utility'
-        : s.iDemand > 1.3 && r.emptyI < 40 ? 'industry'
+        : rr.emptyI < 40 && (s.iDemand > 1.3 || (!legacy && rr.zonedI < rr.zonedR * INDUSTRY_SHARE)) ? 'industry'
         : null;
       const c = nextCell(prefer);
       if (!c) break;

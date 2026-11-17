@@ -58,6 +58,12 @@ export interface Budget {
   income: number;
   expenses: number;
   taxRates: { R: number; C: number; I: number };
+  /** The city's tax level, a percentage the player sets (sim/tax.ts). BALANCE.tax.level.neutral changes nothing. */
+  taxLevel: number;
+  /** Ticks spent past the debt limit in the current spell; 0 while within it (sim/debt.ts). */
+  debtOverTicks: number;
+  /** The city stayed past its debt limit too long and the mayor was removed. Final: nothing more happens here. */
+  gameOver: boolean;
 }
 
 export interface Stats {
@@ -254,6 +260,9 @@ export class World {
       income: 0,
       expenses: 0,
       taxRates: { R: BALANCE.tax.zoneR, C: BALANCE.tax.zoneC, I: BALANCE.tax.zoneI },
+      taxLevel: BALANCE.tax.level.neutral,
+      debtOverTicks: 0,
+      gameOver: false,
     };
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
