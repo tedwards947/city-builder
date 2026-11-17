@@ -68,6 +68,8 @@ export interface LabOptions {
   daysSave?: number;
   /** Saved cities above this population are left out of the PC suite (it plays many personas; big cities are slow). Default 20k. */
   pcMaxPopulation?: number;
+  /** Extra PC number sets by id (e.g. the auto-tuner's 'T'), each a partial BALANCE.politicalCapital tree like a variant's. */
+  customVariants?: Record<string, { name: string; desc: string; values: Record<string, unknown> }>;
   /** The previous report, for trends. */
   previous?: Report | null;
   log?: (line: string) => void;
@@ -184,7 +186,9 @@ export function runLab(o: LabOptions): Report {
     generatedAt: new Date().toISOString(),
     about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Two suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]), with PC at the shipped numbers. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
     options: { suites, variants, econPresets: presets, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
-    variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' } : (() => { const p = PC_VARIANTS.find(x => x.id === v)!; return { id: p.id, name: p.name, desc: p.desc }; })()),
+    variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
+      : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
+      : (() => { const p = PC_VARIANTS.find(x => x.id === v)!; return { id: p.id, name: p.name, desc: p.desc }; })()),
     econPresets: presets.map(id => { const p = ECON_PRESETS.find(x => x.id === id)!; return { id: p.id, name: p.name, desc: p.desc, values: p.values }; }),
     personas: PERSONAS.filter(p => personaIds.includes(p.id)).map(p => ({ id: p.id, desc: p.desc })),
     cities: [],
@@ -213,7 +217,7 @@ export function runLab(o: LabOptions): Report {
     // ── PC suite ──
     for (const v of variants) {
       applyValues(BALANCE.politicalCapital as never, shippedPc);
-      if (v !== 'Off') applyValues(BALANCE.politicalCapital as never, PC_VARIANTS.find(x => x.id === v)!.values as never);
+      if (v !== 'Off') applyValues(BALANCE.politicalCapital as never, (o.customVariants?.[v]?.values ?? PC_VARIANTS.find(x => x.id === v)!.values) as never);
       const ordinancesOn = ordinancesEnabled();
       report.runs[v] = {}; report.probes[v] = {};
       for (const city of o.cities) {
