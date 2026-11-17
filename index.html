@@ -220,20 +220,24 @@
     /* Stops 100px short of the screen centre, clear of the centred #speedbar (~165px wide).
        The title and volume slider shrink to fit; long titles scroll (see MusicPanel.refreshMarquee). */
     #music-panel { position: absolute; top: 10px; left: 160px; max-width: calc(50vw - 260px); box-sizing: border-box; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(8px); pointer-events: auto; font-size: 11px; color: #eee; border: 1px solid rgba(255,255,255,0.12); }
-    /* Below ~980px the side slot is narrower than the panel's minimum (~235px): tuck it centred under the speed bar */
-    @media (max-width: 980px) {
-      #music-panel { top: 48px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); min-width: 235px; }
+    /* Below ~1140px the side slot is narrower than the panel needs (~310px with the music and FX sliders): tuck it centred under the speed bar */
+    @media (max-width: 1140px) {
+      #music-panel { top: 48px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); min-width: 300px; }
     }
     /* Fixed width so the panel doesn't change size from song to song; it only shrinks when the window is narrow */
     .mp-track-info { display: flex; flex-direction: column; flex: 0 1 140px; width: 140px; min-width: 48px; }
-    .mp-label { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    .mp-label { color: #8aa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mp-track-name { display: block; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; width: 100%; }
     .mp-marquee { display: inline-block; white-space: nowrap; }
     @media (prefers-reduced-motion: reduce) {
       .mp-track-name { text-overflow: ellipsis; }
       .mp-marquee { display: inline; }
     }
-    .mp-volume { flex: 0 1 64px; width: 64px; min-width: 36px; margin: 0; accent-color: #8aa; cursor: pointer; }
+    /* Music and effects volume, stacked. */
+    .mp-levels { display: flex; flex-direction: column; gap: 4px; flex: 0 1 84px; width: 84px; min-width: 56px; }
+    .mp-level { display: flex; align-items: center; gap: 4px; }
+    .mp-level-ico { flex: none; width: 14px; color: #8aa; font-size: 9px; text-align: center; letter-spacing: 0.3px; }
+    .mp-volume { flex: 1 1 auto; width: 100%; min-width: 24px; height: 12px; margin: 0; accent-color: #8aa; cursor: pointer; }
     .mp-controls { display: flex; gap: 6px; flex: none; }
     .mp-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 28px; height: 28px; border-radius: 4px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .mp-btn:hover { background: rgba(255,255,255,0.2); }

@@ -243,6 +243,15 @@ export class MusicManager {
   
   public isCurrentlyPlaying(): boolean { return this.isPlaying; }
 
+  /** Dip the music (to `depth` of its level) for `seconds`, then bring it back: room for a fanfare or an alarm. */
+  public duck(seconds: number, depth = 0.6) {
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime, g = this.masterGain.gain;
+    g.cancelScheduledValues(t);
+    g.setTargetAtTime(BASE_GAIN * this.volume * depth, t, 0.08);
+    g.setTargetAtTime(BASE_GAIN * this.volume, t + seconds, 0.4);
+  }
+
   /** Music volume, 0..1. Takes effect immediately, with a short ramp to avoid clicks. */
   public setVolume(v: number) {
     this.volume = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 1));
