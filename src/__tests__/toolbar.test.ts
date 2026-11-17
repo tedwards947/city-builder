@@ -10,6 +10,8 @@ const items: ToolbarItem[] = toolbarItems();
 const families = TOOLBAR.flatMap(e => e !== 'sep' && 'family' in e ? [e.family] : []);
 
 const LARGE: Tool[] = ['largePower', 'largeWater', 'largeSewage'];
+// Tools with no hotkey of their own.
+const NO_HOTKEY: Tool[] = [...LARGE, 'seaport'];
 
 describe('toolbar list', () => {
   it('offers the large plants in normal play', () => {
@@ -20,7 +22,7 @@ describe('toolbar list', () => {
 
   it('offers every tool exactly once', () => {
     const all: Tool[] = ['none', 'inspect', 'road', 'avenue', 'highway', 'zoneR', 'zoneC', 'zoneI',
-      'power', 'water', 'sewage', 'largePower', 'largeWater', 'largeSewage', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze'];
+      'power', 'water', 'sewage', 'largePower', 'largeWater', 'largeSewage', 'seaport', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze'];
     const offered = items.flatMap(i => i.tool !== undefined ? [i.tool] : []);
     expect([...offered].sort()).toEqual([...all].sort());
   });
@@ -45,7 +47,7 @@ describe('toolbar list', () => {
     const keys = items.flatMap(i => i.hotkey ? [i.hotkey] : []);
     expect(new Set(keys).size).toBe(keys.length);
     // The large plants have no hotkey of their own: they sit in the utilities fly-outs.
-    for (const i of items) if ((i.tool !== undefined || i.overlay !== undefined) && !LARGE.includes(i.tool as Tool)) expect(i.hotkey, i.key).toBeTruthy();
+    for (const i of items) if ((i.tool !== undefined || i.overlay !== undefined) && !NO_HOTKEY.includes(i.tool as Tool)) expect(i.hotkey, i.key).toBeTruthy();
     expect(keys).not.toContain(' ');   // space is pause
   });
 

@@ -152,6 +152,8 @@ export interface TranslationSchema {
       cantBuildTitle: string;
       noFunds: string;
       needsWater: string;
+      needsOpenWater: string;
+      needsDockSite: string;
       noPoliticalCapital: string;
     };
     hud: {
@@ -164,6 +166,8 @@ export interface TranslationSchema {
       pcShort: string;
       noRoad: string;
       needsWater: string;
+      needsOpenWater: string;
+      needsDockSite: string;
       pcIntoDebt: string;
       pcInDebt: string;
       pcDebt: string;
@@ -257,6 +261,7 @@ export interface TranslationSchema {
       largePlant: string;
       largeWater: string;
       largeSewage: string;
+      seaport: string;
       police: string;
       fireStation: string;
       school: string;
@@ -319,6 +324,7 @@ export interface TranslationSchema {
       largePlant: string;
       largeWater: string;
       largeSewage: string;
+      seaport: string;
       police: string;
       fireStation: string;
       school: string;
@@ -350,6 +356,7 @@ export interface TranslationSchema {
     largePowerPlant: string;
     largeWaterPlant: string;
     largeSewagePlant: string;
+    seaport: string;
     policeStation: string;
     fireStation: string;
     school: string;

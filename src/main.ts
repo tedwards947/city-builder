@@ -1,5 +1,6 @@
 import { isLargeBuilding } from './sim/buildingShapes';
-import { placementAnchor } from './input/InputController';
+import { placementFor, cyclePlacementTurn, resetPlacementTurn } from './input/placement';
+import { hasDocks } from './sim/buildingShapes';
 import { World } from './sim/World';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
@@ -222,7 +223,7 @@ function notifyRejected(reason: FailReason): void {
   lastRejectToast[reason] = now;
   toastPanel.showToast(
     t('ui.toast.cantBuildTitle'),
-    t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : 'ui.toast.noPoliticalCapital'),
+    t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : reason === 'notOpenWater' ? 'ui.toast.needsOpenWater' : 'ui.toast.noPoliticalCapital'),
     'warning',
   );
 }
@@ -374,6 +375,7 @@ function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
 }
 
 function setTool(tool: Tool): void {
+  if (tool !== currentTool) resetPlacementTurn();
   currentTool = tool;
   sfx.toolPicked(tool);
   tileInfoPanel.setVisible(tool === 'inspect');
@@ -420,6 +422,12 @@ window.addEventListener('keydown', (e) => {
     if (input.autoRoadStart) { input.cancelAutoRoad(); return; }
     setTool('none');
     return;
+  }
+
+  // X turns a building that can be turned (the seaport) while it is being placed.
+  if (key === 'x' && !e.ctrlKey && !e.metaKey) {
+    const kind = buildingKindForTool(currentTool);
+    if (kind !== undefined && hasDocks(kind)) { cyclePlacementTurn(); return; }
   }
 
   // Undo / redo are the only shortcuts that use Ctrl/Cmd.
@@ -547,9 +555,11 @@ function frame(now: number): void {
       // A building on several tiles always shows its price at the pointer, where it can go.
       const kind = buildingKindForTool(currentTool);
       if (kind !== undefined && isLargeBuilding(kind)) {
-        const a = placementAnchor(kind, hoverTile.tx, hoverTile.ty);
-        const blocker = state.world.placeBlocker(a.tx, a.ty, kind);
-        if (blocker === null) pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+        const a = placementFor(state.world, kind, hoverTile.tx, hoverTile.ty);
+        const blocker = state.world.placeBlocker(a.tx, a.ty, kind, a.rot);
+        if (blocker === null) pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty, rot: a.rot }, rings: [], tints: [], label: '', ok: true, money: toolPrice(currentTool).cost };
+        // A seaport that does not fit: say what it needs. On a pond, that the water must reach the map edge.
+        else if (hasDocks(kind) && blocker !== 'offMap') pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty, rot: a.rot }, rings: [], tints: [], label: '', ok: false, money: toolPrice(currentTool).cost, note: t(blocker === 'notOpenWater' ? 'ui.hud.needsOpenWater' : 'ui.hud.needsDockSite') };
         // The land is free but there is no water beside it (a water pump): say so at the pointer.
         else if (blocker === 'noWater') pcPreview = { at: hoverTile, building: { kind, tx: a.tx, ty: a.ty }, rings: [], tints: [], label: '', ok: false, money: toolPrice(currentTool).cost, note: t('ui.hud.needsWater') };
       }

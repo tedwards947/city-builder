@@ -5,7 +5,7 @@
 import { footprintEdge } from '../sim/buildingShapes';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
 import type {World} from "../sim/World";
 import {
   TERRAIN_GRASS,
@@ -117,11 +117,13 @@ const ZONE_NAME: Record<number, string> = {
   [ZONE_I]: "zones.industrial",
 };
 
-const isLargeUtility = (b: number) => b === BUILDING_LARGE_POWER_PLANT || b === BUILDING_LARGE_WATER_PLANT || b === BUILDING_LARGE_SEWAGE_PLANT;
+// The seaport is listed here for its upkeep line and its road warning, like the large plants.
+const isLargeUtility = (b: number) => b === BUILDING_LARGE_POWER_PLANT || b === BUILDING_LARGE_WATER_PLANT || b === BUILDING_LARGE_SEWAGE_PLANT || b === BUILDING_SEAPORT;
 const BUILDING_NAME: Record<number, string> = {
   [BUILDING_POWER_PLANT]: "buildings.powerPlant",
   [BUILDING_WATER_TOWER]: "buildings.waterTower",
   [BUILDING_SEWAGE_PLANT]: "buildings.sewagePlant",
+  [BUILDING_SEAPORT]: "buildings.seaport",
   [BUILDING_LARGE_POWER_PLANT]: "buildings.largePowerPlant",
   [BUILDING_LARGE_WATER_PLANT]: "buildings.largeWaterPlant",
   [BUILDING_LARGE_SEWAGE_PLANT]: "buildings.largeSewagePlant",
@@ -297,7 +299,7 @@ export class TileInfoPanel {
         : `${t("buildings.building")} #${building}`;
       html += `<div class="ti-type">${name}</div>`;
       // Show coverage radius for service buildings
-      if (building >= BUILDING_POLICE) {
+      if (building >= BUILDING_POLICE && BALANCE.service.coverageRange[building] !== undefined) {
         const range = BALANCE.service.coverageRange[building];
         html += `<div class="ti-detail">${t("ui.tileInfo.coverageRadius", {range})}</div>`;
         html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: buildingUpkeep(building)})}</div>`;

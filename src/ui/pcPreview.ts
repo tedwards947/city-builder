@@ -6,6 +6,7 @@
 import type { World } from '../sim/World';
 import type { Tool } from '../input/InputController';
 import { roadClassForTool, zoneForTool, placementAnchor } from '../input/InputController';
+import { placementFor } from '../input/placement';
 import { pcQuote, nuisanceRings } from '../sim/politics';
 import type { PcQuote, PcQuoteAction, NuisanceConfig, NuisanceSource } from '../sim/politics';
 import type { ServiceValueConfig } from '../sim/serviceValue';
@@ -17,7 +18,7 @@ import { PC_SYMBOL, pcAmount } from './pcFormat';
 export interface PcPreview {
   at: { tx: number; ty: number };
   /** For a building: its kind and anchor tile, so rings can be measured from its whole footprint. */
-  building?: { kind: number; tx: number; ty: number };
+  building?: { kind: number; tx: number; ty: number; rot?: number };
   /** Fall-off bands by manhattan distance, nearest first. Empty unless the tool upsets neighbours. */
   rings: { within: number; weight: number }[];
   /** Homes that object, with how strongly (0–1). */
@@ -37,7 +38,7 @@ export interface PcPreview {
 }
 
 /** The engine action a tool performs on a tile, or null for tools that change nothing. */
-export function pcActionForTool(tool: Tool, tx: number, ty: number): PcQuoteAction | null {
+export function pcActionForTool(tool: Tool, tx: number, ty: number, world?: World): PcQuoteAction | null {
   if (tool === 'bulldoze') return { type: 'bulldoze', tx, ty };
   const zone = zoneForTool(tool);
   if (zone !== undefined) return { type: 'zone', tx, ty, zone };
@@ -45,7 +46,10 @@ export function pcActionForTool(tool: Tool, tx: number, ty: number): PcQuoteActi
   if (roadClass !== undefined) return { type: 'road', tx, ty, roadClass };
   const kind = buildingKindForTool(tool);
   // A building on several tiles is held by its middle; the engine wants its anchor.
-  if (kind !== undefined) { const a = placementAnchor(kind, tx, ty); return { type: 'building', tx: a.tx, ty: a.ty, kind }; }
+  if (kind !== undefined) {
+    if (world) { const p = placementFor(world, kind, tx, ty); return { type: 'building', tx: p.tx, ty: p.ty, kind, rot: p.rot }; }
+    const a = placementAnchor(kind, tx, ty); return { type: 'building', tx: a.tx, ty: a.ty, kind };
+  }
   return null;
 }
 
@@ -104,7 +108,7 @@ export function hoverPcPreview(
   nuisance: NuisanceConfig = BALANCE.politicalCapital.nuisance,
   service: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): PcPreview | null {
-  const action = pcActionForTool(tool, tile.tx, tile.ty);
+  const action = pcActionForTool(tool, tile.tx, tile.ty, world);
   if (!action) return null;
   const source: NuisanceSource | null =
     action.type === 'zone' ? { zone: action.zone } : action.type === 'building' ? { kind: action.kind } : null;
@@ -115,7 +119,7 @@ export function hoverPcPreview(
   const offRoad = q.notConnected === true;
   if (q.cost === 0 && q.reward === 0 && rings.length === 0 && !offRoad) return null;
   const quiet = action.type === 'zone' && isQuietNuisance(q);
-  return { at: tile, building: action.type === 'building' ? { kind: action.kind, tx: action.tx, ty: action.ty } : undefined, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable,
+  return { at: tile, building: action.type === 'building' ? { kind: action.kind, tx: action.tx, ty: action.ty, rot: action.rot } : undefined, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable,
     note: quiet ? undefined : (offRoad && q.affordable ? t('ui.hud.noRoad') : pcNote(q, world)),
     warning: offRoad && q.affordable,
   };

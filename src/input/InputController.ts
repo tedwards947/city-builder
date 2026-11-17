@@ -13,8 +13,7 @@
 //
 // Produces Commands via CommandHistory. Never mutates world directly.
 
-import { buildingShape } from '../sim/buildingShapes';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
 import type { Camera } from '../render/Camera';
 import type { World } from '../sim/World';
 import type { Command, FailReason } from '../commands/Command';
@@ -22,6 +21,7 @@ import type { CommandHistory } from '../commands/CommandHistory';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
+import { placementAnchor, placementFor } from './placement';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
@@ -34,7 +34,7 @@ import type { ZoneMode } from './zoneFill';
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
 
 const ROAD_TOOL_CLASS: Partial<Record<Tool, number>> = {
   road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
@@ -44,21 +44,12 @@ const ZONE_TOOL_ZONE: Partial<Record<Tool, number>> = {
 };
 const BUILDING_TOOL_KIND: Partial<Record<Tool, number>> = {
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
-  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT,
+  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT,
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
 
-/**
- * Where a `kind` building's anchor goes when the pointer is on (tx, ty). The
- * pointer holds the middle of the footprint: the centre tile of an odd size,
- * the top-left of the centre four of an even one. One tile: the tile itself.
- */
-export function placementAnchor(kind: number, tx: number, ty: number): { tx: number; ty: number } {
-  let minX = 0, minY = 0, maxX = 0, maxY = 0;
-  for (const [dx, dy] of buildingShape(kind)) { if (dx < minX) minX = dx; if (dx > maxX) maxX = dx; if (dy < minY) minY = dy; if (dy > maxY) maxY = dy; }
-  return { tx: tx - (minX + ((maxX - minX) >> 1)), ty: ty - (minY + ((maxY - minY) >> 1)) };
-}
+export { placementAnchor } from './placement';
 
 /** The building a tool places, or undefined if it places none. */
 export function buildingKindForPlacing(tool: string): number | undefined {
@@ -81,13 +72,17 @@ export function isPaintTool(tool: Tool): boolean {
 }
 
 /** Build the Command a tool issues for one tile, or null if the tool issues none. */
-export function commandForTool(tool: Tool, tx: number, ty: number): Command | null {
+export function commandForTool(tool: Tool, tx: number, ty: number, world?: World): Command | null {
   const roadClass = ROAD_TOOL_CLASS[tool];
   if (roadClass !== undefined) return new BuildRoadCommand(tx, ty, roadClass);
   const zone = ZONE_TOOL_ZONE[tool];
   if (zone !== undefined) return new PaintZoneCommand(tx, ty, zone);
   const kind = BUILDING_TOOL_KIND[tool];
-  if (kind !== undefined) { const a = placementAnchor(kind, tx, ty); return new PlaceBuildingCommand(a.tx, a.ty, kind); }
+  if (kind !== undefined) {
+    // With the world to hand, a kind that turns (the seaport) goes the way the preview shows it.
+    if (world) { const p = placementFor(world, kind, tx, ty); return new PlaceBuildingCommand(p.tx, p.ty, kind, p.rot); }
+    const a = placementAnchor(kind, tx, ty); return new PlaceBuildingCommand(a.tx, a.ty, kind);
+  }
   if (tool === 'bulldoze') return new BulldozeCommand(tx, ty);
   return null;
 }
@@ -340,7 +335,7 @@ export class InputController {
     history.beginBatch();
     let refused: FailReason | undefined;
     for (const { tx, ty } of autoRoadPath(start, tile)) {
-      const cmd = commandForTool(tool, tx, ty);
+      const cmd = commandForTool(tool, tx, ty, this.getWorld());
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
     }
@@ -370,7 +365,7 @@ export class InputController {
     history.beginBatch();
     let refused: FailReason | undefined;
     for (const { tx, ty } of plan.tiles) {
-      const cmd = commandForTool(tool, tx, ty);
+      const cmd = commandForTool(tool, tx, ty, this.getWorld());
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
     }
@@ -431,7 +426,7 @@ export class InputController {
         if (world.layers.roadClass[i] !== ROAD_NONE) continue;
         if (world.layers.zone[i] === zone) continue;
       }
-      const cmd = commandForTool(tool, tx, ty);
+      const cmd = commandForTool(tool, tx, ty, this.getWorld());
       if (cmd) this._run(history, cmd);
     }
   }
@@ -451,7 +446,7 @@ export class InputController {
   }
 
   private _applyTool(tx: number, ty: number): void {
-    const cmd = commandForTool(this.getTool(), tx, ty);
+    const cmd = commandForTool(this.getTool(), tx, ty, this.getWorld());
     if (cmd) this._run(this.getHistory(), cmd);
   }
 

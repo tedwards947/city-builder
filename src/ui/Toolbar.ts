@@ -6,7 +6,7 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
 import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
@@ -88,6 +88,8 @@ export const TOOLBAR: ToolbarEntry[] = [
   { family: 'parks', icon: 'park', items: [
     { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
   ] },
+  // Trade (SEAPORT_DESIGN.md): a yard on land with docks over open water.
+  { key: 'seaport', icon: 'port', tool: 'seaport' },
   'sep',
   { family: 'overlays', icon: 'layers', items: [
     { key: 'traffic', icon: 'traffic', overlay: 'traffic', hotkey: 't' },
@@ -109,7 +111,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
-  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT,
+  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT,
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };

@@ -7,10 +7,10 @@
 // plain slab on each of its tiles, and this file adds the outline and a few
 // clay shapes (stacks, tanks, pools) across the whole footprint.
 
-import { buildingShape, type ShapeOffset } from '../../sim/buildingShapes';
+import { buildingShape, shapeRoles, type ShapeOffset } from '../../sim/buildingShapes';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
-  BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
+  BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT,
 } from '../../sim/constants';
 import { tileSetEdges, type TilePoint, type TileEdge } from './tileOutline';
 
@@ -27,23 +27,23 @@ export interface ShapeBox {
 
 const boxes = new Map<number, { shape: readonly ShapeOffset[]; box: ShapeBox }>();
 
-/** The bounding box and draw tile of a kind's shape. Cached until the kind's shape changes. */
-export function shapeBox(kind: number): ShapeBox {
-  const shape = buildingShape(kind);
-  const hit = boxes.get(kind);
+/** The bounding box and draw tile of a kind's shape, turned `rot` quarter turns. Cached until the kind's shape changes. */
+export function shapeBox(kind: number, rot = 0): ShapeBox {
+  const shape = buildingShape(kind, rot), key = kind * 4 + (rot & 3);
+  const hit = boxes.get(key);
   if (hit && hit.shape === shape) return hit.box;
   let minX = 0, minY = 0, maxX = 0, maxY = 0;
   for (const [dx, dy] of shape) { if (dx < minX) minX = dx; if (dx > maxX) maxX = dx; if (dy < minY) minY = dy; if (dy > maxY) maxY = dy; }
   let drawDx = Infinity;
   for (const [dx, dy] of shape) if (dy === maxY && dx < drawDx) drawDx = dx;
   const box = { minX, minY, maxX, maxY, drawDx, drawDy: maxY };
-  boxes.set(kind, { shape, box });
+  boxes.set(key, { shape, box });
   return box;
 }
 
-/** The tiles of a `kind` building anchored at (ax, ay). */
-export function shapeTiles(kind: number, ax: number, ay: number): TilePoint[] {
-  return buildingShape(kind).map(([dx, dy]) => ({ x: ax + dx, y: ay + dy }));
+/** The tiles of a `kind` building anchored at (ax, ay), turned `rot`. In the shape's order, so they line up with shapeRoles(kind). */
+export function shapeTiles(kind: number, ax: number, ay: number, rot = 0): TilePoint[] {
+  return buildingShape(kind, rot).map(([dx, dy]) => ({ x: ax + dx, y: ay + dy }));
 }
 
 type Style = 'power' | 'water' | 'sewage' | 'generic';
@@ -84,6 +84,7 @@ export function drawBigStandIn(
   water: TilePoint | null = null,
 ): void {
   if (tiles.length === 0) return;
+  if (kind === BUILDING_SEAPORT) { drawPortStandIn(ctx, kind, tiles, X, Y, t); return; }
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of tiles) { if (p.x < x0) x0 = p.x; if (p.y < y0) y0 = p.y; if (p.x > x1) x1 = p.x; if (p.y > y1) y1 = p.y; }
   const tile = X(x0 + 1) - X(x0);
@@ -150,6 +151,126 @@ export function drawBigStandIn(
   }
 }
 
+const CONTAINERS = ['#c0574a', '#4f7fb5', '#d9a441', '#5a8f6a', '#8d6fb0', '#c97b3f'];
+
+/**
+ * The seaport's stand-in: a paved yard with a shed, stacked containers and a
+ * gantry crane on its quay, and plank docks on piles out over the water.
+ * `tiles` are in the shape's order (shapeTiles), so shapeRoles(kind) says
+ * which are docks. Works whichever way the port is turned.
+ */
+export function drawPortStandIn(
+  ctx: CanvasRenderingContext2D, kind: number, tiles: readonly TilePoint[],
+  X: (tx: number) => number, Y: (ty: number) => number, t: number,
+): void {
+  const roles = shapeRoles(kind);
+  const yard: TilePoint[] = [], docks: TilePoint[] = [];
+  tiles.forEach((p, k) => (roles[k] === 'dock' ? docks : yard).push(p));
+  if (yard.length === 0) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of yard) { if (p.x < x0) x0 = p.x; if (p.y < y0) y0 = p.y; if (p.x > x1) x1 = p.x; if (p.y > y1) y1 = p.y; }
+  const tile = X(x0 + 1) - X(x0);
+  // Which way the docks lie from the yard: a unit step.
+  let dx = 0, dy = -1;
+  if (docks.length > 0) { const d = docks[0]; dx = d.x < x0 ? -1 : d.x > x1 ? 1 : 0; dy = d.y < y0 ? -1 : d.y > y1 ? 1 : 0; }
+
+  // Docks: a shadow on the water, a plank deck short of the seaward edge, piles and bollards.
+  for (const p of docks) {
+    const px = X(p.x), py = Y(p.y), T = X(p.x + 1) - px;
+    const inset = Math.round(T * 0.18);
+    // The deck leaves the seaward side of the tile open.
+    const L = px + (dx > 0 ? 0 : dx < 0 ? inset : 0), R = px + T - (dx > 0 ? inset : 0);
+    const Tp = py + (dy < 0 ? inset : 0), B = py + T - (dy > 0 ? inset : 0);
+    ctx.fillStyle = 'rgba(8,24,44,0.35)';
+    ctx.fillRect(L + T * 0.06, Tp + T * 0.1, R - L, B - Tp);
+    ctx.fillStyle = '#a98a5c';
+    ctx.fillRect(L, Tp, R - L, B - Tp);
+    if (T >= 8) {
+      // Planks run across the way out to sea.
+      ctx.strokeStyle = 'rgba(70,50,28,0.45)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      const n = 4;
+      for (let k = 1; k < n; k++) {
+        if (dx !== 0) { const x = Math.round(L + (R - L) * k / n) + 0.5; ctx.moveTo(x, Tp); ctx.lineTo(x, B); }
+        else { const y = Math.round(Tp + (B - Tp) * k / n) + 0.5; ctx.moveTo(L, y); ctx.lineTo(R, y); }
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#5b4630';
+      const r = Math.max(1, T * 0.07);
+      // Piles at the seaward corners.
+      const sx = dx > 0 ? R : dx < 0 ? L : null, sy = dy > 0 ? B : dy < 0 ? Tp : null;
+      for (const f of [0.12, 0.88]) {
+        const cx = sx ?? L + (R - L) * f, cy = sy ?? Tp + (B - Tp) * f;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  // The yard's edge, and a stone quay wall along the side the docks are on.
+  const L = X(x0), T = Y(y0), W = X(x1 + 1) - L, H = Y(y1 + 1) - T;
+  ctx.lineWidth = Math.max(1, tile * 0.05);
+  ctx.strokeStyle = SLAB_EDGE;
+  ctx.strokeRect(L + 0.5, T + 0.5, W - 1, H - 1);
+  const q = Math.max(2, Math.round(tile * 0.14));
+  ctx.fillStyle = '#8a8377';
+  if (dy < 0) ctx.fillRect(L, T, W, q); else if (dy > 0) ctx.fillRect(L, T + H - q, W, q);
+  else if (dx < 0) ctx.fillRect(L, T, q, H); else ctx.fillRect(L + W - q, T, q, H);
+  ctx.fillStyle = SLAB_RIM;
+  if (dy < 0) ctx.fillRect(L, T + q, W, 1); else if (dy > 0) ctx.fillRect(L, T + H - q - 1, W, 1);
+  else if (dx < 0) ctx.fillRect(L + q, T, 1, H); else ctx.fillRect(L + W - q - 1, T, 1, H);
+  if (tile < 6) return;
+
+  // Yard furniture is laid out along the quay (u) and away from it (v), so it turns with the port.
+  // at(u, v): u 0–1 along the quay, v 0 at the quay to 1 at the back.
+  const along = dx === 0;    // the quay runs left-right
+  const at = (u: number, v: number): [number, number] => along
+    ? [L + W * u, dy < 0 ? T + H * v : T + H * (1 - v)]
+    : [dx < 0 ? L + W * v : L + W * (1 - v), T + H * u];
+  // A shed along the back.
+  {
+    const [ax, ay] = at(0.08, 0.95), [bx, by] = at(0.5, 0.68);
+    const x = Math.min(ax, bx), y = Math.min(ay, by), w = Math.abs(bx - ax), h = Math.abs(by - ay);
+    box3d(ctx, x, y + tile * 0.1, w, h - tile * 0.1, tile * 0.22, '#c9c3b6', '#8f887b');
+    box3d(ctx, x + w * 0.08, y + tile * 0.12, w * 0.84, Math.max(1, h * 0.2), tile * 0.26, '#7f8d9a', '#5f6b76');
+  }
+  // Container stacks in rows.
+  let n = 0;
+  for (const v of [0.34, 0.56]) for (const u of [0.1, 0.24, 0.38, 0.6, 0.74, 0.88]) {
+    if (v > 0.5 && u < 0.55) { n++; continue; }      // the shed stands there
+    const [cx, cy] = at(u, v);
+    const w = along ? tile * 0.42 : tile * 0.22, h = along ? tile * 0.22 : tile * 0.42;
+    const stack = 1 + ((n * 7 + 3) % 3);
+    for (let k = 0; k < stack; k++) {
+      const c = CONTAINERS[(n + k * 2) % CONTAINERS.length];
+      box3d(ctx, cx - w / 2, cy - h / 2 - k * tile * 0.1, w, h, tile * 0.1, c, 'rgba(0,0,0,0.25)');
+      ctx.fillStyle = c; ctx.fillRect(cx - w / 2, cy - h / 2 - (k + 1) * tile * 0.1, w, h);
+    }
+    n++;
+  }
+  // A gantry crane on the quay, its trolley sliding slowly out and back.
+  {
+    const [cx, cy] = at(0.72, 0.1);
+    const leg = tile * 0.5, span = tile * 0.9;
+    ctx.strokeStyle = '#d98a2b'; ctx.lineWidth = Math.max(1.5, tile * 0.08); ctx.lineCap = 'butt';
+    ctx.beginPath();
+    for (const s of [-1, 1]) {
+      const lx = cx + (along ? s * tile * 0.22 : 0), ly = cy + (along ? 0 : s * tile * 0.22);
+      ctx.moveTo(lx, ly); ctx.lineTo(lx, ly - leg);
+    }
+    // The boom reaches out over the docks.
+    const by0 = cy - leg;
+    ctx.moveTo(cx - dx * span * 0.4, by0 - dy * span * 0.4);
+    ctx.lineTo(cx + dx * span, by0 + dy * span);
+    ctx.stroke();
+    const slide = 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(Math.floor(t * 10) / 10 * 0.5));
+    const tx = cx + dx * span * slide, ty = by0 + dy * span * slide;
+    ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty + leg * 0.55); ctx.stroke();
+    ctx.fillStyle = CONTAINERS[1];
+    ctx.fillRect(tx - tile * 0.1, ty + leg * 0.55, tile * 0.2, tile * 0.1);
+  }
+}
+
 /**
  * The pump's intake: a pipe from the plant out into the water tile beside it,
  * with ripples where it goes under. (L, T, W, H) is the footprint on screen,
@@ -210,8 +331,8 @@ const bands = new Map<string, { shape: readonly ShapeOffset[]; edges: TileEdge[]
  * building's footprint, as edges relative to its anchor: the ring homes
  * object within. For one tile this is the stepped diamond. Cached.
  */
-export function footprintBand(kind: number, r: number): TileEdge[] {
-  const shape = buildingShape(kind), key = kind + ':' + r;
+export function footprintBand(kind: number, r: number, rot = 0): TileEdge[] {
+  const shape = buildingShape(kind, rot), key = kind + ':' + r + ':' + (rot & 3);
   const hit = bands.get(key);
   if (hit && hit.shape === shape) return hit.edges;
   const seen = new Set<string>(), tiles: TilePoint[] = [];
