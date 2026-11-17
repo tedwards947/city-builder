@@ -11,17 +11,19 @@ The game assumes one building per tile. Airports, seaports, military bases and l
 - **They go public only after** ENGINEER 3 adds lab targets for them and the owner has played them.
 
 ## Data model (engine)
-- `BUILDING_FOOTPRINT[kind] = { w, h }`, default 1×1. New kinds **9, 10, 11** for the large power, water and sewage plants.
-- One entity per building in `world.buildings`, at its **anchor tile (top-left)**, as today.
-- **Every footprint tile carries the kind** in `layers.building`, so anything asking "is there a building here?" keeps working (roads, zoning, fire spread, WorldIndex, renderer occupancy).
-- `world.buildingAt(tx, ty)` → the entity, from a small lookup rebuilt on load and on place/clear. Not saved.
-- **No save-format change:** the footprint follows from the kind.
-- **No rotation yet:** square footprints only. The entity has room for a `rot` field later (airports).
-- The footprint table and anchor live in `src/sim` and graphics imports them, so engine and renderer can't disagree.
+**Owner's idea (2026-11-17): every tile records which building it's part of, so buildings don't have to be square.** Adopted as follows:
+- **Shapes, not rectangles:** each kind has a **shape**, a list of tile offsets from its anchor, e.g. `[[0,0],[1,0],[0,1]]` for an L. A square 3×3 is just nine offsets. Default: one tile. New kinds **9, 10, 11** (large power, water, sewage) start as plain squares. Later, L-shaped plants, runways and docks are just other shapes.
+- **Per-tile building id:** a new layer `buildingId` gives each tile the building it belongs to (0 = none). `world.buildingAt(tx, ty)` is then a plain array read. The layer is **derived** from `world.buildings` and the shapes on load, place and clear, not saved, so the save format doesn't change.
+- **Optional part role:** each offset can carry a role (`body`, `dock`, `runway`, `entrance`…), stored per tile in a small `buildingPart` layer, also derived. Rules can use it later: a seaport's dock tiles must touch water; a runway must be road-free and straight; only entrance tiles count for road access. The first three plants use `body` only.
+- **One entity per building** in `world.buildings`, at its anchor (the shape's (0,0) tile), as today.
+- **Every shape tile also carries the kind** in `layers.building`, so anything asking "is there a building here?" keeps working (roads, zoning, fire spread, WorldIndex, renderer occupancy).
+- **No rotation yet.** The entity has room for a `rot` field later; rotating a shape just rotates its offsets.
+- The shape table, anchor and both derived layers live in `src/sim`, and graphics imports them, so engine and renderer can't disagree.
+- **Rendering of non-square shapes:** a building's sprite covers the shape's bounding box, with transparent cut-outs where the shape has no tile. It draws at the bounding box's bottom row. Square shapes need nothing extra.
 
 ## Rules
-- **Placing:** every footprint tile in bounds, not water, no building, **no road** (a big building silently cutting a road network is worse than refusing). Zoned lots under it are displaced at the normal PC cost.
-- **Connected:** any tile next to the footprint's edge is a street or avenue (not a highway). For 1×1 this is exactly today's rule.
+- **Placing:** every shape tile in bounds, not water, no building, **no road** (a big building silently cutting a road network is worse than refusing). Zoned lots under it are displaced at the normal PC cost.
+- **Connected:** any tile next to the shape's outline is a street or avenue (not a highway), or, once roles exist, next to an `entrance` tile. For 1×1 this is exactly today's rule.
 - **Bulldozing** any tile removes the whole building, once, at its full cost. **Undo** restores the whole building as one entity.
 - **Pollution:** from the building, once per kind, not 9× for a 3×3.
 - **PC nearby-homes cost:** distance from the nearest footprint tile.
@@ -47,7 +49,7 @@ A **3×3 plant ≈ the output of 12 small ones, on the land of 9, for about 8× 
 ## Phases
 | # | Engine | Graphics | Visible? |
 |---|---|---|---|
-| 1 | Model and API: footprint table (all 1×1), `buildingAt`, footprint-aware place/clear/isBuildable, whole-building undo, bulldoze once per building, perimeter helper for utilities and service seeding. Tests use a test-only 2×2 kind. Golden unchanged. | Agree the contract. | No |
+| 1 | Model and API: shape table (all one tile), derived `buildingId` (and `buildingPart`) layers, `buildingAt`, shape-aware place/clear/isBuildable, whole-building undo, bulldoze once per building, perimeter helper for utilities and service seeding. Tests use test-only 2×2 and L-shaped kinds. Golden unchanged. | Agree the contract. | No |
 | 2 | Kinds 9–11 with placeholder numbers, output per kind, pollution rule. Debug-only. | Footprint-aware drawing with the stand-in: bottom-row draw order, culling pad, one badge, footprint outlines, debug-only toolbar tiles. | `?debug=true` only |
 | 3 | PC nearby-homes cost and quotes over the footprint, inspect data. | Placement ghost with blocked tiles, price tag, rings from the footprint. | `?debug=true` only |
 | 4 | — | **[paid]** reference images plus 3 buildings; cutout pipeline taught w×h plots. | `?debug=true` only |
@@ -62,7 +64,7 @@ A **3×3 plant ≈ the output of 12 small ones, on the land of 9, for about 8× 
 - **Art:** the image model has to keep the same camera on a wider plot, hence the reference images and retries.
 
 ## Later
-Rotation and non-square footprints (airports, runways), a shore rule for seaports, large services and landmarks (coverage from the perimeter is already in phase 1), fire and abandonment for whole landmarks.
+Rotation, and non-square shapes in real buildings (airports, runways, docks), a shore rule for seaports, large services and landmarks (coverage from the perimeter is already in phase 1), fire and abandonment for whole landmarks.
 
 ## Decide (owner)
 1. Footprints: large power **3×3**, large water **2×2**, large sewage **2×2** (graphics' suggestion)?
