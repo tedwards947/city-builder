@@ -16,7 +16,8 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
-import { footprintTiles, footprintEdge, placementRules } from './buildingShapes';
+import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole } from './buildingShapes';
+import { openWater } from './openWater';
 
 export interface Layers {
   terrain:   Uint8Array;
@@ -113,10 +114,16 @@ export interface PlacementCheck {
   ok: boolean;
   /** Part of its shape would be off the map. (Then `blocked` and `noWater` say nothing.) */
   offMap: boolean;
-  /** Tiles of its shape that cannot hold it: water, a building, or (for a kind of several tiles) a road. */
+  /**
+   * Tiles of its shape that cannot hold it. For a body tile: water, a
+   * building, or (for a kind of several tiles) a road. For a dock tile: land,
+   * a building, or a road (a bridge).
+   */
   blocked: number[];
   /** The kind must stand at the water's edge and no tile beside its shape is water. */
   noWater: boolean;
+  /** Dock tiles that are on water, but water that does not reach the edge of the map (a pond or a lake). */
+  notOpenWater: number[];
 }
 
 export interface BuildingEntity {
@@ -124,6 +131,8 @@ export interface BuildingEntity {
   tx: number;
   ty: number;
   kind: number; // Any BUILDING_* constant
+  /** Quarter turns clockwise about the anchor, 1–3 (sim/buildingShapes.ts). Left out when 0, as for every kind but the seaport. */
+  rot?: number;
 }
 
 export type WaterAmount = 'low' | 'medium' | 'high';
@@ -168,6 +177,8 @@ export class World {
    * straight into the layers (0 here = a one-tile building).
    */
   buildingId: Uint32Array;
+  /** Per tile: the rotation (0–3) of the building anchored there. Derived from `buildings` like buildingId; not saved. */
+  buildingRot: Uint8Array;
   readonly events: EventBus;
   roadNetDirty: boolean;
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
@@ -270,6 +281,7 @@ export class World {
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requests: [], nextRequestId: 1 };
     this.buildings = [];
     this.buildingId = new Uint32Array(n);
+    this.buildingRot = new Uint8Array(n);
     this.events = new EventBus();
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
@@ -479,18 +491,36 @@ export class World {
   }
 
   /**
-   * Whether a `kind` building can be placed with its anchor at (tx, ty), and
-   * if not, why. It can when every tile of its shape is on the map, not water
-   * and free of buildings, and the kind's own conditions hold
-   * (buildingShapes.placementRules). A building of more than one tile also
-   * refuses to stand on a road (a one-tile building replaces the road under
-   * it, as it always has).
+   * Whether a `kind` building can be placed with its anchor at (tx, ty),
+   * turned `rot` quarter turns, and if not, why. It can when every tile of
+   * its shape is on the map, not water and free of buildings, and the kind's
+   * own conditions hold (buildingShapes.placementRules). A building of more
+   * than one tile also refuses to stand on a road (a one-tile building
+   * replaces the road under it, as it always has). A dock tile is the other
+   * way round: it must be on water, free of buildings and bridges, and that
+   * water must reach the edge of the map (sim/openWater.ts).
    */
-  checkPlacement(tx: number, ty: number, kind: number): PlacementCheck {
+  checkPlacement(tx: number, ty: number, kind: number, rot = 0): PlacementCheck {
     const { width, height } = this.grid;
-    const tiles = footprintTiles(width, height, tx, ty, kind);
-    if (!tiles) return { ok: false, offMap: true, blocked: [], noWater: false };
+    const tiles = footprintTiles(width, height, tx, ty, kind, rot);
+    if (!tiles) return { ok: false, offMap: true, blocked: [], noWater: false, notOpenWater: [] };
     const blocked: number[] = [];
+    const notOpenWater: number[] = [];
+    if (hasDocks(kind)) {
+      const roles = shapeRoles(kind);
+      const open = openWater(this);
+      for (let k = 0; k < tiles.length; k++) {
+        const i = tiles[k];
+        const x = i % width, y = (i - x) / width;
+        if (roles[k] === 'dock') {
+          if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE) blocked.push(i);
+          else if (!open[i]) notOpenWater.push(i);
+        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE) {
+          blocked.push(i);
+        }
+      }
+      return { ok: blocked.length === 0 && notOpenWater.length === 0, offMap: false, blocked, noWater: false, notOpenWater };
+    }
     for (const i of tiles) {
       const x = i % width, y = (i - x) / width;
       if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE)) blocked.push(i);
@@ -502,31 +532,35 @@ export class World {
         if (this.layers.terrain[i] === TERRAIN_WATER) { noWater = false; break; }
       }
     }
-    return { ok: blocked.length === 0 && !noWater, offMap: false, blocked, noWater };
+    return { ok: blocked.length === 0 && !noWater, offMap: false, blocked, noWater, notOpenWater };
   }
 
   /**
    * Why a `kind` building cannot be placed with its anchor at (tx, ty), in one
    * word for a preview, or null if it can: 'offMap', 'blocked' (water, a
-   * building or a road under its shape), or 'noWater' (the land is free but
-   * the kind must stand at the water's edge and no water is beside it).
+   * building or a road under its shape, or a dock not on water), 'noWater'
+   * (the land is free but the kind must stand at the water's edge and no
+   * water is beside it), or 'notOpenWater' (its docks are on water that does
+   * not reach the edge of the map).
    */
-  placeBlocker(tx: number, ty: number, kind: number): 'offMap' | 'blocked' | 'noWater' | null {
-    const c = this.checkPlacement(tx, ty, kind);
-    return c.ok ? null : c.offMap ? 'offMap' : c.blocked.length > 0 ? 'blocked' : 'noWater';
+  placeBlocker(tx: number, ty: number, kind: number, rot = 0): 'offMap' | 'blocked' | 'noWater' | 'notOpenWater' | null {
+    const c = this.checkPlacement(tx, ty, kind, rot);
+    return c.ok ? null : c.offMap ? 'offMap' : c.blocked.length > 0 ? 'blocked' : c.notOpenWater.length > 0 ? 'notOpenWater' : 'noWater';
   }
 
   /** Whether a `kind` building can be placed with its anchor at (tx, ty). See checkPlacement for the reason. */
-  canPlaceBuilding(tx: number, ty: number, kind: number): boolean {
-    return this.checkPlacement(tx, ty, kind).ok;
+  canPlaceBuilding(tx: number, ty: number, kind: number, rot = 0): boolean {
+    return this.checkPlacement(tx, ty, kind, rot).ok;
   }
 
-  /** Place a `b` building with its anchor at (tx, ty), on every tile of its shape. */
-  placeBuilding(tx: number, ty: number, b: number): boolean {
-    if (!this.canPlaceBuilding(tx, ty, b)) return false;
+  /** Place a `b` building with its anchor at (tx, ty), turned `rot` quarter turns, on every tile of its shape. */
+  placeBuilding(tx: number, ty: number, b: number, rot = 0): boolean {
+    rot &= 3;
+    if (!this.canPlaceBuilding(tx, ty, b, rot)) return false;
     const { width } = this.grid;
     const anchor = this.grid.idx(tx, ty);
-    for (const i of footprintTiles(width, this.grid.height, tx, ty, b)!) {
+    this.buildingRot[anchor] = rot;
+    for (const i of footprintTiles(width, this.grid.height, tx, ty, b, rot)!) {
       if (this.layers.roadClass[i] !== ROAD_NONE) this.roadNetDirty = true;
       this.layers.building[i] = b;
       this.layers.zone[i] = ZONE_NONE;
@@ -539,8 +573,13 @@ export class World {
       this.buildingId[i] = anchor + 1;
       this.grid.markDirty(i % width, (i - (i % width)) / width);
     }
-    this.buildings.push({ tx, ty, kind: b });
+    this.buildings.push(rot ? { tx, ty, kind: b, rot } : { tx, ty, kind: b });
     return true;
+  }
+
+  /** The rotation (0–3) of the building anchored at tile index `anchor`; 0 if none. An array read. */
+  buildingRotAt(anchor: number): number {
+    return anchor >= 0 ? this.buildingRot[anchor] : 0;
   }
 
   /** Index of the anchor tile of the building that tile `i` is part of, or -1 if there is no building there. An array read. */
@@ -572,8 +611,15 @@ export class World {
     const anchor = this.buildingAnchorAt(i);
     if (anchor < 0) return [];
     const { width, height } = this.grid;
-    const tiles = footprintTiles(width, height, anchor % width, (anchor - (anchor % width)) / width, this.layers.building[anchor]);
+    const tiles = footprintTiles(width, height, anchor % width, (anchor - (anchor % width)) / width, this.layers.building[anchor], this.buildingRot[anchor]);
     return tiles && tiles.includes(i) ? tiles : [i];
+  }
+
+  /** The role of (tx, ty) in its building's shape ('body' on land, 'dock' on water), or null if there is no building there. */
+  buildingPartRoleAt(tx: number, ty: number): PartRole | null {
+    const part = this.buildingPartAt(tx, ty);
+    if (part < 0) return null;
+    return shapeRoles(this.layers.building[this.grid.idx(tx, ty)])[part] ?? 'body';
   }
 
   /**
@@ -591,9 +637,12 @@ export class World {
   rebuildBuildingIds(): void {
     const { width, height } = this.grid;
     this.buildingId.fill(0);
+    this.buildingRot.fill(0);
     for (const b of this.buildings) {
       const anchor = b.ty * width + b.tx;
-      const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind) ?? [anchor];
+      const rot = (b.rot ?? 0) & 3;
+      this.buildingRot[anchor] = rot;
+      const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, rot) ?? [anchor];
       for (const i of tiles) this.buildingId[i] = anchor + 1;
     }
   }
@@ -637,6 +686,7 @@ export class World {
         this.grid.markDirty(i % width, (i - (i % width)) / width);
       }
       this.buildings = this.buildings.filter(b => !(b.tx === ax && b.ty === ay));
+      this.buildingRot[anchor] = 0;
       return true;
     }
     const i = this.grid.idx(tx, ty);

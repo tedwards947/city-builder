@@ -406,7 +406,7 @@ describe("a kind that must stand at the water's edge", () => {
   it('is refused away from water, with the reason', () => {
     expect(w.placeBlocker(4, 5, PUMP)).toBe('noWater');
     expect(w.placeBlocker(7, 5, PUMP)).toBe('noWater');            // one tile short of the bank
-    expect(w.checkPlacement(4, 5, PUMP)).toEqual({ ok: false, offMap: false, blocked: [], noWater: true });
+    expect(w.checkPlacement(4, 5, PUMP)).toEqual({ ok: false, offMap: false, blocked: [], noWater: true, notOpenWater: [] });
     expect(w.canPlaceBuilding(4, 5, PUMP)).toBe(false);
     expect(w.placeBuilding(4, 5, PUMP)).toBe(false);
     expect(w.buildings).toEqual([]);
