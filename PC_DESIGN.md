@@ -21,7 +21,7 @@ Political Capital (PC) is a dead mechanic right now. It has one way to earn it (
 ## Ways to spend PC
 | Item | How it works |
 |---|---|
-| **Displacement** (existing) | Bulldozing or rezoning occupied homes costs PC for each resident displaced. |
+| **Displacement** (existing) | Bulldozing or rezoning occupied homes (or building roads or buildings over them) costs PC for each resident displaced. The cost scales with the cap, like regeneration and ordinance upkeep, so a tower costs the same share of the cap at every city size (owner decision 2026-11-17; the factor is exactly 1 at the shipped numbers). |
 | **Unpopular buildings near homes** | Industrial zones, sewage plants and power plants (airports later) cost PC based on the residents within a radius, with less cost the further away they live. In empty land they cost only money. Building homes next to an existing nuisance costs nothing. Only homes complain. |
 | **Big projects** | A flat PC cost on top of money and any nearby-homes cost. *Deferred: a `pcCost` field at 0 for now; stadium, airport and landmarks need multi-tile buildings first.* |
 | **Closing services** | See "One rule for services" below. |
