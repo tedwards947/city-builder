@@ -15,6 +15,11 @@ import { VibeSystem } from '../sim/systems/VibeSystem';
 import { decodeSaveFile, encodeSaveFile } from '../persistence/SaveFile';
 import { deserialize, serialize } from '../persistence/Serializer';
 import { BALANCE } from '../data/balance';
+import {
+  ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
+  BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
+  BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
+} from '../sim/constants';
 
 /** A city from the text of a .citysave.json file, as the Load panel reads it. Throws a readable Error if the text is no good. */
 export function loadCityText(text: string): World {
@@ -73,8 +78,11 @@ export interface CityStats {
 }
 
 const BUILDING_NAMES: Record<number, string> = {
-  1: 'power', 2: 'water', 3: 'sewage', 4: 'police', 5: 'fire', 6: 'school', 7: 'hospital', 8: 'park',
+  [BUILDING_POWER_PLANT]: 'power', [BUILDING_WATER_TOWER]: 'water', [BUILDING_SEWAGE_PLANT]: 'sewage',
+  [BUILDING_POLICE]: 'police', [BUILDING_FIRE]: 'fire', [BUILDING_SCHOOL]: 'school',
+  [BUILDING_HOSPITAL]: 'hospital', [BUILDING_PARK]: 'park',
 };
+const ZONE_NAMES: Record<number, 'R' | 'C' | 'I'> = { [ZONE_R]: 'R', [ZONE_C]: 'C', [ZONE_I]: 'I' };
 
 /** A one-glance summary of a city, for logs and tests. Reads the layers; changes nothing. */
 export function cityStats(world: World): CityStats {
@@ -86,14 +94,14 @@ export function cityStats(world: World): CityStats {
   };
   const roadTiles = { street: 0, avenue: 0, highway: 0 };
   for (let i = 0; i < L.zone.length; i++) {
-    const z = L.zone[i];
-    if (z >= 1 && z <= 3) {
-      const e = zones[(['R', 'C', 'I'] as const)[z - 1]];
+    const name = ZONE_NAMES[L.zone[i]];
+    if (name) {
+      const e = zones[name];
       e.tiles++;
       if (L.abandoned[i]) e.abandoned++; else e.levels[L.devLevel[i]]++;
     }
     const r = L.roadClass[i];
-    if (r === 1) roadTiles.street++; else if (r === 2) roadTiles.avenue++; else if (r === 3) roadTiles.highway++;
+    if (r === ROAD_STREET) roadTiles.street++; else if (r === ROAD_AVENUE) roadTiles.avenue++; else if (r === ROAD_HIGHWAY) roadTiles.highway++;
   }
   const buildings: Record<string, number> = {};
   for (const b of world.buildings) { const n = BUILDING_NAMES[b.kind] ?? `kind${b.kind}`; buildings[n] = (buildings[n] ?? 0) + 1; }
