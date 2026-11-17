@@ -126,21 +126,7 @@ export function drawBigStandIn(
       ctx.beginPath(); ctx.ellipse(cx, cy - rise, r * 0.6, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
     }
   } else if (style === 'water') {
-    // The intake: a pipe from the middle of the plant out into the water tile beside it.
-    if (water) {
-      const wx = X(water.x) + tile / 2, wy = Y(water.y) + tile / 2;
-      // Leave the footprint through the edge the water tile sits against.
-      const ex = Math.max(L, Math.min(L + W, wx)), ey = Math.max(T, Math.min(T + H, wy));
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#5a6670'; ctx.lineWidth = Math.max(2, tile * 0.2);
-      ctx.beginPath(); ctx.moveTo(L + W / 2, T + H / 2); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.stroke();
-      ctx.strokeStyle = '#8fa0ac'; ctx.lineWidth = Math.max(1, tile * 0.09);
-      ctx.stroke();
-      // Ripples where it goes under.
-      const pulse = (t * 0.6) % 1;
-      ctx.strokeStyle = `rgba(255,255,255,${(0.5 * (1 - pulse)).toFixed(3)})`; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(wx, wy, tile * (0.12 + 0.25 * pulse), tile * (0.08 + 0.17 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
-    }
+    if (water) drawIntake(ctx, L, T, W, H, tile, X(water.x) + tile / 2, Y(water.y) + tile / 2, t, true);
     // Two round tanks and a pump house.
     for (const [fx, fy] of [[0.3, 0.36], [0.68, 0.6]] as const) {
       drum(ctx, L + W * fx, T + H * fy, W * 0.2, H * 0.12, '#8fc3dc', '#5f93ad');
@@ -161,6 +147,59 @@ export function drawBigStandIn(
       ctx.beginPath(); ctx.moveTo(cx - Math.cos(a) * r * 0.82, cy - Math.sin(a) * r * 0.65); ctx.lineTo(cx + Math.cos(a) * r * 0.82, cy + Math.sin(a) * r * 0.65); ctx.stroke();
     }
     box3d(ctx, L + W * 0.12, T + H * 0.7, W * 0.2, H * 0.16, H * 0.1, '#d8d2c6', '#a59d8e');
+  }
+}
+
+/**
+ * The pump's intake: a pipe from the plant out into the water tile beside it,
+ * with ripples where it goes under. (L, T, W, H) is the footprint on screen,
+ * (wx, wy) the middle of the water tile. `fromMiddle` starts the pipe at the
+ * plant's centre (the stand-in); otherwise it comes out from under the slab's edge.
+ */
+export function drawIntake(
+  ctx: CanvasRenderingContext2D, L: number, T: number, W: number, H: number, tile: number,
+  wx: number, wy: number, t: number, fromMiddle: boolean, dark = '#5a6670', light = '#8fa0ac',
+): void {
+  // Leave the footprint through the edge the water tile sits against.
+  const ex = Math.max(L, Math.min(L + W, wx)), ey = Math.max(T, Math.min(T + H, wy));
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = dark; ctx.lineWidth = Math.max(2, tile * 0.2);
+  ctx.beginPath();
+  if (fromMiddle) { ctx.moveTo(L + W / 2, T + H / 2); ctx.lineTo(ex, ey); } else ctx.moveTo(ex, ey);
+  ctx.lineTo(wx, wy); ctx.stroke();
+  ctx.strokeStyle = light; ctx.lineWidth = Math.max(1, tile * 0.09);
+  ctx.stroke();
+  const pulse = (t * 0.6) % 1;
+  ctx.strokeStyle = `rgba(255,255,255,${(0.5 * (1 - pulse)).toFixed(3)})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(wx, wy, tile * (0.12 + 0.25 * pulse), tile * (0.08 + 0.17 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
+}
+
+/** Settling pools in the large sewage plant's art, as fractions of its plot: [centre x, centre y, radius x, radius y, turn]. */
+const SEWAGE_POOLS = [[0.282, 0.683, 0.14, 0.1, 1], [0.748, 0.683, 0.14, 0.1, -1]] as const;
+
+/**
+ * What moves on a big building's art, drawn by code over the sprite: the
+ * sewage plant's skimmer arms and the pump's intake pipe. Smoke and steam go
+ * through the sprite's emitters (ClaySprites.ts). Stepped to 10 fps like them.
+ */
+export function drawBigArtExtras(
+  ctx: CanvasRenderingContext2D, kind: number, L: number, T: number, W: number, H: number, tile: number,
+  t: number, waterX: number | null, waterY: number | null,
+): void {
+  const ts = Math.floor(t * 10) / 10;
+  if (kind === BUILDING_LARGE_SEWAGE_PLANT && tile >= 8) {
+    ctx.lineCap = 'round';
+    for (const [fx, fy, rx, ry, turn] of SEWAGE_POOLS) {
+      const cx = L + W * fx, cy = T + H * fy, a = ts * 0.4 * turn + fx * 5;
+      const dx = Math.cos(a) * W * rx, dy = Math.sin(a) * H * ry;
+      ctx.strokeStyle = 'rgba(40,36,28,0.35)'; ctx.lineWidth = Math.max(1, tile * 0.07);
+      ctx.beginPath(); ctx.moveTo(cx - dx, cy - dy + tile * 0.03); ctx.lineTo(cx + dx, cy + dy + tile * 0.03); ctx.stroke();
+      ctx.strokeStyle = '#cfc8ba'; ctx.lineWidth = Math.max(1, tile * 0.05);
+      ctx.beginPath(); ctx.moveTo(cx - dx, cy - dy); ctx.lineTo(cx + dx, cy + dy); ctx.stroke();
+    }
+  }
+  if (kind === BUILDING_LARGE_WATER_PLANT && waterX !== null && waterY !== null) {
+    drawIntake(ctx, L, T, W, H, tile, waterX, waterY, t, false, '#1f5fb0', '#4f95e6');
   }
 }
 
