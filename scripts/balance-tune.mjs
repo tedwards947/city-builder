@@ -6,7 +6,7 @@
 //
 // Options:
 //   --start A|B|C|D      variant to start from (default B)
-//   --budget 150         evaluations (each one is the PC suite on the fresh town)
+//   --budget 900         evaluations (each one is the PC suite on the fresh town; a round is 42, so ~20 rounds; ~50 min with 9 workers)
 //   --days 300           game days per run
 //   --workers N          parallel processes (scripts/balance-pool.mjs; default cores − 1, max 8; 1 = this process)
 //   --saves              also score every candidate on testcity1 and cities/gen-*-t10000 (slower, better)
@@ -48,7 +48,7 @@ try {
   const evaluateMany = pool ? (trees) => pool.evaluateAll(trees) : localEvaluator(cities, days);
   const t0 = Date.now();
   console.log(`cities: ${cities.map((c) => c.id).join(', ')}; ${pool ? 'pool' : 'one process'}`);
-  const r = await tune(start, evaluateMany, { budget: Number(opt('--budget') ?? 150), log: (l) => console.log(l) });
+  const r = await tune(start, evaluateMany, { budget: Number(opt('--budget') ?? 900), log: (l) => console.log(l) });
   const result = {
     schema: 'city-builder/balance-tune@2',
     generatedAt: new Date().toISOString(),
