@@ -3,10 +3,11 @@
 // seat.
 //
 // The rule is a pure function of the map, with nothing saved:
-//   - every (home, building) pair in reach is listed and sorted by road
-//     distance, then home tile, then building tile;
-//   - going down the list, a home not yet seated takes a seat at the building
-//     if the building has room for the whole home.
+//   - every (home, building) pair in reach is taken in order of road
+//     distance, then building (by its anchor tile), then the order the
+//     building's road walk reaches the home;
+//   - going down that order, a home not yet seated takes a seat at the
+//     building if the building has room for the whole home.
 // So a home goes to its nearest building with room, overflow falls to the next
 // nearest by itself, and the result does not depend on the order things were
 // built in. When homes near a full building grow, the farthest seated homes
@@ -91,57 +92,80 @@ export function nothingIsFull(world: World, reaches: readonly BuildingReach[], c
 }
 
 /**
+ * The seating itself, without allocating per home. `seatAt` (one entry per
+ * tile, filled with −1 by the caller) comes back holding, for every occupied
+ * home in reach: the index into `reaches` of the building it is seated at,
+ * or −2 if it has no seat. `seated` (one entry per building) comes back with
+ * the residents seated at each. Returns how many homes were left without a seat.
+ *
+ * Each reach must list its tiles nearest first (as the road walk gives them),
+ * so the order "distance, then building, then walk order" is had by taking
+ * each building's tiles one distance at a time: no sorting.
+ */
+export function seatHomes(
+  world: World, reaches: readonly BuildingReach[], capacity: number, seatAt: Int32Array, seated: Float64Array,
+): number {
+  const nB = reaches.length;
+  seated.fill(0);
+  if (nB === 0) return 0;
+  // Buildings are taken by anchor tile so the order they were built in cannot matter.
+  const byAnchor = reaches.map((_, k) => k).sort((x, y) => reaches[x].anchor - reaches[y].anchor);
+  const { zone, devLevel, abandoned } = world.layers;
+  const popPerLevel = BALANCE.growth.popPerLevel;
+  const room = capacity > 0 ? capacity : Infinity;
+  const next = new Int32Array(nB);
+  let unseated = 0;
+  for (let d = 0, open = nB; open > 0; d++) {
+    open = 0;
+    for (let r = 0; r < nB; r++) {
+      const b = byAnchor[r];
+      const tiles = reaches[b].tiles, dist = reaches[b].dist, len = tiles.length;
+      let k = next[b];
+      while (k < len && dist[k] <= d) {
+        const i = tiles[k++];
+        const at = seatAt[i];
+        if (at >= 0) continue;
+        if (zone[i] !== ZONE_R || devLevel[i] === 0 || abandoned[i] !== 0) continue;
+        const pop = popPerLevel[devLevel[i]] ?? 0;
+        if (pop === 0) continue;
+        if (seated[b] + pop > room) {
+          if (at === -1) { seatAt[i] = -2; unseated++; }
+          continue;
+        }
+        seated[b] += pop;
+        seatAt[i] = b;
+        if (at === -2) unseated--;
+      }
+      next[b] = k;
+      if (k < len) open++;
+    }
+  }
+  return unseated;
+}
+
+/**
  * Seat the city's homes at these buildings (all of one kind), each serving up
  * to `capacity` residents (0 = no limit). See the top of the file for the rule.
  */
 export function assignSeats(world: World, reaches: readonly BuildingReach[], capacity: number): Seating {
   const nB = reaches.length;
-  const nTiles = world.grid.width * world.grid.height;
   const seated = new Float64Array(nB);
   const inReachUnseated = new Float64Array(nB);
   const seatOf = new Map<number, number>();
   const full = new Set<number>();
   if (nB === 0) return { seated, inReachUnseated, seatOf, full };
 
-  // One sortable number per (home, building) pair: distance, then home tile, then building tile.
-  // Buildings are ranked by anchor tile so the order they were built in cannot matter.
-  const byAnchor = reaches.map((_, b) => b).sort((a, b) => reaches[a].anchor - reaches[b].anchor);
-  let pairs = 0;
-  for (const r of reaches) pairs += r.tiles.length;
-  const keys = new Float64Array(pairs);
-  let n = 0;
-  for (let rank = 0; rank < nB; rank++) {
-    const r = reaches[byAnchor[rank]];
-    for (let k = 0; k < r.tiles.length; k++) {
-      const i = r.tiles[k];
-      if (homeResidents(world, i) === 0) continue;
-      keys[n++] = (r.dist[k] * nTiles + i) * nB + rank;
-    }
-  }
-  const sorted = keys.subarray(0, n).sort();
-
-  const room = capacity > 0 ? capacity : Infinity;
-  for (let k = 0; k < n; k++) {
-    const key = sorted[k];
-    const rank = key % nB;
-    const i = ((key - rank) / nB) % nTiles;
-    if (seatOf.has(i)) continue;
-    const b = byAnchor[rank];
-    const pop = homeResidents(world, i);
-    if (seated[b] + pop > room) continue;
-    seated[b] += pop;
-    seatOf.set(i, b);
-  }
-  if (seatOf.size < n) {
-    // Someone may be without a seat: find them, and count them against each building that reaches them.
-    for (let b = 0; b < nB; b++) {
-      const r = reaches[b];
-      for (let k = 0; k < r.tiles.length; k++) {
-        const i = r.tiles[k];
-        const pop = homeResidents(world, i);
-        if (pop === 0 || seatOf.has(i)) continue;
+  const seatAt = new Int32Array(world.grid.width * world.grid.height).fill(-1);
+  seatHomes(world, reaches, capacity, seatAt, seated);
+  for (let b = 0; b < nB; b++) {
+    const tiles = reaches[b].tiles;
+    for (let k = 0; k < tiles.length; k++) {
+      const i = tiles[k], at = seatAt[i];
+      if (at === b) seatOf.set(i, b);
+      else if (at === -2) {
+        // No seat anywhere: counted against each building that reaches the home.
         full.add(i);
-        inReachUnseated[b] += pop;
+        inReachUnseated[b] += homeResidents(world, i);
       }
     }
   }
