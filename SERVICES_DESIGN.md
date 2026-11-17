@@ -18,17 +18,18 @@ For comparison, SimCity Classic had only police and fire to place. Their influen
 With capacity, **schools and hospitals scale with population**: you add one when the existing ones are full, not when you sprawl.
 
 ## How capacity works (cheap, no traffic)
-- Coverage is already worked out along roads and cached, and only recalculated when roads or buildings change. Capacity is added in that same recalculation.
-- Each developed home (residents = its population) is assigned to the nearest building of the kind that has it in reach and still has seats. If none has seats, the home isn't covered by that kind.
-- The cost is about the same as today, with no per-tick routing and no feedback into traffic.
+- **Road walks** (which tiles each building reaches, and at what distance) stay cached and are only redone when roads or buildings change, as today. The walk also returns distances.
+- **Seat assignment** depends on where residents are, so it's redone once per game day, plus whenever roads or buildings change. It is not done every tick. Cost: about (homes in reach × buildings reaching them), sorted, so a few ms for a large city once a day. No traffic involvement.
+- **Overflow rule** (engine's proposal), a pure function of the map with nothing saved: list every (home, building) pair in reach, sort by road distance, then home tile, then building tile, and seat each home whole at the first building with room. Overflow falls to the next nearest building by itself, and the result doesn't depend on build order or save/load. To accept: when homes near a full school grow, the farthest seated homes lose their seats. No "keep my seat" stickiness, because it would need saving and make identical cities behave differently.
 - **Not chosen:** making schools and hospitals destinations in the traffic system. It's more realistic, but it adds traffic passes, risks routing feedback loops, and is harder to balance (owner and PM agreed).
-- Open: whether a full building's overflow should fall to the next nearest one (yes, probably) and how the ordering stays stable.
+- Engine's feasibility note: about 2 PRs. PR 1 ships with capacity effectively unlimited, so the layers and the golden baseline are identical; the numbers PR moves the baseline on purpose.
 
 ## What it touches
 - **Coverage layers** for school and hospital: a home is covered only if it was assigned a seat. Downstream (education's land value and tax effect, health, satisfaction) works unchanged.
-- **PC service rule** (ribbon cuttings and closures): value = residents newly seated or unseated. Closing a full hospital in a one-hospital city should hurt. The per-resident numbers need a re-run.
-- **Requests:** school and hospital requests become "residents here have no seat", met when a seat reaches them. The road-shaped clusters still fit. Engine re-runs the variant numbers.
-- **UI:** coverage preview and inspect pane show capacity ("1,640 / 2,000 seats"); a "full" state; the quest log and badge hover use it. Graphics will want a mock page with a feedback form, as before.
+- **PC service rule** (ribbon cuttings and closures): value = residents newly seated or unseated (a what-if assignment with and without the building). Schools and hospitals drop the repeat discount: a second school over already-seated homes earns 0, and one that relieves a full school earns for the overflow it seats. Residents who re-seat elsewhere cost nothing on closure, so moving stays cheap, while closing the only hospital costs the whole city. The per-resident numbers must be redone, because one hospital will seat thousands.
+- **Requests:** the need test ("home has no seat") works unchanged. Quest text needs separate "full" and "out of reach" wording, which requestProgress can report. Engine re-runs the variant numbers.
+- **Satisfaction:** its services factor counts a home as covered if ANY service reaches it, so capacity barely moves it. Whether full schools or hospitals should hurt satisfaction (a new factor) is an open question.
+- **UI:** engine exposes, per building, {capacity, seated, inReachUnseated}, and per home, {seatedAt or none, reason: outOfReach | full}. The coverage preview and inspect pane show capacity ("1,640 / 2,000 seats"); a "full" state; the quest log and badge hover use it. Graphics will want a mock page with a feedback form, as before.
 - **Save:** capacity is derived, so nothing new needs saving unless overflow ordering needs it.
 
 ## Funding sliders (part a): plan only, for the economy pass
@@ -42,8 +43,9 @@ With capacity, **schools and hospitals scale with population**: you add one when
 3. **Economy pass:** ENGINEER 3's upkeep and tax recommendations, debt behaviour, then the funding sliders, using the Economy debug panel presets. Each step with a dry run, then a play-test.
 
 ## Open questions
-1. Starting capacities and reaches per kind, from a dry run.
-2. Overflow behaviour and ordering when buildings are full.
-3. Should police and fire move to a fading radius like SimCity Classic, or stay road-based with larger reach? (Road-based keeps one rule everywhere.)
-4. Tiers (clinic vs hospital, primary vs high school): later, if ever.
-5. What funding sliders reduce (capacity/quality vs reach): decide in the economy pass.
+1. Starting capacities and reaches per kind, from ENGINEER 3's dry run. Size capacities against real city populations (homes hold 4/10/20 residents, so a 2,000-seat school is 100+ full homes), or capacity never binds.
+2. Hospitals: say "reach = anywhere connected by road", so capacity is the only thing the player thinks about? (Engine's suggestion; a 30+ reach is effectively that already.)
+3. Police and fire stay road-based with larger reach (engine and PM recommend one rule everywhere; the preview, PC rule and requests all assume it), or move to a fading radius like SimCity Classic?
+4. Should full schools or hospitals hurt satisfaction (a new satisfaction factor)?
+5. Tiers (clinic vs hospital, primary vs high school): later, if ever.
+6. What funding sliders reduce: decide in the economy pass. Engine notes capacity is nearly free to scale (one multiplier), while scaling reach moves coverage edges.
