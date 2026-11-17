@@ -21,6 +21,11 @@ export class Recorder {
   /** Requests the player answered with a building, and those of them later met. */
   readonly answered = new Set<number>();
   answeredMet = 0;
+  /** utilities / trafficJam requests the player answered (plants, avenues): not part of answered, which pc.request.one grades. */
+  readonly answeredOther = new Set<number>();
+  /** Coverage requests the player skipped as clearly unmeetable (no free lot could serve half the asking homes), and how many of them then failed. */
+  readonly skipped = new Set<number>();
+  skippedFailed = 0;
   /** First day the city has at least one police, fire, school and hospital (null = not yet). */
   allServicesDay: number | null = null;
   private regenToday = 0;
@@ -33,6 +38,7 @@ export class Recorder {
       if (p.reason === 'milestone') this.milestoneRatios.push((p.delta as number) / pcCap(world));
     });
     world.events.on('requestMet', p => { if (this.answered.has(p.id as number)) this.answeredMet++; });
+    world.events.on('requestFailed', p => { if (this.skipped.has(p.id as number)) this.skippedFailed++; });
     for (const ev of ['requestOpened', 'requestMet', 'requestFailed'] as const) {
       const into = ev === 'requestOpened' ? this.requests.opened : ev === 'requestMet' ? this.requests.met : this.requests.failed;
       world.events.on(ev, p => { const k = p.kind as string; into[k] = (into[k] ?? 0) + 1; });

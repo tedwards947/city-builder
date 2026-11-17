@@ -4,13 +4,14 @@
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { coveredBy, homesWithinReach } from '../sim/serviceValue';
+import { trafficVolume, roadCapacity } from '../sim/TrafficData';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import type { Recorder } from './recorder';
 import type { Sim } from './world';
 import {
-  ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, BUILDING_NONE,
+  ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_NONE,
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
@@ -20,6 +21,8 @@ export const KIND_NAME: Record<number, string> = {
   [BUILDING_POLICE]: 'police', [BUILDING_FIRE]: 'fire', [BUILDING_SCHOOL]: 'school', [BUILDING_HOSPITAL]: 'hospital', [BUILDING_PARK]: 'park',
   [BUILDING_POWER_PLANT]: 'power', [BUILDING_WATER_TOWER]: 'water', [BUILDING_SEWAGE_PLANT]: 'sewage',
 };
+/** Request kinds the request-chaser answers: the coverage kinds (one building each), plus utilities and trafficJam. */
+export const CHASER_KINDS = ['park', 'police', 'fire', 'school', 'hospital', 'utilities', 'trafficJam'];
 export const REQUEST_BUILDING: Record<string, number> = {
   park: BUILDING_PARK, police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL, hospital: BUILDING_HOSPITAL,
 };
@@ -109,10 +112,13 @@ export function serveLacking(sim: Sim, rec: Recorder, kind: number, tag = KIND_N
 }
 
 /** Answer a request with one building of its kind on the free lot within 10 tiles that serves the most asking homes (the request-chaser's move). */
-export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' | 'noLot' | 'gone' {
+export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' | 'noLot' | 'skipped' | 'gone' {
   const w = sim.world, W = w.grid.width;
   const r = w.politics.requests.find(q => q.id === reqId) as ({ kind: string; seed?: number; x0: number; y0: number; x1: number; y1: number } | undefined);
-  if (!r || REQUEST_BUILDING[r.kind] === undefined) return 'gone';
+  if (!r) return 'gone';
+  if (r.kind === 'utilities') return answerUtilities(sim, rec, reqId);
+  if (r.kind === 'trafficJam') return answerTraffic(sim, rec, reqId, r);
+  if (REQUEST_BUILDING[r.kind] === undefined) return 'gone';
   const x = r.seed !== undefined ? r.seed % W : (r.x0 + r.x1) / 2, y = r.seed !== undefined ? Math.floor(r.seed / W) : (r.y0 + r.y1) / 2;
   const kind = REQUEST_BUILDING[r.kind];
   // Free lots within 10 tiles, best first: the share of the asking homes a building there would serve, then nearness.
@@ -125,12 +131,41 @@ export function answerRequest(sim: Sim, rec: Recorder, reqId: number): 'placed' 
   }
   if (!lots.length) return 'noLot';
   lots.sort((a, b) => b.n - a.n || a.d - b.d || a.y - b.y || a.x - b.x);
+  // Clearly unmeetable: no free lot serves half the asking homes (the met rule needs the gap at least halved).
+  // A sensible player skips it rather than demolish homes (owner, 2026-11-17).
+  if (asking.size && lots[0].n * 2 < asking.size) { rec.skipped.add(reqId); return 'skipped'; }
   for (const lot of lots.slice(0, 30)) {
     const cmd = new PlaceBuildingCommand(lot.x, lot.y, kind);
     if (rec.run(sim.history, cmd, 'request:' + r.kind)) { rec.answered.add(reqId); return 'placed'; }
     if (cmd.failReason) return 'refused';
   }
   return 'refused';
+}
+
+/** A utilities request (a power or water shortage): build what is short, beside an existing plant of that kind, else beside the homes. */
+function answerUtilities(sim: Sim, rec: Recorder, reqId: number): 'placed' | 'refused' {
+  const w = sim.world, s = w.stats;
+  let placed = false;
+  for (const [kind, short] of [[BUILDING_POWER_PLANT, s.powerSupply < s.powerDemand], [BUILDING_WATER_TOWER, s.waterSupply < s.waterDemand]] as [number, boolean][]) {
+    if (!short) continue;
+    const at = w.buildings.find(b => b.kind === kind) ?? (() => { const i = w.layers.zone.findIndex((_, k) => isHome(w, k)); return i < 0 ? null : { tx: i % w.grid.width, ty: Math.floor(i / w.grid.width) }; })();
+    if (at && placeNear(sim, rec, kind, at.tx, at.ty, 12, 'request:utilities')) placed = true;
+  }
+  if (placed) rec.answeredOther.add(reqId);
+  return placed ? 'placed' : 'refused';
+}
+
+/** A traffic-jam request: upgrade every over-capacity street in and around the area to an avenue. */
+function answerTraffic(sim: Sim, rec: Recorder, reqId: number, a: { x0: number; y0: number; x1: number; y1: number }): 'placed' | 'refused' {
+  const w = sim.world, { width: W, height: H } = w.grid, t = w.traffic;
+  if (!t) return 'refused';
+  let n = 0;
+  for (let y = Math.max(0, a.y0 - 2); y <= Math.min(H - 1, a.y1 + 2); y++) for (let x = Math.max(0, a.x0 - 2); x <= Math.min(W - 1, a.x1 + 2); x++) {
+    const i = y * W + x, rc = w.layers.roadClass[i];
+    if (rc === ROAD_STREET && trafficVolume(t, i) > roadCapacity(rc) && rec.run(sim.history, new BuildRoadCommand(x, y, ROAD_AVENUE), 'request:trafficJam')) n++;
+  }
+  if (n) rec.answeredOther.add(reqId);
+  return n ? 'placed' : 'refused';
 }
 
 export interface TownOptions {

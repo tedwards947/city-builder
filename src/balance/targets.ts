@@ -113,17 +113,20 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
       const pass = seq.every((e, k) => k === 0 || seq[k - 1][1] > e[1]);
       return { value: Object.fromEntries(seq.map(([p, v]) => [p, r3(v)])), pass, miss: pass ? 0 : 1 };
     } },
-  { id: 'pc.earned.share', metric: 'Share of PC earned from one-off bonuses (ribbon cuttings, milestones, requests, blight) vs passive regeneration', target: '≥ 50%', persona: 'planner, chaser', cities: 'all', status: 'graded',
-    why: 'Rule 3: earned bonuses matter more than passive regeneration.',
-    evaluate: c => { const p: Record<string, Outcome> = {}; for (const k of ['planner', 'chaser']) if (c.runs[k]) p[k] = range(earnedShare(c.runs[k]), 0.5); return all(p); } },
+  { id: 'pc.earned.share', metric: 'Share of PC earned from one-off bonuses (ribbon cuttings, milestones, requests, blight) vs passive regeneration', target: '≥ 50%', persona: 'planner, chaser', cities: 'fresh', status: 'graded',
+    why: 'Rule 3: earned bonuses matter more than passive regeneration. Fresh cities only (owner, 2026-11-17): a mature city has no first ribbons or milestones left, so regeneration rightly dominates there.',
+    evaluate: c => { if (c.cityKind === 'save') return NA('fresh cities only'); const p: Record<string, Outcome> = {}; for (const k of ['planner', 'chaser']) if (c.runs[k]) p[k] = range(earnedShare(c.runs[k]), 0.5); return all(p); } },
   { id: 'pc.ribbon.first', metric: 'First school / hospital / police opened near the middle of the homes (none of its kind left) ÷ cap', target: '0.05–0.15 each', persona: 'probe', cities: 'all', status: 'graded',
     why: 'A ribbon cutting should feel worth having.',
     evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => [k, range((c.probes?.['ribbon:' + k] as { first?: number } | undefined)?.first, 0.05, 0.15)]))) },
-  { id: 'pc.ribbon.second', metric: 'A second building about 6 tiles away: its reward ÷ the first one\'s', target: '≤ 0.5 each', persona: 'probe', cities: 'all', status: 'graded',
-    why: 'Service rule: less value from each extra building of the same type.',
-    evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => [k, range((c.probes?.['ribbon:' + k] as { secondOverFirst?: number } | undefined)?.secondOverFirst, -Infinity, 0.5)]))) },
-  { id: 'pc.move', metric: 'Net PC to move a service (open the second, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
-    why: 'Moving a service is cheap.',
+  { id: 'pc.ribbon.second', metric: 'A second building of a kind: its pay per resident for homes the first already serves, and for homes only it serves, each ÷ the first building\'s pay per resident', target: 'overlap ≤ 0.5; new district ≥ 0.8, each kind', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-17): a second building should pay little only where it overlaps the first; one serving a new district should pay well.',
+    evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].flatMap(k => {
+      const p = c.probes?.['ribbon:' + k] as { overlapPay?: number | null; newPay?: number | null } | undefined;
+      return [[k + '.overlap', range(p?.overlapPay, -Infinity, 0.5)], [k + '.new', range(p?.newPay, 0.8)]];
+    }))) },
+  { id: 'pc.move', metric: 'Net PC to move a service (open a second on the free lot that serves most of the first one\'s homes, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Moving a service is cheap. The second site overlaps the first (owner, 2026-11-17), so the probe measures a move, not stranding homes.',
     evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => [k, range((c.probes?.['ribbon:' + k] as { moveNet?: number } | undefined)?.moveNet, -0.05)]))) },
   { id: 'pc.closure.lonely', metric: 'Closing the city\'s only hospital ÷ cap', target: '≥ 0.3', persona: 'probe', cities: 'all', status: 'graded',
     why: 'A closure should hurt.',
@@ -143,9 +146,15 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 95%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'Agreed dry-run goal.',
     evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.95), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
-  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
-    why: 'Requests should be doable.',
-    evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); const cov = coverageMetShare(r); return { ...range(metShare(r), 0.7), note: `coverage requests only: ${cov === null ? 'none' : Math.round(cov * 100) + '%'} (the chaser does not answer trafficJam / utilities)` }; } },
+  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets (coverage, utilities and traffic-jam requests; blight is not its job; leaving out ones it skips because no free lot could serve half the asking homes)', target: '≥ 70%', persona: 'chaser', cities: 'all', status: 'graded',
+    why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17).',
+    evaluate: c => {
+      const r = c.runs.chaser; if (!r) return NA('not run');
+      const pick = (o: Record<string, number>) => [...COVERAGE_KINDS, 'utilities', 'trafficJam'].reduce((a, k) => a + (o[k] ?? 0), 0);
+      const m = pick(r.requests.met), f = pick(r.requests.failed) - r.skippedFailed;
+      const cov = coverageMetShare(r);
+      return { ...range(m + f ? m / (m + f) : null, 0.7), note: `skipped as unmeetable: ${r.skipped}; coverage requests only: ${cov === null ? 'none' : Math.round(cov * 100) + '%'}` };
+    } },
   { id: 'pc.request.neglect', metric: 'Share of requests the Neglecter meets', target: '≤ 20%', persona: 'neglecter', cities: 'fresh', status: 'graded',
     why: 'A deadline should mean something.',
     evaluate: c => { const r = c.runs.neglecter; if (c.cityKind === 'save') return NA(NEGLECT_SAVE); if (!r) return NA('not run'); const s = metShare(r); return s === null ? NA('no request closed') : range(s, 0, 0.2); } },
