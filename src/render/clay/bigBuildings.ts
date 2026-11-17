@@ -74,11 +74,14 @@ function drum(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
 /**
  * The stand-in for a big building: an outline round its footprint and a few
  * clay shapes for what it is. `tiles` are its tiles; `X` and `Y` map a tile
- * corner to canvas pixels. `t` is seconds, for the little that moves.
+ * corner to canvas pixels. `t` is seconds, for the little that moves. `water`
+ * is a water tile beside the footprint, if the building draws from one: an
+ * intake pipe runs out to it.
  */
 export function drawBigStandIn(
   ctx: CanvasRenderingContext2D, kind: number, tiles: readonly TilePoint[],
   X: (tx: number) => number, Y: (ty: number) => number, t: number,
+  water: TilePoint | null = null,
 ): void {
   if (tiles.length === 0) return;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -123,6 +126,21 @@ export function drawBigStandIn(
       ctx.beginPath(); ctx.ellipse(cx, cy - rise, r * 0.6, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
     }
   } else if (style === 'water') {
+    // The intake: a pipe from the middle of the plant out into the water tile beside it.
+    if (water) {
+      const wx = X(water.x) + tile / 2, wy = Y(water.y) + tile / 2;
+      // Leave the footprint through the edge the water tile sits against.
+      const ex = Math.max(L, Math.min(L + W, wx)), ey = Math.max(T, Math.min(T + H, wy));
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#5a6670'; ctx.lineWidth = Math.max(2, tile * 0.2);
+      ctx.beginPath(); ctx.moveTo(L + W / 2, T + H / 2); ctx.lineTo(ex, ey); ctx.lineTo(wx, wy); ctx.stroke();
+      ctx.strokeStyle = '#8fa0ac'; ctx.lineWidth = Math.max(1, tile * 0.09);
+      ctx.stroke();
+      // Ripples where it goes under.
+      const pulse = (t * 0.6) % 1;
+      ctx.strokeStyle = `rgba(255,255,255,${(0.5 * (1 - pulse)).toFixed(3)})`; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(wx, wy, tile * (0.12 + 0.25 * pulse), tile * (0.08 + 0.17 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
+    }
     // Two round tanks and a pump house.
     for (const [fx, fy] of [[0.3, 0.36], [0.68, 0.6]] as const) {
       drum(ctx, L + W * fx, T + H * fy, W * 0.2, H * 0.12, '#8fc3dc', '#5f93ad');

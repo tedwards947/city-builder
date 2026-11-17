@@ -8,8 +8,9 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import { TERRAIN_WATER } from '../sim/constants';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
-import { isLargeBuilding } from '../sim/buildingShapes';
+import { isLargeBuilding, placementRules, footprintTiles, footprintEdge } from '../sim/buildingShapes';
 import { buildingKindForPlacing, placementAnchor } from '../input/InputController';
 import { shapeBox, shapeTiles, drawBigStandIn, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
@@ -404,11 +405,45 @@ export class CanvasRenderer {
     }
   }
 
+  /**
+   * The water's edge within reach of the pointer, as a bright line where water
+   * meets land: where a building that needs water can go. Stronger (and
+   * pulsing) while the spot under the pointer has no water beside it.
+   */
+  private _drawShoreHint(ctx: CanvasRenderingContext2D, world: World, at: { tx: number; ty: number }, X: (tx: number) => number, Y: (ty: number) => number, urgent: boolean): void {
+    const R = 18, terrain = world.layers.terrain, grid = world.grid;
+    const isWater = (x: number, y: number) => grid.inBounds(x, y) && terrain[grid.idx(x, y)] === TERRAIN_WATER;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = urgent ? 3 : 2;
+    ctx.strokeStyle = `rgba(120,220,255,${urgent ? 0.7 + 0.3 * Math.sin(performance.now() / 180) : 0.55})`;
+    ctx.beginPath();
+    for (let y = at.ty - R; y <= at.ty + R; y++) {
+      for (let x = at.tx - R; x <= at.tx + R; x++) {
+        if (!grid.inBounds(x, y) || isWater(x, y)) continue;      // from the land side
+        if (isWater(x, y - 1)) { ctx.moveTo(X(x), Y(y)); ctx.lineTo(X(x + 1), Y(y)); }
+        if (isWater(x, y + 1)) { ctx.moveTo(X(x), Y(y + 1)); ctx.lineTo(X(x + 1), Y(y + 1)); }
+        if (isWater(x - 1, y)) { ctx.moveTo(X(x), Y(y)); ctx.lineTo(X(x), Y(y + 1)); }
+        if (isWater(x + 1, y)) { ctx.moveTo(X(x + 1), Y(y)); ctx.lineTo(X(x + 1), Y(y + 1)); }
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   /** The code-drawn stand-in for a building on several tiles, anchored at tile index `anchor`. */
   private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
     const width = world.grid.width, ax = anchor % width, ay = (anchor - ax) / width;
+    // A building that stands at the water's edge (the pump) shows a pipe running into the water.
+    let water: { x: number; y: number } | null = null;
+    if (placementRules(kind).needsWaterEdge) {
+      const tiles = footprintTiles(width, world.grid.height, ax, ay, kind);
+      if (tiles) for (const i of footprintEdge(width, world.grid.height, tiles)) {
+        if (world.layers.terrain[i] === TERRAIN_WATER) { water = { x: i % width, y: (i - (i % width)) / width }; break; }
+      }
+    }
     drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay),
-      tx => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), ty => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), now * 0.001);
+      tx => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), ty => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), now * 0.001, water);
   }
 
   /**
@@ -744,11 +779,14 @@ export class CanvasRenderer {
       const a = placementAnchor(placing, hoverTile.tx, hoverTile.ty);
       const tiles = shapeTiles(placing, a.tx, a.ty);
       const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
-      const can = world.canPlaceBuilding(a.tx, a.ty, placing) && !refused;
+      const check = world.checkPlacement(a.tx, a.ty, placing);
+      const can = check.ok && !refused;
+      // A kind that must stand beside water (the pump): light up the shore near the pointer.
+      if (placementRules(placing).needsWaterEdge) this._drawShoreHint(ctx, world, hoverTile, X, Y, check.noWater);
       // Each tile says whether it is the problem: water, a building, a road, or off the map.
       for (const p of tiles) {
         if (!world.grid.inBounds(p.x, p.y)) continue;
-        const blocked = !world.isBuildable(p.x, p.y) || world.layers.roadClass[world.grid.idx(p.x, p.y)] !== ROAD_NONE;
+        const blocked = check.blocked.includes(world.grid.idx(p.x, p.y));
         ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : 'rgba(255,255,255,0.16)';
         ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
       }

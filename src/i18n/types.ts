@@ -127,6 +127,7 @@ export interface TranslationSchema {
       debtClearedMsg: string;
       cantBuildTitle: string;
       noFunds: string;
+      needsWater: string;
       noPoliticalCapital: string;
     };
     hud: {
@@ -138,6 +139,7 @@ export interface TranslationSchema {
       pcBonus: string;
       pcShort: string;
       noRoad: string;
+      needsWater: string;
       pcIntoDebt: string;
       pcInDebt: string;
       pcDebt: string;
