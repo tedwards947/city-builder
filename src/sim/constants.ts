@@ -28,6 +28,11 @@ export const BUILDING_FIRE     = 5;
 export const BUILDING_SCHOOL   = 6;
 export const BUILDING_HOSPITAL = 7;
 export const BUILDING_PARK     = 8;
+// Large utilities: several tiles each (shapes in sim/buildingShapes.ts).
+// Not offered by the toolbar outside ?debug=true until their numbers are set.
+export const BUILDING_LARGE_POWER_PLANT  = 9;   // 3×3
+export const BUILDING_LARGE_WATER_PLANT  = 10;  // 2×2
+export const BUILDING_LARGE_SEWAGE_PLANT = 11;  // 2×2
 
 
 // Vegetation layer

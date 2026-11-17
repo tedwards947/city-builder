@@ -1,7 +1,7 @@
 import type { World } from '../World';
 import {
   ZONE_R, ZONE_C, ZONE_I,
-  BUILDING_POWER_PLANT,
+  BUILDING_POWER_PLANT, BUILDING_LARGE_POWER_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -134,7 +134,7 @@ export class VibeSystem {
       } else if ([BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL].includes(kind)) {
         this._spatialNudge(world, tx, ty, 'vibeEgalitarian', n.egalitarian.serviceBuilt);
         this._spatialNudge(world, tx, ty, 'vibePlanned',     n.planned.serviceBuilt);
-      } else if (kind === BUILDING_POWER_PLANT) {
+      } else if (kind === BUILDING_POWER_PLANT || kind === BUILDING_LARGE_POWER_PLANT) {
         this._spatialNudge(world, tx, ty, 'vibeGreen', n.green.powerPlantBuilt);
       }
     });
