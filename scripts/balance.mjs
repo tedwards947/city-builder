@@ -27,6 +27,7 @@
 //   --city <file>            add a saved city (repeatable)
 //   --out <file>             where to write (default balance-results/latest.json)
 //   --summary-md <file>      also write a short markdown summary (e.g. a CI job summary)
+//   --tuned <file>           also grade an auto-tuner result (npm run balance:tune) as PC variant 'T'
 //
 // Exit code is 0 whatever the targets say: the lab reports, it doesn't gate.
 
@@ -55,6 +56,9 @@ args.forEach((a, k) => { if (a === '--city') saves.push({ id: basename(args[k + 
 const cities = [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }, ...saves.map((s) => ({ id: s.id, kind: 'save', text: readFileSync(s.path, 'utf8') }))];
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
 const previous = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : null;
+const tuned = opt('--tuned') ? JSON.parse(readFileSync(opt('--tuned'), 'utf8')) : null;
+const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D'];
+if (tuned && !variants.includes('T')) variants.push('T');
 
 let gitSha = null;
 try { gitSha = execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); } catch { /* not a git checkout */ }
@@ -65,7 +69,8 @@ try {
   const t0 = Date.now();
   const report = runLab({
     suites: opt('--suite') ? [opt('--suite')] : undefined,
-    variants: quick ? ['B'] : list(opt('--variants')),
+    variants,
+    customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,
     econPresets: quick ? ['recommended'] : list(opt('--presets')),
     pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
     personas: list(opt('--personas')),
