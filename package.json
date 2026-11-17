@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "node scripts/bench.mjs",
-    "gen-city": "node scripts/gen-city.mjs"
+    "gen-city": "node scripts/gen-city.mjs",
+    "balance": "node scripts/balance.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
