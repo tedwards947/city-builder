@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { BALANCE } from '../data/balance';
 import { PC_VARIANTS, applyValues } from '../ui/pcPresets';
+import { TUNED_T } from '../balance/tunedT';
 
 const PROPOSED_PC = PC_VARIANTS.find((v) => v.id === 'B')!.values;
 
@@ -21,6 +22,10 @@ describe('PC tuning presets', () => {
       for (const part of keyPath.split('.')) node = (node as Tree)?.[part];
       expect(node, path).not.toBeUndefined();
     }
+  });
+
+  it("uses the lab's tuned set for T, so the panel and the nightly grade the same numbers", () => {
+    expect(PC_VARIANTS.find((v) => v.id === 'T')!.values).toBe(TUNED_T);
   });
 
   it('applies values in place, keeping list identity', () => {
