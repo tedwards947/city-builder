@@ -63,6 +63,16 @@ export function pcCap(
 }
 
 /**
+ * The cap ÷ the base cap: how much bigger this city's PC scale is than a city
+ * at the base cap. Regeneration, ordinance upkeep and displacement costs are
+ * all multiplied by it, so each stays the same share of the cap at any size.
+ * Exactly 1 while the cap is the base cap (capPerResident 0, as shipped).
+ */
+export function capScale(world: World): number {
+  return pcCap(world) / BALANCE.politicalCapital.max;
+}
+
+/**
  * One game day of fade for PC banked above the cap: `overCapFadePerDay` of
  * the excess is lost, so a hoard shrinks toward the cap and never below it.
  * Rewards may still take PC over the cap; they just do not stay there for
@@ -231,12 +241,13 @@ export interface Disruption {
 }
 
 /**
- * PC charged per resident displaced from tile `i`, after any ordinance:
- * Eminent Domain scales it everywhere, Heritage Protection scales it for
- * established lots.
+ * PC charged per resident displaced from tile `i`: `bulldozePerPop` × the
+ * city's capScale (so a tower costs the same share of the cap at any size),
+ * then any ordinance: Eminent Domain scales it everywhere, Heritage
+ * Protection scales it for established lots.
  */
 function displacementPerResident(world: World, i: number): number {
-  let rate = BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * ordinanceModifier(world, 'displacementCost');
+  let rate = BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * capScale(world) * ordinanceModifier(world, 'displacementCost');
   const heritage = ordinanceModifier(world, 'establishedDemolitionCost');
   if (heritage !== 1 && isEstablished(world, i)) rate *= heritage;
   return rate;
