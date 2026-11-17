@@ -77,3 +77,17 @@ describe('footprintBand', () => {
     expect(band).toContainEqual({ x0: 0, y0: -2, x1: 3, y1: -2 });   // the top side sits 2 above the footprint
   });
 });
+
+describe('big building art', () => {
+  it('has a sprite per large plant whose plot is the whole footprint at 128px a tile', async () => {
+    const { CLAY_SPRITE_DATA } = await import('../render/clay/claySpriteData');
+    for (const [id, n] of [['power-large', 3], ['pump-large', 2], ['sewage-large', 2]] as const) {
+      const m = CLAY_SPRITE_DATA[id];
+      expect(m, id).toBeDefined();
+      expect(m.w).toBe(n * 128);
+      // Same margins as a one-tile sprite (101px plot in 128), scaled up.
+      expect((m.right - m.left + 1) / m.w).toBeGreaterThan(0.76);
+      expect((m.right - m.left + 1) / m.w).toBeLessThan(0.82);
+    }
+  });
+});

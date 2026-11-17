@@ -241,6 +241,81 @@ for (const f of readdirSync(RAW).filter((f) => f.endsWith('.png')).sort()) {
   writePng(join(OUT, f), small);
   manifest[f.replace(/\.png$/, '')] = { w: small.w, h: small.h, ...findPlot(small) };
 }
+
+// ── Big buildings (several tiles) ───────────────────────────────────────────
+// The owner's picks from raw-big/ (see bigplants.html). The plot covers n×n
+// tiles, so the game sprite is n×128px. Game output only.
+const BIG = [
+  { src: 'power-brutalist', id: 'power-large', n: 3 },
+  { src: 'pump-modern', id: 'pump-large', n: 2 },
+  { src: 'sewage-brutalist', id: 'sewage-large', n: 2 },
+];
+/** The game draws a plot this tall for its width (PLOT_ASPECT in ClaySprites.ts). */
+const PLOT_ASPECT = 0.905;
+
+// Tall buildings came back on a slab that is too short front to back. Grow the
+// slab backwards to the standard shape, behind whatever stands on it, with
+// slab texture taken from the clear strip along its front.
+function extendSlab(img) {
+  const { w, h, rgba } = img;
+  const p = findPlot(img), plotW = p.right - p.left + 1;
+  const wantTop = Math.round(p.bottom + 1 - plotW * PLOT_ASPECT);
+  const colTop = (x) => { for (let y = 0; y < h; y++) if (rgba[(y * w + x) * 4 + 3] > 128) return y; return h; };
+  const median = (from, to) => { const v = []; for (let x = from; x <= to; x++) v.push(colTop(x)); v.sort((a, b) => a - b); return v[v.length >> 1]; };
+  const inset = Math.round(plotW * 0.03), span = Math.round(plotW * 0.03);
+  // Something may overhang one side; the slab's own edge is the lower reading.
+  const top = Math.max(median(p.left + inset, p.left + inset + span), median(p.right - inset - span, p.right - inset));
+  if (top - wantTop < plotW * 0.015) return { grown: 0 };
+  const s0 = Math.round(p.bottom - plotW * 0.095), s1 = Math.round(p.bottom - plotW * 0.06), sn = s1 - s0;
+  const corner = Math.round(plotW * 0.03);
+  for (let y = wantTop; y < top + corner; y++) {
+    const k = (y - wantTop) % (2 * sn), sy = s0 + (k < sn ? k : 2 * sn - k);
+    for (let x = p.left; x <= p.right; x++) {
+      const s = (sy * w + x) * 4, d = (y * w + x) * 4;
+      // Round the new back corners.
+      const cx = x < p.left + corner ? p.left + corner : x > p.right - corner ? p.right - corner : x;
+      const cy = y < wantTop + corner ? wantTop + corner : y;
+      const dist = Math.hypot(x - cx, y - cy);
+      const fa = (rgba[s + 3] / 255) * Math.max(0, Math.min(1, corner - dist + 0.5));
+      const ea = rgba[d + 3] / 255, a = ea + fa * (1 - ea);
+      if (a <= 0) continue;
+      for (let c = 0; c < 3; c++) rgba[d + c] = Math.round((rgba[d + c] * ea + rgba[s + c] * fa * (1 - ea)) / a);
+      rgba[d + 3] = Math.round(a * 255);
+    }
+  }
+  return { grown: top - wantTop };
+}
+
+// Area resample to any size (premultiplied alpha), for scales that are not whole numbers.
+function resample({ w, h, rgba }, W, H) {
+  const out = new Uint8Array(W * H * 4), kx = w / W, ky = h / H;
+  for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) {
+    const x0 = X * kx, x1 = x0 + kx, y0 = Y * ky, y1 = y0 + ky;
+    let r = 0, g = 0, b = 0, a = 0, area = 0;
+    for (let sy = Math.floor(y0); sy < Math.min(h, Math.ceil(y1)); sy++) {
+      const wy = Math.min(sy + 1, y1) - Math.max(sy, y0);
+      for (let sx = Math.floor(x0); sx < Math.min(w, Math.ceil(x1)); sx++) {
+        const wt = wy * (Math.min(sx + 1, x1) - Math.max(sx, x0)), s = (sy * w + sx) * 4, al = rgba[s + 3] * wt;
+        r += rgba[s] * al; g += rgba[s + 1] * al; b += rgba[s + 2] * al; a += al; area += wt;
+      }
+    }
+    const d = (Y * W + X) * 4;
+    if (a > 0) { out[d] = r / a; out[d + 1] = g / a; out[d + 2] = b / a; }
+    out[d + 3] = a / area;
+  }
+  return { w: W, h: H, rgba: out };
+}
+
+for (const { src, id, n } of BIG) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-big', src + '.png'), '--out', tmp], { stdio: 'ignore' });
+  const cut = cutout(readBmp(tmp));
+  const { grown } = extendSlab(cut);
+  const game = resample(cut, n * 128, n * 128);
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${n}×${n} tiles, slab grown by ${grown}px of 1024`, gp);
+}
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 // Also as a script, so the review page works when opened straight from disk.

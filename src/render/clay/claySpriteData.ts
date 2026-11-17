@@ -631,5 +631,26 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "left": 13,
     "right": 113,
     "bottom": 109
+  },
+  "power-large": {
+    "w": 384,
+    "h": 384,
+    "left": 38,
+    "right": 345,
+    "bottom": 332
+  },
+  "pump-large": {
+    "w": 256,
+    "h": 256,
+    "left": 25,
+    "right": 227,
+    "bottom": 219
+  },
+  "sewage-large": {
+    "w": 256,
+    "h": 256,
+    "left": 25,
+    "right": 226,
+    "bottom": 220
   }
 };

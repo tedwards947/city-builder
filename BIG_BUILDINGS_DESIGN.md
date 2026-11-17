@@ -66,6 +66,9 @@ A **3×3 plant ≈ the output of 12 small ones, on the land of 9, for about 8× 
 ## Later
 Rotation, and non-square shapes in real buildings (airports, runways, docks), a shore rule for seaports, large services and landmarks (coverage from the perimeter is already in phase 1), fire and abandonment for whole landmarks.
 
+## Art status (2026-11-17)
+The owner picked, from `art/clay-set/bigplants.html` (front-facing round): **brutalist large power plant (P2), modern water pump (W3), brutalist large sewage plant (S2)**. They are in the game under `?debug=true`: `art/clay-set/cutout.mjs` cuts them from `raw-big/` to `public/sprites/clay/{power,pump,sewage}-large.png` (128px a tile) and grows a too-short ground slab backwards to the standard plot shape. Smoke and steam come from sprite emitters; the sewage skimmer arms and the pump's intake pipe are drawn by code (`drawBigArtExtras`). The placement ghost shows the sprite at 55%. The code-drawn stand-in remains for kinds without art and until images load. 18 paid images were used.
+
 ## Owner decisions (2026-11-17)
 1. **Footprints:** large power **3×3**, large water **2×2**, large sewage **2×2**.
 2. **Placeholder value:** more output per dollar, about 12× output for about 8× cost and upkeep on a 3×3, scaled for 2×2. Tuned by the balance lab later.

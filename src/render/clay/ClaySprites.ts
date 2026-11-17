@@ -8,6 +8,7 @@ import {
   ZONE_R, ZONE_C, ZONE_I,
   BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
+  BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT,
 } from '../../sim/constants';
 import { RebakeBudget } from '../RebakeBudget';
 
@@ -58,6 +59,7 @@ const EMITTERS: Record<string, Emitter[]> = {
   'ind-2': [{ kind: 'smoke', x: 118, y: 31 }, { kind: 'smoke', x: 148, y: 29 }],
   'ind-3': [{ kind: 'smoke', x: 112, y: 14 }, { kind: 'flare', x: 146, y: 13 }, { kind: 'smoke', x: 177, y: 14 }],
   'power': [{ kind: 'smoke', x: 77, y: 49 }, { kind: 'steam', x: 185, y: 66 }],
+  'power-large': [{ kind: 'smoke', x: 59, y: 30 }, { kind: 'steam', x: 198, y: 50 }],
   'res-1-b': [{ kind: 'wisp', x: 155, y: 69 }],
   'res-2-b': [{ kind: 'wisp', x: 128, y: 56 }],
   'ind-1-d': [{ kind: 'wisp', x: 155, y: 58 }],
@@ -204,6 +206,19 @@ export function pickClaySprite(zone: number, building: number, dev: number, vibe
   const v = abandoned ? 'gritty' : clayVibeFor(vibe);
   const list = (v && groups.get(`${base}|${v}`)) || groups.get(`${base}|`);
   return list && list[lotId % list.length];
+}
+
+/** Sprites for buildings on several tiles: the plot covers the whole (square) footprint. */
+const BIG_ID: Record<number, string> = {
+  [BUILDING_LARGE_POWER_PLANT]: 'power-large',
+  [BUILDING_LARGE_WATER_PLANT]: 'pump-large',
+  [BUILDING_LARGE_SEWAGE_PLANT]: 'sewage-large',
+};
+
+/** The sprite for a building on several tiles, or undefined if it has none or it has not loaded. Draw it with `tile` = the footprint's side. */
+export function bigClaySprite(kind: number): ClaySprite | undefined {
+  const id = BIG_ID[kind];
+  return id ? sprites.get(id) : undefined;
 }
 
 /**
@@ -405,7 +420,7 @@ function rescale(s: ClaySprite, slot: DressSlot, tile: number): void {
 }
 
 /** Adds the sprite's smoke/steam/flare emitters, positioned on screen, to `out`. */
-export function collectClayEffects(s: ClaySprite, sx: number, sy: number, tile: number, tileIndex: number, out: ClayEffect[]): void {
+export function collectClayEffects(s: ClaySprite, sx: number, sy: number, tile: number, tileIndex: number, out: ClayEffect[], puffScale = 1): void {
   if (!s.emitters) return;
   const m = s.meta;
   const plotW = m.right - m.left + 1;
@@ -419,7 +434,7 @@ export function collectClayEffects(s: ClaySprite, sx: number, sy: number, tile: 
       kind: e.kind,
       x: sx + (e.x * toSprite - m.left) * kx,
       y: sy + (e.y * toSprite - top) * ky,
-      u: kx * toSprite,
+      u: kx * toSprite * puffScale,
       seed: hash(tileIndex, k + 1),
       vibe: s.vibe,
     });

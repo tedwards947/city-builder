@@ -10,9 +10,9 @@
 
 import { TERRAIN_WATER } from '../sim/constants';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
-import { isLargeBuilding, placementRules, footprintTiles, footprintEdge } from '../sim/buildingShapes';
+import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape } from '../sim/buildingShapes';
 import { buildingKindForPlacing, placementAnchor } from '../input/InputController';
-import { shapeBox, shapeTiles, drawBigStandIn, footprintBand } from './clay/bigBuildings';
+import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
@@ -23,7 +23,7 @@ import type { VibeState } from './SpriteTypes';
 import { ChunkCache } from './ChunkCache';
 import { chunkPainter, CLAY_TREE_MIN_TILE } from './chunkPainter';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
-import { loadClaySprites, beginClayFrame, pickClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
+import { loadClaySprites, beginClayFrame, pickClaySprite, bigClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
 import { trafficVolume, roadCapacity } from '../sim/TrafficData';
@@ -431,7 +431,11 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
-  /** The code-drawn stand-in for a building on several tiles, anchored at tile index `anchor`. */
+  /**
+   * A building on several tiles, anchored at tile index `anchor`: its clay
+   * sprite across the whole footprint with what moves drawn over it, or the
+   * code-drawn stand-in while it has no art or the art has not loaded.
+   */
   private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
     const width = world.grid.width, ax = anchor % width, ay = (anchor - ax) / width;
     // A building that stands at the water's edge (the pump) shows a pipe running into the water.
@@ -442,8 +446,22 @@ export class CanvasRenderer {
         if (world.layers.terrain[i] === TERRAIN_WATER) { water = { x: i % width, y: (i - (i % width)) / width }; break; }
       }
     }
-    drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay),
-      tx => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), ty => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), now * 0.001, water);
+    const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+    const box = shapeBox(kind), n = box.maxX - box.minX + 1;
+    const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
+    if (!sprite) {
+      drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay), X, Y, now * 0.001, water);
+      return;
+    }
+    const tile = Math.ceil(camera.zoom * TILE_SIZE), side = n * tile;
+    const L = X(ax + box.minX), T = Y(ay + box.minY);
+    drawClaySprite(ctx, sprite, L, T, side);
+    const burning = world.layers.fire[anchor] > 0;
+    if (!burning) {
+      drawBigArtExtras(ctx, kind, L, T, side, side, tile, now * 0.001, water ? X(water.x) + tile / 2 : null, water ? Y(water.y) + tile / 2 : null);
+      // Puffs a little larger than a small plant's, not n times larger.
+      if (tile >= 10) collectClayEffects(sprite, L, T, side, anchor, this._clayEffects, (1 + n) / 2 / n);
+    }
   }
 
   /**
@@ -783,6 +801,13 @@ export class CanvasRenderer {
       const can = check.ok && !refused;
       // A kind that must stand beside water (the pump): light up the shore near the pointer.
       if (placementRules(placing).needsWaterEdge) this._drawShoreHint(ctx, world, hoverTile, X, Y, check.noWater);
+      // A ghost of the building where it would stand.
+      const ghost = bigClaySprite(placing), box = shapeBox(placing);
+      if (ghost && tiles.length === (box.maxX - box.minX + 1) ** 2) {
+        ctx.globalAlpha = 0.55;
+        drawClaySprite(ctx, ghost, X(a.tx + box.minX), Y(a.ty + box.minY), (box.maxX - box.minX + 1) * Math.ceil(ts));
+        ctx.globalAlpha = 1;
+      }
       // Each tile says whether it is the problem: water, a building, a road, or off the map.
       for (const p of tiles) {
         if (!world.grid.inBounds(p.x, p.y)) continue;
