@@ -565,6 +565,7 @@ Prints the time of a sim tick (in Node and in Chrome, with the cost of each syst
 npm run balance                 # both suites, every city (~10 min with generated cities)
 npm run balance -- --suite econ # economy only;  --suite pc for PC only
 npm run balance -- --quick      # PC variant B + preset recommended, fresh city, 120 days: seconds
+npm run balance -- --summary-md out.md   # also a short markdown summary (CI job summaries)
 ```
 
 Two suites. **pc**: every persona, for each PC variant (Off, A–D). **econ**: the Planner on the city's own money, for each economy preset (`src/ui/econPresets.ts`), with PC at the shipped numbers; the report's `econVerdict` says which preset gets closest and whether a money sink is needed at scale. Saved cities above 20k residents run only the econ suite (`--pc-max-pop`). Generate big cities first with `npm run gen-city -- --seed 1 --target 50000` (and 150000).
