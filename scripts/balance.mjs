@@ -10,12 +10,19 @@
 // testcity1.citysave.json; never commit it); every cities/gen-*.citysave.json
 // (generated cities); and any --city <file>.
 //
+// Two suites: "pc" grades the PC targets per PC variant; "econ" grades the
+// economy targets per economy preset (the Planner on the city's own money).
+// Cities above 20k residents only run the econ suite (--pc-max-pop to change).
+//
 // Options:
+//   --suite pc|econ          one suite only (default both)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
+//   --presets shipped,...    which economy presets (default all four)
+//   --pc-max-pop 20000       saved cities above this skip the PC suite
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
 //   --days-save 150          game days on saved cities
-//   --quick                  one variant (B), fresh city only, 120 days: a fast check
+//   --quick                  PC variant B and preset recommended, fresh city only, 120 days: a fast check
 //   --no-saves               fresh city only
 //   --city <file>            add a saved city (repeatable)
 //   --out <file>             where to write (default balance-results/latest.json)
@@ -49,12 +56,15 @@ const previous = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : null;
 let gitSha = null;
 try { gitSha = execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); } catch { /* not a git checkout */ }
 
-const server = await createServer({ root, logLevel: 'error', server: { middlewareMode: true, hmr: false, watch: null } });
+const server = await createServer({ root, logLevel: 'error', server: { middlewareMode: true, hmr: false, ws: false, watch: null } });
 try {
   const { runLab } = await server.ssrLoadModule('/src/balance/lab.ts');
   const t0 = Date.now();
   const report = runLab({
+    suites: opt('--suite') ? [opt('--suite')] : undefined,
     variants: quick ? ['B'] : list(opt('--variants')),
+    econPresets: quick ? ['recommended'] : list(opt('--presets')),
+    pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
     personas: list(opt('--personas')),
     daysFresh: Number(opt('--days-fresh') ?? (quick ? 120 : 300)),
     daysSave: Number(opt('--days-save') ?? 150),
@@ -68,8 +78,10 @@ try {
   if (existsSync(out)) renameSync(out, join(dirname(out), 'previous.json'));
   writeFileSync(out, JSON.stringify(report, null, 1));
   console.log(`\nwritten ${out} (${report.durationSec}s)`);
-  for (const [v, s] of Object.entries(report.summary)) console.log(`${v.padEnd(4)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
-  if (report.best) console.log(`best: ${report.best.variant} (${report.best.pass}/${report.best.of})`);
+  for (const [v, s] of Object.entries(report.summary)) console.log(`pc   ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  if (report.best) console.log(`pc best: ${[report.best.variant, ...report.best.tied].join(' = ')} (${report.best.pass}/${report.best.of})`);
+  for (const [v, s] of Object.entries(report.econSummary)) console.log(`econ ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  if (report.econVerdict) console.log('\n' + report.econVerdict);
 } finally {
   await server.close();
 }

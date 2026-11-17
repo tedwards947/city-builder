@@ -562,14 +562,17 @@ Prints the time of a sim tick (in Node and in Chrome, with the cost of each syst
 ### Balance Lab
 
 ```
-npm run balance                 # every PC variant (Off, A–D) × personas × cities
-npm run balance -- --quick      # variant B, fresh city, 120 days: a few seconds
+npm run balance                 # both suites, every city (~10 min with generated cities)
+npm run balance -- --suite econ # economy only;  --suite pc for PC only
+npm run balance -- --quick      # PC variant B + preset recommended, fresh city, 120 days: seconds
 ```
+
+Two suites. **pc**: every persona, for each PC variant (Off, A–D). **econ**: the Planner on the city's own money, for each economy preset (`src/ui/econPresets.ts`), with PC at the shipped numbers; the report's `econVerdict` says which preset gets closest and whether a money sink is needed at scale. Saved cities above 20k residents run only the econ suite (`--pc-max-pop`). Generate big cities first with `npm run gen-city -- --seed 1 --target 50000` (and 150000).
 
 Scripted players ("personas": Planner, Sprawler, Demolisher, Neglecter, Request-chaser, Industrialist, Exploiter) play through the real commands and sim, with no browser, and the result is graded against the owner-approved targets in `src/balance/targets.ts`. The report goes to `balance-results/latest.json`; the previous run is kept as `previous.json` and each result says whether it got better or worse. Cities: a fresh 128×128 town, plus the owner's `testcity1` if it is on this machine (`cities/` or `~/Downloads/`), plus every `cities/gen-*.citysave.json`. `cities/` and `balance-results/` are gitignored; never commit a save. Options are listed at the top of `scripts/balance.mjs`.
 
 - Target ids are stable; change a range in `targets.ts`, not an id. A new target needs the owner's OK (through the PM).
-- The lab only reads BALANCE (it applies a variant, then puts the shipped numbers back). It is not part of the game build, and its test (`src/balance/lab.test.ts`) only checks that it runs, is deterministic and restores BALANCE.
+- The lab only reads BALANCE (it applies a variant or preset, then puts the shipped numbers back). It is not part of the game build, and its test (`src/balance/lab.test.ts`) only checks that it runs, is deterministic and restores BALANCE.
 
 Test files:
 - `systems.test.ts` — per-system behavior (large; add new system tests here or in a new file)

@@ -7,6 +7,7 @@ import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
 
 export type Status = 'graded' | 'later';
+export type Suite = 'pc' | 'econ';
 
 export interface Outcome {
   value: unknown;
@@ -29,6 +30,8 @@ export interface EvalCtx {
 
 export interface Target {
   id: string;
+  /** 'pc': graded per PC variant; 'econ': per economy preset (the real-money Planner). */
+  suite: Suite;
   metric: string;
   target: string;
   persona: string;
@@ -76,7 +79,7 @@ function eminentNet(withEd: RunSummary | undefined, without: RunSummary | undefi
   return saved - cost - regenLost;
 }
 
-export const TARGETS: Target[] = [
+const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.refill', metric: 'Game days for the Planner\'s city, left alone, to regenerate from 0 PC to the cap', target: '60–90 days (4–6 min at 1×)', persona: 'planner', cities: 'all', status: 'graded',
     why: 'Decision 2026-11-15: a happy city refills in about 5 minutes at 1×.',
     evaluate: c => c.refill ? { ...range(c.refill.days ?? Infinity, 60, 90), note: `avg satisfaction ${c.refill.avgSatisfaction}` } : NA('no Planner run') },
@@ -143,7 +146,7 @@ export const TARGETS: Target[] = [
   { id: 'pc.request.neglect', metric: 'Share of requests the Neglecter meets', target: '≤ 20%', persona: 'neglecter', cities: 'fresh', status: 'graded',
     why: 'A deadline should mean something.',
     evaluate: c => { const r = c.runs.neglecter; if (c.cityKind === 'save') return NA(NEGLECT_SAVE); if (!r) return NA('not run'); const s = metShare(r); return s === null ? NA('no request closed') : range(s, 0, 0.2); } },
-  ...(['buildClose', 'closeReopen', 'placeUndo', 'rezone', 'batchVsSingle'] as const).map((loop): Target => ({
+  ...(['buildClose', 'closeReopen', 'placeUndo', 'rezone', 'batchVsSingle'] as const).map((loop): Omit<Target, 'suite'> => ({
     id: 'pc.exploit.' + loop, metric: `Net PC after 20 rounds of the ${loop} loop (worst of the Exploiter's tries)`, target: '≤ 0', persona: 'exploiter', cities: 'all', status: 'graded',
     why: 'No loop should net PC.',
     evaluate: c => { const e = c.runs.exploiter?.extra.exploits as Record<string, Record<string, number | null>> | undefined; if (!e) return NA('not run'); const v = Object.values(e).map(x => x[loop]).filter((x): x is number => x !== null); return v.length ? range(Math.max(...v), -Infinity, 0) : NA('loop not possible here'); },
@@ -184,10 +187,26 @@ export const TARGETS: Target[] = [
       if (d === null && p === null) return NA('Eminent Domain never enacted');
       return all({ demolisher: d === null ? { value: null, pass: false, miss: 1 } : range(d, 1e-9), planner: p === null ? { value: null, pass: false, miss: 1 } : range(p, -Infinity, -1e-9) });
     } },
-  { id: 'econ.firstServices', metric: 'Days in debt before a new city has its first police, fire, school and hospital', target: '≤ 10', persona: 'planner', cities: 'fresh', status: 'later',
-    why: 'Economy pass (later).', evaluate: () => NA('economy pass: not graded yet') },
-  { id: 'econ.noSoftlock', metric: 'Longest run of days in debt', target: '≤ 30', persona: 'all', cities: 'all', status: 'later',
-    why: 'Economy pass (later).', evaluate: () => NA('economy pass: not graded yet') },
-  { id: 'econ.sink', metric: 'Money at day 300 ÷ daily expenses', target: '≤ 100', persona: 'planner', cities: 'save', status: 'later',
-    why: 'Late-game money sink (later).', evaluate: () => NA('economy pass: not graded yet') },
+];
+
+const econ = (c: EvalCtx) => c.runs.planner?.econ;
+
+const ECON_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'econ.firstServices', metric: 'Days in debt before a new city first has a police station, fire station, school and hospital', target: '≤ 10', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'A new city gets its first services without a long spell in debt.',
+    evaluate: c => { if (c.cityKind === 'save') return NA('fresh cities only'); const e = econ(c); if (!e) return NA('not run'); return { ...range(e.debtDaysBeforeServices, 0, 10), note: e.servicesCompleteDay === null ? 'never had all four' : `all four by day ${e.servicesCompleteDay}` }; } },
+  { id: 'econ.noSoftlock', metric: 'Longest run of days in debt', target: '≤ 30', persona: 'planner (own money)', cities: 'all', status: 'graded',
+    why: 'No city should be stuck in debt.',
+    evaluate: c => { const e = econ(c); return e ? range(e.longestDebtRun, 0, 30) : NA('not run'); } },
+  { id: 'econ.matureSurplus', metric: 'A mature city\'s (income − expenses) ÷ expenses per day, mean of the last 30 days', target: '0.10–0.25', persona: 'planner (own money)', cities: 'saved and generated', status: 'graded',
+    why: 'Owner: a mature city should earn, but big projects should still take saving.',
+    evaluate: c => { if (c.cityKind === 'fresh') return NA('not a mature city'); const e = econ(c); return e ? { ...range(e.surplusLate, 0.1, 0.25), note: `income ${e.incomeLate}/day, expenses ${e.expensesLate}/day; tax ×${e.taxForMidSurplus} would centre it` } : NA('not run'); } },
+  { id: 'econ.sink', metric: 'Money gained over the run ÷ expenses per day at the end (days of expenses banked; 300 days fresh, 150 saved)', target: '≤ 40', persona: 'planner (own money)', cities: 'all', status: 'graded',
+    why: 'Money must not pile up without limit (v0; the owner may adjust). 40 days over a 150-day run is a surplus of about 0.25, the top of econ.matureSurplus.',
+    evaluate: c => { const e = econ(c); return e ? { ...range(e.gainInDaysOfExpenses, -Infinity, 40), note: `money ${e.moneyStart} → ${e.moneyEnd}` } : NA('not run'); } },
+];
+
+export const TARGETS: Target[] = [
+  ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
+  ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
 ];
