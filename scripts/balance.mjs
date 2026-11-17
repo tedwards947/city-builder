@@ -26,6 +26,9 @@
 //   --no-saves               fresh city only
 //   --city <file>            add a saved city (repeatable)
 //   --out <file>             where to write (default balance-results/latest.json)
+//   --summary-md <file>      also write a short markdown summary (e.g. a CI job summary)
+//
+// Exit code is 0 whatever the targets say: the lab reports, it doesn't gate.
 
 import { createServer } from 'vite';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from 'node:fs';
@@ -82,6 +85,29 @@ try {
   if (report.best) console.log(`pc best: ${[report.best.variant, ...report.best.tied].join(' = ')} (${report.best.pass}/${report.best.of})`);
   for (const [v, s] of Object.entries(report.econSummary)) console.log(`econ ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
+  if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
   await server.close();
+}
+
+/** A short markdown summary: pass counts per PC variant and economy preset, newly failing targets, the economy verdict. */
+function summaryMd(r) {
+  const rows = (title, sum, best) => {
+    const keys = Object.keys(sum);
+    if (!keys.length) return '';
+    let md = `### ${title}\n\n| | pass | fail | n/a |\n|---|---|---|---|\n`;
+    for (const k of keys) md += `| ${k} | ${sum[k].pass} | ${sum[k].fail} | ${sum[k].na} |\n`;
+    if (best) md += `\nBest: **${[best.variant, ...best.tied].join(' = ')}** (${best.pass}/${best.of} graded results).\n`;
+    return md + '\n';
+  };
+  const broke = [], fixed = [];
+  for (const t of r.targets) for (const [key, byCity] of Object.entries(t.results)) for (const [city, o] of Object.entries(byCity)) {
+    if (o.trend === 'broke') broke.push(`\`${t.id}\` ${key} @ ${city}: ${JSON.stringify(o.prev)} → ${JSON.stringify(o.value)}`);
+    if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
+  }
+  let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest);
+  md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
+  if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
+  return md;
 }
