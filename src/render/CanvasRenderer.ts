@@ -10,8 +10,8 @@
 
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding } from '../sim/buildingShapes';
-import { buildingKindForPlacing } from '../input/InputController';
-import { shapeBox, shapeTiles, drawBigStandIn } from './clay/bigBuildings';
+import { buildingKindForPlacing, placementAnchor } from '../input/InputController';
+import { shapeBox, shapeTiles, drawBigStandIn, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
 import type { World } from '../sim/World';
@@ -679,10 +679,17 @@ export class CanvasRenderer {
     }
     const DASH = [[], [7, 5], [2, 5]];
     ctx.lineWidth = 2;
+    const big = preview.building && isLargeBuilding(preview.building.kind) ? preview.building : null;
     rings.forEach(({ within: r }, n) => {
       ctx.setLineDash(DASH[Math.min(n, DASH.length - 1)]);
       ctx.strokeStyle = `rgba(232,110,110,${ok ? 0.95 - 0.2 * Math.min(n, 2) : 1})`;
       ctx.beginPath();
+      if (big) {
+        // A building on several tiles: the ring is measured from its nearest tile, so it wraps the footprint.
+        for (const e of footprintBand(big.kind, r)) { ctx.moveTo(X(big.tx + e.x0), Y(big.ty + e.y0)); ctx.lineTo(X(big.tx + e.x1), Y(big.ty + e.y1)); }
+        ctx.stroke();
+        return;
+      }
       // Down the right-hand steps of the diamond, then back up the left.
       ctx.moveTo(X(at.tx), Y(at.ty - r));
       for (let dy = -r; dy <= r; dy++) {
@@ -733,11 +740,18 @@ export class CanvasRenderer {
     // Placing a building on several tiles: outline where it would stand (anchor under the pointer), red if it cannot go there.
     const placing = buildingKindForPlacing(tool);
     if (placing !== undefined && isLargeBuilding(placing)) {
-      const tiles = shapeTiles(placing, hoverTile.tx, hoverTile.ty);
+      // The pointer holds the middle of the footprint.
+      const a = placementAnchor(placing, hoverTile.tx, hoverTile.ty);
+      const tiles = shapeTiles(placing, a.tx, a.ty);
       const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
-      const can = world.canPlaceBuilding(hoverTile.tx, hoverTile.ty, placing) && !refused;
-      ctx.fillStyle = can ? 'rgba(255,255,255,0.14)' : 'rgba(224,112,112,0.3)';
-      for (const p of tiles) ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      const can = world.canPlaceBuilding(a.tx, a.ty, placing) && !refused;
+      // Each tile says whether it is the problem: water, a building, a road, or off the map.
+      for (const p of tiles) {
+        if (!world.grid.inBounds(p.x, p.y)) continue;
+        const blocked = !world.isBuildable(p.x, p.y) || world.layers.roadClass[world.grid.idx(p.x, p.y)] !== ROAD_NONE;
+        ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : 'rgba(255,255,255,0.16)';
+        ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      }
       ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
       this._strokeTileSet(ctx, tiles, X, Y);
       return;

@@ -13,6 +13,7 @@
 //
 // Produces Commands via CommandHistory. Never mutates world directly.
 
+import { buildingShape } from '../sim/buildingShapes';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../sim/constants';
 import type { Camera } from '../render/Camera';
 import type { World } from '../sim/World';
@@ -48,6 +49,17 @@ const BUILDING_TOOL_KIND: Partial<Record<Tool, number>> = {
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
 
+/**
+ * Where a `kind` building's anchor goes when the pointer is on (tx, ty). The
+ * pointer holds the middle of the footprint: the centre tile of an odd size,
+ * the top-left of the centre four of an even one. One tile: the tile itself.
+ */
+export function placementAnchor(kind: number, tx: number, ty: number): { tx: number; ty: number } {
+  let minX = 0, minY = 0, maxX = 0, maxY = 0;
+  for (const [dx, dy] of buildingShape(kind)) { if (dx < minX) minX = dx; if (dx > maxX) maxX = dx; if (dy < minY) minY = dy; if (dy > maxY) maxY = dy; }
+  return { tx: tx - (minX + ((maxX - minX) >> 1)), ty: ty - (minY + ((maxY - minY) >> 1)) };
+}
+
 /** The building a tool places, or undefined if it places none. */
 export function buildingKindForPlacing(tool: string): number | undefined {
   return BUILDING_TOOL_KIND[tool as Tool];
@@ -75,7 +87,7 @@ export function commandForTool(tool: Tool, tx: number, ty: number): Command | nu
   const zone = ZONE_TOOL_ZONE[tool];
   if (zone !== undefined) return new PaintZoneCommand(tx, ty, zone);
   const kind = BUILDING_TOOL_KIND[tool];
-  if (kind !== undefined) return new PlaceBuildingCommand(tx, ty, kind);
+  if (kind !== undefined) { const a = placementAnchor(kind, tx, ty); return new PlaceBuildingCommand(a.tx, a.ty, kind); }
   if (tool === 'bulldoze') return new BulldozeCommand(tx, ty);
   return null;
 }

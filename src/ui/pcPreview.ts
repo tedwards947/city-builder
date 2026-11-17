@@ -5,7 +5,7 @@
 
 import type { World } from '../sim/World';
 import type { Tool } from '../input/InputController';
-import { roadClassForTool, zoneForTool } from '../input/InputController';
+import { roadClassForTool, zoneForTool, placementAnchor } from '../input/InputController';
 import { pcQuote, nuisanceRings } from '../sim/politics';
 import type { PcQuote, PcQuoteAction, NuisanceConfig, NuisanceSource } from '../sim/politics';
 import type { ServiceValueConfig } from '../sim/serviceValue';
@@ -16,6 +16,8 @@ import { PC_SYMBOL, pcAmount } from './pcFormat';
 
 export interface PcPreview {
   at: { tx: number; ty: number };
+  /** For a building: its kind and anchor tile, so rings can be measured from its whole footprint. */
+  building?: { kind: number; tx: number; ty: number };
   /** Fall-off bands by manhattan distance, nearest first. Empty unless the tool upsets neighbours. */
   rings: { within: number; weight: number }[];
   /** Homes that object, with how strongly (0–1). */
@@ -40,7 +42,8 @@ export function pcActionForTool(tool: Tool, tx: number, ty: number): PcQuoteActi
   const roadClass = roadClassForTool(tool);
   if (roadClass !== undefined) return { type: 'road', tx, ty, roadClass };
   const kind = buildingKindForTool(tool);
-  if (kind !== undefined) return { type: 'building', tx, ty, kind };
+  // A building on several tiles is held by its middle; the engine wants its anchor.
+  if (kind !== undefined) { const a = placementAnchor(kind, tx, ty); return { type: 'building', tx: a.tx, ty: a.ty, kind }; }
   return null;
 }
 
@@ -110,7 +113,7 @@ export function hoverPcPreview(
   const offRoad = q.notConnected === true;
   if (q.cost === 0 && q.reward === 0 && rings.length === 0 && !offRoad) return null;
   const quiet = action.type === 'zone' && isQuietNuisance(q);
-  return { at: tile, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable,
+  return { at: tile, building: action.type === 'building' ? { kind: action.kind, tx: action.tx, ty: action.ty } : undefined, rings, tints: nuisanceTints(q), label: quiet ? '' : pcLabel(q, rings.length > 0), ok: q.affordable,
     note: quiet ? undefined : (offRoad && q.affordable ? t('ui.hud.noRoad') : pcNote(q, world)),
     warning: offRoad && q.affordable,
   };
