@@ -154,16 +154,18 @@ export const en: TranslationSchema = {
       crimeWaveTitle: "Crime Wave",
       crimeWaveMsg: "High crime reported in {affectedTiles} areas!",
       fireAlertTitle: "Fire Alert",
-      fireAlertMsg: "Fire started at {tx}, {ty}!",
+      fireBurningOne: "A fire is burning with no fire station in reach",
+      fireBurningMany: "{n} fires burning with no fire station in reach",
+      fireDamagedOne: "1 building damaged",
+      fireDamagedMany: "{n} buildings damaged",
+      fireDamagedOnlyOne: "Fire damaged a building with no fire station in reach",
+      fireDamagedOnlyMany: "Fire damaged {n} buildings with no fire station in reach",
       healthcareCrisisTitle: "Healthcare Crisis",
       healthcareCrisisMsg:
         "Widespread sickness reported in {affectedTiles} areas!",
       buildingAbandonedTitle: "Building Abandoned",
       buildingAbandonedMsg:
         "A level {level} building was abandoned at {tx}, {ty}.",
-      fireDamageTitle: "Fire Damage",
-      fireDamageMsg:
-        "Fire gutted a building at {tx}, {ty}; it is down to level {level}. A fire station in range prevents this.",
       lowFundsTitle: "Funds Running Low",
       lowFundsMsg:
         "At this rate the treasury is empty in about {days} days.",

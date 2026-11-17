@@ -8,6 +8,16 @@ export type ToastType = 'info' | 'warning' | 'alert';
 export interface ToastPlace { x0: number; y0: number; x1: number; y1: number }
 const tile = (tx: number, ty: number): ToastPlace => ({ x0: tx, y0: ty, x1: tx, y1: ty });
 
+/** "3 fires burning with no fire station in reach · 2 buildings damaged". Empty when there is nothing to say. */
+export function fireReportText(burning: number, damaged: number): string {
+  const hurt = damaged === 1 ? t('ui.toast.fireDamagedOne') : damaged > 1 ? t('ui.toast.fireDamagedMany', { n: damaged }) : '';
+  if (burning <= 0) {
+    return damaged === 1 ? t('ui.toast.fireDamagedOnlyOne') : damaged > 1 ? t('ui.toast.fireDamagedOnlyMany', { n: damaged }) : '';
+  }
+  const fires = burning === 1 ? t('ui.toast.fireBurningOne') : t('ui.toast.fireBurningMany', { n: burning });
+  return hurt ? `${fires} · ${hurt}` : fires;
+}
+
 export class ToastPanel {
   private container: HTMLDivElement;
   private world: World | null = null;
@@ -62,17 +72,15 @@ export class ToastPanel {
     this.handlers['crimeSpike'] = (p: CityEvents['crimeSpike']) => {
       this.showToast(t('ui.toast.crimeWaveTitle'), t('ui.toast.crimeWaveMsg', { affectedTiles: p.affectedTiles }), 'warning');
     };
-    this.handlers['fireIgnition'] = (p: CityEvents['fireIgnition']) => {
-      this.showToast(t('ui.toast.fireAlertTitle'), t('ui.toast.fireAlertMsg', { tx: p.tx, ty: p.ty }), 'alert', tile(p.tx, p.ty));
+    // Fires: one grouped toast from the sim's summary, and only for fires no
+    // station can reach. A fire inside fire cover goes out by itself, so each
+    // ignition no longer toasts (a big city had one every half second).
+    this.handlers['fireReport'] = (p: CityEvents['fireReport']) => {
+      const text = fireReportText(p.burning, p.damaged);
+      if (text) this.showToast(t('ui.toast.fireAlertTitle'), text, 'alert', tile(p.tx, p.ty));
     };
     this.handlers['healthcareCrisis'] = (p: CityEvents['healthcareCrisis']) => {
       this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert');
-    };
-    this.handlers['fireDamage'] = (p: CityEvents['fireDamage']) => {
-      // p.level is the level after the fire; only report losses of bigger buildings.
-      if (p.level >= 1) {
-        this.showToast(t('ui.toast.fireDamageTitle'), t('ui.toast.fireDamageMsg', { level: p.level, tx: p.tx, ty: p.ty }), 'warning', tile(p.tx, p.ty));
-      }
     };
     this.handlers['budgetWarning'] = (p: CityEvents['budgetWarning']) => {
       this.showToast(t('ui.toast.lowFundsTitle'), t('ui.toast.lowFundsMsg', { days: Math.max(1, Math.round(p.daysLeft)) }), 'warning');
