@@ -15,6 +15,7 @@ import { VibeSystem } from '../sim/systems/VibeSystem';
 import { decodeSaveFile, encodeSaveFile } from '../persistence/SaveFile';
 import { deserialize, serialize } from '../persistence/Serializer';
 import { BALANCE } from '../data/balance';
+import { trafficVolume, roadCapacity, marketRate } from '../sim/TrafficData';
 import {
   ZONE_R, ZONE_C, ZONE_I, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY,
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT,
@@ -75,6 +76,16 @@ export interface CityStats {
   perDay: { income: number; expenses: number; net: number };
   satisfaction: number;
   politicalCapital: number;
+  /**
+   * From the last traffic pass (null before one has run). tripLength: road
+   * tiles an average trip of each market covers (all its traffic over the
+   * trips its origins send). overCapacity: share of each road class's tiles
+   * carrying more than their capacity.
+   */
+  traffic: {
+    tripLength: Record<string, number>;
+    overCapacity: { street: number; avenue: number; highway: number };
+  } | null;
 }
 
 const BUILDING_NAMES: Record<number, string> = {
@@ -116,5 +127,31 @@ export function cityStats(world: World): CityStats {
     perDay: { income: income * day, expenses: expenses * day, net: (income - expenses) * day },
     satisfaction: world.stats.satisfaction,
     politicalCapital: world.budget.politicalCapital,
+    traffic: trafficStats(world),
   };
+}
+
+function trafficStats(world: World): CityStats['traffic'] {
+  const t = world.traffic;
+  if (!t) return null;
+  const L = world.layers;
+  const round = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
+  const tiles = [0, 0, 0, 0], over = [0, 0, 0, 0];
+  for (let i = 0; i < L.roadClass.length; i++) {
+    const r = L.roadClass[i];
+    if (!r) continue;
+    tiles[r]++;
+    if (trafficVolume(t, i) > roadCapacity(r)) over[r]++;
+  }
+  const tripLength: Record<string, number> = {};
+  for (const m of t.markets) {
+    let trips = 0, volume = 0;
+    for (let i = 0; i < L.zone.length; i++) {
+      if (L.zone[i] === m.def.origin && !L.abandoned[i]) trips += L.devLevel[i] * marketRate(m.def);
+      if (L.roadClass[i]) volume += m.volume[i];
+    }
+    tripLength[m.def.key] = trips > 0 ? round(volume / trips, 1) : 0;
+  }
+  const share = (r: number) => tiles[r] ? round(over[r] / tiles[r], 3) : 0;
+  return { tripLength, overCapacity: { street: share(ROAD_STREET), avenue: share(ROAD_AVENUE), highway: share(ROAD_HIGHWAY) } };
 }
