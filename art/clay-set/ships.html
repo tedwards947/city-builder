@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ships workshop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 420px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); }
+  .card { width: 300px; background: #18202a; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.55; color: #b8c4cf; }
+  .card h5 { font-size: 13px; color: #fff; margin-bottom: 4px; } .card .cost { color: #e0b050; font-weight: 600; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 420px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Ships workshop</h1>
+<p>The painted ships went in without a proper look at the options, so here they are. Every scene uses the <b>real game sprites at game scale</b>: the painted ships, cranes, containers and a house for size. They're animated, so give each one a few seconds. <b>No paid images</b> have been used; section E lists art we could make if you want it.</p>
+<p>Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+
+<h2>What feels off about the ships now?</h2>
+<textarea id="off" placeholder="e.g. too big, too busy, look pasted on, the fading, they don't go anywhere…"></textarea>
+
+<h2>A. Size (the docked ship, with one sailing past)</h2>
+<div class="rowf">
+  <figure><canvas id="A1" width="512" height="320"></canvas><figcaption><span class="code">A1</span>1 tile long: about the width of a house. Small and tidy; the containers on deck get hard to see.</figcaption></figure>
+  <figure><canvas id="A2" width="512" height="320"></canvas><figcaption><span class="code">A2</span>1.5 tiles: what the game has now.</figcaption></figure>
+  <figure><canvas id="A3" width="512" height="320"></canvas><figcaption><span class="code">A3</span>2 tiles: reads as a big ship next to the cranes, but crowds narrow channels.</figcaption></figure>
+</div>
+
+<h2>B. How ships move</h2>
+<div class="rowf">
+  <figure><canvas id="B1" width="512" height="320"></canvas><figcaption><span class="code">B1</span>Now: ships fade in on a straight stretch, sail a few tiles in or out and fade away; now and then one fades in at the quay while the cranes work.</figcaption></figure>
+  <figure><canvas id="B2" width="512" height="320"></canvas><figcaption><span class="code">B2</span>Docked only: no passing traffic. A ship fades in at the quay, the cranes load it, and it fades out. Calm, and shows the port is working.</figcaption></figure>
+  <figure><canvas id="B3" width="512" height="320"></canvas><figcaption><span class="code">B3</span>The whole trip: a ship sails in from the map edge, slows and ties up, the cranes load it, then it sails back out. It turns corners with a quick cross-fade between its painted views.</figcaption></figure>
+  <figure><canvas id="B4" width="512" height="320"></canvas><figcaption><span class="code">B4</span>Out at sea only: ships pass along open water far from the port (no fading in channels), and one lies at the quay now and then. Like distant traffic.</figcaption></figure>
+</div>
+
+<h2>C. Extra motion</h2>
+<div class="rowf">
+  <figure><canvas id="C1" width="512" height="320"></canvas><figcaption><span class="code">C1</span>None: the sprite glides, as now.</figcaption></figure>
+  <figure><canvas id="C2" width="512" height="320"></canvas><figcaption><span class="code">C2</span>A soft white wake behind a moving ship, fading with speed.</figcaption></figure>
+  <figure><canvas id="C3" width="512" height="320"></canvas><figcaption><span class="code">C3</span>Wake plus a gentle bob, and ripples round a docked ship.</figcaption></figure>
+</div>
+
+<h2>D. How often</h2>
+<div class="rowf">
+  <figure><canvas id="D1" width="512" height="320"></canvas><figcaption><span class="code">D1</span>Rare: at most one ship about a port at a time, every half minute or so.</figcaption></figure>
+  <figure><canvas id="D2" width="512" height="320"></canvas><figcaption><span class="code">D2</span>As now: up to one in, one out and one docked.</figcaption></figure>
+  <figure><canvas id="D3" width="512" height="320"></canvas><figcaption><span class="code">D3</span>Busy: a steady stream at a big port, three or four ships in view.</figcaption></figure>
+</div>
+
+<h2>E. New art (paid; nothing is made until you say so)</h2>
+<div class="rowf">
+  <figure><div class="card"><h5>Keep the current sprites</h5>The container ship (side-on, bow-on, stern-on) and the red freighter, as above. <span class="cost">0 paid images.</span></div><figcaption><span class="code">E1</span></figcaption></figure>
+  <figure><div class="card"><h5>Smaller harbour craft to mix in</h5>One sheet with a tug, a small ferry and two fishing boats, side-on, in the same clay style. Busy water without big ships everywhere. <span class="cost">1 paid image.</span></div><figcaption><span class="code">E2</span></figcaption></figure>
+  <figure><div class="card"><h5>Redraw the container ship lower and flatter</h5>A longer, lower hull seen more from above, so it reads as a ship on water rather than a model on a table, and holds up when small. <span class="cost">1 paid image, maybe 2.</span></div><figcaption><span class="code">E3</span></figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="Overall notes"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+// ── Sprites (public/sprites/clay, the game's own) and their feet, from src/render/clay/portSpriteData.ts ──
+const META = {
+  'crane-end': { w: 171, h: 285, footX: 59, footY: 254 }, 'boxes-long': { w: 275, h: 217, footX: 110, footY: 195 },
+  office: { w: 121, h: 108, footX: 59, footY: 96 }, gate: { w: 187, h: 125, footX: 74, footY: 104 },
+  'ship-side': { w: 251, h: 84, footX: 98, footY: 68 }, 'ship-south': { w: 78, h: 172, footX: 27, footY: 156 },
+  'ship-north': { w: 80, h: 159, footX: 27, footY: 143 }, 'freighter-side': { w: 186, h: 72, footX: 83, footY: 56 },
+};
+const IMG = {};
+let loaded = 0;
+for (const n of Object.keys(META)) { const i = new Image(); i.onload = () => loaded++; i.src = `../../public/sprites/clay/port/${n}.png`; IMG[n] = i; }
+const house = new Image(); house.src = '../../public/sprites/clay/res-1.png';
+
+const T = 32, K = T / 128;   // 32 px a tile here; the game's sprites are made for 128
+const ease = f => f * f * (3 - 2 * f), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function sprite(ctx, name, x, y, s = 1, flip = false, mid = false, alpha = 1) {
+  const m = META[name], img = IMG[name]; if (!img.complete || !img.naturalWidth) return;
+  const q = K * s, fx = m.footX * q, fy = (mid ? m.footY * 0.5 : m.footY) * q;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(img, -fx, -fy, m.w * q, m.h * q); ctx.restore();
+}
+
+// ── The scene: sea over the top four rows, a stone quay, the yard with two end-on cranes, houses below ──
+const QUAY = 4;   // the quay's row
+function ground(ctx, t, ripple) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  for (let y = 0; y < 10; y++) for (let x = 0; x < 16; x++) {
+    ctx.fillStyle = y < QUAY ? ((x + y) % 2 ? '#3f72a0' : '#4377a5') : ((x + y) % 2 ? '#4f7a3e' : '#4a7339');
+    ctx.fillRect(x * T, y * T, T, T);
+  }
+  if (ripple) { ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 1; for (let k = 0; k < 14; k++) { const x = (k * 97 + t * 6) % W, y = 8 + (k * 53) % (QUAY * T - 16); ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 5, y - 2, x + 10, y); ctx.stroke(); } }
+  // Sand beside the sea where there's no quay.
+  ctx.fillStyle = '#d8c58f'; ctx.fillRect(0, QUAY * T, 2 * T, T * 0.6); ctx.fillRect(10 * T, QUAY * T, 6 * T, T * 0.6);
+  // The quay and the yard.
+  ctx.fillStyle = '#c9c2b4'; ctx.fillRect(2 * T, QUAY * T, 8 * T, 3.4 * T);
+  ctx.fillStyle = '#8a8377'; ctx.fillRect(2 * T, QUAY * T, 8 * T, 5);
+  ctx.fillStyle = '#6f685d'; ctx.fillRect(2 * T, QUAY * T - 2, 8 * T, 2);
+}
+function yard(ctx, t, working) {
+  for (const x of [3.6, 7.4]) for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) sprite(ctx, 'boxes-long', (x + (c - 1) * 0.55) * T, (QUAY + 2.0 + r * 0.42) * T, 1 / 3);
+  sprite(ctx, 'office', 9.3 * T, (QUAY + 3.1) * T, 0.9);
+  for (const [x, y] of [[12, 7.6], [13.2, 7.4], [12.6, 8.8], [14, 8.7], [1, 8.4]]) if (house.complete) ctx.drawImage(house, x * T - T / 2, y * T - T, T, T);
+  // Cranes on the quay, booms out over the water; trolleys move while a ship is in.
+  [4.2, 6.8].forEach((x, ci) => {
+    const X = x * T, Y = (QUAY + 0.15) * T;
+    ctx.fillStyle = '#c75b3c'; ctx.fillRect(X - 2.5, Y - 2.6 * T, 5, 2.1 * T);
+    ctx.fillStyle = '#f0ebe2'; for (let k = 0; k < 6; k += 2) ctx.fillRect(X - 2.5, Y - 2.6 * T + k * 0.35 * T, 5, 0.35 * T);
+    sprite(ctx, 'crane-end', X, Y, 1);
+    if (working) { const c = ((t + ci * 3.3) % 10) / 10, f = c < 0.5 ? ease(c * 2) : ease(2 - c * 2); ctx.fillStyle = '#3b3b3b'; ctx.fillRect(X - 3, Y - (1.9 + f * 0.6) * T, 6, 3); }
+  });
+}
+
+// ── Ships: a state is { x, y (tiles), hx, hy, a (alpha), sp (0–1), type } ──
+function wake(ctx, st, s) {
+  if (st.sp <= 0.05) return;
+  const X = st.x * T, Y = st.y * T, L = 0.45 * s * T, bx = X - st.hx * L, by = Y - st.hy * L;
+  ctx.save(); ctx.globalAlpha = st.a * st.sp * 0.55; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+  const px = -st.hy, py = st.hx, len = 1.4 * T;
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - st.hx * len + px * 0.45 * T, by - st.hy * len + py * 0.45 * T);
+  ctx.moveTo(bx, by); ctx.lineTo(bx - st.hx * len - px * 0.45 * T, by - st.hy * len - py * 0.45 * T); ctx.stroke();
+  ctx.globalAlpha = st.a * st.sp * 0.35; ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(bx - st.hx * 0.5 * T, by - st.hy * 0.5 * T, st.hx ? 0.5 * T : 3, st.hy ? 0.5 * T : 3, 0, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function ship(ctx, st, s, opts = {}) {
+  if (st.a <= 0) return;
+  if (opts.wake) wake(ctx, st, s);
+  const bob = opts.bob ? Math.sin(performance.now() / 600 + st.x) * 0.8 : 0;
+  if (opts.ripple && st.sp === 0) { ctx.save(); ctx.globalAlpha = st.a * 0.25; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.ellipse(st.x * T, st.y * T + 2, 0.9 * s * T, 0.3 * T, 0, 0, 7); ctx.stroke(); ctx.restore(); }
+  const S = s / 1.5;   // the sprites are made 1.5 tiles long
+  const draw = (hx, hy, a) => {
+    if (hx !== 0) sprite(ctx, st.type === 'freighter' ? 'freighter-side' : 'ship-side', st.x * T, st.y * T + 0.12 * T * S + bob, S, hx < 0, false, a);
+    else sprite(ctx, hy > 0 ? 'ship-south' : 'ship-north', st.x * T, st.y * T + bob, S, false, true, a);
+  };
+  // Mid-turn (B3): cross-fade from the old view to the new.
+  if (st.from) { draw(st.from[0], st.from[1], st.a * (1 - st.mix)); draw(st.hx, st.hy, st.a * st.mix); }
+  else draw(st.hx, st.hy, st.a);
+}
+
+// A ship passing along a row: appears at x0, sails `run` tiles, fading in and out. Repeats every `period` s from `phase`.
+function passing(t, { row, dir, x0, run = 7, speed = 0.8, period = 26, phase = 0, type = 'container' }) {
+  const life = run / speed, c = ((t - phase) % period + period) % period;
+  if (c >= life) return null;
+  return { x: x0 + dir * c * speed, y: row, hx: dir, hy: 0, sp: 1, type, a: clamp(Math.min(c, life - c) / 1.5, 0, 1) };
+}
+function docked(t, { x = 5.5, period = 40, phase = 0, stay = 24 } = {}) {
+  const c = ((t - phase) % period + period) % period;
+  if (c >= stay) return null;
+  return { x, y: QUAY - 0.55, hx: 1, hy: 0, sp: 0, type: 'container', a: clamp(Math.min(c, stay - c) / 1.5, 0, 1), work: c };
+}
+
+// B3: the whole trip, in from the top edge down a lane at x 13, west along y 2 to the berth, tied up, then back out.
+function trip(t, s) {
+  const P = [[13.5, -1.5], [13.5, 2.2], [5.5, 2.2], [5.5, QUAY - 0.55]];
+  const seg = []; let tot = 0; for (let k = 1; k < P.length; k++) { const l = Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]); seg.push(l); tot += l; }
+  const sp = 0.9, tIn = tot / sp, stay = 16, period = 2 * tIn + stay + 6, c = t % period;
+  let d, out = false;
+  if (c < tIn) d = ease(c / tIn) * 0 + c * sp;                      // in
+  else if (c < tIn + stay) return { x: 5.5, y: QUAY - 0.55, hx: 1, hy: 0, sp: 0, a: 1, work: c - tIn, type: 'container' };
+  else if (c < 2 * tIn + stay) { d = tot - (c - tIn - stay) * sp; out = true; }
+  else return null;
+  // The last leg (onto the berth) is a sideways nudge: keep the ship side-on.
+  let k = 0, acc = 0; while (k < seg.length - 1 && acc + seg[k] < d) { acc += seg[k]; k++; }
+  const f = clamp((d - acc) / seg[k], 0, 1), a = P[k], b = P[k + 1];
+  let hx = Math.sign(b[0] - a[0]), hy = Math.sign(b[1] - a[1]);
+  if (k === seg.length - 1) { hx = -1; hy = 0; }
+  if (out) { hx = -hx; hy = -hy; }
+  const st = { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, hx, hy, sp: k === seg.length - 1 ? 0.3 : 1, a: 1, type: 'container' };
+  // Cross-fade near the corner between leg 0 and leg 1.
+  const corner = acc + (k === 0 ? seg[0] : 0), near = k === 0 ? seg[0] - (d - acc) : k === 1 ? d - acc : 99;
+  if (near < 0.6) {
+    const v0 = [0, 1], v1 = [-1, 0]; const fromV = out ? [-v1[0], -v1[1]] : v0, toV = out ? [-v0[0], -v0[1]] : v1;
+    const m = k === 0 ? 0.5 - near / 1.2 : 0.5 + near / 1.2;
+    st.from = out ? toV : fromV; st.hx = (out ? fromV : toV)[0]; st.hy = (out ? fromV : toV)[1]; st.mix = out ? 1 - m : m;
+  }
+  return st;
+}
+
+// ── The scenes ──
+function frame(ctx, t, ships, s, opts = {}) {
+  ground(ctx, t, opts.ripple);
+  const live = ships.filter(Boolean);
+  for (const st of live) ship(ctx, st, s, opts);
+  yard(ctx, t, live.some(st => st.work !== undefined));
+}
+const std = (t, s = 1.5) => [passing(t, { row: 1.2, dir: -1, x0: 13, period: 22 }), passing(t, { row: 2.4, dir: 1, x0: 3, period: 26, phase: 9, type: 'freighter' }), docked(t)];
+const SCENES = {
+  A1: (c, t) => frame(c, t, [docked(t, { period: 1e9 }), passing(t, { row: 1.6, dir: -1, x0: 13, period: 14 })], 1),
+  A2: (c, t) => frame(c, t, [docked(t, { period: 1e9 }), passing(t, { row: 1.6, dir: -1, x0: 13, period: 14 })], 1.5),
+  A3: (c, t) => frame(c, t, [docked(t, { period: 1e9 }), passing(t, { row: 1.6, dir: -1, x0: 13, period: 14 })], 2),
+  B1: (c, t) => frame(c, t, std(t), 1.5),
+  B2: (c, t) => frame(c, t, [docked(t, { period: 30, stay: 22 })], 1.5),
+  B3: (c, t) => frame(c, t, [trip(t)], 1.5, { wake: true }),
+  B4: (c, t) => frame(c, t, [passing(t, { row: 0.6, dir: -1, x0: 17, run: 20, speed: 0.9, period: 30 }), passing(t, { row: 0.9, dir: 1, x0: -2, run: 20, speed: 0.7, period: 34, phase: 14, type: 'freighter' }), docked(t)], 1.5),
+  C1: (c, t) => frame(c, t, std(t), 1.5),
+  C2: (c, t) => frame(c, t, std(t), 1.5, { wake: true }),
+  C3: (c, t) => frame(c, t, std(t), 1.5, { wake: true, bob: true, ripple: true }),
+  D1: (c, t) => frame(c, t, [passing(t, { row: 1.6, dir: -1, x0: 13, period: 34 }), docked(t, { period: 68, phase: 12 })], 1.5),
+  D2: (c, t) => frame(c, t, std(t), 1.5),
+  D3: (c, t) => frame(c, t, [
+    passing(t, { row: 1.0, dir: -1, x0: 15, run: 12, period: 9 }), passing(t, { row: 1.3, dir: -1, x0: 12, run: 9, period: 11, phase: 5, type: 'freighter' }),
+    passing(t, { row: 2.4, dir: 1, x0: 1, run: 12, period: 10, phase: 2 }), passing(t, { row: 2.6, dir: 1, x0: 4, run: 9, period: 13, phase: 7, type: 'freighter' }), docked(t, { period: 26, stay: 22 })], 1.5),
+};
+const views = Object.entries(SCENES).map(([id, fn]) => ({ ctx: document.getElementById(id).getContext('2d'), fn }));
+const start = performance.now();
+function loop(now) { const t = (now - start) / 1000; for (const v of views) v.fn(v.ctx, t); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// ── Feedback form: saved in this browser, copied out as text ──
+const KEY = 'city-builder-ships-workshop-v1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+for (const id of ['off', 'overall']) { const el = document.getElementById(id); el.value = state['_' + id] || ''; el.oninput = () => { state['_' + id] = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Ships workshop feedback', state._off ? `What feels off: ${state._off}` : '', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
