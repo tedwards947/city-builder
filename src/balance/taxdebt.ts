@@ -147,5 +147,5 @@ export interface TaxDebtPreset { id: string; name: string; desc: string; values:
 
 export const TAXDEBT_PRESETS: TaxDebtPreset[] = [
   { id: 'shipped', name: 'Shipped', desc: 'As in BALANCE (the drain switched off until the PC numbers ship).', values: {} },
-  { id: 'proposed', name: 'Proposed', desc: 'ENGINEER 3 sweep, 2026-11-18 (balance-results/taxdebt.json): drain 0.75 a day, so a city in debt for the 30-day grace period loses 15% of its cap under preset T (22.5% with the shipped PC cap). Tax level as shipped: no value of satisfactionPerPoint / demandStrength passes tax.high / tax.low (see TODO.md).', values: { debtPcDrainPerDay: 0.75 } },
+  { id: 'proposed', name: 'Proposed', desc: 'ENGINEER 3 sweep, 2026-11-18 (balance-results/taxdebt.json): drain 0.75 a day, so a city in debt for the 30-day grace period loses 15% of its cap under preset T (22.5% with the shipped PC cap). Tax level as shipped (satisfactionPerPoint 0.01, demandStrength 1, exodusPerPoint 1e-4).', values: { debtPcDrainPerDay: 0.75 } },
 ];

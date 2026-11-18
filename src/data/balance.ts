@@ -63,8 +63,9 @@ export const BALANCE = {
     // the per-zone rates, 0 = no effect. At neutral nothing changes.
     // Tax exodus: for each point above neutral, every developed home has an
     // exodusPerPoint chance per growth pass (growth.tickInterval ticks) of
-    // losing one level, down to an empty lot. 0 = off (shipped until tuned).
-    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1, exodusPerPoint: 0 },
+    // losing one level, down to an empty lot. 0 = off. 1e-4 (Balance Lab, owner
+    // 2026-11-18): about 3.5% fewer residents after 150 days at 20 on a mature city.
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1, exodusPerPoint: 0.0001 },
   },
   maintenance: {
     road: 0.04,

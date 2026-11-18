@@ -143,9 +143,9 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
       const p = c.probes?.['ribbon:' + k] as { overlapPay?: number | null; newPay?: number | null } | undefined;
       return [[k + '.overlap', p?.overlapPay === null ? NA('re-seats nobody') : range(p?.overlapPay, -Infinity, 0.5)], [k + '.new', p?.newPay === null ? NA('seats nobody new') : range(p?.newPay, 0.8)]];
     }))) },
-  { id: 'pc.move', metric: 'Net PC to move a service (open a second on the free lot that serves most of the first one\'s homes, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
-    why: 'Moving a service is cheap. The second site overlaps the first (owner, 2026-11-17), so the probe measures a move, not stranding homes.',
-    evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => [k, range((c.probes?.['ribbon:' + k] as { moveNet?: number } | undefined)?.moveNet, -0.05)]))) },
+  { id: 'pc.move', metric: 'Net PC to move a service (open a second on the free lot that serves most of the first one\'s homes, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.07 each', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Moving a service is cheap. The second site overlaps the first (owner, 2026-11-17), so the probe measures a move, not stranding homes. Owner (2026-11-18): 0.07, so one closureMultiplier can also make closing the only hospital hurt (pc.closure.lonely).',
+    evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => { const m = (c.probes?.['ribbon:' + k] as { moveNet?: number | null } | undefined)?.moveNet; return [k, m === null ? NA('no move site found') : range(m, -0.07)]; }))) },
   { id: 'pc.closure.lonely', metric: 'Closing the city\'s only hospital ÷ cap', target: '≥ 0.15', persona: 'probe', cities: 'all', status: 'graded',
     why: 'A closure should hurt. Owner (2026-11-18): 0.15, so closing the only hospital still costs more than opening one pays (pc.ribbon.first ≤ 0.15), with one closureMultiplier for every kind.',
     evaluate: c => range((c.probes?.['ribbon:hospital'] as { closeLast?: number } | undefined)?.closeLast, 0.15) },
@@ -164,8 +164,8 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.request.one', metric: 'Coverage requests met after one building beside the asking home', target: '≥ 80%', persona: 'chaser', cities: 'all', status: 'graded',
     why: 'A reasonable answer usually works (owner, 2026-11-17: lowered from 95% so some requests can take more thought).',
     evaluate: c => { const r = c.runs.chaser; if (!r) return NA('not run'); return r.answered ? { ...range(r.answeredMet / r.answered, 0.8), note: `${r.answeredMet}/${r.answered}` } : NA('no request answered'); } },
-  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets. Coverage and utilities: one building each (leaving out coverage requests it skips because no free lot within 10 tiles could serve half the asking homes). Traffic jams: a plan over several passes (avenues, then a wider ring and the next bottlenecks)', target: 'coverage + utilities ≥ 70%; traffic jams ≥ 50%', persona: 'chaser', cities: 'all', status: 'graded',
-    why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17). Traffic jams are meant to be hard (the principle above): the check is that a deliberate plan resolves most of them, not that one upgrade does. The 50% is a proposal for the owner.',
+  { id: 'pc.request.chaser', metric: 'Share of requests the Request-chaser meets. Coverage and utilities: one building each (leaving out coverage requests it skips because no free lot within 10 tiles could serve half the asking homes). Traffic jams: a plan over several passes (avenues, then a wider ring and the next bottlenecks)', target: 'coverage + utilities ≥ 70%; traffic jams ≥ 30%', persona: 'chaser', cities: 'all', status: 'graded',
+    why: 'Requests should be doable. Some in built-up areas are not worth meeting, and a sensible player skips them (owner, 2026-11-17). Traffic jams are meant to be hard (the principle above): the check is that a deliberate plan resolves most of them, not that one upgrade does. Owner (2026-11-18): 30% now that a jam fix must hold for 3 days (#248); to revisit after the owner plays.',
     evaluate: c => {
       const r = c.runs.chaser; if (!r) return NA('not run');
       const pick = (o: Record<string, number>, ks: string[]) => ks.reduce((a, k) => a + (o[k] ?? 0), 0);
@@ -174,7 +174,7 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
       const tm = r.requests.met.trafficJam ?? 0, tf = r.requests.failed.trafficJam ?? 0;
       const parts: Record<string, Outcome> = {};
       if (m + f) parts.coverage = range(m / (m + f), 0.7);
-      if (tm + tf) parts.trafficJam = range(tm / (tm + tf), 0.5);
+      if (tm + tf) parts.trafficJam = range(tm / (tm + tf), 0.3);
       return { ...all(parts), note: `skipped as unmeetable: ${r.skipped}; traffic jams ${tm}/${tm + tf}` };
     } },
   { id: 'pc.request.neglect', metric: 'Share of requests the Neglecter meets', target: '≤ 20%', persona: 'neglecter', cities: 'fresh', status: 'graded',
@@ -290,7 +290,7 @@ const SVC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'svc.pc.relief', metric: 'PC per resident a building beside the fullest one seats ÷ the first building\'s pay per resident', target: '≥ 0.8 each', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Relieving a full school pays like a new one for the residents it seats.',
     evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const v = k.pc?.relief; return v === null || v === undefined ? NA('nothing full') : range(v, 0.8); }) },
-  { id: 'svc.pc.move', metric: 'Net PC ÷ cap to move the busiest school / hospital to the nearby lot where fewest residents lose a seat', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
+  { id: 'svc.pc.move', metric: 'Net PC ÷ cap to move the busiest school / hospital to the nearby lot where fewest residents lose a seat', target: 'cost ≤ 0.07 each', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Moving a service is cheap when nobody loses a seat.',
     evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const v = k.pc?.move; return v === null || v === undefined ? NA('no lot') : { ...range(v, -0.05), note: `${k.pc?.moveLost ?? 0} residents lose a seat` }; }) },
   { id: 'svc.pc.loops', metric: 'Net PC of 10 rounds of open-and-close beside the fullest building, and of close-and-reopen of a standing one', target: '≤ 0 each', persona: 'probe', cities: 'all', status: 'graded',
@@ -336,14 +336,13 @@ const TRADE_TARGETS: Omit<Target, 'suite'>[] = [
 
 // ── Debt PC drain and the tax level, approved by the owner 2026-11-17 (ENGINEER 3's proposal, as written) ──
 const tdOf = (c: EvalCtx) => c.taxdebt ?? null;
-const growth = (r: LevelRun) => r.popEnd - r.popStart;
-/** Twin runs at `lv` and at neutral; n/a when the city barely grows at neutral (a ratio of ~0 says nothing). */
-const twins = (c: EvalCtx, lv: number): { a: LevelRun; n: LevelRun } | Outcome => {
+/** The runs at `lv` and at neutral, both from the same saved city. */
+const pair = (c: EvalCtx, lv: number): { a: LevelRun; n: LevelRun } | Outcome => {
   const L = tdOf(c)?.levels; const a = L?.[lv], n = L?.[BALANCE.tax.level.neutral];
-  if (!a || !n) return NA('not run at that level');
-  if (growth(n) < Math.max(20, 0.01 * n.popStart)) return NA(`city barely grows at neutral (${growth(n)} people)`);
-  return { a, n };
+  return a && n ? { a, n } : NA('not run at that level');
 };
+/** Residents at the end of the run at `a` against the run at neutral, as a share of neutral's (positive = more). */
+const popDiff = (a: LevelRun, n: LevelRun) => r3((a.popEnd - n.popEnd) / Math.max(1, n.popEnd));
 const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'debt.pcDrain', metric: 'PC lost to the debt drain over the grace period (city held just below $0 from a full cap) ÷ cap, under the tuned PC numbers', target: '10–25%', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Owner (2026-11-17): debt should cost goodwill you can feel, without being a second game over.',
@@ -351,15 +350,15 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'debt.squeeze', metric: 'Planner on a fresh town, own money: PC when its first run of debt before the first services ends, drain on ÷ drain off', target: '≥ 0.7', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
     why: 'Owner (2026-11-17): a short early squeeze is normal (econ.firstServices) and shouldn\'t be punished hard.',
     evaluate: c => { const q = tdOf(c)?.squeeze; if (!q) return NA('fresh cities only'); if (q.ratio === null) return q.note === 'drain off' ? { value: null, pass: false, miss: 1, note: 'drain switched off' } : NA(q.note ?? 'no value'); return { ...range(q.ratio, 0.7), note: q.note ?? `${q.debtDays} days in debt, ending day ${q.endDay}` }; } },
-  { id: 'tax.high', metric: 'Twin runs of a mature city at tax level 20 against 10: income change, population growth ÷ growth at 10, satisfaction drop in points', target: 'income +40–90%; growth 20–50% lower; satisfaction 8–20 points lower', persona: 'planner (own money)', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-17): high tax pays now and costs growth and goodwill.',
+  { id: 'tax.high', metric: 'Twin runs of a mature city, 150 days at tax level 20 against 10: residents at the end (share fewer than at 10), income (last 30 days), satisfaction drop in points', target: 'residents 2–8% fewer; income higher; satisfaction 8–20 points lower', persona: 'planner (own money)', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-17): high tax pays now and costs growth and goodwill. Owner (2026-11-18): a mature city barely grows, so the cost is a gentle exodus (tax.level.exodusPerPoint) measured as residents against level 10; no cap on the income gain.',
     evaluate: c => {
       if (c.cityKind === 'fresh') return NA('mature (saved) cities only');
-      const t = twins(c, 20); if (!('a' in t)) return t;
-      return all({ income: range(t.a.incomeLate / Math.max(1, t.n.incomeLate) - 1, 0.4, 0.9), growth: range(growth(t.a) / growth(t.n), 0.5, 0.8), satisfaction: range((t.n.satEnd - t.a.satEnd) * 100, 8, 20) });
+      const t = pair(c, 20); if (!('a' in t)) return t;
+      return { ...all({ residents: range(-popDiff(t.a, t.n), 0.02, 0.08), income: range(t.a.incomeLate - t.n.incomeLate, 1e-9), satisfaction: range(r3((t.n.satEnd - t.a.satEnd) * 100), 8, 20) }), note: `residents ${t.a.popEnd} vs ${t.n.popEnd}; income ${t.a.incomeLate} vs ${t.n.incomeLate}` };
     } },
-  { id: 'tax.low', metric: 'Twin runs of a mature city at tax level 5 against 10: growth ÷ growth at 10, and income; on the fresh town at level 0, the longest run of days in debt', target: 'growth 10–40% higher, income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
-    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch. Owner (2026-11-18): the growth check is for mature cities only; a fresh town going broke at low tax is an accepted early-game constraint, but at 0 it must still fail econ.noSoftlock.',
+  { id: 'tax.low', metric: 'Twin runs of a mature city, 150 days at tax level 5 against 10: residents at the end, and income; on the fresh town at level 0, the longest run of days in debt', target: 'residents no fewer, income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch. Owner (2026-11-18): the growth check is for mature cities only; a fresh town going broke at low tax is an accepted early-game constraint, but at 0 it must still fail econ.noSoftlock. Built-out land grows no faster at low tax, so the mature check is residents no fewer than at 10, for less income.',
     evaluate: c => {
       const L = tdOf(c)?.levels; if (!L) return NA('not run');
       if (c.cityKind === 'fresh') {
@@ -367,8 +366,8 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
         const stuck = z.gameOverDay !== null || z.longestDebtRun > 30;
         return { value: z.longestDebtRun, pass: stuck, miss: stuck ? 0 : r3((31 - z.longestDebtRun) / 31), note: z.gameOverDay !== null ? `game over on day ${z.gameOverDay}` : `${z.longestDebtRun} days in debt at most` };
       }
-      const t = twins(c, 5); if (!('a' in t)) return t;
-      return all({ growth: range(growth(t.a) / growth(t.n), 1.1, 1.4), income: range(t.n.incomeLate - t.a.incomeLate, 1e-9) });
+      const t = pair(c, 5); if (!('a' in t)) return t;
+      return { ...all({ residents: range(popDiff(t.a, t.n), 0), income: range(t.n.incomeLate - t.a.incomeLate, 1e-9) }), note: `residents ${t.a.popEnd} vs ${t.n.popEnd}; income ${t.a.incomeLate} vs ${t.n.incomeLate}` };
     } },
   { id: 'tax.noDominant', metric: 'Fresh town, 300 days at tax levels 0, 5, 15, 20: any level with both more income (last 30 days) and more people than level 10', target: 'none', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
     why: 'Owner (2026-11-17): an exploit check; no setting is simply better than neutral.',
