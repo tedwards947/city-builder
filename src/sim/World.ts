@@ -674,6 +674,80 @@ export class World {
     }
   }
 
+  /**
+   * Make every building match its kind's current shape. A building's tiles
+   * are not saved: they are worked out from its anchor and the shape, so when
+   * a kind's shape changes after a city was saved (the airport's runway grew),
+   * a loaded building would claim tiles that hold something else. For each
+   * building whose shape includes tiles that are not its own:
+   *
+   *   - if every such tile is free (land with no building, zone or road; open
+   *     or not, water with no building or bridge for a dock), the building
+   *     takes them and stands in its new shape;
+   *   - otherwise (something is in the way, or the shape runs off the map) the
+   *     building is removed and its cost paid back.
+   *
+   * Called after a load. Returns what it did; nothing when all shapes match.
+   */
+  fitBuildingsToShapes(): { grown: BuildingEntity[]; removed: BuildingEntity[] } {
+    const { width, height } = this.grid;
+    const L = this.layers;
+    const grown: BuildingEntity[] = [], removed: BuildingEntity[] = [];
+    for (const b of this.buildings.slice()) {
+      const rot = (b.rot ?? 0) & 3;
+      const anchor = b.ty * width + b.tx;
+      const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, rot);
+      const roles = shapeRoles(b.kind);
+      if (tiles && tiles.length === 1) continue;   // a one-tile kind has no shape to change
+      const missing: number[] = [];
+      let fits = tiles !== null;
+      if (tiles) {
+        for (let k = 0; k < tiles.length; k++) {
+          const i = tiles[k];
+          if (L.building[i] === b.kind) continue;
+          missing.push(i);
+          const water = L.terrain[i] === TERRAIN_WATER;
+          const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE
+            && (roles[k] === 'dock' ? water : !water);
+          if (!free) fits = false;
+        }
+        if (missing.length === 0) continue;
+      }
+      if (fits) {
+        for (const i of missing) {
+          L.building[i] = b.kind;
+          L.vegetation[i] = VEG_NONE;
+          L.devLevel[i] = 0;
+          L.abandoned[i] = 0;
+          L.distress[i] = 0;
+          this.grid.markDirty(i % width, (i - (i % width)) / width);
+        }
+        grown.push(b);
+        continue;
+      }
+      // It cannot stand in its new shape: take down the tiles it stood on
+      // (the tiles of its kind joined to its anchor) and pay its cost back.
+      const seen = new Set<number>([anchor]);
+      const queue = [anchor];
+      for (let q = 0; q < queue.length; q++) {
+        const i = queue[q], x = i % width;
+        const next = [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, i >= width ? i - width : -1, i < width * (height - 1) ? i + width : -1];
+        for (const ni of next) if (ni >= 0 && !seen.has(ni) && L.building[ni] === b.kind) { seen.add(ni); queue.push(ni); }
+      }
+      for (const i of queue) {
+        if (L.building[i] !== b.kind) continue;
+        L.building[i] = BUILDING_NONE;
+        L.visualVariant[i] = 0;
+        this.grid.markDirty(i % width, (i - (i % width)) / width);
+      }
+      this.buildings = this.buildings.filter((o) => o !== b);
+      this.budget.money += BALANCE.buildings[b.kind]?.cost ?? 0;
+      removed.push(b);
+    }
+    if (grown.length > 0 || removed.length > 0) this.rebuildBuildingIds();
+    return { grown, removed };
+  }
+
   setFire(tx: number, ty: number, v: number): void {
     if (!this.grid.inBounds(tx, ty)) return;
     const i = this.grid.idx(tx, ty);
