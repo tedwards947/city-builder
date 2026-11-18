@@ -51,7 +51,7 @@ src/
   commands/
     Command.ts (snapshotTile / restoreTile / tileDisruption), CommandHistory.ts,
     BatchCommand.ts, PaintZoneCommand.ts, BuildRoadCommand.ts, BulldozeCommand.ts,
-    PlaceBuildingCommand.ts + PlacePowerPlant/WaterTower/SewagePlant/ServiceBuilding
+    PlaceBuildingCommand.ts (every placeable building)
   persistence/
     SaveFormat.ts, Serializer.ts, LocalStore.ts, RemoteStore.ts, SaveManager.ts,
     Autosave.ts
