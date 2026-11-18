@@ -57,10 +57,6 @@ Status as of 2026-11-17, after the landscaping tree effects. Details of every sy
 3. **Tax exodus** (owner's rule, 2026-11-18): built; ENGINEER 3 shipped `exodusPerPoint` 1e-4. Above the neutral tax level each developed home has a (level − neutral) × `tax.level.exodusPerPoint` chance per growth pass of losing one level. Done.
 4. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
 
-Done 2026-11-18: traffic requests made durable (owner's play-test bug: one opened and was met on noise). Asked on a 3-day average, met after 3 days held; `smoothDays` / `holdDays` per kind. School, hospital and utilities requests can also move without the player (seats re-dealt, demand dipping): given the same 3 / 3 rule on the owner's say (2026-11-18).
-
-Done 2026-11-18: PC numbers on (owner: ship T). Preset T is the shipped `BALANCE.politicalCapital`, `budget.debtPcDrainPerDay` 0.75; balance.ts is the only copy of T, `PC_OFF` (src/data/pcOff.ts) is the Off preset. Not changed, for the owner: `startingPoliticalCapital` is still 100 against a cap of 150; the debt drain stays on under the Off preset (it is a budget number).
-
 Nothing else is unblocked: the next engine work comes from the on-hold list, at the owner's say-so.
 
 ### On hold (do not start without the owner)
@@ -75,40 +71,32 @@ Standing rules (see AGENT.md): systems never loop over the whole map (`world.ind
 
 ### Done and merged
 
-- Seaport phases 1–5 (#202, #209, #211, #212, trade numbers): shapes with roles and four rotations, open-water placement, a fourth traffic market (`exports`), imports as a goods source, city-wide industry boost, city-wide goods shortage, ship route and ships per day.
-- Services by capacity (#195, #206): schools and hospitals seat whole homes nearest-first (school 20 tiles / 4,000, hospital 30 / 8,000); police and fire are road-based reach only.
-- Economy (#184, #187, #189, #199): Tight numbers are the default ("Original" kept as a preset); debt rule; tax level slider that also moves satisfaction and growth demand (`taxEffect` for the UI).
-- Political capital: regeneration, upkeep, displacement and debt drain scale with the cap (`capScale`); requests and seats (#165, #179, #180, #194).
-- Requests say why they are unmet: `requestProgress` gives `unmetFull` / `unmetOutOfReach` / `unmetReason` for the coverage kinds (GRAPHICS uses it for the quest text and the school and health overlays).
-- Tax slider's growth-demand follow-up: covered by `taxDemandMult` in LandValueSystem (#194); ENGINEER 3 adds the tax targets in the lab.
-- Debt countdown is on: `budget.debtGraceDays` is 30 with the game-over screen (#198).
-- Earlier: flow-based traffic with markets, overlay and debug panel (#29, #30); save files (#30); sim tick 95 ms → 3 ms on a 512×512 map (#31); renderer split; zoom stutter fix; CI checks, the golden-city test and `npm run bench`.
+- Seaport phases 1–5 and trade numbers (#202, #209, #211, #212, #219, #220).
+- Services by capacity: schools and hospitals seat homes nearest-first; police and fire are road-based (#195, #206).
+- Economy: Tight default, debt rule, tax slider (#184, #187, #189, #194, #198, #199). Tax exodus (#247, #252).
+- Political capital: cap scaling, requests and seats, PC numbers on with preset T (#165, #179, #180, #245, #256).
+- Requests say why they are unmet (#222, #227). Traffic and school/hospital/utilities requests need a 3-day hold (#248, #253).
 
 ## ENGINEER 2
 
 Second engine session: engine tasks the main engine session isn't on, cleanup and CI. Items 1 and 2 were moved here from GAME ENGINE by agreement with that session.
 
-1. **Load spike on the first land-value / traffic tick.** _Done._ On the owner's 512×512 city, the first tick that ran land value and traffic after a load cost about 60 ms. Land value's whole-map pass now skips the neighbourhood scans far from anything built, with identical results (~40 → ~8 ms, #65). Traffic settles during the load, before the first frame (~20 ms hidden in loading). Now the worst of the first 8 ticks is about 10 ms, and `npm run bench` reports both figures.
-2. **Highway beside a home with no road.** _Done._ Upgrading a street or avenue to highway still abandons the developed zones beside it that have no other street or avenue, and charges displacement for the homes among them. A highway built on empty land, or over a highway, cuts nobody off, so a home that never had a road is left alone (owner's rule, `zonesCutOffByHighway`).
-3. **Political Capital live tuning panel** (`?debug=true`): _Built._ It has an input for every `BALANCE.politicalCapital` number, generated from the balance object, so new keys appear by themselves. It shows PC / cap, regeneration (applied, and the rate at the current satisfaction), 0 → cap refill time, satisfaction with each factor, and the next milestone. "Load proposed" switches on the engine's proposed numbers (`src/ui/pcPresets.ts`), "Reset" puts the shipped ones back, and "Copy values" exports the block for a numbers-on PR.
+1. **Load spike on the first land-value / traffic tick.** _Done (#65)._ Worst of the first 8 ticks is now about 10 ms, down from ~60 ms.
+2. **Highway beside a home with no road.** _Done._ Upgrading to highway no longer cuts off homes that never had another road (`zonesCutOffByHighway`).
+3. **Political Capital live tuning panel** (`?debug=true`). _Built._ One input per `BALANCE.politicalCapital` key, with "Load proposed", "Reset" and "Copy values".
 4. **CI and cleanup proposals** sent to the PM for the owner: perf numbers in CI, Cloudflare Pages PR previews (needs the owner's account), require CI before merging, prune merged branches.
-5. **+$10k cheat** (DESIGN 7): _Done (#223)._ A "+$10k" button in the PC panel's Shortcuts (`?debug=true`).
-6. **Click a toast to focus** (DESIGN 5): _Done._ Crime-wave and healthcare-crisis toasts now focus on the worst tile (`tx, ty` on `crimeSpike` / `healthcareCrisis`); every located toast already did. Agreed with GRAPHICS and ENGINE.
+5. **+$10k cheat** (DESIGN d.7): _Done (#223)._
+6. **Click a toast to focus** (DESIGN d.5): _Done (#224)._
 
 ## ENGINEER 3
 
 Balance Lab: targets, tuner, grading and the tuned numbers (`src/balance/`, `scripts/balance*.mjs`).
 
 Done and merged:
-- Tuned PC preset T (`src/balance/tunedT.ts`, used by the lab and the debug panel) (#169, #190), re-tuned under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000): 92/98 PC on fresh-128, testcity1, gen-s1-t10000 and gen-suburban-s1-t10000 (previous T 86/98). School and hospital first-opening pay is in range (pc.ribbon.first) on every city.
-- Lab grades the economy, service capacity and debt game over; tax-slider targets (#185, #193, #195, #197).
+- Tuned PC preset T (`src/balance/tunedT.ts`) (#169, #190, #245, #250, #255): 96/98 PC on the lab's test cities after #255.
+- Lab grades the economy, service capacity, debt game over and tax slider; debt and tax suite (#185, #193, #195, #197, #246).
 - Trade suite: seaport and goods targets (#219); ENGINE shipped the numbers (#220).
-- Debt / tax suite: the owner's debt.pcDrain, debt.squeeze, tax.high, tax.low, tax.noDominant targets, probes and sweep (#246).
-- Owner's answers (2026-11-18): pc.closure.lonely lowered to ≥ 0.15 of cap, one closureMultiplier kept; tax.low's growth check on mature cities only, fresh town at 0 must still fail econ.noSoftlock. Preset T closureMultiplier 1.67 → 1.85: 95/98 PC (was 94 at 1.67 with the new range); closure.lonely passes on every city, moving a school now costs 0.054 / 0.061 of cap on testcity1 / gen-s1-t10000 against pc.move ≤ 0.05 (#250).
-- Owner's answers (2026-11-18, second round): pc.move relaxed to ≤ 0.07; the Request-chaser's traffic-jam target lowered to ≥ 30% after the 3-day hold (#248), to revisit after the owner plays; tax.high / tax.low graded on residents against level 10 (2–8% fewer at 20; no fewer at 5, for less income). Shipped `tax.level.exodusPerPoint` 1e-4 (#252).
-- pc.refill counts 99% of the cap as refilled (owner, 2026-11-18): since #248 a city left alone fails the odd traffic request and can sit a point short of the cap (this PR).
-- Preset T re-graded after #248 and #253 (3-day request holds): 96/98 PC (#255).
-- tax.low allows 0.5% fewer residents at level 5 (owner, 2026-11-18): after PC went on (#256) gen-s1 missed by one home (this PR).
+- Owner's answers (2026-11-18): closure, move, refill, tax and traffic targets (#248, #250, #252, #255, #257).
 
 Proposed, waiting on ENGINE (ships with the PC numbers-on PR):
 - `BALANCE.budget.debtPcDrainPerDay` 0 → 0.75 (lab preset "proposed" in `src/balance/taxdebt.ts`): debt.pcDrain 0.15 on every city, debt.squeeze passes. `debt.test.ts` pins the drain at 0 while PC is off, so ENGINE turns it on with the rest.
@@ -127,7 +115,7 @@ a. **Make "vibe" mean something.** Right now it does very little.
    - To decide: what vibe is for (identity and looks only, or a gameplay lever), what keeps it alive in a standing city (ongoing sources such as zones, parks and industry, not just one-off nudges), what it should change in the sim, and how the player sees and steers it.
    - Owners once decided: the sim side is GAME ENGINE (`VibeSystem`), the look is GRAPHICS (vibe sprite variants are already on that list).
 
-b. **Give political capital more to do.** _Designed: see PC_DESIGN.md._ All of the mechanics are on main and switched off (numbers at 0): cap that grows with population, satisfaction-based regen that can drain, political debt, nearby-homes costs, the service rule, milestones, ordinances and resident requests. Left: the balance play-test with the ?debug=true PC tuning panel ("Load proposed" has the dry-run numbers), then a "numbers on" PR. Revisit after the play-test: whether banked PC above the cap needs a fade or ceiling. Parked: the Rent Control ordinance, until vibe or land-value abandonment exist (its benefits have nothing to act on yet).
+b. **Give political capital more to do.** Designed and built: see PC_DESIGN.md. Open: the owner's play-test, and whether banked PC above the cap needs a fade or ceiling. Parked: the Rent Control ordinance.
 
 c. **Tune service ranges.** The owner wants a dedicated session to tune the coverage ranges of services (today: police 12, fire 15, school 4, hospital 6, park 3 road steps). They decide how many buildings a neighbourhood needs, the PC rewards and closure costs of the service rule, and when a resident request is met: a park reaches only 3 tiles, so a dense neighbourhood can need several parks before its park request counts as met (75% of homes covered). Request rules stay as they are until then.
 
@@ -136,10 +124,10 @@ d. **PC play-test, round 1 (variant A, Gentle): findings.** Logged by the PM at 
    2. **Park request expired after placing a park** (rule problem, DESIGN c). A park reaches 3 road steps, so one park rarely covers 75% of a dense cell. Brings the service-range tuning session forward, or calls for a lower park metAt.
    3. **Request progress is invisible** (UX, GRAPHICS + ENGINE). The player can't see how close a request is ("60% of homes covered, 75% needed"). Placement could also warn when a service building doesn't touch a road. Engine exposes the need per open request; graphics shows it on the badge hover and in the quest log.
    4. **Quest log** (feature, GRAPHICS mocks first, then GRAPHICS + ENGINE). A place to review open requests after their toast is gone: kind, area, days left, reward and penalty, progress, and recently met or missed ones. The engine already keeps `world.politics.requests` and the open/met/failed events.
-   5. **Click a toast to jump to its place** (feature, GRAPHICS + ENGINE). Clicking any location-based toast (a request, a fire, any alert tied to a tile) pans or zooms the camera there and briefly highlights it; quest-log rows jump the same way. Request events carry their area; fire and other alerts need checking. Needs a camera "focus on area" call.
+   5. **Click a toast to jump to its place.** Done (ENGINEER 2 item 6, #224).
    6. **Make zoning free in money** (owner's proposal, PM agrees; ENGINE). Zoning costs $20 for R and $25 for C/I per tile today (`BALANCE.costs.zoneR/C/I`). PC already makes zoning a decision (displacement when rezoning, nearby-homes cost for industry), so the money cost only taxes planning, and growth follows demand anyway. Set the zone costs to 0, keep every PC cost, and check early-game money balance.
-   7. **Cheat button: +$10k** (owner; GRAPHICS for the HUD spot, or ENGINEER 2 in the PC panel's Shortcuts). A button next to the money figure in the info pane that adds $10,000, so PC can be play-tested without money getting in the way; the economy gets its own play-test later. Debug-only (`?debug=true`), never shown to players.
-   - Notes for 5 (click-to-focus), from ENGINEER 2's read-only survey: fireIgnition, fireDamage and tileAbandoned already carry a tile, and requests carry an area. crimeSpike and healthcareCrisis carry only city averages, so CrimeSystem / HealthcareSystem need to add a worst tile or bounding box. `showToast` has no location slot. `Camera.centerOnTile` exists, but there's no fit-to-area. Plan: `Camera.focusArea(rect)`, an optional `focus` argument on `showToast`, click to focus then dismiss. One small PR by ENGINEER 2, agreed with GRAPHICS and ENGINE.
+   7. **Cheat button: +$10k.** Done (ENGINEER 2 item 5, #223).
+
 
 e. **Bigger service buildings (deferred).** Once schools and hospitals have capacity (SERVICES_DESIGN.md), they may want to be larger than one tile, probably 2×2, now that multi-tile buildings exist (BIG_BUILDINGS_DESIGN.md). A bigger footprint suits buildings that serve thousands and would make them read as important on the map. Raised by the owner 2026-11-17; decide after capacity is tuned. It needs: shapes for the service kinds, art (paid), and the coverage seeding from the perimeter that phase 1 already has.
 
