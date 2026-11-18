@@ -8,12 +8,12 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 - `world.layers.terrain`: grass, water, sand. Sand is placed on land beside water when the map is generated.
 - `world.layers.vegetation`: 0 = none, 1–6 = tree species, with clay art for each.
 - `openWater`: a cached map of water that reaches the map edge (used by the seaport).
-- **The bulldozer does not remove trees** (owner).
+- **The bulldozer clears trees** (owner, 2026-11-17, #239; before that it left them).
 
 ## Owner decisions
 
 ### Trees
-- **The brush:** pick a species, pick a brush size, paint. Plus an **eraser** to remove trees, since the bulldozer doesn't.
+- **The brush:** pick a species, pick a brush size, paint. No separate eraser: the owner dropped it, and the bulldozer clears trees instead (#239).
 - **Trees affect gameplay** (all three):
   - a small land-value boost nearby;
   - absorbing a little pollution (trees already speed up pollution decay today, `pollution.vegDecayMult`; the owner's decision is to leave that as it is for planted trees, and the lab tunes it in phase 4);
@@ -52,7 +52,6 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 ## For graphics (suggestions)
 - **A "Landscape" toolbar family** with a fly-out:
   - trees, with a species picker and brush sizes;
-  - tree eraser;
   - add water;
   - remove water.
 - **Placement preview:**
@@ -63,7 +62,7 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 - **Mocks with a feedback form first,** like earlier rounds.
 
 ## Phasing
-1. Tree brush and eraser (low risk; can start right away).
+1. Tree brush, with the bulldozer clearing trees (done: #234, #239).
 2. Beaches follow water (comes with phase 3).
 3. Water editing with all its rules.
 4. Tree effects, with numbers from the lab.
