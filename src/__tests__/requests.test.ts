@@ -278,6 +278,30 @@ describe('road-shaped clusters (coverage kinds)', () => {
     expect(w.placeBuilding(sx, sy, BUILDING_SCHOOL)).toBe(true);
     new ServiceSystem().update(w);
     expect(isMet(w, req)).toBe(true);
-    expect(requestProgress(w, req)).toMatchObject({ met: true, units: 8, homes: plan.homes });
+    expect(requestProgress(w, req)).toMatchObject({ met: true, units: 8, homes: plan.homes, unmetFull: 0, unmetOutOfReach: 0, unmetReason: null });
+  });
+
+  it('says whether the asking homes are out of reach or turned away by a full school', () => {
+    const capacity = BALANCE.service.capacity as Record<number, number>;
+    const shipped = capacity[BUILDING_SCHOOL];
+    try {
+      Object.assign(cfg.kinds.school, { days: 20 });
+      const w = twoBranches();
+      const plan = planRequest(w, 'school', neighbourhoods(w)[0], w.rng)!;
+      const req = openRequest(w, 'school', plan.area, 20, plan.need, plan);
+      // No school anywhere: every asking home is out of reach.
+      expect(requestProgress(w, req)).toMatchObject({ unmetFull: 0, unmetOutOfReach: 8, unmetReason: 'outOfReach' });
+
+      // A school on the seed's road with seats for three of the eight homes: the other five find it full.
+      const residents = BALANCE.growth.popPerLevel[w.layers.devLevel[plan.seed!] as 1 | 2 | 3];
+      capacity[BUILDING_SCHOOL] = 3 * residents;
+      expect(w.placeBuilding(plan.seed! % 24, rowOf(plan.seed!) + 2, BUILDING_SCHOOL)).toBe(true);
+      new ServiceSystem().update(w);
+      const p = requestProgress(w, req);
+      expect(p).toMatchObject({ unmetFull: 5, unmetOutOfReach: 0, unmetReason: 'full' });
+      expect(p.covered).toBeCloseTo(3 / 8);
+    } finally {
+      capacity[BUILDING_SCHOOL] = shipped;
+    }
   });
 });

@@ -41,15 +41,13 @@ Seaport G2 and the seaport art are in (picks A1, B3, C1–C4, D2/D3 → E1 on `a
 
 ## GAME ENGINE
 
-Status as of 2026-11-17, after seaport phase 5. Details of every system below are in AGENT.md.
+Status as of 2026-11-17, after seaport phase 5 and the request reasons. Details of every system below are in AGENT.md.
 
 ### Next (ranked)
 
-1. **Seaport: the numbers still off.** The trade numbers are in (phase 5: exports, imports, goods shortage income penalty, cost $200,000 and upkeep $30, `transit.goodsCapacity` 0.55). Still at no effect, with no lab target yet: `goods.shortageDemandPenalty`, `port.industrialDemandMult`, `port.truckWeight`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`. **Waiting on ENGINEER 3 (lab) and the owner.**
-2. **Debt countdown.** The rule is built (`src/sim/debt.ts`; game over is final, `reviveFromDebt` for debug) but off: `budget.debtGraceDays` is 0. **Waiting on GRAPHICS**, whose game-over screen PR sets it to 30.
-3. **Requests: "full" versus "out of reach".** `requestProgress` does not yet say whether a school or hospital request is unmet because the building is full or because no building reaches. Build when GRAPHICS needs it for the quest text.
-4. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
-5. Small: the `shortfall` doc comment in `politics.ts`; the `establishedYears` read in `established.ts`.
+1. **Seaport: the numbers still off.** The trade numbers are in (phase 5: exports, imports, goods shortage income penalty, cost $200,000 and upkeep $30, `transit.goodsCapacity` 0.55). Still at no effect, with no lab target yet: `goods.shortageDemandPenalty`, `port.industrialDemandMult`, `port.truckWeight`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`. Parked until ENGINEER 3's targets exist; agree the split of `BALANCE.port` / `BALANCE.goods` with ENGINEER 3 directly. **Waiting on ENGINEER 3 (lab) and the owner.**
+2. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
+3. **Tax slider's growth-demand follow-up:** ENGINEER 3 lists this as waiting on ENGINE. Check with ENGINEER 3 whether #199 (`taxDemandMult`) already covers it.
 
 ### On hold (do not start without the owner)
 
@@ -67,6 +65,8 @@ Standing rules (see AGENT.md): systems never loop over the whole map (`world.ind
 - Services by capacity (#195, #206): schools and hospitals seat whole homes nearest-first (school 20 tiles / 4,000, hospital 30 / 8,000); police and fire are road-based reach only.
 - Economy (#184, #187, #189, #199): Tight numbers are the default ("Original" kept as a preset); debt rule; tax level slider that also moves satisfaction and growth demand (`taxEffect` for the UI).
 - Political capital: regeneration, upkeep, displacement and debt drain scale with the cap (`capScale`); requests and seats (#165, #179, #180, #194).
+- Requests say why they are unmet: `requestProgress` gives `unmetFull` / `unmetOutOfReach` / `unmetReason` for the coverage kinds (GRAPHICS uses it for the quest text and the school and health overlays).
+- Debt countdown is on: `budget.debtGraceDays` is 30 with the game-over screen (#198).
 - Earlier: flow-based traffic with markets, overlay and debug panel (#29, #30); save files (#30); sim tick 95 ms → 3 ms on a 512×512 map (#31); renderer split; zoom stutter fix; CI checks, the golden-city test and `npm run bench`.
 
 ## ENGINEER 2

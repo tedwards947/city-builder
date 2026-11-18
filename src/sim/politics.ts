@@ -375,8 +375,10 @@ export interface PcQuote {
    */
   affordable: boolean;
   /**
-   * The political debt the action would leave: how far below 0 a service
-   * closure takes PC, because it is charged in full whatever the city has.
+   * The political debt the action would add, set only when it includes a
+   * service closure (charged in full whatever the city has): the part of
+   * `cost` that PC above 0 does not cover. With PC already below 0 that is
+   * the whole cost, so it is the debt added, not the balance afterwards.
    * 0 when the city can cover it. `cost` is the full amount either way.
    */
   shortfall: number;
@@ -418,7 +420,7 @@ function totalUp(world: World, q: PcQuote): void {
   q.affordable = canAfford(world, cost);
   cost += unrefusable;
   q.cost = cost;
-  // How far below zero the never-refused costs would take PC.
+  // The debt added: what PC above zero does not cover.
   q.shortfall = unrefusable > 0 ? Math.max(0, cost - Math.max(0, world.budget.politicalCapital)) : 0;
   q.reward = capped > 0 ? free + Math.min(capped, roomBelowCap(world)) : free;
 }
