@@ -73,6 +73,26 @@ describe('buildings in traffic', () => {
     expect(buildingTripsAt(w, 8, 12)!.takes[0].trips).toBeCloseTo(trips);
   });
 
+  it('gives homes no accessibility: only zones count as somewhere to work or shop', () => {
+    // Homes at x 5–6; industry 19 tiles east, so some accessibility but far from full.
+    for (const x of [24, 25]) zone(x, 14, ZONE_I, 3);
+    traffic();
+    const before = w.layers.accessibility[idx(5, 14)];
+    expect(before).toBeGreaterThan(0);
+    expect(before).toBeLessThan(200);
+    // A station next door that takes commuters and shoppers: traffic goes to it, accessibility does not move.
+    rows({ [BUILDING_POLICE]: { takes: { jobs: 100, shopping: 100 } } });
+    w.placeBuilding(7, 12, BUILDING_POLICE);
+    const t = traffic();
+    expect(t.jobs.field.doorLoad[idx(7, 13)]).toBeGreaterThan(0);
+    expect(w.layers.accessibility[idx(5, 14)]).toBe(before);
+    expect(w.layers.accessibility[idx(6, 14)]).toBeGreaterThan(0);
+    // With no zone to work or shop at, the station alone gives none at all.
+    w.layers.devLevel[idx(24, 14)] = 0; w.layers.devLevel[idx(25, 14)] = 0;
+    traffic();
+    expect(w.layers.accessibility[idx(5, 14)]).toBe(0);
+  });
+
   it('a full building passes the rest on', () => {
     for (const x of [14, 15]) zone(x, 14, ZONE_I, 3);
     rows({ [BUILDING_POLICE]: { takes: { jobs: 0.5 } } });
