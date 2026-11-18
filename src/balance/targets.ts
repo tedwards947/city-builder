@@ -357,8 +357,8 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
       const t = pair(c, 20); if (!('a' in t)) return t;
       return { ...all({ residents: range(-popDiff(t.a, t.n), 0.02, 0.08), income: range(t.a.incomeLate - t.n.incomeLate, 1e-9), satisfaction: range(r3((t.n.satEnd - t.a.satEnd) * 100), 8, 20) }), note: `residents ${t.a.popEnd} vs ${t.n.popEnd}; income ${t.a.incomeLate} vs ${t.n.incomeLate}` };
     } },
-  { id: 'tax.low', metric: 'Twin runs of a mature city, 150 days at tax level 5 against 10: residents at the end, and income; on the fresh town at level 0, the longest run of days in debt', target: 'residents no fewer, income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
-    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch. Owner (2026-11-18): the growth check is for mature cities only; a fresh town going broke at low tax is an accepted early-game constraint, but at 0 it must still fail econ.noSoftlock. Built-out land grows no faster at low tax, so the mature check is residents no fewer than at 10, for less income.',
+  { id: 'tax.low', metric: 'Twin runs of a mature city, 150 days at tax level 5 against 10: residents at the end, and income; on the fresh town at level 0, the longest run of days in debt', target: 'residents no fewer (0.5% tolerance), income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch. Owner (2026-11-18): the growth check is for mature cities only; a fresh town going broke at low tax is an accepted early-game constraint, but at 0 it must still fail econ.noSoftlock. Built-out land grows no faster at low tax, so the mature check is residents no fewer than at 10, for less income. Owner (2026-11-18): up to 0.5% fewer counts as no fewer (one home of noise).',
     evaluate: c => {
       const L = tdOf(c)?.levels; if (!L) return NA('not run');
       if (c.cityKind === 'fresh') {
@@ -367,7 +367,7 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
         return { value: z.longestDebtRun, pass: stuck, miss: stuck ? 0 : r3((31 - z.longestDebtRun) / 31), note: z.gameOverDay !== null ? `game over on day ${z.gameOverDay}` : `${z.longestDebtRun} days in debt at most` };
       }
       const t = pair(c, 5); if (!('a' in t)) return t;
-      return { ...all({ residents: range(popDiff(t.a, t.n), 0), income: range(t.n.incomeLate - t.a.incomeLate, 1e-9) }), note: `residents ${t.a.popEnd} vs ${t.n.popEnd}; income ${t.a.incomeLate} vs ${t.n.incomeLate}` };
+      return { ...all({ residents: range(popDiff(t.a, t.n), -0.005), income: range(t.n.incomeLate - t.a.incomeLate, 1e-9) }), note: `residents ${t.a.popEnd} vs ${t.n.popEnd}; income ${t.a.incomeLate} vs ${t.n.incomeLate}` };
     } },
   { id: 'tax.noDominant', metric: 'Fresh town, 300 days at tax levels 0, 5, 15, 20: any level with both more income (last 30 days) and more people than level 10', target: 'none', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
     why: 'Owner (2026-11-17): an exploit check; no setting is simply better than neutral.',
