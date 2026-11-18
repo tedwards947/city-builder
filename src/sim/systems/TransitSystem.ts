@@ -42,6 +42,8 @@
 // Then: CONGESTION = volume / capacity of the road class, as a 0-255 byte,
 // and ACCESSIBILITY per zone tile from travel time — homes look for the
 // nearer of commerce or industry, commerce and industry look for homes.
+// Only ZONES count: a building that takes shoppers or commuters (a school's
+// staff, an airport) is a door for traffic but gives homes no accessibility.
 // 255 = next door, falling linearly to 0 at BALANCE.transit.commuteMax.
 // ZoneGrowthSystem uses it as a growth multiplier.
 //
@@ -55,12 +57,12 @@
 // still settling, and at once when the road layer changes.
 
 import { World } from '../World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
   type TrafficData, type TrafficField, type MarketKey,
-  makeTrafficData, marketRate, marketCapacity, marketWeight, marketReach, NO_ZONE,
+  makeTrafficData, makeTrafficField, marketRate, marketCapacity, marketWeight, marketReach, NO_ZONE,
   bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
   hasDoorProviders, extraDoors, hasTripProviders, extraTrips,
 } from '../TrafficData';
@@ -134,6 +136,11 @@ export class TransitSystem {
   // skipped altogether).
   private _extraDoorCount: number[] = [];
   private _extraTripCount: number[] = [];
+  // The way to the nearest shops and jobs counting zones only, for
+  // accessibility. Made and filled only while buildings add doors to the
+  // shopping or jobs market; otherwise the market's own map is the same thing.
+  private _zoneShops: TrafficField | null = null;
+  private _zoneJobs: TrafficField | null = null;
   private _idle: boolean[] = [];
 
   update(world: World): void {
@@ -201,6 +208,8 @@ export class TransitSystem {
       this._fresh = true;
       this._nb = new Int32Array(n * 4);
       this._nbStale = true;
+      this._zoneShops = null;
+      this._zoneJobs = null;
     }
 
     const roadClass = world.layers.roadClass;
@@ -291,6 +300,17 @@ export class TransitSystem {
     // with the roads as slow as the final volumes make them.
     this._updateCosts(world);
     this._flood(world, ZONE_R, data.toR, 1);
+    // Likewise the way to shops and jobs without the doors buildings add (see Accessibility).
+    const shopsK = data.markets.indexOf(data.shopping), jobsK = data.markets.indexOf(data.jobs);
+    let toShops = data.shopping.field, toJobs = data.jobs.field;
+    if (this._extraDoorCount[shopsK] > 0) {
+      toShops = this._zoneShops ??= makeTrafficField(n);
+      this._flood(world, ZONE_C, toShops, 1);
+    }
+    if (this._extraDoorCount[jobsK] > 0) {
+      toJobs = this._zoneJobs ??= makeTrafficField(n);
+      this._flood(world, ZONE_I, toJobs, 1);
+    }
 
     // ── Congestion ────────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
@@ -306,10 +326,11 @@ export class TransitSystem {
 
     // ── Accessibility ─────────────────────────────────────────────────────────
     // What each zone type needs within reach. Homes: the nearer of commerce
-    // (shopping) or industry (jobs). Commerce and industry: homes.
+    // (shopping) or industry (jobs). Commerce and industry: homes. Zones
+    // only: doors that buildings add to a market do not count.
     // (TODO.md: let commerce also need industry, via the goods market's map.)
     const accessibility = world.layers.accessibility;
-    const toShops = data.shopping.field, toJobs = data.jobs.field, toHomes = data.toR;
+    const toHomes = data.toR;
     const commuteMax = T.commuteMax;
 
     accessibility.fill(0);
