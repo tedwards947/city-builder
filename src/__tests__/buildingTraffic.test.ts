@@ -41,7 +41,7 @@ beforeEach(() => {
 afterEach(() => { T.buildings = shipped.rows; T.tripsVisitors = shipped.tripsVisitors; });
 
 describe('buildings in traffic', () => {
-  it('ship at no effect: the rows take, send and earn nothing', () => {
+  it('services ship at no effect: their rows take, send and earn nothing (the airport is tuned: airport.test.ts)', () => {
     T.buildings = shipped.rows;
     T.tripsVisitors = shipped.tripsVisitors;
     for (const x of [20, 21]) zone(x, 14, ZONE_I, 3);
@@ -54,7 +54,8 @@ describe('buildings in traffic', () => {
     expect(buildingTripIncome(w)).toBe(0);
     for (const z of ['R', 'C', 'I'] as const) expect(buildingDemandMult(w, z)).toBe(1);
     expect(buildingTripsAt(w, 10, 12)).toEqual({ connected: true, takes: [], sends: [], income: 0 });
-    for (const row of Object.values(shipped.rows)) {
+    for (const kind of [4, 5, 6, 7]) {
+      const row = shipped.rows[kind];
       for (const part of [row.takes, row.sends, row.incomePerTrip]) for (const v of Object.values(part ?? {})) expect(v).toBe(0);
     }
   });

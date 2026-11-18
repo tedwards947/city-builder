@@ -61,10 +61,11 @@ export const BALANCE = {
     // The seaport (a 4×3 yard plus a row of docks over open water). Placeholder
     // numbers until the lab tunes it: dear to build and dear to run.
     12: { cost: 200000, maintenance: 30 }, // BUILDING_SEAPORT
-    // The airport (12×5, one per city). Placeholder numbers until the lab
-    // tunes it with its traffic row (transit.buildings): the owner wants it
-    // really expensive.
-    13: { cost: 500000, maintenance: 75 }, // BUILDING_AIRPORT
+    // The airport (12×5, one per city). Really expensive (owner, 2026-11-18;
+    // Balance Lab): 10× the seaport, 220–320 days of a mature 10k city's
+    // surplus; upkeep 1,200 a day. Its passengers pay it back in about 2 game
+    // years (transit.buildings[13]).
+    13: { cost: 2000000, maintenance: 150 }, // BUILDING_AIRPORT
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -296,7 +297,8 @@ export const BALANCE = {
     // homes → places that draw visitors (an airport, a landmark), per home
     // level. Only buildings take these trips (`buildings` below), so with no
     // such building, or at 0, the visitors market does not run at all.
-    tripsVisitors: 0,
+    // 0.05 (Balance Lab, owner 2026-11-18): a 10k city sends about 85 a tick.
+    tripsVisitors: 0.05,
     // Trips a destination can take per developed level. Trips go to the
     // nearest destination; when it is full the overflow goes on to others with
     // room close by, and what still does not fit shows as over capacity.
@@ -318,8 +320,8 @@ export const BALANCE = {
     // (sim/buildingTraffic.ts): the trips it takes and sends per market, what
     // it earns per trip and what it does to growth demand. A new building
     // (an airport, a landmark) joins traffic by getting a row here; no engine
-    // code is needed. Every number ships at no effect until the Balance Lab
-    // sets it. The seaport is not here: its trade has rules of its own
+    // code is needed. A row's numbers ship at no effect until the Balance Lab
+    // sets them (the airport's are set; the services' jobs wait on ENGINE). The seaport is not here: its trade has rules of its own
     // (BALANCE.port, sim/seaport.ts).
     buildings: {
       4: { takes: { jobs: 0 } },   // police: people who work there
@@ -330,9 +332,12 @@ export const BALANCE = {
       // earns per passenger; arrivals leave it for the shops and to look for
       // work; while it stands on a road, shops are in more demand.
       13: {
-        takes: { visitors: 0 }, incomePerTrip: { visitors: 0 },
-        sends: { shopping: 0, jobs: 0 },
-        demandMult: { C: 1 },
+        // Balance Lab, owner 2026-11-18. A 10k city fills 83–88% of the 100
+        // seats a tick; a terminal on plain streets jams (the owner wants the
+        // traffic). Arrivals don't pay.
+        takes: { visitors: 100 }, incomePerTrip: { visitors: 6 },
+        sends: { shopping: 30, jobs: 10 },
+        demandMult: { C: 1.1 },
       },
     } as Record<number, BuildingTrafficRow>,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
