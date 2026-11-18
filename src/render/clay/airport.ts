@@ -1,8 +1,8 @@
 // The airport (art/clay-set/airport3.html and the owner's picks from three
 // workshop rounds): a straight-on steel-and-glass terminal with a tower and a
-// hangar along the north of its 12×5 footprint, an apron with three gates and
+// hangar along the north of its footprint (a 12×4 block over an 18-tile runway row), an apron with three gates and
 // jet bridges (J2: down onto the nose from the right, telescoping), and runway 9
-// along the south, with edge lights and approach lights whose flash races
+// along the south, running 3 tiles past the block at each end, with edge lights and approach lights whose flash races
 // towards the runway. Planes are side-on pictures that never turn (P2, 2 tiles
 // long; red, navy and sky blue, now and then orca or kawaii; no panda), so they
 // slide sideways between the runway and the gates (M1).
@@ -10,7 +10,7 @@
 // Like the ships, nothing is simulated: one arrival-and-departure cycle a minute
 // is worked out from the clock while the airport has a road, so it costs nothing
 // off screen and needs no saving. The airport never turns, so everything is laid
-// out in tiles from its footprint's top-left corner.
+// out in tiles from its block's top-left corner (the runway row reaches x −3 to 15).
 
 import { AIRPORT_SPRITES, type AirportSpriteMeta } from './airportSpriteData';
 
@@ -37,12 +37,12 @@ export function airportArtReady(): boolean {
 }
 
 // ── Layout, in tiles from the footprint's top-left corner ──
-/** Runway: centre line, width, ends (approach lights fill the grass west of it). */
-export const RUNWAY = { y: 4.1, w: 0.8, x0: 1.6, x1: 11.8 };
+/** Runway: centre line (the middle of the runway row), width, ends (approach lights fill the grass west of it, in the overrun). */
+export const RUNWAY = { y: 4.5, w: 0.8, x0: -1.4, x1: 13.9 };
 /** Gate row (planes' wheels), taxilane, the three gates' plane centres, where arrivals leave the runway and departures join it. */
 export const GATE_Y = 2.3, TAXI_Y = 3.0, GATES = [2.9, 5.6, 8.3] as const, EXIT_X = 7.4, DEPART_X = 2.6;
 /** Where an arriving plane touches down. A plane is this many tiles long. */
-const TOUCH_X = 3.4, PLANE = 2;
+const TOUCH_X = 0.8, PLANE = 2;
 /** The terminal's front (the line it stands on) and middle; the tower's and hangar's feet. */
 const TERM_Y = 1.1, TERM_X = 6.2, TOWER = [0.9, 1.0] as const, HANGAR = [11.3, 1.1] as const;
 const APRON = { x0: 0, y0: 0.95, x1: 12, y1: 3.4 };
@@ -69,7 +69,7 @@ export function airportPlaneAt(c: number): PlaneState | null {
   if (c < 44) return at(lerp(G - 0.5, DEPART_X, E((c - 36) / 8)), TAXI_Y);                                            // pushed along the taxilane
   if (c < 45.5) return at(DEPART_X, TAXI_Y);
   if (c < 49) return at(DEPART_X, lerp(TAXI_Y, R, E((c - 45.5) / 3.5)));                                              // slide onto the runway
-  if (c < 56) { const f = (c - 49) / 7, x = DEPART_X + 13 * f * f; return at(x, R, Math.max(0, x - DEPART_X - 5.7) * 0.35, 1 - seg(x, 11.5, 14)); }   // take-off
+  if (c < 56) { const f = (c - 49) / 7, x = DEPART_X + 15 * f * f; return at(x, R, Math.max(0, x - DEPART_X - 6.5) * 0.35, 1 - seg(x, 13, 16.5)); }   // take-off
   return null;
 }
 
@@ -126,7 +126,7 @@ export function drawAirport(ctx: CanvasRenderingContext2D, ox: number, oy: numbe
 
   // Ground: grass, the apron with its markings, taxiways, the runway.
   ctx.save();
-  ctx.fillStyle = grass; ctx.fillRect(X(0), Y(0), 12 * tile, 5 * tile);
+  ctx.fillStyle = grass; ctx.fillRect(X(0), Y(0), 12 * tile, 4 * tile); ctx.fillRect(X(-3), Y(4), 18 * tile, tile);
   ctx.fillStyle = APRON_C; ctx.fillRect(X(APRON.x0), Y(APRON.y0), (APRON.x1 - APRON.x0) * tile, (APRON.y1 - APRON.y0) * tile);
   const lw = Math.max(1, tile / 30);
   if (tile >= 12) {

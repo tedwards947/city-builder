@@ -130,12 +130,14 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
   const yard = block(4, 3), docks: ShapeOffset[] = [[0, -1], [1, -1], [2, -1], [3, -1]];
   setBuildingShape(BUILDING_SEAPORT, [...yard, ...docks], [...yard.map(() => 'body' as const), ...docks.map(() => 'dock' as const)]);
 }
-// The airport: a 12×5 block, anchor at its top-left. Rows from the north:
-// terminal, tower and hangar (dy 0–1), apron and gates (dy 2–3), runway
-// (dy 4). The terminal's frontage is the north edge at dx 2–9: only roads
-// along it reach the airport. The art has one facing, so it is never turned.
+// The airport: a 12×4 block, anchor at its top-left, over a runway row that
+// runs 3 tiles past it at each end (18 tiles, the owner asked for a longer
+// runway overrunning the terminal block). Rows from the north: terminal, tower
+// and hangar (dy 0–1), apron and gates (dy 2–3), runway (dy 4, dx −3 to 14).
+// The terminal's frontage is the north edge at dx 2–9: only roads along it
+// reach the airport. The art has one facing, so it is never turned.
 {
-  const shape = block(12, 5);
+  const shape: ShapeOffset[] = [...block(12, 4), ...Array.from({ length: 18 }, (_, k): ShapeOffset => [k - 3, 4])];
   setBuildingShape(BUILDING_AIRPORT, shape, shape.map(([dx, dy]) => (dy === 0 && dx >= 2 && dx <= 9 ? 'frontage' : 'body')));
 }
 
