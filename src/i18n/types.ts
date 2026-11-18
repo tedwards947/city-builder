@@ -274,6 +274,10 @@ export interface TranslationSchema {
       school: string;
       hospital: string;
       park: string;
+      landscape: string;
+      trees: string;
+      addWater: string;
+      removeWater: string;
       clear: string;
       undo: string;
       redo: string;
@@ -293,6 +297,30 @@ export interface TranslationSchema {
       pcWithin: string;
       pcAvoid: string;
       pcEarns: string;
+    };
+    landscape: {
+      species: string;
+      mixed: string;
+      beech: string;
+      larch: string;
+      pine: string;
+      spruce: string;
+      poplar: string;
+      cypress: string;
+      brush: string;
+      brushHint: string;
+      trees: string;
+      tiles: string;
+      blockedRoad: string;
+      blockedBuilt: string;
+      floods: string;
+      pcCost: string;
+      debt: string;
+      nothing: string;
+      portCutOff: string;
+      portCutOffNote: string;
+      portReconnected: string;
+      pumpDry: string;
     };
     roadMode: {
       manual: string;
@@ -339,6 +367,9 @@ export interface TranslationSchema {
       school: string;
       hospital: string;
       park: string;
+      trees: string;
+      addWater: string;
+      removeWater: string;
       clear: string;
       undo: string;
       redo: string;

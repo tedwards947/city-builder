@@ -8,6 +8,9 @@
 //                            right-click or cancelAutoRoad() → abandon; drag → pan
 //   Zone tools, fill mode    tap → zone the lots along that side of the road
 //                            (one undo step, all or nothing); drag → pan
+//   Landscape tools          primary drag → a round brush gathers tiles; on
+//                            release one command plants trees or edits water
+//                            (one undo step, all or nothing)
 //   Building tools           tap → place one; drag → pan
 //   Wheel / pinch            zoom
 //
@@ -23,7 +26,10 @@ import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { placementAnchor, placementFor } from './placement';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
-import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
+import { PlantTreesCommand, ClearTreesCommand } from '../commands/TreeCommands';
+import { EditWaterCommand } from '../commands/EditWaterCommand';
+import { brushTiles, landscapeBrush, speciesGroups, treeChoice } from './landscape';
+import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, VEG_NONE, BUILDING_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
 import { wheelZoomFactor } from './wheelZoom';
@@ -34,7 +40,7 @@ import type { ZoneMode } from './zoneFill';
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater';
 
 const ROAD_TOOL_CLASS: Partial<Record<Tool, number>> = {
   road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
@@ -66,9 +72,14 @@ export function zoneForTool(tool: Tool): number | undefined {
   return ZONE_TOOL_ZONE[tool];
 }
 
+/** The Landscape tools: a brush that gathers a stroke and applies it on release. */
+export function isLandscapeTool(tool: Tool): boolean {
+  return tool === 'trees' || tool === 'addWater' || tool === 'removeWater';
+}
+
 /** Tools that paint along a drag instead of panning. */
 export function isPaintTool(tool: Tool): boolean {
-  return tool in ROAD_TOOL_CLASS || tool in ZONE_TOOL_ZONE || tool === 'bulldoze';
+  return tool in ROAD_TOOL_CLASS || tool in ZONE_TOOL_ZONE || tool === 'bulldoze' || isLandscapeTool(tool);
 }
 
 /** Build the Command a tool issues for one tile, or null if the tool issues none. */
@@ -83,7 +94,14 @@ export function commandForTool(tool: Tool, tx: number, ty: number, world?: World
     if (world) { const p = placementFor(world, kind, tx, ty); return new PlaceBuildingCommand(p.tx, p.ty, kind, p.rot); }
     const a = placementAnchor(kind, tx, ty); return new PlaceBuildingCommand(a.tx, a.ty, kind);
   }
-  if (tool === 'bulldoze') return new BulldozeCommand(tx, ty);
+  if (tool === 'bulldoze') {
+    // The bulldozer also clears trees (owner, landscaping mocks: no separate eraser).
+    if (world && world.grid.inBounds(tx, ty)) {
+      const i = world.grid.idx(tx, ty), L = world.layers;
+      if (L.vegetation[i] !== VEG_NONE && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE) return new ClearTreesCommand([i]);
+    }
+    return new BulldozeCommand(tx, ty);
+  }
   return null;
 }
 
@@ -101,6 +119,7 @@ interface Stroke {
   last: TilePos;
   axis: Axis | null;        // roads only: locked once the pointer leaves the start tile
   visited: Set<number>;     // tile indices already handled in this stroke
+  brushed: number[] | null; // landscape tools: the tiles gathered so far, in order (applied on release)
 }
 
 export class InputController {
@@ -381,15 +400,48 @@ export class InputController {
 
   private _beginStroke(tool: Tool, tile: TilePos): void {
     const history = this.getHistory();
-    history.beginBatch();
+    const landscape = isLandscapeTool(tool);
+    if (!landscape) history.beginBatch();
     this.stroke = {
       tool, history,
       world: this.getWorld(),
       start: tile, last: tile,
       axis: null,
       visited: new Set(),
+      brushed: landscape ? [] : null,
     };
-    this._paintTiles([tile]);
+    if (landscape) this._brush([tile]); else this._paintTiles([tile]);
+  }
+
+  /** The landscape stroke under way, as tile indices, or null. */
+  get landscapeStroke(): readonly number[] | null {
+    const s = this.stroke;
+    return s && s.brushed && s.world === this.getWorld() ? s.brushed : null;
+  }
+
+  private _brush(tiles: TilePos[]): void {
+    const s = this.stroke;
+    if (!s || !s.brushed) return;
+    const r = landscapeBrush();
+    for (const { tx, ty } of tiles) for (const i of brushTiles(s.world, tx, ty, r)) {
+      if (s.visited.has(i)) continue;
+      s.visited.add(i);
+      s.brushed.push(i);
+    }
+  }
+
+  /** Applies a landscape stroke as one undo step, or not at all. */
+  private _applyBrushed(s: Stroke): void {
+    const tiles = s.brushed;
+    if (!tiles || tiles.length === 0 || s.world !== this.getWorld()) return;
+    const cmds: Command[] = s.tool === 'trees'
+      ? [...speciesGroups(tiles, treeChoice())].map(([sp, group]) => new PlantTreesCommand(group, sp))
+      : [new EditWaterCommand(tiles, s.tool === 'addWater')];
+    s.history.beginBatch();
+    let refused: FailReason | undefined;
+    for (const cmd of cmds) if (!s.history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
+    if (refused) { s.history.cancelBatch(); this.onRejected?.(refused); return; }
+    s.history.endBatch();
   }
 
   private _extendStroke(tile: TilePos): void {
@@ -401,6 +453,8 @@ export class InputController {
       // pointer first moved along.
       if (s.axis === null) s.axis = dominantAxis(s.start, tile);
       if (s.axis !== null) this._paintTiles(axisLockedLine(s.start, tile, s.axis));
+    } else if (s.brushed) {
+      this._brush(tilesBetween(s.last, tile));
     } else {
       // Zones / bulldoze: every tile the pointer crossed since the last sample.
       this._paintTiles(tilesBetween(s.last, tile));
@@ -435,14 +489,15 @@ export class InputController {
     const s = this.stroke;
     if (!s) return;
     this.stroke = null;
-    s.history.endBatch();
+    if (s.brushed) this._applyBrushed(s);
+    else s.history.endBatch();
   }
 
   private _abortStroke(): void {
     const s = this.stroke;
     if (!s) return;
     this.stroke = null;
-    s.history.cancelBatch();
+    if (!s.brushed) s.history.cancelBatch();
   }
 
   private _applyTool(tx: number, ty: number): void {

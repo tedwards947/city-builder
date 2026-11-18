@@ -16,7 +16,7 @@ import { createSystems } from './sim/createSystems';
 import { computeServiceCoverage } from './sim/systems/ServiceSystem';
 import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
-import { InputController, roadClassForTool, zoneForTool } from './input/InputController';
+import { InputController, roadClassForTool, zoneForTool, isLandscapeTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
 import { planZoneFill } from './input/zoneFill';
@@ -41,6 +41,8 @@ import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcHudRate } from './ui/pcFormat';
 import { DOCK_CHANGED } from './ui/debugDock';
 import { pcCap, overCapFadePerDay } from './sim/politics';
+import { landscapePreview } from './ui/landscapePreview';
+import { brushTiles, landscapeBrush, stepLandscapeBrush } from './input/landscape';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
 import { MilestoneBanner } from './ui/MilestoneBanner';
 import { OrdinancePanel, ordinancesShown } from './ui/OrdinancePanel';
@@ -424,6 +426,13 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
+  // [ and ] change the Landscape brush size.
+  if ((key === '[' || key === ']') && !e.ctrlKey && !e.metaKey && isLandscapeTool(currentTool)) {
+    stepLandscapeBrush(key === '[' ? -1 : 1);
+    toolbar.refresh();
+    return;
+  }
+
   // X turns a building that can be turned (the seaport) while it is being placed.
   if (key === 'x' && !e.ctrlKey && !e.metaKey) {
     const kind = buildingKindForTool(currentTool);
@@ -572,6 +581,12 @@ function frame(now: number): void {
       }
     }
   }
+  // Landscape tools: the stroke under way, or the brush under the pointer, and what it would do.
+  const strokeTiles = input.landscapeStroke;
+  const landscape = isLandscapeTool(currentTool) && hoverTile && state.world.grid.inBounds(hoverTile.tx, hoverTile.ty)
+    ? landscapePreview(state.world, currentTool, strokeTiles ?? brushTiles(state.world, hoverTile.tx, hoverTile.ty, landscapeBrush()), hoverTile)
+    : null;
+  if (landscape) pcPreview = null;
   // Seats and beds on the map while placing a school or hospital, or looking at one.
   let seatView: { kind: number; gained: readonly number[] } | null = null;
   if (serviceKind !== undefined && hasCapacity(serviceKind)) {
@@ -597,7 +612,7 @@ function frame(now: number): void {
     pcPreview,
     requestOutcomes: requestFeedback.outcomes(performance.now()),
     areaHighlights: areaHighlights(performance.now()),
-    hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview,
+    hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview, landscape,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);

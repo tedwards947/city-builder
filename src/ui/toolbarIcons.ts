@@ -22,6 +22,10 @@ const ICONS = {
   hospital: p('M9 3h6v6h6v6h-6v6H9v-6H3V9h6z'),
   // An anchor.
   port: p('M12 8v13M12 21c-4 0-7-3-7-7h3M12 21c4 0 7-3 7-7h-3M9 12h6') + '<circle cx="12" cy="5.5" r="2.5"/>',
+  // A conifer, and drops with a plus or a minus (the Landscape tools).
+  tree: p('M12 3l5 7h-3l4 6H6l4-6H7zM12 16v5'),
+  addWater: p('M10 4c3 4 5 6.5 5 9.5a5 5 0 01-10 0c0-3 2-5.5 5-9.5zM19 13v6M16 16h6'),
+  removeWater: p('M10 4c3 4 5 6.5 5 9.5a5 5 0 01-10 0c0-3 2-5.5 5-9.5zM16 16h6'),
   park: p('M12 22v-7M12 15c-5 0-7-3-5-6-1-4 3-6 5-6s6 2 5 6c2 3 0 6-5 6z'),
   layers: p('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'),
   traffic: p('M5 16v-3l2-5h10l2 5v3zM6 13h12M7 16v2M17 16v2'),
