@@ -17,9 +17,10 @@ import type { StaticProbes } from './probes';
 import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
 import type { TradeResult } from './trade';
 import type { TaxDebtResult, LevelRun } from './taxdebt';
+import type { AirportResult } from './airport';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport';
 
 export interface Outcome {
   value: unknown;
@@ -44,6 +45,8 @@ export interface EvalCtx {
   trade?: TradeResult | null;
   /** Debt / tax suite: drain, squeeze and tax-level twin runs on the city. */
   taxdebt?: TaxDebtResult | null;
+  /** Airport suite: the airport built on the saved city, against a twin without it. */
+  airport?: AirportResult | null;
 }
 
 export interface Target {
@@ -379,10 +382,41 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
     } },
 ];
 
+// The airport (approved by the owner 2026-11-18, "go for it"). Probe on each saved city: the
+// airport near the middle of the homes, a street along its terminal, 60 days against a twin
+// with the same streets and no airport (src/balance/airport.ts).
+const airportOf = (c: EvalCtx): { a: AirportResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  const a = c.airport; if (!a) return NA('no airport probe');
+  if (!a.site) return NA(a.note ?? 'no airport site');
+  return { a };
+};
+const AIRPORT_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'airport.seats', metric: 'Share of the airport\'s visitor seats filled, on cities of 10k residents or more', target: '70–100%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): an airport in a big city is busy.',
+    evaluate: c => { const r = airportOf(c); if (!('a' in r)) return r; if (r.a.population < 10000) return NA(`under 10k residents (${r.a.population})`); return range(r.a.seats, 0.7, 1); } },
+  { id: 'airport.payback', metric: 'Game days for the airport\'s extra net income (against the twin) to repay its cost', target: '540–900 days (1.5–2.5 game years)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): really expensive, but it pays for itself in a couple of years.',
+    evaluate: c => { const r = airportOf(c); if (!('a' in r)) return r; return r.a.paybackDays === null ? { value: null, pass: false, miss: 1, note: 'never pays back' } : range(r.a.paybackDays, 540, 900); } },
+  { id: 'airport.demand', metric: 'Commercial demand with the airport ÷ the twin\'s, minus 1', target: '+5–15%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): an airport brings shoppers; shops are in more demand.',
+    evaluate: c => { const r = airportOf(c); if (!('a' in r)) return r; return range(r.a.demandGain, 0.05, 0.15); } },
+  { id: 'airport.cost', metric: 'The airport\'s build cost in days of the city\'s own surplus (the twin)', target: '≥ 200 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): really expensive.',
+    evaluate: c => { const r = airportOf(c); if (!('a' in r)) return r; return r.a.costDays === null ? NA('the city runs at a loss') : range(r.a.costDays, 200); } },
+  { id: 'airport.traffic', metric: 'Worst congestion (0–255) on the plain streets along the terminal', target: '≥ 200 (jams)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): lots of traffic; a terminal on plain streets jams, so the player builds avenues there.',
+    evaluate: c => { const r = airportOf(c); if (!('a' in r)) return r; return range(r.a.frontJam, 200); } },
+  { id: 'airport.request', metric: '"Residents want an airport" reward ÷ the PC cap at the city\'s size', target: '0.8–1.2 bars', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): worth "buku PC", about one full bar. A mature city barely grows before it first has the cash, so its size now stands in for its size then.',
+    evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const a = c.airport; if (!a) return NA('no airport probe'); return { ...range(a.requestBars, 0.8, 1.2), note: `${a.population} residents` }; } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
   ...SVC_TARGETS.map(t => ({ ...t, suite: 'svc' as const })),
   ...TRADE_TARGETS.map(t => ({ ...t, suite: 'trade' as const })),
   ...TAXDEBT_TARGETS.map(t => ({ ...t, suite: 'taxdebt' as const })),
+  ...AIRPORT_TARGETS.map(t => ({ ...t, suite: 'airport' as const })),
 ];
