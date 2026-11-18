@@ -7,6 +7,7 @@ import { updateDebt, type DebtWarnings } from '../debt';
 import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
 import { goodsIncomeMult } from '../goods';
 import { exportIncome } from '../seaport';
+import { buildingTripIncome } from '../buildingTraffic';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -66,6 +67,8 @@ export class EconomySystem {
     income *= taxIncomeMult(world.budget.taxLevel);
     // What the seaports earn from exports is trade, not tax: the tax level does not scale it.
     income += exportIncome(world);
+    // Nor what buildings earn per trip they take (an airport's passengers).
+    income += buildingTripIncome(world);
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
       if (roadClass[i] !== ROAD_NONE) {

@@ -1,6 +1,26 @@
 // All costs, tax rates, maintenance costs, and balance constants.
 // No magic numbers in game code.
 
+/** A kind of trip in the traffic system (sim/TrafficData.ts MARKET_DEFS). */
+export type TrafficMarketKey = 'shopping' | 'jobs' | 'goods' | 'exports' | 'visitors';
+
+/**
+ * What one building kind does in the traffic system (sim/buildingTraffic.ts).
+ * Amounts are trips per tick for the whole building, shared evenly between
+ * the streets and avenues that touch it. Anything left out is 0 (or 1 for a
+ * multiplier): no effect.
+ */
+export interface BuildingTrafficRow {
+  /** Trips it can take, per market: it is a destination (people working at a school, visitors to a landmark). */
+  takes?: Partial<Record<TrafficMarketKey, number>>;
+  /** Trips it puts on the road, per market: it is an origin (arrivals at an airport looking for shops or jobs). */
+  sends?: Partial<Record<TrafficMarketKey, number>>;
+  /** Money per trip it takes, per market, per tick (up to what it has room for). Trade, not tax. */
+  incomePerTrip?: Partial<Record<TrafficMarketKey, number>>;
+  /** City-wide growth demand multipliers while at least one of the kind stands with a road to it. */
+  demandMult?: { R?: number; C?: number; I?: number };
+}
+
 export const BALANCE = {
   costs: {
     road: 10,
@@ -269,6 +289,10 @@ export const BALANCE = {
     tripsRtoC: 0.33,      // homes → commerce
     tripsRtoI: 0.34,      // homes → industry
     tripsCtoI: 0.38,      // commerce → industry: shops fetching goods, per COMMERCE level
+    // homes → places that draw visitors (an airport, a landmark), per home
+    // level. Only buildings take these trips (`buildings` below), so with no
+    // such building, or at 0, the visitors market does not run at all.
+    tripsVisitors: 0,
     // Trips a destination can take per developed level. Trips go to the
     // nearest destination; when it is full the overflow goes on to others with
     // room close by, and what still does not fit shows as over capacity.
@@ -286,6 +310,19 @@ export const BALANCE = {
     // Travel time, in street tiles, at which accessibility reaches 0. A tile of
     // avenue or highway counts as 1 / speedMult street tiles.
     commuteMax: 48,
+    // What each building kind does in traffic, keyed by building kind
+    // (sim/buildingTraffic.ts): the trips it takes and sends per market, what
+    // it earns per trip and what it does to growth demand. A new building
+    // (an airport, a landmark) joins traffic by getting a row here; no engine
+    // code is needed. Every number ships at no effect until the Balance Lab
+    // sets it. The seaport is not here: its trade has rules of its own
+    // (BALANCE.port, sim/seaport.ts).
+    buildings: {
+      4: { takes: { jobs: 0 } },   // police: people who work there
+      5: { takes: { jobs: 0 } },   // fire station
+      6: { takes: { jobs: 0 } },   // school
+      7: { takes: { jobs: 0 } },   // hospital
+    } as Record<number, BuildingTrafficRow>,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
     // Growth multiplier floor for developed zone tiles with zero accessibility:
     // cut-off zones still creep along, but connectivity is a real drag.
