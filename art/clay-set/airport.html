@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Airport workshop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p, ul { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b, li b { color: #e6edf3; } ul { padding-left: 20px; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 760px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); max-width: 100%; }
+  .card { width: 300px; background: #18202a; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.55; color: #b8c4cf; }
+  .card h5 { font-size: 13px; color: #fff; margin-bottom: 4px; } .card .cost { color: #e0b050; font-weight: 600; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 760px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Airport workshop</h1>
+<p>One airport, 12×5 tiles: a single runway running left to right (it is <b>runway 9</b>, so planes land left→right; the far end reads 27 as on a real runway), one terminal with three jet bridges, a tower and a hangar. Every scene loops through about a minute: a plane lands, rolls out, leaves the runway, <b>pulls up to the third jet bridge</b>, gets bags and fuel, is pushed back by a tug, taxis out and takes off. The plane is one flat painted picture that never turns: it parks side-on beside the terminal and the bridge reaches its far-side door.</p>
+<p>New art: 8 paid images, as agreed (5 terminal sheets, planes, ground vehicles, 1 redo that came back unchanged). The houses are the game's own, for size. Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+<p><b>How it might work in the game (imagined, not built):</b> like the ships, nothing is simulated. What's happening at the airport comes from the clock and the airport's flights a day, so it costs nothing off screen and needs no saving: one arrival-and-departure cycle at a time, planes fading in out over the map's west edge on approach and fading out after take-off.</p>
+
+<h2>A. Terminal style</h2>
+<div class="rowf">
+  <figure><canvas width="768" height="384" data-style="jetage" data-off="0"></canvas><figcaption><span class="code">A1</span>Jet age: white concrete wings like the TWA Flight Center, with a LAX-style saucer on arches at the east end. (Its jet bridge came out with a nose like a plane's: fun, or confusing?)</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="steel" data-off="12"></canvas><figcaption><span class="code">A2</span>90s steel and glass: a long curved metal roof over a blue-green curtain wall, white trusses at the ends (SLC-ish).</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="brutalist" data-off="24"></canvas><figcaption><span class="code">A3</span>Surprise 1, brutalist: a huge board-marked concrete slab with a waffle underside on tapered piers. Heavy and calm.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="deco" data-off="36"></canvas><figcaption><span class="code">A4</span>Surprise 2, 1930s streamline: cream walls with rounded ends, teal and chrome stripes, portholes and a clock tower entrance.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="timber" data-off="48"></canvas><figcaption><span class="code">A5</span>Surprise 3, mass timber: a honey-coloured wave roof on tree-like wooden columns over a glass wall, with a planted strip.</figcaption></figure>
+</div>
+
+<h2>B. Getting on and off the runway</h2>
+<p>The plane never turns, so moving north to the gate (and south to the runway for take-off) needs a trick. The pushback is fine as it is: a tug really does shove the plane backwards and sideways.</p>
+<div class="rowf">
+  <figure><canvas width="768" height="384" data-style="steel" data-exit="crab" data-off="8"></canvas><figcaption><span class="code">B1</span>Slide: the plane just slides sideways the two tiles to the gate lane, still side-on. Simple; reads like a toy being moved.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="steel" data-exit="squash" data-off="8"></canvas><figcaption><span class="code">B2</span>Squash: it slides too, but narrows as it goes, as if half-turning away from you, then widens again. A cheap hint of a turn.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="steel" data-exit="fade" data-off="8"></canvas><figcaption><span class="code">B3</span>Fade: like the ships, it fades out on the runway and fades back in at the gate lane.</figcaption></figure>
+</div>
+
+<h2>C. Runway lights</h2>
+<div class="rowf">
+  <figure><canvas width="768" height="384" data-style="steel" data-lights="1" data-off="50"></canvas><figcaption><span class="code">C1</span>Steady only: white edge lights, green at the landing end, red at the far end, blue along the taxiways.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="steel" data-lights="2" data-off="50"></canvas><figcaption><span class="code">C2</span>Plus approach lights on the grass before the runway, with the "rabbit": a bright flash racing towards the runway twice a second.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="steel" data-lights="3" data-off="50"></canvas><figcaption><span class="code">C3</span>At dusk: glowing lights and a blinking red beacon on the plane. Only if the game gets a night look; shown so you can see the lights properly.</figcaption></figure>
+</div>
+
+<h2>D. Plane size</h2>
+<p>The dashed box is the 12×5 footprint. A house is one tile.</p>
+<div class="rowf">
+  <figure><canvas width="768" height="384" data-style="deco" data-pl="1.6" data-box="1" data-off="16"></canvas><figcaption><span class="code">D1</span>1.6 tiles across: small and tidy; the terminal looks grand.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="deco" data-pl="2.2" data-box="1" data-off="16"></canvas><figcaption><span class="code">D2</span>2.2 tiles: what the other scenes use, about the size of a ship.</figcaption></figure>
+  <figure><canvas width="768" height="384" data-style="deco" data-pl="2.8" data-box="1" data-off="16"></canvas><figcaption><span class="code">D3</span>2.8 tiles: big and readable, but gates crowd and the plane dwarfs houses.</figcaption></figure>
+</div>
+
+<h2>E. Liveries</h2>
+<p>One plane shape in four liveries; a loop picks a different one each time. <b>A problem:</b> these came out at a three-quarter angle (nose towards you) rather than exactly side-on like the ships, so a plane rolling along the runway looks a little like it's crabbing. F1 would fix that.</p>
+<div class="rowf">
+  <figure><canvas width="260" height="150" data-kind="plane" data-n="planes-angled-1"></canvas><figcaption><span class="code">E1</span>Red tail and cheatline.</figcaption></figure>
+  <figure><canvas width="260" height="150" data-kind="plane" data-n="planes-angled-2"></canvas><figcaption><span class="code">E2</span>Navy belly and tail, yellow sun.</figcaption></figure>
+  <figure><canvas width="260" height="150" data-kind="plane" data-n="planes-angled-3"></canvas><figcaption><span class="code">E3</span>All sky blue.</figcaption></figure>
+  <figure><canvas width="260" height="150" data-kind="plane" data-n="planes-angled-4"></canvas><figcaption><span class="code">E4</span>Green tail and swoosh.</figcaption></figure>
+</div>
+
+<h2>G. Ground vehicles</h2>
+<p>Shown at the game's full zoom. In the scenes: a follow-me car leads the plane in, the baggage train and fuel truck serve it, the tug pushes it back; the catering truck, stairs and fire engine stand about.</p>
+<div class="rowf">
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="fuel"></canvas><figcaption><span class="code">G1</span>Fuel truck.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="bags"></canvas><figcaption><span class="code">G2</span>Baggage train.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="tug"></canvas><figcaption><span class="code">G3</span>Pushback tug.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="catering"></canvas><figcaption><span class="code">G4</span>Catering truck.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="stairs"></canvas><figcaption><span class="code">G5</span>Stairs truck.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="follow"></canvas><figcaption><span class="code">G6</span>Follow-me car.</figcaption></figure>
+  <figure><canvas width="220" height="150" data-kind="veh" data-n="fire"></canvas><figcaption><span class="code">G7</span>Fire engine.</figcaption></figure>
+</div>
+
+<h2>F. More paid art, if you want it</h2>
+<div class="rowf">
+  <figure><div class="card"><h5>Redraw the planes exactly side-on</h5>Same plane and liveries, but broadside like the ships, so it rolls straight along the runway. The edit I tried kept the old angle, so this would be a fresh image. <span class="cost">1 paid image, maybe 2. Recommended.</span></div><figcaption><span class="code">F1</span></figcaption></figure>
+  <figure><div class="card"><h5>Ground vehicles side-on too</h5>The same seven, broadside, to match. <span class="cost">1 paid image.</span></div><figcaption><span class="code">F2</span></figcaption></figure>
+  <figure><div class="card"><h5>Jet bridges made for side-on parking</h5>In the chosen style, a bridge that comes straight down from the terminal to the plane's door, and a retracted version, so the bridge visibly reaches out. <span class="cost">1 paid image.</span></div><figcaption><span class="code">F3</span></figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="e.g. mix two styles, a different surprise, the plane should do X…"></textarea>
+
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<!-- sprites/airport is not in git: make it with  for s in steel jetage brutalist deco timber planes-angled vehicles; do node art/clay-set/port-sheet.mjs $s airport; done -->
+<script src="sprites/airport/meta.js"></script>
+<script>
+// ── Sprites: cut from raw-airport/*.png by port-sheet.mjs; meta = [w, h, left, right, footY] in raw pixels ──
+const M = window.AIR_META || {};
+const IMG = {};
+const img = n => IMG[n] || (IMG[n] = Object.assign(new Image(), { src: `sprites/airport/${n}.png` }));
+const house = new Image(); house.src = '../../public/sprites/clay/res-1.png';
+const STYLES = {
+  // cab: which end of the painted bridge has the wheels (the end at the plane); bw: its width in tiles.
+  steel: { term: 'steel-1', tower: 'steel-2', bridge: 'steel-3', hangar: 'steel-6', cab: 'L', bw: 0.9 },
+  jetage: { term: 'jetage-1', tower: 'jetage-2', bridge: 'jetage-3', hangar: 'jetage-4', cab: 'L', bw: 1.2 },
+  brutalist: { term: 'brutalist-1', tower: 'brutalist-2', bridge: 'brutalist-3', hangar: 'brutalist-4', cab: 'L', bw: 1.2 },
+  deco: { term: 'deco-1', tower: 'deco-2', bridge: 'deco-3', hangar: 'deco-4', cab: 'R', bw: 1.2 },
+  timber: { term: 'timber-1', tower: 'timber-2', bridge: 'timber-3', hangar: 'timber-4', cab: 'R', bw: 1.2 },
+};
+const PLANES = [1, 2, 3, 4].map(k => 'planes-angled-' + k);
+const VEH = { fuel: 'vehicles-1', bags: 'vehicles-2', tug: 'vehicles-3', catering: 'vehicles-4', stairs: 'vehicles-5', follow: 'vehicles-6', fire: 'vehicles-7' };
+const VW = { fuel: 0.8, bags: 1.0, tug: 0.45, catering: 0.6, stairs: 0.6, follow: 0.35, fire: 0.7 };
+
+// ── Layout, in tiles (16×8 canvas; the airport is x 2–14, y 1.5–6.5) ──
+const RY = 5.6, RW = 0.8, RX0 = 2.2, RX1 = 13.8;    // runway centre line, width, ends
+const GATE_Y = 3.8, TAXI_Y = 4.5, GX = [4.0, 6.6, 10.0], EXIT_X = 8.8;
+const L = 60;                                        // seconds a loop
+const E = f => f * f * (3 - 2 * f), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, f) => a + (b - a) * f;
+const seg = (c, t0, t1) => clamp((c - t0) / (t1 - t0), 0, 1);
+
+function spr(ctx, n, x, y, o = {}) {
+  const m = M[n], im = img(n); if (!m || !im.complete || !im.naturalWidth) return;
+  const [w, h, l, r, fy] = m, T = ctx.T;
+  const q = o.h ? o.h * T / fy : (o.w || 1) * T / (r - l), fx = (l + r) / 2;
+  ctx.save(); ctx.globalAlpha = o.a ?? 1; ctx.translate(x, y); ctx.scale((o.flip ? -1 : 1) * (o.sx ?? 1), 1);
+  ctx.drawImage(im, -fx * q, -fy * q, w * q, h * q); ctx.restore();
+}
+
+// A jet bridge from the terminal down to the door by the plane's nose; e = 0 retracted … 1 at the door.
+function bridge(ctx, st, gx, e) {
+  const m = M[st.bridge], im = img(st.bridge); if (!m || !im.complete || !im.naturalWidth) return;
+  const [w, h, l, r, fy] = m, T = ctx.T, q = st.bw * T / (r - l);
+  const dx = (gx + 0.75 + 0.2 * (1 - e)) * T, dy = (GATE_Y - 0.3 - 0.15 * (1 - e)) * T;
+  ctx.save(); ctx.translate(dx, dy);
+  // Every bridge runs up and to the right from its cab, over open apron (behind the plane it would be hidden); bridges painted the other way are mirrored.
+  if (st.cab === 'L') ctx.drawImage(im, -l * q, -fy * q, w * q, h * q);
+  else { ctx.scale(-1, 1); ctx.drawImage(im, -r * q, -fy * q, w * q, h * q); }
+  ctx.restore();
+}
+
+function plane(ctx, n, p, PL) {
+  const T = ctx.T, a = p.a ?? 1, sx = p.sx ?? 1;
+  ctx.save(); ctx.globalAlpha = 0.25 * a * Math.max(0, 1 - p.alt / 3); ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse((p.x + p.alt * 0.35) * T, (p.y - 0.04) * T, PL * 0.4 * T * sx, 0.12 * T, 0, 0, 7); ctx.fill(); ctx.restore();
+  spr(ctx, n, p.x * T, (p.y - p.alt) * T, { w: PL, sx, a });
+}
+
+function move(a, b, f, method) {
+  if (method === 'fade') { const o = f < 0.5 ? a : b; return { x: o.x, y: o.y, alt: 0, a: f < 0.45 ? 1 - f / 0.45 : f > 0.55 ? (f - 0.55) / 0.45 : 0 }; }
+  const g = E(f);
+  return { x: lerp(a.x, b.x, g), y: lerp(a.y, b.y, g), alt: 0, sx: method === 'squash' ? 1 - 0.5 * Math.sin(Math.PI * f) : 1 };
+}
+
+// The active plane at second c of the loop, or null.
+function planeAt(c, method) {
+  if (c < 5) { const f = c / 5; return { x: -2 + 6.2 * f, y: RY, alt: 1.7 * Math.pow(1 - f, 1.3), a: seg(c, 0, 1) }; }   // approach, touchdown at x 4.2
+  if (c < 10) { const f = (c - 5) / 5; return { x: 4.2 + (EXIT_X - 4.2) * (1 - (1 - f) * (1 - f)), y: RY, alt: 0 }; }   // roll-out
+  if (c < 13.5) return move({ x: EXIT_X, y: RY }, { x: EXIT_X, y: GATE_Y }, (c - 10) / 3.5, method);                     // off the runway to the gate row
+  if (c < 16) { const f = (c - 13.5) / 2.5; return { x: lerp(EXIT_X, GX[2], 1 - (1 - f) * (1 - f)), y: GATE_Y, alt: 0 }; }   // pull up to the bridge
+  if (c < 34) return { x: GX[2], y: GATE_Y, alt: 0 };
+  if (c < 36) { const f = E((c - 34) / 2); return { x: GX[2] - 0.5 * f, y: lerp(GATE_Y, TAXI_Y, f), alt: 0 }; }          // pushback off the gate
+  if (c < 44) return { x: GX[2] - 0.5 - (GX[2] - 0.5 - 3.3) * E((c - 36) / 8), y: TAXI_Y, alt: 0 };                     // pushed west along the taxilane
+  if (c < 45.5) return { x: 3.3, y: TAXI_Y, alt: 0 };
+  if (c < 49) return move({ x: 3.3, y: TAXI_Y }, { x: 3.3, y: RY }, (c - 45.5) / 3.5, method);                           // onto the runway
+  if (c < 56) { const f = (c - 49) / 7, x = 3.3 + 13 * f * f; return { x, y: RY, alt: x > 9 ? (x - 9) * 0.35 : 0, a: 1 - seg(x, 13.5, 16) }; }   // take-off
+  return null;
+}
+
+function vehicles(c, p, PL) {
+  const V = [];
+  // Follow-me car waits on the taxilane and leads the plane in.
+  if (c < 16.5) V.push({ n: 'follow', x: lerp(GX[2] + 0.3, 16.5, E(seg(c, 13.5, 16.5))), y: TAXI_Y, a: Math.min(seg(c, 0, 1), 1 - seg(c, 15.8, 16.5)) });
+  const visit = (n, t0, t1, t2, t3, x, y) => {
+    if (c < t0 || c >= t3) return;
+    const out = c >= t2;
+    V.push({ n, x: out ? lerp(x, 16.5, E(seg(c, t2, t3))) : lerp(16.5, x, E(seg(c, t0, t1))), y, flip: !out, a: Math.min(seg(c, t0, t0 + 0.6), 1 - seg(c, t3 - 0.6, t3)) });
+  };
+  visit('bags', 17, 20, 27, 30.5, GX[2] - 0.6, GATE_Y + 0.5);
+  visit('fuel', 18, 21, 25, 28, GX[2] + 1.6, GATE_Y + 0.3);
+  // Tug: drives to the nose, pushes the plane back, then drives off east.
+  const nose = q => q.x + PL * 0.5 + 0.25;
+  if (c >= 31 && c < 34) V.push({ n: 'tug', x: lerp(16.5, nose({ x: GX[2] }), E(seg(c, 31, 34))), y: GATE_Y + 0.03, flip: true, a: seg(c, 31, 31.6) });
+  else if (c >= 34 && c < 44.5 && p) V.push({ n: 'tug', x: nose(p), y: p.y + 0.03, flip: true });
+  else if (c >= 44.5 && c < 48) V.push({ n: 'tug', x: lerp(nose({ x: 3.3 }), 16.5, E(seg(c, 44.5, 48))), y: TAXI_Y + 0.03, a: 1 - seg(c, 47.4, 48) });
+  V.push({ n: 'catering', x: GX[0] + 0.95, y: GATE_Y + 0.35 }, { n: 'stairs', x: 2.7, y: 3.7 }, { n: 'fire', x: 13.5, y: 4.35, flip: true });
+  return V;
+}
+
+function ground(ctx, box) {
+  const T = ctx.T;
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 16; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+  // Land side: a road behind the terminal.
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, 16 * T, 0.4 * T);
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
+  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(16 * T, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
+  // Apron.
+  ctx.fillStyle = '#bdb8ac'; ctx.fillRect(2 * T, 2.45 * T, 12 * T, 2.45 * T);
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+  for (let x = 3; x < 14; x++) { ctx.beginPath(); ctx.moveTo(x * T, 2.45 * T); ctx.lineTo(x * T, 4.9 * T); ctx.stroke(); }
+  ctx.strokeStyle = '#e2b737'; ctx.lineWidth = Math.max(1, T / 30);
+  ctx.beginPath(); ctx.moveTo(2.3 * T, TAXI_Y * T); ctx.lineTo(13.7 * T, TAXI_Y * T); ctx.stroke();
+  for (const g of GX) { ctx.beginPath(); ctx.moveTo((g - 1.2) * T, GATE_Y * T); ctx.lineTo((g + 1.2) * T, GATE_Y * T); ctx.moveTo((g + 1.2) * T, (GATE_Y - 0.15) * T); ctx.lineTo((g + 1.2) * T, (GATE_Y + 0.15) * T); ctx.stroke(); }
+  // Taxiways down to the runway.
+  for (const x of [3.3, EXIT_X]) {
+    ctx.fillStyle = '#55585d'; ctx.fillRect((x - 0.32) * T, 4.9 * T, 0.64 * T, (RY - RW / 2 - 4.9) * T + 1);
+    ctx.strokeStyle = '#e2b737'; ctx.beginPath(); ctx.moveTo(x * T, TAXI_Y * T); ctx.lineTo(x * T, RY * T); ctx.stroke();
+  }
+  // Runway.
+  const y0 = (RY - RW / 2) * T, rh = RW * T;
+  ctx.fillStyle = '#4a4d52'; ctx.fillRect(RX0 * T, y0, (RX1 - RX0) * T, rh);
+  ctx.fillStyle = '#f2f2ee';
+  const lw = Math.max(1, T / 40);
+  ctx.fillRect(RX0 * T, y0 + lw, (RX1 - RX0) * T, lw); ctx.fillRect(RX0 * T, y0 + rh - 2 * lw, (RX1 - RX0) * T, lw);
+  for (let x = RX0 + 1.5; x < RX1 - 1.6; x += 0.6) ctx.fillRect(x * T, RY * T - lw, 0.3 * T, 2 * lw);
+  for (const [x0, x1] of [[RX0 + 0.08, RX0 + 0.45], [RX1 - 0.45, RX1 - 0.08]]) for (let k = 0; k < 6; k++) ctx.fillRect(x0 * T, y0 + rh * (0.1 + k * 0.14), (x1 - x0) * T, rh * 0.08);
+  for (const x of [RX0 + 2.3, RX1 - 2.9]) for (const s of [-1, 1]) ctx.fillRect(x * T, RY * T + s * rh * 0.22 - rh * 0.06, 0.6 * T, rh * 0.12);
+  ctx.font = `bold ${Math.round(0.42 * T)}px -apple-system, "Helvetica Neue", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [txt, x, rot] of [['9', RX0 + 0.85, Math.PI / 2], ['27', RX1 - 0.85, -Math.PI / 2]]) { ctx.save(); ctx.translate(x * T, RY * T); ctx.rotate(rot); ctx.fillText(txt, 0, 0); ctx.restore(); }
+  // Houses for size, outside the airport.
+  for (const [x, y] of [[0.8, 7.7], [1.9, 7.55], [15.2, 7.7]]) if (house.complete && house.naturalWidth) ctx.drawImage(house, x * T - T / 2, y * T - T, T, T);
+  if (box) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeRect(2 * T, 1.5 * T, 12 * T, 5 * T); ctx.setLineDash([]); }
+}
+
+function lights(ctx, t, mode, glow) {
+  const T = ctx.T, r = Math.max(1, T / 40) * (glow ? 1.4 : 1);
+  const dot = (x, y, col, rr = r) => { ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = glow ? rr * 4 : 0; ctx.beginPath(); ctx.arc(x * T, y * T, rr, 0, 7); ctx.fill(); };
+  ctx.save();
+  for (let x = RX0 + 0.25; x < RX1; x += 0.5) { dot(x, RY - RW / 2 + 0.04, '#fff3c4'); dot(x, RY + RW / 2 - 0.04, '#fff3c4'); }
+  for (let k = 0; k < 5; k++) { const y = RY - RW / 2 + 0.1 + k * (RW - 0.2) / 4; dot(RX0 + 0.03, y, '#5dff7a'); dot(RX1 - 0.03, y, '#ff4b3e'); }
+  for (const x of [3.3, EXIT_X]) for (const y of [4.98, 5.14]) { dot(x - 0.36, y, '#4f8cff', r * 0.9); dot(x + 0.36, y, '#4f8cff', r * 0.9); }
+  if (mode >= 2) {
+    const n = 9, step = 0.26, lit = Math.floor(((t * 2) % 1) * (n + 3));
+    for (let i = 0; i < n; i++) {
+      const x = RX0 - 0.2 - (n - 1 - i) * step;
+      dot(x, RY, '#fff3c4', r * 0.9);
+      if (i === n - 4) { dot(x, RY - 0.17, '#fff3c4', r * 0.9); dot(x, RY + 0.17, '#fff3c4', r * 0.9); }
+      if (i === lit) { ctx.shadowColor = '#fff'; ctx.shadowBlur = r * 7; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x * T, RY * T, r * 2.1, 0, 7); ctx.fill(); }
+    }
+  }
+  ctx.restore();
+}
+
+function scene(cv, t) {
+  const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = +(d.t || 48);
+  const st = STYLES[d.style || 'steel'], exit = d.exit || 'crab', mode = +(d.lights || 2), PL = +(d.pl || 2.2);
+  const tt = t + +(d.off || 0), c = tt % L, k = Math.floor(tt / L) % 4, T = ctx.T;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ground(ctx, d.box);
+  if (mode < 3) lights(ctx, tt, mode, false);
+  spr(ctx, st.tower, 2.9 * T, 2.5 * T, { h: 1.9 });
+  spr(ctx, st.term, 8.2 * T, 2.6 * T, { w: 7.4 });
+  spr(ctx, st.hangar, 13.3 * T, 2.6 * T, { w: 1.3 });
+  const e = c < 16 ? 0 : c < 17.5 ? E((c - 16) / 1.5) : c < 31.5 ? 1 : c < 33 ? 1 - E((c - 31.5) / 1.5) : 0;
+  bridge(ctx, st, GX[0], 1); bridge(ctx, st, GX[1], 1); bridge(ctx, st, GX[2], e);
+  const p = planeAt(c, exit);
+  const items = [
+    { y: GATE_Y, draw: () => plane(ctx, PLANES[(k + 1) % 4], { x: GX[0], y: GATE_Y, alt: 0 }, PL) },
+    { y: GATE_Y, draw: () => plane(ctx, PLANES[(k + 2) % 4], { x: GX[1], y: GATE_Y, alt: 0 }, PL) },
+  ];
+  if (p && p.alt <= 0) items.push({ y: p.y + 0.001, draw: () => plane(ctx, PLANES[k], p, PL) });
+  for (const v of vehicles(c, p, PL)) items.push({ y: v.y, draw: () => spr(ctx, VEH[v.n], v.x * T, v.y * T, { w: VW[v.n], flip: v.flip, a: v.a ?? 1 }) });
+  items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
+  if (p && p.alt > 0) plane(ctx, PLANES[k], p, PL);
+  if (mode === 3) {
+    ctx.fillStyle = 'rgba(14,24,58,0.55)'; ctx.fillRect(0, 0, cv.width, cv.height);
+    spr(ctx, st.term, 8.2 * T, 2.6 * T, { w: 7.4, a: 0.3 });   // the terminal lit from inside
+    lights(ctx, tt, 2, true);
+    if (p && (tt * 1.2) % 1 < 0.15) { ctx.save(); ctx.fillStyle = '#ff3b30'; ctx.shadowColor = '#ff3b30'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(p.x * T, (p.y - p.alt - 0.42) * T, 2.5, 0, 7); ctx.fill(); ctx.restore(); }
+  }
+}
+
+function single(cv) {
+  const ctx = cv.getContext('2d'), d = cv.dataset, plane_ = d.kind === 'plane';
+  ctx.T = plane_ ? 64 : 128; const T = ctx.T;
+  ctx.fillStyle = '#bdb8ac'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (plane_) {
+    if (house.complete && house.naturalWidth) ctx.drawImage(house, 4, cv.height - 12 - T, T, T);
+    spr(ctx, d.n, cv.width * 0.6, cv.height - 18, { w: 2.2 });
+  } else spr(ctx, VEH[d.n], cv.width / 2, cv.height * 0.8, { w: VW[d.n] });
+}
+
+const scenes = [...document.querySelectorAll('canvas:not([data-kind])')], singles = [...document.querySelectorAll('canvas[data-kind]')];
+const vis = new WeakMap();
+const io = new IntersectionObserver(es => es.forEach(e => vis.set(e.target, e.isIntersecting)));
+scenes.forEach(cv => io.observe(cv));
+function loop() {
+  const t = performance.now() / 1000;
+  for (const cv of scenes) if (vis.get(cv) !== false) scene(cv, t);
+  for (const cv of singles) single(cv);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ── Feedback form: saved in this browser, copied out as text ──
+const KEY = 'city-builder-airport-workshop-v1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+{ const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Airport workshop feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>

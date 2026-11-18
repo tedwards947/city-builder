@@ -2,9 +2,9 @@
 // into one PNG per prop in sprites/port/, KEEPING each prop's painted shadow:
 // shadowed magenta becomes translucent black instead of being cut away.
 // Props are found as connected blobs of non-magenta pixels, left to right, top row first.
-// Usage: node art/clay-set/port-sheet.mjs sheet-1
+// Usage: node art/clay-set/port-sheet.mjs sheet-1   (or: steel airport, for raw-airport/steel.png into sprites/airport/)
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,11 +12,12 @@ import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const name = process.argv[2] || 'sheet-1';
-const OUT = join(here, 'sprites', 'port');
+const set = process.argv[3] || 'port';
+const OUT = join(here, 'sprites', set);
 mkdirSync(OUT, { recursive: true });
 
 const tmp = join(tmpdir(), `port-${process.pid}.bmp`);
-execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-port', name + '.png'), '--out', tmp], { stdio: 'ignore' });
+execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-' + set, name + '.png'), '--out', tmp], { stdio: 'ignore' });
 const b = readFileSync(tmp); rmSync(tmp);
 const off = b.readUInt32LE(10), w = b.readInt32LE(18), hRaw = b.readInt32LE(22), bytes = b.readUInt16LE(28) / 8;
 const h = Math.abs(hRaw), stride = Math.ceil((w * bytes) / 4) * 4, n = w * h;
@@ -161,7 +162,7 @@ blobs.forEach((bl, k) => {
   png(join(OUT, file), W, H, px);
   // foot: where the prop's base sits in the crop (bottom of its solid pixels).
   meta.push({ file, w: W, h: H, footY: bl.y1 - y0, left: bl.x0 - x0, right: bl.x1 - x0 });
-  const g = GAME[`${name}-${k + 1}`];
+  const g = set === 'port' && GAME[`${name}-${k + 1}`];
   if (g) {
     mkdirSync(GAME_OUT, { recursive: true });
     const [id, kk] = g, r = resample(px, W, H, kk);
@@ -181,4 +182,10 @@ export const PORT_SPRITES: Record<string, PortSpriteMeta> = /* json */${JSON.str
 `);
 }
 writeFileSync(join(OUT, `${name}.json`), JSON.stringify(meta, null, 1));
+// Other sets (airport.html): every cut prop's size and foot, for the workshop page.
+if (set !== 'port') {
+  const all = {};
+  for (const f of readdirSync(OUT).filter(f => f.endsWith('.json'))) for (const m of JSON.parse(readFileSync(join(OUT, f), 'utf8'))) all[m.file.replace('.png', '')] = [m.w, m.h, m.left, m.right, m.footY];
+  writeFileSync(join(OUT, 'meta.js'), `// Made by port-sheet.mjs: name: [w, h, left, right, footY] in raw pixels.\nwindow.AIR_META = ${JSON.stringify(all)};\n`);
+}
 console.log(`${blobs.length} props from ${name} (background ${B0}):`, meta.map(m => `${m.file} ${m.w}×${m.h}`).join(', '));
