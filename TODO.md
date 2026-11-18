@@ -57,6 +57,8 @@ Status as of 2026-11-17, after the landscaping tree effects. Details of every sy
 3. **Tax exodus** (owner's rule, 2026-11-18): built and switched off. Above the neutral tax level each developed home has a (level − neutral) × `tax.level.exodusPerPoint` chance per growth pass of losing one level. **Waiting on ENGINEER 3** to tune `exodusPerPoint` (0 today) against `tax.high`.
 4. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
 
+Done 2026-11-18: traffic requests made durable (owner's play-test bug: one opened and was met on noise). Asked on a 3-day average, met after 3 days held; `smoothDays` / `holdDays` per kind. School, hospital and utilities requests can also move without the player (seats re-dealt, demand dipping): left as they are, raised with the PM.
+
 Nothing else is unblocked: the next engine work comes from the on-hold list, at the owner's say-so.
 
 ### On hold (do not start without the owner)
