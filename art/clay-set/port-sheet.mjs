@@ -98,12 +98,12 @@ function png(path, W, H, px) {
 }
 // Props the game uses: baked at the game's 128px a tile, one scale per sheet (each sheet's
 // office is 0.8 of a tile wide; container blocks 10% larger), as seaport.html shows them.
-const K1 = 0.8 * 128 / 132, K2 = 0.8 * 128 / 202, KS = 1.5 * 128 / 490;
+const K1 = 0.8 * 128 / 132, K2 = 0.8 * 128 / 202, KS = 2.25 * 128 / 490;
 const GAME = {
   'sheet-1-1': ['crane-end', K1], 'sheet-1-3': ['crane-side', K1],
   // The office: option 4 of sheet 3 (corrugated steel, the owner's pick), 0.9 of a tile wide.
   'sheet-3-4': ['office', 0.9 * 128 / 425],
-  // Ships (sheet 4): the container ship 1.5 tiles long side-on (owner's pick), its bow-on and stern-on views and the freighter at the same scale.
+  // Ships (sheet 4): the container ship 2.25 tiles long side-on (owner, ships workshop A3), its bow-on and stern-on views and the freighter at the same scale.
   'sheet-4-1': ['ship-side', KS], 'sheet-4-2': ['ship-south', KS], 'sheet-4-3': ['ship-north', KS], 'sheet-4-4': ['freighter-side', KS], 'sheet-2-2': ['gate', K2], 'sheet-2-3': ['boxes-long', K2 * 1.1], 'sheet-2-4': ['boxes-end', K2 * 1.1],
 };
 const GAME_OUT = join(here, '../../public/sprites/clay/port');
