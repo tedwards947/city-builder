@@ -1,7 +1,7 @@
 // Buildings in the traffic system (sim/buildingTraffic.ts): a row in
 // BALANCE.transit.buildings makes a building kind take trips, send trips,
-// earn per trip and scale growth demand. The shipped rows are all at no
-// effect, so these tests set rows for their duration.
+// earn per trip and scale growth demand. These tests set rows for their
+// duration; the first checks the shipped ones.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
@@ -41,23 +41,24 @@ beforeEach(() => {
 afterEach(() => { T.buildings = shipped.rows; T.tripsVisitors = shipped.tripsVisitors; });
 
 describe('buildings in traffic', () => {
-  it('services ship at no effect: their rows take, send and earn nothing (the airport is tuned: airport.test.ts)', () => {
+  it('ships with each service taking 1 job trip: a few commuters go there; no income, no demand change, no visitors without an airport', () => {
     T.buildings = shipped.rows;
     T.tripsVisitors = shipped.tripsVisitors;
+    for (const kind of [4, 5, 6, 7]) expect(shipped.rows[kind]).toEqual({ takes: { jobs: 1 } });
     for (const x of [20, 21]) zone(x, 14, ZONE_I, 3);
-    const before = traffic().markets.map((m) => Array.from(m.volume).join(','));
     expect(w.placeBuilding(10, 12, BUILDING_POLICE)).toBe(true);
     expect(w.placeBuilding(12, 12, BUILDING_SCHOOL)).toBe(true);
     const t = traffic();
-    expect(t.markets.map((m) => Array.from(m.volume).join(','))).toEqual(before);
     expect(sum(t.visitors.volume)).toBe(0);
     expect(buildingTripIncome(w)).toBe(0);
     for (const z of ['R', 'C', 'I'] as const) expect(buildingDemandMult(w, z)).toBe(1);
-    expect(buildingTripsAt(w, 10, 12)).toEqual({ connected: true, takes: [], sends: [], income: 0 });
-    for (const kind of [4, 5, 6, 7]) {
-      const row = shipped.rows[kind];
-      for (const part of [row.takes, row.sends, row.incomePerTrip]) for (const v of Object.values(part ?? {})) expect(v).toBe(0);
-    }
+    const police = buildingTripsAt(w, 10, 12)!;
+    expect(police.takes).toHaveLength(1);
+    expect(police.takes[0].market).toBe('jobs');
+    expect(police.takes[0].capacity).toBe(1);
+    expect(police.takes[0].trips).toBeGreaterThan(0);
+    expect(police.takes[0].trips).toBeLessThanOrEqual(1);
+    expect(police.income).toBe(0);
   });
 
   it('a building that takes job trips is a door for commuters, nearer than the industry', () => {

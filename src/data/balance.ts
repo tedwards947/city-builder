@@ -324,10 +324,13 @@ export const BALANCE = {
     // sets them (the airport's are set; the services' jobs wait on ENGINE). The seaport is not here: its trade has rules of its own
     // (BALANCE.port, sim/seaport.ts).
     buildings: {
-      4: { takes: { jobs: 0 } },   // police: people who work there
-      5: { takes: { jobs: 0 } },   // fire station
-      6: { takes: { jobs: 0 } },   // school
-      7: { takes: { jobs: 0 } },   // hospital
+      // A few people work at each service (owner: "a little"; 1 each, Balance
+      // Lab 2026-11-18). Homes' accessibility counts zones only (#269), and
+      // commuters who find one full drive on to the next door (#272).
+      4: { takes: { jobs: 1 } },   // police: people who work there
+      5: { takes: { jobs: 1 } },   // fire station
+      6: { takes: { jobs: 1 } },   // school
+      7: { takes: { jobs: 1 } },   // hospital
       // The airport (passengers only). Homes send it visitors, and the city
       // earns per passenger; arrivals leave it for the shops and to look for
       // work; while it stands on a road, shops are in more demand.
