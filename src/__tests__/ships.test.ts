@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shipPath, shipAt, along, visitSeconds, SHIP_DOCKED_S, DAY_S } from '../render/clay/ships';
+import { shipPath, shipsAt, shipPeriods, along, SHIP_DOCKED_S, SHIP_FADE_S } from '../render/clay/ships';
 import { craneMove } from '../render/clay/portArt';
 
 // A 20×10 map; the route runs from the water off the docks at (10, 3) north to the edge at (10, 0).
@@ -25,37 +25,62 @@ describe('ship path', () => {
   });
 });
 
-describe('ship timeline', () => {
-  const p = shipPath(route, W, H, berth);
-  const visit = visitSeconds(p), tIn = (visit - SHIP_DOCKED_S) / 2;
+describe('ship traffic', () => {
+  // A long channel: in from the north edge of a tall map down to the berth.
+  const H2 = 40, idx2 = (x: number, y: number) => y * W + x;
+  const long = Array.from({ length: 31 }, (_, k) => idx2(10, 30 - k));
+  const b2 = { x: 10.5, y: 31.5, qx: 1, qy: 0 };
+  const p = shipPath(long, W, H2, b2);
+  const over = (spd: number, f: (s: ReturnType<typeof shipsAt>) => void) => { for (let t = 0; t < 600; t += 0.5) f(shipsAt(p, b2, t, spd, 0.3)); };
+
+  it('comes onto the map a few tiles along the path', () => {
+    expect(p.edge).toBeGreaterThan(3);
+    expect(p.edge).toBeLessThan(5);
+  });
 
   it('no trade, no ships', () => {
-    expect(shipAt(p, berth, 5, 0, 0)).toBeNull();
+    over(0, s => expect(s).toHaveLength(0));
   });
 
-  it('sails in, lies at the berth along the quay while docked, then sails out', () => {
-    const coming = shipAt(p, berth, tIn / 2, 1, 0)!;
-    expect(coming.work).toBe(-1);
-    expect(coming.sp).toBeGreaterThan(0);
-    expect(coming.hy).toBeGreaterThan(0.9);          // heading south, towards the port
-
-    const docked = shipAt(p, berth, tIn + 5, 1, 0)!;
-    expect(docked.work).toBeCloseTo(5, 5);
-    expect(docked.sp).toBe(0);
-    expect(docked.x).toBeCloseTo(10.5); expect(docked.y).toBeCloseTo(3.5);
-    expect(Math.abs(docked.hx)).toBeCloseTo(1, 5);   // lying along the quay
-
-    const going = shipAt(p, berth, tIn + SHIP_DOCKED_S + tIn / 2, 1, 0)!;
-    expect(going.work).toBe(-1);
-    expect(going.hy).toBeLessThan(-0.9);              // heading north, out to sea
+  it('is sparse: at most one in, one out and one docked, and often none', () => {
+    let empty = 0, n = 0;
+    over(1, s => { expect(s.length).toBeLessThanOrEqual(3); if (s.length === 0) empty++; n++; });
+    expect(empty / n).toBeGreaterThan(0.3);
   });
 
-  it('spaces ships by ships a day, one at a time', () => {
-    const slow = 0.01, period = DAY_S / slow;          // one ship every 100 days
-    expect(shipAt(p, berth, visit + 10, slow, 0)).toBeNull();
-    expect(shipAt(p, berth, period + 1, slow, 0)).not.toBeNull();
-    // Brisk trade can't overlap visits: the next ship sets out after the last has gone.
-    expect(shipAt(p, berth, visit + 1, 100, 0)).toBeNull();
+  it('passing ships stay on the map, clear of the berth, and fade in and out', () => {
+    let seen = 0;
+    over(5, s => { for (const st of s) {
+      expect(st.a).toBeGreaterThanOrEqual(0); expect(st.a).toBeLessThanOrEqual(1);
+      if (st.work >= 0) continue;
+      seen++;
+      expect(st.y).toBeGreaterThan(2);
+      expect(Math.hypot(st.x - b2.x, st.y - b2.y)).toBeGreaterThan(3.5);
+    } });
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('the docked ship lies along the quay, fading in as the cranes start', () => {
+    const per = shipPeriods(5).dock;
+    let docked = null;
+    for (let t = 0; t < 10 * per && !docked; t += 0.25) docked = shipsAt(p, b2, t, 5, 0.3).find(st => st.work >= 0 && st.work < 0.3) ?? null;
+    expect(docked).not.toBeNull();
+    expect(docked!.x).toBeCloseTo(10.5); expect(docked!.y).toBeCloseTo(31.5);
+    expect(Math.abs(docked!.hx)).toBeCloseTo(1, 5);
+    expect(docked!.sp).toBe(0);
+    expect(docked!.a).toBeLessThan(0.25);
+  });
+
+  it('busier ports see ships more often', () => {
+    expect(shipPeriods(10).lane).toBeLessThan(shipPeriods(1).lane);
+    expect(shipPeriods(1000).lane).toBeGreaterThanOrEqual(16);   // never a stream
+  });
+
+  it('the debug button sends one ship on each lane right away, trade or not', () => {
+    const s = shipsAt(p, b2, 123, 0, 0.3, SHIP_FADE_S);
+    expect(s).toHaveLength(3);
+    expect(s.every(st => st.a === 1)).toBe(true);
+    expect(shipsAt(p, b2, 123, 0, 0.3, SHIP_DOCKED_S + 1)).toHaveLength(0);
   });
 });
 

@@ -1,12 +1,14 @@
-// Ships calling at seaports (art/clay-set/seaport.html, picks C1–C4).
+// Ships on the sea lanes of seaports (art/clay-set/seaport.html, picks C1–C4).
 //
-// A ship sails in from the map's edge along the port's shipRoute (sim/seaport.ts),
-// slows down and lies alongside the docks while the cranes work, then sails out
-// the same way. Nothing here is simulated: a ship's place is worked out from the
-// clock, the route and how many ships a day the port's trade makes, so it costs
-// nothing when off screen and needs no saving. Ships are drawn above the water
-// and below every building (the cranes reach over them), and are clipped out of
-// bridge tiles so they pass under.
+// Ships are traffic, like the cars on roads: now and then one fades in on the
+// port's shipRoute (sim/seaport.ts), sails a stretch of it in or out, and fades
+// away; and now and then one lies at the docks a while with the cranes working,
+// fading in and out there too. They are sparse, and busier ports see more.
+// Nothing here is simulated: what is about is worked out from the clock, the
+// route and how many ships a day the port's trade makes, so it costs nothing
+// off screen and needs no saving. Ships are drawn above the water and below
+// every building (the cranes reach over them), and are clipped out of bridge
+// tiles so they pass under.
 
 /** A point on the map, in tiles. */
 export interface Pt { x: number; y: number }
@@ -25,16 +27,22 @@ export interface ShipState {
   type: ShipType;
   /** Seconds since the ship tied up, while it lies at the docks; -1 while it sails. */
   work: number;
+  /** Opacity, 0–1: ships fade in and out like the cars. */
+  a: number;
 }
 
-/** Tiles a second at full speed, the time a ship stays, and the stretch it slows down over. */
+/** Tiles a second, the time a ship lies at the docks, a fade, and the most of a lane one ship is seen on. */
 export const SHIP_SPEED = 1.2;
-export const SHIP_DOCKED_S = 22;
-const SLOW_TILES = 3;
+export const SHIP_DOCKED_S = 24;
+export const SHIP_FADE_S = 1.5;
+const RUN_TILES = 9;
+/** Passing ships keep this far off the berth (tiles), so they fade out before the quay. */
+const BERTH_CLEAR = 4;
 /** Seconds of game time in a day at 1× (8 ticks of 500 ms), to space ships by shipsPerDay. */
 export const DAY_S = 4;
 
-export interface ShipPath { pts: Pt[]; len: number[]; total: number }
+/** `edge`: how far along the path it comes onto the map (it starts a few tiles off). */
+export interface ShipPath { pts: Pt[]; len: number[]; total: number; edge: number }
 
 /**
  * The way in: from a few tiles off the map, along the route (which runs from the
@@ -65,7 +73,13 @@ export function shipPath(route: readonly number[], width: number, height: number
   }
   const len = [0];
   for (let k = 1; k < p.length; k++) len.push(len[k - 1] + Math.hypot(p[k].x - p[k - 1].x, p[k].y - p[k - 1].y));
-  return { pts: p, len, total: len[len.length - 1] };
+  const path = { pts: p, len, total: len[len.length - 1], edge: 0 };
+  while (path.edge < path.total) {
+    const q = along(path, path.edge);
+    if (q.x >= 0 && q.x <= width && q.y >= 0 && q.y <= height) break;
+    path.edge += 0.25;
+  }
+  return path;
 }
 
 /** The point `s` tiles along the path, and the way it runs there. */
@@ -80,50 +94,54 @@ export function along(path: ShipPath, s: number): { x: number; y: number; dx: nu
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, dx, dy };
 }
 
-/** Distance covered `t` seconds into a run of `D` tiles that ends slowing to a stop; and the speed then (0–1). */
-function arrive(t: number, D: number): { s: number; sp: number } {
-  const slow = Math.min(SLOW_TILES, D), t1 = (D - slow) / SHIP_SPEED, t2 = 2 * slow / SHIP_SPEED;
-  if (t <= t1) return { s: t * SHIP_SPEED, sp: 1 };
-  const u = Math.min(1, (t - t1) / t2);
-  return { s: D - slow * (1 - u) * (1 - u), sp: 1 - u };
-}
-
-/** Seconds a visit lasts: in, docked, out. */
-export function visitSeconds(path: ShipPath): number {
-  const D = path.total, slow = Math.min(SLOW_TILES, D);
-  return 2 * ((D - slow) / SHIP_SPEED + 2 * slow / SHIP_SPEED) + SHIP_DOCKED_S;
-}
-
 const hash = (n: number) => { n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/** Seconds between chances of a passing ship on each lane, and of a ship at the docks. */
+export function shipPeriods(shipsPerDay: number): { lane: number; dock: number } {
+  return { lane: clamp(DAY_S * 8 / shipsPerDay, 16, 60), dock: clamp(DAY_S * 16 / shipsPerDay, 40, 120) };
+}
 
 /**
- * The ship at a port at time `t` (seconds), or null when none is about. One
- * ship at a time: a new one sets out every 1/shipsPerDay days, or as soon as
- * the last has gone if trade is brisker than that. `seed` staggers ports.
+ * The ships about a port at time `t` (seconds): at most one coming in, one
+ * going out and one at the docks. `seed` (0–1) staggers ports. `sent` is
+ * seconds since the ?debug=true "Send ship" button, or -1: then each lane runs
+ * one ship from that moment, trade or not.
  */
-export function shipAt(path: ShipPath, berth: Berth, t: number, shipsPerDay: number, seed: number): ShipState | null {
-  if (!(shipsPerDay > 0) || path.pts.length < 2) return null;
-  const visit = visitSeconds(path), period = Math.max(visit + 3, DAY_S / shipsPerDay);
-  const clock = t + seed * period, n = Math.floor(clock / period), c = clock - n * period;
-  if (c >= visit) return null;
-  const type: ShipType = hash(n * 7 + Math.floor(seed * 1000)) < 0.5 ? 'container' : 'freighter';
-  const D = path.total, tIn = (visit - SHIP_DOCKED_S) / 2;
-  let s: number, sp: number, work = -1, out = false;
-  if (c < tIn) ({ s, sp } = arrive(c, D));
-  else if (c < tIn + SHIP_DOCKED_S) { s = D; sp = 0; work = c - tIn; }
-  else { const r = arrive(visit - c, D); s = r.s; sp = r.sp; out = true; }
-  const p = along(path, s);
-  let hx = p.dx, hy = p.dy;
-  // Over the last stretch the bow swings round to lie along the quay (whichever way is nearer).
-  const left = D - s;
-  if (left < SLOW_TILES) {
-    const dot = hx * berth.qx + hy * berth.qy, qx = dot >= 0 ? berth.qx : -berth.qx, qy = dot >= 0 ? berth.qy : -berth.qy;
-    const f = 1 - left / SLOW_TILES;
-    hx = hx * (1 - f) + qx * f; hy = hy * (1 - f) + qy * f;
-    const m = Math.hypot(hx, hy) || 1; hx /= m; hy /= m;
+export function shipsAt(path: ShipPath, berth: Berth, t: number, shipsPerDay: number, seed: number, sent = -1): ShipState[] {
+  const out: ShipState[] = [];
+  if (path.pts.length < 2 || (!(shipsPerDay > 0) && sent < 0)) return out;
+  const per = shipsPerDay > 0 ? shipPeriods(shipsPerDay) : { lane: 1e9, dock: 1e9 };
+  const sd = Math.floor(seed * 1e6);
+  // Where one lane's clock is: [ship number, seconds into its turn], or null when this turn has no ship.
+  const turn = (lane: number, period: number, life: number): [number, number] | null => {
+    if (sent >= 0) return sent < life ? [-1 - lane, sent] : null;
+    const clock = t + (seed + lane * 0.37) * period, n = Math.floor(clock / period), c = clock - n * period;
+    return c < life && hash(n * 3 + lane + sd) < 0.75 ? [n, c] : null;
+  };
+  const fade = (c: number, life: number) => clamp(Math.min(c, life - c) / SHIP_FADE_S, 0, 1);
+  const type = (n: number, lane: number): ShipType => hash(n * 11 + lane * 5 + sd + 1) < 0.5 ? 'container' : 'freighter';
+
+  // Passing ships, in on one lane and out on the other, on the right-hand side of the channel.
+  const from = path.edge + 2.5, to = path.total - BERTH_CLEAR, room = to - from;   // whole hulls on the map
+  if (room >= 2) {
+    const run = Math.min(RUN_TILES, room), life = run / SHIP_SPEED;
+    for (const lane of [0, 1]) {
+      const tc = turn(lane, per.lane, life);
+      if (!tc) continue;
+      const [n, c] = tc, start = from + hash(n * 7 + lane + sd + 2) * (room - run);
+      const s = lane === 0 ? start + c * SHIP_SPEED : start + run - c * SHIP_SPEED;
+      const p = along(path, s), hx = lane === 0 ? p.dx : -p.dx, hy = lane === 0 ? p.dy : -p.dy;
+      out.push({ x: p.x - hy * 0.2, y: p.y + hx * 0.2, hx, hy, sp: 1, type: type(n, lane), work: -1, a: fade(c, life) });
+    }
   }
-  if (out) { hx = -hx; hy = -hy; }
-  return { x: p.x, y: p.y, hx, hy, sp, type, work };
+  // A ship at the docks, lying along the quay while the cranes work.
+  const tc = turn(2, per.dock, SHIP_DOCKED_S);
+  if (tc) {
+    const [n, c] = tc, f = hash(n * 13 + sd + 3) < 0.5 ? 1 : -1;
+    out.push({ x: berth.x, y: berth.y, hx: berth.qx * f, hy: berth.qy * f, sp: 0, type: type(n, 2), work: c, a: fade(c, SHIP_DOCKED_S) });
+  }
+  return out;
 }
 
 // ── Drawing ─────────────────────────────────────────────────────────────────
