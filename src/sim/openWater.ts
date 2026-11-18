@@ -31,7 +31,13 @@ export function openWater(world: World): Uint8Array {
   const have = cache.get(world);
   if (have && have.key === key) return have.mask;
 
-  const { width, height } = world.grid;
+  const mask = openWaterOf(terrain, world.grid.width, world.grid.height);
+  cache.set(world, { key, mask });
+  return mask;
+}
+
+/** The same answer for any terrain array (say, the map as an edit would leave it). Not remembered. */
+export function openWaterOf(terrain: Uint8Array, width: number, height: number): Uint8Array {
   const mask = new Uint8Array(width * height);
   const queue = new Int32Array(width * height);
   let n = 0;
@@ -45,7 +51,6 @@ export function openWater(world: World): Uint8Array {
     if (i >= width) seed(i - width);
     if (i < width * (height - 1)) seed(i + width);
   }
-  cache.set(world, { key, mask });
   return mask;
 }
 

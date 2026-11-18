@@ -14,6 +14,8 @@ import { goodsShortage, goodsIncomeMult, goodsDemandMult } from '../sim/goods';
 import { BUILDING_SEAPORT, TERRAIN_WATER, ROAD_STREET, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld, home } from './pcTestWorld';
+import { EditWaterCommand } from '../commands/EditWaterCommand';
+import { waterQuote } from '../sim/landscaping';
 
 const P = BALANCE.port as Record<string, number>;
 const G = BALANCE.goods as Record<string, number>;
@@ -60,7 +62,7 @@ describe('seaport trade', () => {
     expect(t.markets.map((m) => Array.from(m.volume).join(','))).toEqual(before);
     expect(sum(t.exports.volume)).toBe(0);
     expect(exportIncome(w)).toBe(0);
-    expect(portTradeAt(w, 11, 9)).toEqual({ connected: true, exports: 0, exportCapacity: 0, imports: 0, importCapacity: 0, income: 0 });
+    expect(portTradeAt(w, 11, 9)).toEqual({ connected: true, cutOff: false, exports: 0, exportCapacity: 0, imports: 0, importCapacity: 0, income: 0 });
     expect(portIndustrialDemandMult(w)).toBe(1);
     expect(goodsIncomeMult(w)).toBe(1);
     expect(goodsDemandMult(w)).toBe(1);
@@ -333,5 +335,63 @@ describe('the port as a neighbour', () => {
       expect(w.layers.pollution[idx(11, 11)]).toBeGreaterThan(w.layers.pollution[idx(11, 9)]);
       expect(w.layers.pollution[idx(11, 11)]).toBeGreaterThan(10);
     } finally { Pol.seaportOutput = 0; }
+  });
+});
+
+describe('a port cut off from the sea', () => {
+  it('stops trading until a way to the edge is dug again; the preview says so beforehand', () => {
+    exportsOn();
+    P.importCapacity = 10;
+    P.industrialDemandMult = 1.5;
+    w.placeBuilding(10, 10, PORT);
+    const anchor = idx(10, 10);
+    traffic();
+    expect(portTradeAt(w, 10, 10)).toMatchObject({ connected: true, cutOff: false });
+    expect(portTradeAt(w, 10, 10)!.exports).toBeCloseTo(4.5);
+    expect(portTradeAt(w, 10, 10)!.imports).toBeGreaterThan(0);
+
+    // Filling a corner of the sea cuts nothing off.
+    expect(waterQuote(w, [idx(0, 0), idx(1, 0)], false)).toMatchObject({ portsCutOff: [], portsReconnected: [], pumpsDry: [] });
+    // Filling everything but a pond in front of the docks does.
+    const fill: number[] = [];
+    for (let y = 0; y <= 9; y++) for (let x = 0; x < 32; x++) if (!(y >= 8 && x >= 9 && x <= 15)) fill.push(idx(x, y));
+    expect(waterQuote(w, fill, false)).toMatchObject({ portsCutOff: [anchor], portsReconnected: [] });
+    const cut = new EditWaterCommand(fill, false);
+    expect(cut.execute(w)).toBe(true);
+    const t = traffic();
+    expect(portTradeAt(w, 10, 10)).toEqual({ connected: true, cutOff: true, exports: 0, exportCapacity: 100, imports: 0, importCapacity: 10, income: 0 });
+    expect(sum(t.exports.volume)).toBe(0);
+    expect(exportIncome(w)).toBe(0);
+    expect(hasConnectedPort(w)).toBe(false);
+    expect(portIndustrialDemandMult(w)).toBe(1);
+    expect(shipRoute(w, anchor)).toBeNull();
+    expect(portTrade(w, anchor)!.shipsPerDay).toBe(0);
+    expect(seaports(w).length).toBe(1);                      // still standing, still costing upkeep
+
+    // A canal to the top edge.
+    const canal = Array.from({ length: 8 }, (_, y) => idx(12, y));
+    expect(waterQuote(w, canal, true)).toMatchObject({ portsCutOff: [], portsReconnected: [anchor] });
+    expect(new EditWaterCommand(canal, true).execute(w)).toBe(true);
+    traffic();
+    expect(portTradeAt(w, 10, 10)).toMatchObject({ connected: true, cutOff: false });
+    expect(portTradeAt(w, 10, 10)!.exports).toBeCloseTo(4.5);
+    expect(hasConnectedPort(w)).toBe(true);
+    expect(portIndustrialDemandMult(w)).toBe(1.5);
+  });
+
+  it('undoing the fill reconnects it', () => {
+    exportsOn();
+    w.placeBuilding(10, 10, PORT);
+    const fill: number[] = [];
+    for (let y = 0; y <= 7; y++) for (let x = 0; x < 32; x++) fill.push(idx(x, y));
+    for (const y of [8, 9]) { fill.push(idx(0, y)); fill.push(idx(31, y)); }
+    const cut = new EditWaterCommand(fill, false);
+    expect(cut.execute(w)).toBe(true);
+    traffic();
+    expect(portTradeAt(w, 10, 10)!.cutOff).toBe(true);
+    cut.undo(w);
+    traffic();
+    expect(portTradeAt(w, 10, 10)!.cutOff).toBe(false);
+    expect(portTradeAt(w, 10, 10)!.exports).toBeCloseTo(4.5);
   });
 });

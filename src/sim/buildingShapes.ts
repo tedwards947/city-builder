@@ -20,7 +20,7 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
@@ -188,4 +188,16 @@ export function footprintEdge(width: number, height: number, tiles: readonly num
     if (i < width * (height - 1)) add(i + width);
   }
   return out;
+}
+
+/**
+ * Whether a building of `kind` standing on `tiles` has the water it needs:
+ * true for kinds with no such need; for the others (the large water plant),
+ * whether any tile along its edge is water in `terrain`. Checked when it is
+ * placed and again every time it supplies, since the player can move water.
+ */
+export function hasNeededWater(kind: number, tiles: readonly number[], terrain: Uint8Array, width: number, height: number): boolean {
+  if (!placementRules(kind).needsWaterEdge) return true;
+  for (const i of footprintEdge(width, height, tiles)) if (terrain[i] === TERRAIN_WATER) return true;
+  return false;
 }
