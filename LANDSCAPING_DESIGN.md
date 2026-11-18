@@ -16,7 +16,7 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 - **The brush:** pick a species, pick a brush size, paint. Plus an **eraser** to remove trees, since the bulldozer doesn't.
 - **Trees affect gameplay** (all three):
   - a small land-value boost nearby;
-  - absorbing a little pollution;
+  - absorbing a little pollution (trees already speed up pollution decay today, `pollution.vegDecayMult`; the owner's decision is to leave that as it is for planted trees, and the lab tunes it in phase 4);
   - a nudge toward the green vibe.
 - **The aim:** tree belts become a reason to buffer industry from homes. See TODO DESIGN f (industry crime).
 - **Cost:** money per tree (number from the lab).
@@ -30,7 +30,8 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 - **Existing things:**
   - adding water over buildings or zones bulldozes them, with the normal displacement PC cost;
   - **roads block water**: you must bulldoze a road before you can flood its tile;
-  - trees on a flooded tile are removed.
+  - trees on a flooded tile are removed;
+  - **docks and bridges block removing water** (owner): a water tile under a road or under any building (a seaport's docks) cannot be filled in until that is bulldozed, the same as roads block adding water. So a port can be cut off, but never left with docks on dry land.
 - **Seaport:** if editing cuts its water off from the map edge, the port stops trading, **but upkeep continues**. Reconnecting it (e.g. digging a canal) restores trade.
 - **Water pumps** must still touch water. A pump whose water is removed stops working.
 - **Limits:** none beyond the above (PM default; the owner may add some). Editing at the map edge is allowed, since that's how a port can be cut off or reconnected.
