@@ -7,6 +7,7 @@ import { applyValues } from '../ui/pcPresets';
 import { TUNED_T } from './tunedT';
 import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset, type SvcResult } from './services';
 import { TRADE_PRESETS, applyTradeValues, tradeResult, type TradePreset, type TradeResult } from './trade';
+import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
 import { PERSONAS, playPersona, type PersonaId, type PersonaRun } from './personas';
@@ -80,6 +81,8 @@ export interface LabOptions {
   customSvcPresets?: Record<string, SvcPreset>;
   tradePresets?: string[];      // trade suite: ids from TRADE_PRESETS (src/balance/trade.ts) or customTradePresets
   customTradePresets?: Record<string, TradePreset>;
+  taxDebtPresets?: string[];    // debt / tax suite: ids from TAXDEBT_PRESETS (src/balance/taxdebt.ts) or customTaxDebtPresets
+  customTaxDebtPresets?: Record<string, TaxDebtPreset>;
   cities: CitySpec[];
   personas?: PersonaId[];
   daysFresh?: number;
@@ -102,7 +105,7 @@ export interface Report {
   schema: string;
   generatedAt: string;
   about: string;
-  options: { suites: Suite[]; variants: string[]; econPresets: string[]; svcPresets: string[]; tradePresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
+  options: { suites: Suite[]; variants: string[]; econPresets: string[]; svcPresets: string[]; tradePresets: string[]; taxDebtPresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
   variants: { id: string; name: string; desc: string }[];
   econPresets: { id: string; name: string; desc: string; values: Record<string, unknown> }[];
   personas: { id: string; desc: string }[];
@@ -127,6 +130,10 @@ export interface Report {
   tradeSummary: Record<string, Summary>;
   tradeBest: Best | null;
   tradeRuns: Record<string, Record<string, TradeResult>>;
+  taxDebtPresets: TaxDebtPreset[];
+  taxDebtSummary: Record<string, Summary>;
+  taxDebtBest: Best | null;
+  taxDebtRuns: Record<string, Record<string, TaxDebtResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -206,7 +213,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -216,6 +223,8 @@ export function runLab(o: LabOptions): Report {
   const svcIds = suites.includes('svc') ? (o.svcPresets ?? SVC_PRESETS.map(p => p.id)) : [];
   const tradePresetOf = (id: string): TradePreset => o.customTradePresets?.[id] ?? TRADE_PRESETS.find(p => p.id === id)!;
   const tradeIds = suites.includes('trade') ? (o.tradePresets ?? TRADE_PRESETS.map(p => p.id)) : [];
+  const taxDebtPresetOf = (id: string): TaxDebtPreset => o.customTaxDebtPresets?.[id] ?? TAXDEBT_PRESETS.find(p => p.id === id)!;
+  const taxDebtIds = suites.includes('taxdebt') ? (o.taxDebtPresets ?? TAXDEBT_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -225,8 +234,8 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
-    options: { suites, variants, econPresets: presets, svcPresets: svcIds, tradePresets: tradeIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands; "taxdebt" targets per debt-drain / tax-level preset (results[preset][city]), the real-money Planner at several tax levels plus debt probes under the tuned PC numbers. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    options: { suites, variants, econPresets: presets, svcPresets: svcIds, tradePresets: tradeIds, taxDebtPresets: taxDebtIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
       : (() => { const p = PC_VARIANTS.find(x => x.id === v)!; return { id: p.id, name: p.name, desc: p.desc }; })()),
@@ -247,6 +256,10 @@ export function runLab(o: LabOptions): Report {
     tradeSummary: {},
     tradeBest: null,
     tradeRuns: {},
+    taxDebtPresets: taxDebtIds.map(id => taxDebtPresetOf(id)),
+    taxDebtSummary: {},
+    taxDebtBest: null,
+    taxDebtRuns: {},
     runs: {},
     probes: {},
     econRuns: {},
@@ -348,6 +361,21 @@ export function runLab(o: LabOptions): Report {
         }
       } finally { restore(); }
     }
+    // ── Debt / tax suite: the real-money Planner at several tax levels, and the debt drain under the tuned PC numbers ──
+    for (const id of taxDebtIds) {
+      const restore = applyTaxDebtValues(taxDebtPresetOf(id).values);
+      try {
+        report.taxDebtRuns[id] = {};
+        for (const city of o.cities) {
+          if (city.kind !== 'fresh' && popOf(city) > pcMaxPop) continue;
+          const t0 = Date.now();
+          const td = taxDebtResult(city, daysFresh, daysSave, o.customVariants?.T?.values ?? TUNED_T);
+          report.taxDebtRuns[id][city.id] = td;
+          log(`taxdebt ${id} ${city.id}: drain ${td.drain.share ?? '-'}, squeeze ${td.squeeze?.ratio ?? '-'}, levels ${Object.values(td.levels).map(r => `${r.level}:${r.popEnd}/${r.incomeLate}`).join(' ')} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          grade('taxdebt', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, taxdebt: td });
+        }
+      } finally { restore(); }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -377,6 +405,7 @@ export function runLab(o: LabOptions): Report {
   report.econVerdict = presets.length ? econVerdict(report) : null;
   report.svcBest = summarize('svc', svcIds, report.svcSummary);
   report.tradeBest = summarize('trade', tradeIds, report.tradeSummary);
+  report.taxDebtBest = summarize('taxdebt', taxDebtIds, report.taxDebtSummary);
   return report;
 }
 
