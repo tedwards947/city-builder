@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Airport workshop 2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 940px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); max-width: 100%; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 940px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Airport workshop, round 2</h1>
+<p>Your picks from round 1: the <b>90s steel and glass</b> terminal, the approach lights by day and at dusk, and the red, navy and sky-blue liveries. Here are the three new sheets you said yes to: <b>side-on planes</b> (with three novelty liveries), <b>side-on ground vehicles</b> and <b>steel jet bridges</b> that telescope. Every scene changes one thing, so you can compare. The game's own house, shop, office tower and large power plant stand on the right, for size.</p>
+<p>Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude.</p>
+
+<h2>P. Plane art</h2>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-planes="angled" data-off="20"></canvas><figcaption><span class="code">P1</span>Round 1's planes, at a three-quarter angle.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-planes="side" data-off="20"></canvas><figcaption><span class="code">P2</span>New: exactly side-on like the ships. Rolls straight down the runway and sits lower, so far less of the terminal is hidden.</figcaption></figure>
+</div>
+
+<h2>V. Ground vehicles</h2>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-veh="angled" data-off="18"></canvas><figcaption><span class="code">V1</span>Round 1's vehicles, at a three-quarter angle.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-veh="side" data-off="18"></canvas><figcaption><span class="code">V2</span>New: side-on. Fuel truck, baggage train, tug, stairs and fire engine as you picked; the catering truck stands by gate 1 (you left it unmarked). No follow-me car.</figcaption></figure>
+</div>
+
+<h2>J. Jet bridges</h2>
+<p>The new bridges come as long and short pairs, so they can visibly reach out to the plane when it pulls up and pull back before pushback (a quick swap between the two).</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-bridge="old" data-off="16"></canvas><figcaption><span class="code">J1</span>Round 1's bridge: one picture that slides a little.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-bridge="diag-r" data-off="16"></canvas><figcaption><span class="code">J2</span>Diagonal, from up and to the right of the nose, telescoping. Clear of the plane, over open apron.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-bridge="diag-l" data-off="16"></canvas><figcaption><span class="code">J3</span>Diagonal from up and to the left: the bridge comes down behind the plane to its far-side door. More like a real gate; now visible because the side-on plane is low.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-bridge="side" data-off="16"></canvas><figcaption><span class="code">J4</span>Long and sideways: runs along in front of the terminal and meets the door from behind. Long and graceful, but the three bridges overlap.</figcaption></figure>
+</div>
+
+<h2>M. How the plane gets to the gate and back</h2>
+<p>You found it hard to pick between these two, so here they are again with the new art.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-exit="crab" data-off="0"></canvas><figcaption><span class="code">M1</span>The whole trip: it lands, slides off the runway to the gate, the bridge reaches out, it's pushed back, slides onto the runway and takes off.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-exit="fade" data-off="0"></canvas><figcaption><span class="code">M2</span>The same, but it fades out on the runway and back in at the gate (and the same on the way out), like the ships.</figcaption></figure>
+</div>
+
+<h2>D. Plane size (side-on)</h2>
+<p>The dashed box is the 12×5 footprint.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-pl="1.6" data-box="1" data-off="22"></canvas><figcaption><span class="code">D1</span>1.6 tiles long.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-pl="2.0" data-box="1" data-off="22"></canvas><figcaption><span class="code">D2</span>2.0 tiles.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-pl="2.4" data-box="1" data-off="22"></canvas><figcaption><span class="code">D3</span>2.4 tiles.</figcaption></figure>
+</div>
+
+<h2>L. Liveries</h2>
+<p>The scenes cycle through all six, one per loop.</p>
+<div class="rowf">
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-1"></canvas><figcaption><span class="code">L1</span>Red tail and cheatline.</figcaption></figure>
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-3"></canvas><figcaption><span class="code">L2</span>Navy belly and tail, yellow sun.</figcaption></figure>
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-2"></canvas><figcaption><span class="code">L3</span>All sky blue.</figcaption></figure>
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-4"></canvas><figcaption><span class="code">L4</span>Novelty: panda.</figcaption></figure>
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-5"></canvas><figcaption><span class="code">L5</span>Novelty: orca.</figcaption></figure>
+  <figure><canvas width="300" height="130" data-kind="plane" data-n="planes-side-6"></canvas><figcaption><span class="code">L6</span>Novelty: kawaii, pink with a smiling face and stars.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="e.g. a different novelty livery, mix bridges, lower the planes' frequency…"></textarea>
+
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<!-- sprites/airport is not in git: make it with  for s in steel jetage brutalist deco timber planes-angled vehicles planes-side vehicles-side bridges; do node art/clay-set/port-sheet.mjs $s airport; done -->
+<script src="sprites/airport/meta.js"></script>
+<script>
+// Defaults for every scene: side-on planes, side-on vehicles, the J2 bridge, the slide (M1), planes 2.2 tiles long. Each canvas overrides one.
+const M = window.AIR_META || {};
+const IMG = {};
+const img = n => IMG[n] || (IMG[n] = Object.assign(new Image(), { src: `sprites/airport/${n}.png` }));
+const REF = { 'res-1': [128, 128, 13, 113, 109, 1], 'com-1': [128, 128, 13, 113, 109, 1], 'com-3': [128, 128, 13, 113, 109, 1], 'power-large': [384, 384, 38, 345, 332, 3] };
+const REF_IMG = {}; for (const n in REF) REF_IMG[n] = Object.assign(new Image(), { src: `../../public/sprites/clay/${n}.png` });
+function lot(ctx, n, tx, ty, label) {
+  const im = REF_IMG[n], [w, h, l, r, b, N] = REF[n], T = ctx.T; if (!im.complete || !im.naturalWidth) return;
+  const q = N * T / (r - l); ctx.drawImage(im, tx * T - l * q, (ty + N) * T - b * q, w * q, h * q);
+  if (label) { ctx.save(); ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.fillText(label, (tx + N / 2) * T, (ty + N) * T + 2); ctx.restore(); }
+}
+const ST = { term: 'steel-1', tower: 'steel-2', hangar: 'steel-6' };
+const PLANES = { side: [1, 3, 2, 4, 5, 6].map(k => 'planes-side-' + k), angled: [1, 2, 3].map(k => 'planes-angled-' + k) };
+const VEH = {
+  side: { fuel: 'vehicles-side-1', bags: 'vehicles-side-2', tug: 'vehicles-side-3', catering: 'vehicles-side-4', stairs: 'vehicles-side-5', fire: 'vehicles-side-6' },
+  angled: { fuel: 'vehicles-1', bags: 'vehicles-2', tug: 'vehicles-3', catering: 'vehicles-4', stairs: 'vehicles-5', fire: 'vehicles-7' },
+};
+const VW = { fuel: 0.8, bags: 1.0, tug: 0.45, catering: 0.6, stairs: 0.6, fire: 0.7 };
+// New bridges: long and short of each pair share a scale and the rotunda's place.
+const BR = { 'diag-r': { long: 'bridges-5', short: 'bridges-6', mirror: true }, 'diag-l': { long: 'bridges-5', short: 'bridges-6', mirror: false }, side: { long: 'bridges-1', short: 'bridges-2', mirror: false } };
+
+const RY = 5.6, RW = 0.8, RX0 = 2.2, RX1 = 13.8;
+const GATE_Y = 3.8, TAXI_Y = 4.5, GX = [4.0, 6.6, 10.0], EXIT_X = 8.8;
+const L = 60;
+const E = f => f * f * (3 - 2 * f), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, f) => a + (b - a) * f;
+const seg = (c, t0, t1) => clamp((c - t0) / (t1 - t0), 0, 1);
+
+function spr(ctx, n, x, y, o = {}) {
+  const m = M[n], im = img(n); if (!m || !im.complete || !im.naturalWidth) return;
+  const [w, h, l, r, fy] = m, T = ctx.T;
+  const q = o.h ? o.h * T / fy : (o.w || 1) * T / (r - l), fx = (l + r) / 2;
+  ctx.save(); ctx.globalAlpha = o.a ?? 1; ctx.translate(x, y); ctx.scale((o.flip ? -1 : 1) * (o.sx ?? 1), 1);
+  ctx.drawImage(im, -fx * q, -fy * q, w * q, h * q); ctx.restore();
+}
+
+// e = 0 retracted … 1 at the door. side: the plane art (the door sits higher on the tall angled plane).
+function bridge(ctx, type, gx, e, PL) {
+  const T = ctx.T;
+  if (type === 'old') {
+    const m = M['steel-3'], im = img('steel-3'); if (!m || !im.complete || !im.naturalWidth) return;
+    const [w, h, l, r, fy] = m, q = 0.9 * T / (r - l);
+    ctx.drawImage(im, (gx + 0.75 + 0.2 * (1 - e)) * T - l * q, (GATE_Y - 0.3 - 0.15 * (1 - e)) * T - fy * q, w * q, h * q);
+    return;
+  }
+  const b = BR[type], mL = M[b.long], mS = M[b.short], d5 = M['bridges-5']; if (!mL || !mS || !d5) return;
+  const q = T / (d5[4] - 4), s = b.mirror ? -1 : 1;
+  const door = { x: (gx + (b.mirror ? 0.3 : 0.4) * PL) * T, y: (GATE_Y - 0.45) * T };
+  const ax = door.x - s * (mL[3] - mL[2]) * q, ay = door.y - (mL[4] - 4) * q;
+  for (const [n, m, a] of [[b.short, mS, 1 - e], [b.long, mL, e]]) {
+    const im = img(n); if (a <= 0.01 || !im.complete || !im.naturalWidth) continue;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(ax, ay); ctx.scale(s, 1);
+    ctx.drawImage(im, -m[2] * q, -4 * q, m[0] * q, m[1] * q); ctx.restore();
+  }
+}
+
+function plane(ctx, n, p, PL) {
+  const T = ctx.T, a = p.a ?? 1, sx = p.sx ?? 1;
+  ctx.save(); ctx.globalAlpha = 0.25 * a * Math.max(0, 1 - p.alt / 3); ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse((p.x + p.alt * 0.35) * T, (p.y - 0.03) * T, PL * 0.42 * T * sx, 0.1 * T, 0, 0, 7); ctx.fill(); ctx.restore();
+  spr(ctx, n, p.x * T, (p.y - p.alt) * T, { w: PL, sx, a });
+}
+
+function move(a, b, f, method) {
+  if (method === 'fade') { const o = f < 0.5 ? a : b; return { x: o.x, y: o.y, alt: 0, a: f < 0.45 ? 1 - f / 0.45 : f > 0.55 ? (f - 0.55) / 0.45 : 0 }; }
+  const g = E(f);
+  return { x: lerp(a.x, b.x, g), y: lerp(a.y, b.y, g), alt: 0 };
+}
+
+function planeAt(c, method) {
+  if (c < 5) { const f = c / 5; return { x: -2 + 6.2 * f, y: RY, alt: 1.7 * Math.pow(1 - f, 1.3), a: seg(c, 0, 1) }; }
+  if (c < 10) { const f = (c - 5) / 5; return { x: 4.2 + (EXIT_X - 4.2) * (1 - (1 - f) * (1 - f)), y: RY, alt: 0 }; }
+  if (c < 13.5) return move({ x: EXIT_X, y: RY }, { x: EXIT_X, y: GATE_Y }, (c - 10) / 3.5, method);
+  if (c < 16) { const f = (c - 13.5) / 2.5; return { x: lerp(EXIT_X, GX[2], 1 - (1 - f) * (1 - f)), y: GATE_Y, alt: 0 }; }
+  if (c < 34) return { x: GX[2], y: GATE_Y, alt: 0 };
+  if (c < 36) { const f = E((c - 34) / 2); return { x: GX[2] - 0.5 * f, y: lerp(GATE_Y, TAXI_Y, f), alt: 0 }; }
+  if (c < 44) return { x: GX[2] - 0.5 - (GX[2] - 0.5 - 3.3) * E((c - 36) / 8), y: TAXI_Y, alt: 0 };
+  if (c < 45.5) return { x: 3.3, y: TAXI_Y, alt: 0 };
+  if (c < 49) return move({ x: 3.3, y: TAXI_Y }, { x: 3.3, y: RY }, (c - 45.5) / 3.5, method);
+  if (c < 56) { const f = (c - 49) / 7, x = 3.3 + 13 * f * f; return { x, y: RY, alt: x > 9 ? (x - 9) * 0.35 : 0, a: 1 - seg(x, 13.5, 16) }; }
+  return null;
+}
+
+function vehicles(c, p, PL) {
+  const V = [];
+  const visit = (n, t0, t1, t2, t3, x, y) => {
+    if (c < t0 || c >= t3) return;
+    const out = c >= t2;
+    V.push({ n, x: out ? lerp(x, 15, E(seg(c, t2, t3))) : lerp(15, x, E(seg(c, t0, t1))), y, flip: !out, a: Math.min(seg(c, t0, t0 + 0.6), 1 - seg(c, t3 - 0.6, t3)) });
+  };
+  visit('bags', 17, 20, 27, 30.5, GX[2] - 0.6, GATE_Y + 0.5);
+  visit('fuel', 18, 21, 25, 28, GX[2] + 1.6, GATE_Y + 0.3);
+  const nose = q => q.x + PL * 0.5 + 0.25;
+  if (c >= 31 && c < 34) V.push({ n: 'tug', x: lerp(15, nose({ x: GX[2] }), E(seg(c, 31, 34))), y: GATE_Y + 0.03, flip: true, a: seg(c, 31, 31.6) });
+  else if (c >= 34 && c < 44.5 && p) V.push({ n: 'tug', x: nose(p), y: p.y + 0.03, flip: true });
+  else if (c >= 44.5 && c < 48) V.push({ n: 'tug', x: lerp(nose({ x: 3.3 }), 15, E(seg(c, 44.5, 48))), y: TAXI_Y + 0.03, a: 1 - seg(c, 47.4, 48) });
+  V.push({ n: 'catering', x: GX[0] + 0.95, y: GATE_Y + 0.35 }, { n: 'stairs', x: 2.7, y: 3.7 }, { n: 'fire', x: 13.5, y: 4.35, flip: true });
+  return V;
+}
+
+function ground(ctx, box) {
+  const T = ctx.T, W = ctx.canvas.width;
+  for (let y = 0; y < 8; y++) for (let x = 0; x < W / T; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, W, 0.4 * T);
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
+  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(W, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#bdb8ac'; ctx.fillRect(2 * T, 2.45 * T, 12 * T, 2.45 * T);
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
+  for (let x = 3; x < 14; x++) { ctx.beginPath(); ctx.moveTo(x * T, 2.45 * T); ctx.lineTo(x * T, 4.9 * T); ctx.stroke(); }
+  ctx.strokeStyle = '#e2b737'; ctx.lineWidth = Math.max(1, T / 30);
+  ctx.beginPath(); ctx.moveTo(2.3 * T, TAXI_Y * T); ctx.lineTo(13.7 * T, TAXI_Y * T); ctx.stroke();
+  for (const g of GX) { ctx.beginPath(); ctx.moveTo((g - 1.2) * T, GATE_Y * T); ctx.lineTo((g + 1.2) * T, GATE_Y * T); ctx.moveTo((g + 1.2) * T, (GATE_Y - 0.15) * T); ctx.lineTo((g + 1.2) * T, (GATE_Y + 0.15) * T); ctx.stroke(); }
+  for (const x of [3.3, EXIT_X]) {
+    ctx.fillStyle = '#55585d'; ctx.fillRect((x - 0.32) * T, 4.9 * T, 0.64 * T, (RY - RW / 2 - 4.9) * T + 1);
+    ctx.strokeStyle = '#e2b737'; ctx.beginPath(); ctx.moveTo(x * T, TAXI_Y * T); ctx.lineTo(x * T, RY * T); ctx.stroke();
+  }
+  const y0 = (RY - RW / 2) * T, rh = RW * T, lw = Math.max(1, T / 40);
+  ctx.fillStyle = '#4a4d52'; ctx.fillRect(RX0 * T, y0, (RX1 - RX0) * T, rh);
+  ctx.fillStyle = '#f2f2ee';
+  ctx.fillRect(RX0 * T, y0 + lw, (RX1 - RX0) * T, lw); ctx.fillRect(RX0 * T, y0 + rh - 2 * lw, (RX1 - RX0) * T, lw);
+  for (let x = RX0 + 1.5; x < RX1 - 1.6; x += 0.6) ctx.fillRect(x * T, RY * T - lw, 0.3 * T, 2 * lw);
+  for (const [x0, x1] of [[RX0 + 0.08, RX0 + 0.45], [RX1 - 0.45, RX1 - 0.08]]) for (let k = 0; k < 6; k++) ctx.fillRect(x0 * T, y0 + rh * (0.1 + k * 0.14), (x1 - x0) * T, rh * 0.08);
+  for (const x of [RX0 + 2.3, RX1 - 2.9]) for (const s of [-1, 1]) ctx.fillRect(x * T, RY * T + s * rh * 0.22 - rh * 0.06, 0.6 * T, rh * 0.12);
+  ctx.font = `bold ${Math.round(0.42 * T)}px -apple-system, "Helvetica Neue", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [txt, x, rot] of [['9', RX0 + 0.85, Math.PI / 2], ['27', RX1 - 0.85, -Math.PI / 2]]) { ctx.save(); ctx.translate(x * T, RY * T); ctx.rotate(rot); ctx.fillText(txt, 0, 0); ctx.restore(); }
+  lot(ctx, 'res-1', 0.3, 6.6, 'house'); lot(ctx, 'res-1', 1.4, 6.5);
+  lot(ctx, 'com-1', 15, 3.3, 'shop'); lot(ctx, 'com-3', 16.6, 2.2, 'office tower'); lot(ctx, 'res-1', 18.3, 2.3, 'house');
+  lot(ctx, 'power-large', 16.3, 4.4, 'large power plant (3×3)');
+  if (box) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeRect(2 * T, 1.5 * T, 12 * T, 5 * T); ctx.setLineDash([]); }
+}
+
+function lights(ctx, t) {
+  const T = ctx.T, r = Math.max(1, T / 40);
+  const dot = (x, y, col, rr = r) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x * T, y * T, rr, 0, 7); ctx.fill(); };
+  ctx.save();
+  for (let x = RX0 + 0.25; x < RX1; x += 0.5) { dot(x, RY - RW / 2 + 0.04, '#fff3c4'); dot(x, RY + RW / 2 - 0.04, '#fff3c4'); }
+  for (let k = 0; k < 5; k++) { const y = RY - RW / 2 + 0.1 + k * (RW - 0.2) / 4; dot(RX0 + 0.03, y, '#5dff7a'); dot(RX1 - 0.03, y, '#ff4b3e'); }
+  for (const x of [3.3, EXIT_X]) for (const y of [4.98, 5.14]) { dot(x - 0.36, y, '#4f8cff', r * 0.9); dot(x + 0.36, y, '#4f8cff', r * 0.9); }
+  const n = 9, step = 0.26, lit = Math.floor(((t * 2) % 1) * (n + 3));
+  for (let i = 0; i < n; i++) {
+    const x = RX0 - 0.2 - (n - 1 - i) * step;
+    dot(x, RY, '#fff3c4', r * 0.9);
+    if (i === n - 4) { dot(x, RY - 0.17, '#fff3c4', r * 0.9); dot(x, RY + 0.17, '#fff3c4', r * 0.9); }
+    if (i === lit) { ctx.shadowColor = '#fff'; ctx.shadowBlur = r * 7; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x * T, RY * T, r * 2.1, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
+  }
+  ctx.restore();
+}
+
+function scene(cv, t) {
+  const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = 48;
+  const exit = d.exit || 'crab', PL = +(d.pl || 2.2), planes = PLANES[d.planes || 'side'], veh = VEH[d.veh || 'side'], br = d.bridge || 'diag-r';
+  const tt = t + +(d.off || 0), c = tt % L, k = Math.floor(tt / L) % planes.length, T = ctx.T, np = planes.length;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ground(ctx, d.box);
+  lights(ctx, tt);
+  spr(ctx, ST.tower, 2.9 * T, 2.5 * T, { h: 1.9 });
+  spr(ctx, ST.term, 8.2 * T, 2.6 * T, { w: 7.4 });
+  spr(ctx, ST.hangar, 13.3 * T, 2.6 * T, { w: 1.3 });
+  const e = c < 16 ? 0 : c < 17.5 ? E((c - 16) / 1.5) : c < 31.5 ? 1 : c < 33 ? 1 - E((c - 31.5) / 1.5) : 0;
+  bridge(ctx, br, GX[0], 1, PL); bridge(ctx, br, GX[1], 1, PL); bridge(ctx, br, GX[2], e, PL);
+  const p = planeAt(c, exit);
+  const items = [
+    { y: GATE_Y, draw: () => plane(ctx, planes[(k + 1) % np], { x: GX[0], y: GATE_Y, alt: 0 }, PL) },
+    { y: GATE_Y, draw: () => plane(ctx, planes[(k + 2) % np], { x: GX[1], y: GATE_Y, alt: 0 }, PL) },
+  ];
+  if (p && p.alt <= 0) items.push({ y: p.y + 0.001, draw: () => plane(ctx, planes[k], p, PL) });
+  for (const v of vehicles(c, p, PL)) items.push({ y: v.y, draw: () => spr(ctx, veh[v.n], v.x * T, v.y * T, { w: VW[v.n], flip: v.flip, a: v.a ?? 1 }) });
+  items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
+  if (p && p.alt > 0) plane(ctx, planes[k], p, PL);
+}
+
+function single(cv) {
+  const ctx = cv.getContext('2d'); ctx.T = 96;
+  ctx.fillStyle = '#bdb8ac'; ctx.fillRect(0, 0, cv.width, cv.height);
+  spr(ctx, cv.dataset.n, cv.width / 2, cv.height - 22, { w: 2.6 });
+}
+
+const scenes = [...document.querySelectorAll('canvas:not([data-kind])')], singles = [...document.querySelectorAll('canvas[data-kind]')];
+const vis = new WeakMap();
+const io = new IntersectionObserver(es => es.forEach(e => vis.set(e.target, e.isIntersecting)));
+scenes.forEach(cv => io.observe(cv));
+function loop() {
+  const t = performance.now() / 1000;
+  for (const cv of scenes) if (vis.get(cv) !== false) scene(cv, t);
+  for (const cv of singles) single(cv);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+const KEY = 'city-builder-airport-workshop-2';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+{ const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Airport workshop 2 feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
