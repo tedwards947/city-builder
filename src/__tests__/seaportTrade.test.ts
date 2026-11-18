@@ -36,6 +36,9 @@ const sum = (a: Float32Array) => a.reduce((s, v) => s + v, 0);
 // from x = 4 to 28: the four road tiles under the yard are its doors. Industry (three level-3
 // lots) at x 20–22 and shops (two level-2 lots) at x 5–6, all on the street's south side.
 beforeEach(() => {
+  // Every test starts with trade and the shortage penalties at no effect, whatever ships.
+  Object.assign(P, { exportTripsPerLevel: 0, exportCapacity: 0, exportIncomePerTrip: 0, importCapacity: 0, industrialDemandMult: 1 });
+  Object.assign(G, { shortageIncomePenalty: 0, shortageDemandPenalty: 0 });
   w = landWorld();
   for (let y = 0; y <= 9; y++) for (let x = 0; x < 32; x++) w.layers.terrain[idx(x, y)] = TERRAIN_WATER;
   for (let x = 4; x <= 28; x++) w.setRoad(x, 13, ROAD_STREET);
@@ -49,9 +52,7 @@ afterEach(() => { Object.assign(P, shipped.port); Object.assign(G, shipped.goods
 const exportsOn = () => { P.exportTripsPerLevel = 0.5; P.exportCapacity = 100; P.exportIncomePerTrip = 2; };
 
 describe('seaport trade', () => {
-  it('ships switched off: a connected port changes no traffic and earns nothing', () => {
-    expect(shipped.port).toMatchObject({ exportTripsPerLevel: 0, exportCapacity: 0, exportIncomePerTrip: 0, importCapacity: 0, industrialDemandMult: 1 });
-    expect(shipped.goods).toEqual({ shortageIncomePenalty: 0, shortageDemandPenalty: 0 });
+  it('with the trade numbers at zero a connected port changes no traffic and earns nothing', () => {
     const before = traffic().markets.map((m) => Array.from(m.volume).join(','));
     expect(w.placeBuilding(10, 10, PORT)).toBe(true);
     expect(hasConnectedPort(w)).toBe(true);
@@ -170,8 +171,8 @@ describe('imports and the goods shortage', () => {
   it('a shortage is how far supply falls short of what shops want; no source at all is a full shortage', () => {
     expect(goodsShortage(w)).toBe(0);                        // no traffic pass yet
     traffic();
-    expect(goodsShortage(w)).toBe(0);                        // 18 trips of supply for 1.52 wanted
-    // One factory level left: 2 trips of supply. Shops grown to want more.
+    expect(goodsShortage(w)).toBe(0);                        // nine factory levels supply more than 1.52 wanted
+    // One factory level left. Shops grown to want more than it supplies.
     for (const x of [20, 21, 22]) zone(x, 14, 0, 0);
     zone(20, 14, ZONE_I, 1);
     for (const x of [5, 6]) zone(x, 14, ZONE_C, 3);

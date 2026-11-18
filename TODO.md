@@ -41,11 +41,11 @@ Seaport G2 and the seaport art are in (picks A1, B3, C1–C4, D2/D3 → E1 on `a
 
 ## GAME ENGINE
 
-Status as of 2026-11-17, after #212. Details of every system below are in AGENT.md.
+Status as of 2026-11-17, after seaport phase 5. Details of every system below are in AGENT.md.
 
 ### Next (ranked)
 
-1. **Seaport phase 5: the numbers.** Phases 1–4 are merged (#202 placement and rotation, #209 traffic can route to a building, #211 trade and the shops-need-goods rule, #212 nuisance, pollution, `shipRoute`, `portTrade`). Every number ships switched off: `BALANCE.port.*`, `BALANCE.goods.*`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`; cost and upkeep in `buildings[12]` are placeholders. Put in the lab's numbers once the owner approves them. **Waiting on ENGINEER 3 (lab) and the owner.**
+1. **Seaport: the numbers still off.** The trade numbers are in (phase 5: exports, imports, goods shortage income penalty, cost $200,000 and upkeep $30, `transit.goodsCapacity` 0.55). Still at no effect, with no lab target yet: `goods.shortageDemandPenalty`, `port.industrialDemandMult`, `port.truckWeight`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`. **Waiting on ENGINEER 3 (lab) and the owner.**
 2. **Debt countdown.** The rule is built (`src/sim/debt.ts`; game over is final, `reviveFromDebt` for debug) but off: `budget.debtGraceDays` is 0. **Waiting on GRAPHICS**, whose game-over screen PR sets it to 30.
 3. **Requests: "full" versus "out of reach".** `requestProgress` does not yet say whether a school or hospital request is unmet because the building is full or because no building reaches. Build when GRAPHICS needs it for the quest text.
 4. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
@@ -63,7 +63,7 @@ Standing rules (see AGENT.md): systems never loop over the whole map (`world.ind
 
 ### Done and merged
 
-- Seaport phases 1–4 (#202, #209, #211, #212): shapes with roles and four rotations, open-water placement, a fourth traffic market (`exports`), imports as a goods source, city-wide industry boost, city-wide goods shortage, ship route and ships per day.
+- Seaport phases 1–5 (#202, #209, #211, #212, trade numbers): shapes with roles and four rotations, open-water placement, a fourth traffic market (`exports`), imports as a goods source, city-wide industry boost, city-wide goods shortage, ship route and ships per day.
 - Services by capacity (#195, #206): schools and hospitals seat whole homes nearest-first (school 20 tiles / 4,000, hospital 30 / 8,000); police and fire are road-based reach only.
 - Economy (#184, #187, #189, #199): Tight numbers are the default ("Original" kept as a preset); debt rule; tax level slider that also moves satisfaction and growth demand (`taxEffect` for the UI).
 - Political capital: regeneration, upkeep, displacement and debt drain scale with the cap (`capScale`); requests and seats (#165, #179, #180, #194).

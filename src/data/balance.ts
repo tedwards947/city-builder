@@ -33,7 +33,7 @@ export const BALANCE = {
     11: { cost: 5250,  maintenance: 35  }, // BUILDING_LARGE_SEWAGE_PLANT (2×2)
     // The seaport (a 4×3 yard plus a row of docks over open water). Placeholder
     // numbers until the lab tunes it: dear to build and dear to run.
-    12: { cost: 25000, maintenance: 150 }, // BUILDING_SEAPORT
+    12: { cost: 200000, maintenance: 30 }, // BUILDING_SEAPORT
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -255,7 +255,10 @@ export const BALANCE = {
     // room close by, and what still does not fit shows as over capacity.
     shopCapacity: 2,      // per commerce level
     jobCapacity: 2,       // per industry level
-    goodsCapacity: 2,     // goods trips each industry level can supply
+    // Goods trips each industry level can supply. At 0.55 a city zoned in
+    // balance has no shortage; one with three times as many shops as
+    // industry runs short (see goods below).
+    goodsCapacity: 0.55,
     // A road tile gets slower once its load passes `freeFlow` × capacity:
     // travel time × (1 + congestionDelay × (load − freeFlow)), so a full road
     // (load 1.0) takes 1.5× as long. Traffic then prefers emptier routes.
@@ -270,21 +273,22 @@ export const BALANCE = {
     accessFloor: 0.05,
   },
   // ── Seaport trade (sim/seaport.ts) ───────────────────────────────────────────
-  // SWITCHED OFF: with these numbers a port only costs its upkeep. The lab sets them.
+  // Numbers from the Balance Lab's trade suite (preset "proposed"). The
+  // city-wide industry boost and the truck weight are still at no effect.
   port: {
     // Export trips each developed industry level sends to a port within
     // reach. 0 = industry exports nothing.
-    exportTripsPerLevel: 0,
+    exportTripsPerLevel: 0.1,
     // The furthest industry may be from a port and still export: travel time
     // in street tiles, like transit.commuteMax.
     reach: 48,
     // Export trips one port can take per tick. 0 = ports take no exports.
-    exportCapacity: 0,
+    exportCapacity: 15,
     // Money per export trip the port has room for, per tick.
-    exportIncomePerTrip: 0,
+    exportIncomePerTrip: 8,
     // Goods trips one port can supply to shops per tick (an extra source in
     // the goods market, beside industry). 0 = ports import nothing.
-    importCapacity: 0,
+    importCapacity: 200,
     // Industrial growth demand is multiplied by this, city-wide, while a
     // port is connected by road. 1 = no effect.
     industrialDemandMult: 1,
@@ -298,9 +302,10 @@ export const BALANCE = {
   // ── Shops need goods (sim/goods.ts) ──────────────────────────────────────────
   // When shops want more goods trips than industry and ports can supply, the
   // city-wide shortage (0–1) cuts shops' tax income and commercial demand by
-  // shortage × these. SWITCHED OFF at 0.
+  // shortage × these. The demand penalty is still off (the lab has no
+  // target for it).
   goods: {
-    shortageIncomePenalty: 0,
+    shortageIncomePenalty: 0.25,
     shortageDemandPenalty: 0,
   },
   vegetation: {
