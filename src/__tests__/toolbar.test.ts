@@ -12,7 +12,7 @@ const families = TOOLBAR.flatMap(e => e !== 'sep' && 'family' in e ? [e.family] 
 
 const LARGE: Tool[] = ['largePower', 'largeWater', 'largeSewage'];
 // Tools with no hotkey of their own.
-const NO_HOTKEY: Tool[] = [...LARGE, 'seaport', 'addWater', 'removeWater'];
+const NO_HOTKEY: Tool[] = [...LARGE, 'seaport', 'airport', 'addWater', 'removeWater'];
 
 describe('toolbar list', () => {
   it('offers the large plants in normal play', () => {
@@ -23,7 +23,7 @@ describe('toolbar list', () => {
 
   it('offers every tool exactly once', () => {
     const all: Tool[] = ['none', 'inspect', 'road', 'avenue', 'highway', 'zoneR', 'zoneC', 'zoneI',
-      'power', 'water', 'sewage', 'largePower', 'largeWater', 'largeSewage', 'seaport', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze', 'trees', 'addWater', 'removeWater'];
+      'power', 'water', 'sewage', 'largePower', 'largeWater', 'largeSewage', 'seaport', 'airport', 'police', 'fire', 'school', 'hospital', 'park', 'bulldoze', 'trees', 'addWater', 'removeWater'];
     const offered = items.flatMap(i => i.tool !== undefined ? [i.tool] : []);
     expect([...offered].sort()).toEqual([...all].sort());
   });

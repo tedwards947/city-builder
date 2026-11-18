@@ -1,7 +1,7 @@
 // The airport's engine side: a 12×5 building, one per city, never turned,
 // entered only from roads along its terminal frontage (the north edge at
-// dx 2–9). Its traffic comes from its row in BALANCE.transit.buildings,
-// which ships at no effect.
+// dx 2–9). Its traffic comes from its row in BALANCE.transit.buildings
+// (Balance Lab numbers, owner-approved 2026-11-18).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
@@ -82,20 +82,21 @@ describe('the airport', () => {
     expect(w.buildingAccessRoads(21, 14)).toEqual(w.buildingAccessRoads(10, 10));   // asked by any tile
   });
 
-  it('ships with a traffic row at no effect', () => {
+  it('ships with the Balance Lab numbers: passengers pay, arrivals go shopping and job hunting, shops are in more demand', () => {
     const row = shipped.rows[AIRPORT];
-    expect(row).toBeDefined();
-    for (const part of [row.takes, row.sends, row.incomePerTrip]) for (const v of Object.values(part ?? {})) expect(v).toBe(0);
-    for (const v of Object.values(row.demandMult ?? {})) expect(v).toBe(1);
+    expect(row).toEqual({ takes: { visitors: 100 }, incomePerTrip: { visitors: 6 }, sends: { shopping: 30, jobs: 10 }, demandMult: { C: 1.1 } });
+    expect(shipped.tripsVisitors).toBe(0.05);
+    expect(BALANCE.buildings[AIRPORT]).toEqual({ cost: 2_000_000, maintenance: 150 });
     w.placeBuilding(10, 10, AIRPORT);
     for (let x = 4; x <= 30; x++) w.setRoad(x, 9, ROAD_STREET);
     w.setZone(5, 8, ZONE_R); w.layers.devLevel[idx(5, 8)] = 3;
     const transit = new TransitSystem();
     w.tick = T.flowInterval; transit.update(w);
-    expect(w.traffic!.visitors.volume.reduce((s, v) => s + v, 0)).toBe(0);
-    expect(buildingTripIncome(w)).toBe(0);
-    expect(buildingDemandMult(w, 'C')).toBe(1);
-    expect(buildingTripsAt(w, 15, 12)).toEqual({ connected: true, takes: [], sends: [], income: 0 });
+    const trips = 3 * 0.05;
+    expect(buildingTripsAt(w, 10, 10)!.takes[0].trips).toBeCloseTo(trips);
+    expect(buildingTripIncome(w)).toBeCloseTo(trips * 6);
+    expect(buildingDemandMult(w, 'C')).toBeCloseTo(1.1);
+    expect(buildingTripsAt(w, 10, 10)!.sends).toEqual([{ market: 'shopping', trips: 30 }, { market: 'jobs', trips: 10 }]);
   });
 
   it('with numbers in its row, shares its passengers between the exits along the frontage', () => {

@@ -272,6 +272,7 @@ export interface TranslationSchema {
       largeWater: string;
       largeSewage: string;
       seaport: string;
+      airport: string;
       police: string;
       fireStation: string;
       school: string;
@@ -365,6 +366,7 @@ export interface TranslationSchema {
       largeWater: string;
       largeSewage: string;
       seaport: string;
+      airport: string;
       police: string;
       fireStation: string;
       school: string;
@@ -400,6 +402,7 @@ export interface TranslationSchema {
     largeWaterPlant: string;
     largeSewagePlant: string;
     seaport: string;
+    airport: string;
     policeStation: string;
     fireStation: string;
     school: string;

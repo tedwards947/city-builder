@@ -107,8 +107,20 @@ const GAME = {
   // Ships (sheet 4): the container ship 2.25 tiles long side-on (owner, ships workshop A3), its bow-on and stern-on views and the freighter at the same scale.
   'sheet-4-1': ['ship-side', KS], 'sheet-4-2': ['ship-south', KS], 'sheet-4-3': ['ship-north', KS], 'sheet-4-4': ['freighter-side', KS], 'sheet-2-2': ['gate', K2], 'sheet-2-3': ['boxes-long', K2 * 1.1], 'sheet-2-4': ['boxes-end', K2 * 1.1],
 };
-const GAME_OUT = join(here, '../../public/sprites/clay/port');
-const GAME_DATA = join(here, '../../src/render/clay/portSpriteData.ts');
+// The airport's props (art/clay-set/airport3.html, the owner's picks): straight-on steel terminal, tower and hangar,
+// the J2 bridge pair, side-on planes 2 tiles long (no panda) and side-on vehicles. Scale: tiles wide (or tall) × 128 / raw size.
+const BR_K = 1.25 * 128 / 308;   // the long bridge spans 1.25 tiles from top to cab foot; the short one shares its scale
+const AIR_GAME = {
+  'steel-straight-1': ['terminal', 8 * 128 / 1164], 'steel-straight-2': ['tower', 1.9 * 128 / 337], 'steel-straight-3': ['hangar', 1.3 * 128 / 226],
+  'bridges-5': ['bridge-long', BR_K], 'bridges-6': ['bridge-short', BR_K],
+  'planes-side-1': ['plane-red', 2 * 128 / 481], 'planes-side-3': ['plane-navy', 2 * 128 / 481], 'planes-side-2': ['plane-blue', 2 * 128 / 480],
+  'planes-side-5': ['plane-orca', 2 * 128 / 478], 'planes-side-6': ['plane-kawaii', 2 * 128 / 477],
+  'vehicles-side-1': ['fuel', 0.8 * 128 / 396], 'vehicles-side-2': ['bags', 128 / 447], 'vehicles-side-3': ['tug', 0.45 * 128 / 312],
+  'vehicles-side-4': ['catering', 0.6 * 128 / 292], 'vehicles-side-5': ['stairs', 0.6 * 128 / 280], 'vehicles-side-6': ['fire', 0.7 * 128 / 331],
+};
+const AIR = set === 'airport';
+const GAME_OUT = join(here, AIR ? '../../public/sprites/clay/airport' : '../../public/sprites/clay/port');
+const GAME_DATA = join(here, AIR ? '../../src/render/clay/airportSpriteData.ts' : '../../src/render/clay/portSpriteData.ts');
 // Area-average resample with premultiplied alpha.
 function resample(px, W, H, k) {
   const W2 = Math.round(W * k), H2 = Math.round(H * k), out = new Uint8Array(W2 * H2 * 4);
@@ -162,12 +174,14 @@ blobs.forEach((bl, k) => {
   png(join(OUT, file), W, H, px);
   // foot: where the prop's base sits in the crop (bottom of its solid pixels).
   meta.push({ file, w: W, h: H, footY: bl.y1 - y0, left: bl.x0 - x0, right: bl.x1 - x0 });
-  const g = set === 'port' && GAME[`${name}-${k + 1}`];
+  const g = (AIR ? AIR_GAME : set === 'port' ? GAME : {})[`${name}-${k + 1}`];
   if (g) {
     mkdirSync(GAME_OUT, { recursive: true });
     const [id, kk] = g, r = resample(px, W, H, kk);
     png(join(GAME_OUT, id + '.png'), r.W, r.H, r.px);
     game[id] = { w: r.W, h: r.H, footX: Math.round(((bl.x0 + bl.x1) / 2 - x0) * kk), footY: Math.round((bl.y1 - y0) * kk), k: +kk.toFixed(4) };
+    // The airport also needs the solid box's left, right and top (bridges are placed by their corners).
+    if (AIR) Object.assign(game[id], { left: Math.round((bl.x0 - x0) * kk), right: Math.round((bl.x1 - x0) * kk), top: Math.round((bl.y0 - y0) * kk) });
   }
 });
 if (Object.keys(game).length) {
@@ -175,7 +189,11 @@ if (Object.keys(game).length) {
   let prev = {};
   try { prev = JSON.parse(/\/\* json \*\/([\s\S]*?)\/\* end \*\//.exec(readFileSync(GAME_DATA, 'utf8'))[1]); } catch {}
   const all = { ...prev, ...game };
-  writeFileSync(GAME_DATA, `// Made by art/clay-set/port-sheet.mjs: the seaport's painted props in public/sprites/clay/port.
+  writeFileSync(GAME_DATA, AIR ? `// Made by art/clay-set/port-sheet.mjs (… airport): the airport's painted props in public/sprites/clay/airport, at 128 px a tile.
+// w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
+export interface AirportSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number }
+export const AIRPORT_SPRITES: Record<string, AirportSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;
+` : `// Made by art/clay-set/port-sheet.mjs: the seaport's painted props in public/sprites/clay/port.
 // w, h: image size; (footX, footY): where the prop stands, in image pixels; k: image pixels per pixel of the raw sheet crop.
 export interface PortSpriteMeta { w: number; h: number; footX: number; footY: number; k: number }
 export const PORT_SPRITES: Record<string, PortSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;
