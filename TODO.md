@@ -103,13 +103,11 @@ Done and merged:
 - Trade suite: seaport and goods targets (#219); ENGINE shipped the numbers (#220).
 - Debt / tax suite: the owner's debt.pcDrain, debt.squeeze, tax.high, tax.low, tax.noDominant targets, probes and sweep (#246).
 - Owner's answers (2026-11-18): pc.closure.lonely lowered to ≥ 0.15 of cap, one closureMultiplier kept; tax.low's growth check on mature cities only, fresh town at 0 must still fail econ.noSoftlock. Preset T closureMultiplier 1.67 → 1.85: 95/98 PC (was 94 at 1.67 with the new range); closure.lonely passes on every city, moving a school now costs 0.054 / 0.061 of cap on testcity1 / gen-s1-t10000 against pc.move ≤ 0.05 (#250).
-- Owner's answers (2026-11-18, second round): pc.move relaxed to ≤ 0.07; the Request-chaser's traffic-jam target lowered to ≥ 30% after the 3-day hold (#248), to revisit after the owner plays; tax.high / tax.low graded on residents against level 10 (2–8% fewer at 20; no fewer at 5, for less income). Shipped `tax.level.exodusPerPoint` 1e-4 (this PR).
+- Owner's answers (2026-11-18, second round): pc.move relaxed to ≤ 0.07; the Request-chaser's traffic-jam target lowered to ≥ 30% after the 3-day hold (#248), to revisit after the owner plays; tax.high / tax.low graded on residents against level 10 (2–8% fewer at 20; no fewer at 5, for less income). Shipped `tax.level.exodusPerPoint` 1e-4 (#252).
+- pc.refill counts 99% of the cap as refilled (owner, 2026-11-18): since #248 a city left alone fails the odd traffic request and can sit a point short of the cap (this PR).
 
 Proposed, waiting on ENGINE (ships with the PC numbers-on PR):
 - `BALANCE.budget.debtPcDrainPerDay` 0 → 0.75 (lab preset "proposed" in `src/balance/taxdebt.ts`): debt.pcDrain 0.15 on every city, debt.squeeze passes. `debt.test.ts` pins the drain at 0 while PC is off, so ENGINE turns it on with the rest.
-
-Open, measurement (for the owner):
-- pc.refill on testcity1 reads "never" since #248: left alone, its traffic-jam requests now fail (−8 PC each, about 21 in 300 days) where noise used to meet them (+5.91). PC climbs to 298.1 of a 299 cap by about day 80 and stays about 1 short. Counting a refill at 99% of the cap would read about 77 days.
 
 Waiting on ENGINE: the 3-day hold on school, hospital, power and water requests; then re-grade T.
 

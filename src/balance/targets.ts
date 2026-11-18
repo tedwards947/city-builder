@@ -101,8 +101,8 @@ function eminentNet(withEd: RunSummary | undefined, without: RunSummary | undefi
 }
 
 const PC_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'pc.refill', metric: 'Game days for the Planner\'s city, left alone, to regenerate from 0 PC to the cap', target: '60–90 days (4–6 min at 1×)', persona: 'planner', cities: 'all', status: 'graded',
-    why: 'Decision 2026-11-15: a happy city refills in about 5 minutes at 1×.',
+  { id: 'pc.refill', metric: 'Game days for the Planner\'s city, left alone, to regenerate from 0 PC to 99% of the cap', target: '60–90 days (4–6 min at 1×)', persona: 'planner', cities: 'all', status: 'graded',
+    why: 'Decision 2026-11-15: a happy city refills in about 5 minutes at 1×. Owner (2026-11-18): 99% counts as full, since failed requests can hold a city left alone a point short of the cap.',
     evaluate: c => c.refill ? { ...range(c.refill.days ?? Infinity, 60, 90), note: `avg satisfaction ${c.refill.avgSatisfaction}` } : NA('no Planner run') },
   { id: 'pc.tower', metric: 'PC to displace one level-3 home (20 residents) ÷ cap', target: '0.25–0.40', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Owner: a tower costs about a third of the cap.',

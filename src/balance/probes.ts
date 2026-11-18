@@ -206,7 +206,8 @@ export function staticProbes(world: World): StaticProbes {
   return out;
 }
 
-/** Days for this city, untouched, to regenerate from 0 PC to the cap (null if it never does within maxDays). */
+/** Days for this city, untouched, to regenerate from 0 PC to 99% of the cap (null if it never does within maxDays).
+ *  99%, not 100% (owner, 2026-11-18): a city left alone fails the odd request, which can hold it a point short of the cap for good. */
 export function refillProbe(world: World, maxDays = 300): { days: number | null; avgSatisfaction: number } {
   const sim = startSim(cloneWorld(world));
   sim.tick(1);
@@ -215,7 +216,7 @@ export function refillProbe(world: World, maxDays = 300): { days: number | null;
   for (let d = 1; d <= maxDays; d++) {
     sim.tick(BALANCE.ticksPerDay);
     sat += sim.world.stats.satisfaction;
-    if (sim.world.budget.politicalCapital >= pcCap(sim.world)) return { days: d, avgSatisfaction: r3(sat / d) };
+    if (sim.world.budget.politicalCapital >= 0.99 * pcCap(sim.world)) return { days: d, avgSatisfaction: r3(sat / d) };
   }
   return { days: null, avgSatisfaction: r3(sat / maxDays) };
 }
