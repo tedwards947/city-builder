@@ -14,7 +14,7 @@ export interface TranslationSchema {
     months: string[];
   };
   ordinances: Record<'neighbourhoodWatch' | 'curfew' | 'cleanAirAct' | 'businessIncentives' | 'freeTransit' | 'fastTrackPermits' | 'rentControl' | 'eminentDomain' | 'heritageProtection', { name: string; desc: string }>;
-  requests: Record<'park' | 'police' | 'fire' | 'school' | 'hospital' | 'utilities' | 'trafficJam' | 'blight', { name: string; desc: string }>;
+  requests: Record<'park' | 'police' | 'fire' | 'school' | 'hospital' | 'utilities' | 'trafficJam' | 'blight' | 'airport', { name: string; desc: string }>;
   ui: {
     tileInfo: {
       coords: string;

@@ -7,7 +7,7 @@
 
 import type { World } from '../World';
 import { BALANCE } from '../../data/balance';
-import { isMet, isHolding, observeRequests, pickRequest, requestConfig, openRequest, meetRequest, failRequest } from '../requests';
+import { isMet, isHolding, observeRequests, pickRequest, requestConfig, openRequest, meetRequest, failRequest, openSlotsUsed } from '../requests';
 
 export class RequestSystem {
   update(world: World): void {
@@ -25,7 +25,8 @@ export class RequestSystem {
     }
 
     const day = world.tick / BALANCE.ticksPerDay;
-    if (cfg.spawnEveryDays <= 0 || open.length >= cfg.maxOpen || day % cfg.spawnEveryDays !== 0) return;
+    // A standing request (the airport) does not take one of the maxOpen slots.
+    if (cfg.spawnEveryDays <= 0 || openSlotsUsed(world) >= cfg.maxOpen || day % cfg.spawnEveryDays !== 0) return;
     const pick = pickRequest(world, world.rng);
     if (pick) openRequest(world, pick.kind, pick.area, cfg.kinds[pick.kind]?.days ?? 0, pick.need, pick);
   }

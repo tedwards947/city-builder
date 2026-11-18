@@ -42,8 +42,8 @@ function runDays(w: World, sys: RequestSystem, days: number): void {
 }
 
 describe('request registry', () => {
-  it('has the six kinds, switched off with PC off', () => {
-    expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'police', 'fire', 'school', 'hospital', 'utilities', 'trafficJam', 'blight']);
+  it('has the nine kinds, switched off with PC off', () => {
+    expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'police', 'fire', 'school', 'hospital', 'utilities', 'trafficJam', 'blight', 'airport']);
     expect(cfg.spawnEveryDays).toBe(0);
     for (const k of REQUEST_KINDS) expect(cfg.kinds[k.id]).toMatchObject({ days: 0, reward: 0, penalty: 0 });
   });

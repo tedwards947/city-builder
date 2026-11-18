@@ -39,6 +39,7 @@ export const PC_OFF: Record<string, unknown> = {
       utilities: { days: 0, reward: 0, penalty: 0 },
       trafficJam: { days: 0, reward: 0, penalty: 0 },
       blight: { days: 0, reward: 0, penalty: 0 },
+      airport: { days: 0, reward: 0, penalty: 0 },
     },
   },
   establishedYears: 0,

@@ -71,6 +71,8 @@ export interface WorldSnapshot {
     ordinances?: { active: string[]; suspended: string[] };
     requests?: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; openedTick: number; deadlineTick: number; needAtOpen?: number; seed?: number; homes?: number[]; samples?: number[]; heldDays?: number }[];
     nextRequestId?: number;
+    /** Added without a version bump: missing in older saves, where every kind may ask. */
+    requestNotBefore?: Record<string, number>;
   };
   buildings: { tx: number; ty: number; kind: number; rot?: number }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
