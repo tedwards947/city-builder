@@ -6,6 +6,7 @@ import { PC_VARIANTS } from '../ui/pcPresets';
 import { applyValues } from '../ui/pcPresets';
 import { TUNED_T } from './tunedT';
 import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset, type SvcResult } from './services';
+import { TRADE_PRESETS, applyTradeValues, tradeResult, type TradePreset, type TradeResult } from './trade';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
 import { PERSONAS, playPersona, type PersonaId, type PersonaRun } from './personas';
@@ -77,6 +78,8 @@ export interface LabOptions {
   svcPresets?: string[];        // services suite: ids from SVC_PRESETS (src/balance/services.ts) or customSvcPresets
   /** Extra services presets by id (e.g. a reach / capacity sweep point). */
   customSvcPresets?: Record<string, SvcPreset>;
+  tradePresets?: string[];      // trade suite: ids from TRADE_PRESETS (src/balance/trade.ts) or customTradePresets
+  customTradePresets?: Record<string, TradePreset>;
   cities: CitySpec[];
   personas?: PersonaId[];
   daysFresh?: number;
@@ -99,7 +102,7 @@ export interface Report {
   schema: string;
   generatedAt: string;
   about: string;
-  options: { suites: Suite[]; variants: string[]; econPresets: string[]; svcPresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
+  options: { suites: Suite[]; variants: string[]; econPresets: string[]; svcPresets: string[]; tradePresets: string[]; cities: string[]; personas: string[]; daysFresh: number; daysSave: number; pcMaxPopulation: number };
   variants: { id: string; name: string; desc: string }[];
   econPresets: { id: string; name: string; desc: string; values: Record<string, unknown> }[];
   personas: { id: string; desc: string }[];
@@ -120,6 +123,10 @@ export interface Report {
   svcBest: Best | null;
   /** Services suite: seating and probes on the Planner's city, per preset and city. */
   svcRuns: Record<string, Record<string, SvcResult>>;
+  tradePresets: TradePreset[];
+  tradeSummary: Record<string, Summary>;
+  tradeBest: Best | null;
+  tradeRuns: Record<string, Record<string, TradeResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -199,7 +206,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -207,6 +214,8 @@ export function runLab(o: LabOptions): Report {
   const presets = suites.includes('econ') ? (o.econPresets ?? ECON_PRESETS.map(p => p.id).filter(id => id !== 'tight')) : [];
   const svcPresetOf = (id: string): SvcPreset => o.customSvcPresets?.[id] ?? SVC_PRESETS.find(p => p.id === id)!;
   const svcIds = suites.includes('svc') ? (o.svcPresets ?? SVC_PRESETS.map(p => p.id)) : [];
+  const tradePresetOf = (id: string): TradePreset => o.customTradePresets?.[id] ?? TRADE_PRESETS.find(p => p.id === id)!;
+  const tradeIds = suites.includes('trade') ? (o.tradePresets ?? TRADE_PRESETS.map(p => p.id)) : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -216,8 +225,8 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
-    options: { suites, variants, econPresets: presets, svcPresets: svcIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    options: { suites, variants, econPresets: presets, svcPresets: svcIds, tradePresets: tradeIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
       : (() => { const p = PC_VARIANTS.find(x => x.id === v)!; return { id: p.id, name: p.name, desc: p.desc }; })()),
@@ -234,6 +243,10 @@ export function runLab(o: LabOptions): Report {
     svcSummary: {},
     svcBest: null,
     svcRuns: {},
+    tradePresets: tradeIds.map(id => tradePresetOf(id)),
+    tradeSummary: {},
+    tradeBest: null,
+    tradeRuns: {},
     runs: {},
     probes: {},
     econRuns: {},
@@ -320,6 +333,21 @@ export function runLab(o: LabOptions): Report {
         }
       } finally { restore(); }
     }
+    // ── Trade suite: seaport and goods probes on each saved city as it stands (a fresh map has no coast) ──
+    for (const id of tradeIds) {
+      const restore = applyTradeValues(tradePresetOf(id).values);
+      try {
+        report.tradeRuns[id] = {};
+        for (const city of o.cities) {
+          if (city.kind === 'fresh' || popOf(city) > pcMaxPop) continue;
+          const t0 = Date.now();
+          const trade = tradeResult(loadCity(city));
+          report.tradeRuns[id][city.id] = trade;
+          log(`trade ${id} ${city.id}: shortage ${trade.shortage}, heavy ${trade.heavy?.shortage ?? '-'}, payback ${trade.port?.paybackDays ?? '-'} days (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          grade('trade', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, trade });
+        }
+      } finally { restore(); }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -348,6 +376,7 @@ export function runLab(o: LabOptions): Report {
   report.econBest = summarize('econ', presets, report.econSummary);
   report.econVerdict = presets.length ? econVerdict(report) : null;
   report.svcBest = summarize('svc', svcIds, report.svcSummary);
+  report.tradeBest = summarize('trade', tradeIds, report.tradeSummary);
   return report;
 }
 
