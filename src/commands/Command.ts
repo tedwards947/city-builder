@@ -7,7 +7,7 @@ import type { World } from '../sim/World';
 import { BUILDING_NONE } from '../sim/constants';
 
 /** Why execute() refused, when the reason is worth telling the player. */
-export type FailReason = 'funds' | 'politicalCapital' | 'noWater' | 'notOpenWater';
+export type FailReason = 'funds' | 'politicalCapital' | 'noWater' | 'notOpenWater' | 'alreadyBuilt';
 
 export abstract class Command {
   /**

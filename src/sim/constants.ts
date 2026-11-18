@@ -34,6 +34,7 @@ export const BUILDING_LARGE_POWER_PLANT  = 9;   // 3×3
 export const BUILDING_LARGE_WATER_PLANT  = 10;  // 2×2
 export const BUILDING_LARGE_SEWAGE_PLANT = 11;  // 2×2
 export const BUILDING_SEAPORT            = 12;  // a 4×3 yard on land with a row of docks over open water
+export const BUILDING_AIRPORT            = 13;  // 12×5, one per city, never turned (shape and rules in sim/buildingShapes.ts)
 
 
 // Vegetation layer

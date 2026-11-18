@@ -6,7 +6,7 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT } from '../sim/constants';
 import { BRUSH_RADII, landscapeBrush, setLandscapeBrush, treeChoice, setTreeChoice } from '../input/landscape';
 import { TREE_SPECIES_MAX } from '../sim/landscaping';
 import { WILD_SPECIES, drawTreeIcon, loadWildTrees } from '../render/clay/wildTrees';
@@ -122,7 +122,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
-  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT,
+  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT,
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };

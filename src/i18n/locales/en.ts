@@ -224,6 +224,7 @@ export const en: TranslationSchema = {
       needsWater: "A water pump must be built next to water.",
       needsOpenWater: "A seaport's docks must stand on water that connects to the edge of the map.",
       needsDockSite: "A seaport needs its yard on free land and its docks on open water.",
+      onePerCity: "The city already has one. Only one can be built.",
       noPoliticalCapital:
         "Not enough political capital to displace these residents.",
     },
