@@ -3,7 +3,7 @@ import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { ZONE_R, BUILDING_PARK, BUILDING_SCHOOL, TERRAIN_GRASS } from '../sim/constants';
 import { ServiceSystem } from '../sim/systems/ServiceSystem';
-import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress, planRequest } from '../sim/requests';
+import { REQUEST_KINDS, requestConfig, neighbourhoods, pickRequest, isMet, openRequest, meetRequest, failRequest, neediestFor, requestProgress, planRequest, observeRequests } from '../sim/requests';
 import { RequestSystem } from '../sim/systems/RequestSystem';
 
 const cfg = requestConfig();
@@ -122,7 +122,7 @@ describe('RequestSystem', () => {
     expect(w.politics.requests).toEqual([]);
   });
 
-  it('asks for power and water during a shortage, once for the city, met when it ends', () => {
+  it('asks for power and water during a shortage, once for the city, met once it has stayed ended', () => {
     Object.assign(cfg, { spawnEveryDays: 1, maxOpen: 3 });
     Object.assign(cfg.kinds.utilities, { days: 30, reward: 10 });
     const w = city();
@@ -132,6 +132,9 @@ describe('RequestSystem', () => {
     runDays(w, sys, 3);
     expect(w.politics.requests.map((r) => r.kind)).toEqual(['utilities']); // city-wide: only one
     w.stats.powerSupply = 30;
+    runDays(w, sys, 3);                         // averaged over 3 days, then held: not met on the first quiet days
+    expect(w.politics.requests.map((r) => r.kind)).toEqual(['utilities']);
+    expect(w.budget.politicalCapital).toBe(50);
     runDays(w, sys, 1);
     expect(w.politics.requests).toEqual([]);
     expect(w.budget.politicalCapital).toBe(60);
@@ -277,6 +280,12 @@ describe('road-shaped clusters (coverage kinds)', () => {
     const sx = plan.seed! % 24, sy = rowOf(plan.seed!) + 2;
     expect(w.placeBuilding(sx, sy, BUILDING_SCHOOL)).toBe(true);
     new ServiceSystem().update(w);
+    // School requests are durable: every home has a seat at once, and it is met after holding three daily checks.
+    expect(requestProgress(w, req)).toMatchObject({ met: false, heldDays: 0, holdDays: 3, unmetFull: 0, unmetOutOfReach: 0 });
+    const sys = new RequestSystem();
+    runDays(w, sys, 2);
+    expect(isMet(w, req)).toBe(false);
+    observeRequests(w);                         // the third day's reading, without resolving
     expect(isMet(w, req)).toBe(true);
     expect(requestProgress(w, req)).toMatchObject({ met: true, units: 8, homes: plan.homes, unmetFull: 0, unmetOutOfReach: 0, unmetReason: null });
   });
