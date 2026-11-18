@@ -440,7 +440,7 @@ export const en: TranslationSchema = {
       largeWater: "Place a water pump on 2×2 tiles beside open water (1,250 units output)",
       largeSewage: "Place a large sewage treatment plant on 2×2 tiles (1,500 units)",
       seaport: "Place a seaport: a 4×3 yard on land with docks over open water. It turns to face the water; press X to turn it yourself. Trade is not in yet: for now it only costs upkeep.",
-      airport: "Place an airport: 12×5 tiles with the runway along the south. Only one per city. Connect it with a street or avenue along the terminal\'s north side.",
+      airport: "Place an airport: a 12×4 terminal block with an 18-tile runway along the south. Only one per city. Connect it with a street or avenue along the terminal\'s north side.",
       police: "Place a police station (12-tile range)",
       fireStation: "Place a fire station (15-tile range)",
       school: "Place a school (4-tile range)",

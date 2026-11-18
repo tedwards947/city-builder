@@ -26,14 +26,15 @@ beforeEach(() => { w = landWorld(48); w.budget.money = 10_000_000; });
 afterEach(() => { T.buildings = shipped.rows; T.tripsVisitors = shipped.tripsVisitors; });
 
 describe('the airport', () => {
-  it('is a 12×5 block with a terminal frontage along the north edge at dx 2–9', () => {
+  it('is a 12×4 block over an 18-tile runway row, with a terminal frontage along the north edge at dx 2–9', () => {
     const shape = buildingShape(AIRPORT), roles = shapeRoles(AIRPORT);
-    expect(shape.length).toBe(60);
+    expect(shape.length).toBe(66);
+    expect(shape.filter(([, dy]) => dy === 4).map(([dx]) => dx)).toEqual(Array.from({ length: 18 }, (_, k) => k - 3));
     expect(isLargeBuilding(AIRPORT)).toBe(true);
     expect(hasDocks(AIRPORT)).toBe(false);
     const frontage = shape.filter((_, k) => roles[k] === 'frontage');
     expect(frontage).toEqual([2, 3, 4, 5, 6, 7, 8, 9].map((dx) => [dx, 0]));
-    expect(roles.filter((r) => r === 'body').length).toBe(52);
+    expect(roles.filter((r) => r === 'body').length).toBe(58);
     expect(BALANCE.buildings[AIRPORT].cost).toBeGreaterThan(BALANCE.buildings[12].cost);
   });
 
@@ -43,8 +44,9 @@ describe('the airport', () => {
     expect(w.placeBuilding(10, 10, AIRPORT, 2)).toBe(true);
     expect(w.buildings[0]).toMatchObject({ kind: AIRPORT, tx: 10, ty: 10 });
     expect(w.buildings[0].rot ?? 0).toBe(0);
-    expect(w.buildingTilesAt(10, 10).length).toBe(60);
-    expect(w.getBuilding(21, 14)).toBe(AIRPORT);          // the far corner at rotation 0
+    expect(w.buildingTilesAt(10, 10).length).toBe(66);
+    expect(w.getBuilding(24, 14)).toBe(AIRPORT);          // the runway's far end at rotation 0
+    expect(w.getBuilding(22, 13)).not.toBe(AIRPORT);      // beside the block, above the runway's overrun
     expect(placementFor(w, AIRPORT, 30, 30).rot).toBe(0);
   });
 
@@ -123,7 +125,7 @@ describe('the airport', () => {
     w.placeBuilding(10, 10, AIRPORT);
     const loaded = deserialize(serialize(w));
     expect(loaded.buildings).toEqual(w.buildings);
-    expect(loaded.buildingTilesAt(15, 12).length).toBe(60);
+    expect(loaded.buildingTilesAt(15, 12).length).toBe(66);
     expect(loaded.canPlaceBuilding(10, 30, AIRPORT)).toBe(false);
   });
 });
