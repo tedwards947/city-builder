@@ -146,9 +146,9 @@ const PC_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'pc.move', metric: 'Net PC to move a service (open a second on the free lot that serves most of the first one\'s homes, close the first) ÷ cap; negative = a cost', target: 'cost ≤ 0.05 each', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Moving a service is cheap. The second site overlaps the first (owner, 2026-11-17), so the probe measures a move, not stranding homes.',
     evaluate: c => all(Object.fromEntries(['school', 'hospital', 'police'].map(k => [k, range((c.probes?.['ribbon:' + k] as { moveNet?: number } | undefined)?.moveNet, -0.05)]))) },
-  { id: 'pc.closure.lonely', metric: 'Closing the city\'s only hospital ÷ cap', target: '≥ 0.3', persona: 'probe', cities: 'all', status: 'graded',
-    why: 'A closure should hurt.',
-    evaluate: c => range((c.probes?.['ribbon:hospital'] as { closeLast?: number } | undefined)?.closeLast, 0.3) },
+  { id: 'pc.closure.lonely', metric: 'Closing the city\'s only hospital ÷ cap', target: '≥ 0.15', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'A closure should hurt. Owner (2026-11-18): 0.15, so closing the only hospital still costs more than opening one pays (pc.ribbon.first ≤ 0.15), with one closureMultiplier for every kind.',
+    evaluate: c => range((c.probes?.['ribbon:hospital'] as { closeLast?: number } | undefined)?.closeLast, 0.15) },
   { id: 'pc.nuisance', metric: 'Power plant beside homes ÷ cap; and in empty land (PC)', target: '0.2–0.5; exactly 0', persona: 'probe', cities: 'all', status: 'graded',
     why: 'Unpopular buildings cost PC near homes, nothing away from them.',
     evaluate: c => { const n = c.probes?.nuisance as { nearHomes: number | null; farFromHomes: number | null } | undefined; if (!n) return NA('no probe'); return all({ near: range(n.nearHomes, 0.2, 0.5), far: n.farFromHomes === null ? NA('no empty land found') : range(n.farFromHomes, 0, 0) }); } },
@@ -359,7 +359,7 @@ const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
       return all({ income: range(t.a.incomeLate / Math.max(1, t.n.incomeLate) - 1, 0.4, 0.9), growth: range(growth(t.a) / growth(t.n), 0.5, 0.8), satisfaction: range((t.n.satEnd - t.a.satEnd) * 100, 8, 20) });
     } },
   { id: 'tax.low', metric: 'Twin runs of a mature city at tax level 5 against 10: growth ÷ growth at 10, and income; on the fresh town at level 0, the longest run of days in debt', target: 'growth 10–40% higher, income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
-    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch.',
+    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch. Owner (2026-11-18): the growth check is for mature cities only; a fresh town going broke at low tax is an accepted early-game constraint, but at 0 it must still fail econ.noSoftlock.',
     evaluate: c => {
       const L = tdOf(c)?.levels; if (!L) return NA('not run');
       if (c.cityKind === 'fresh') {
