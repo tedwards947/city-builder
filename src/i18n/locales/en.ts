@@ -117,6 +117,7 @@ export const en: TranslationSchema = {
       lots: "{count} lots",
     },
     route: { jobs: "work: {time} of {limit}", shops: "shops: {time} of {limit}", homes: "homes: {time} of {limit}", none: "no shops or jobs in reach", noHomes: "no homes in reach" },
+    airport: { noRoad: "⚠ No road to the terminal: build a street along its north side", roadHere: "Road here" },
     econ: {
       title: "Budget",
       taxLevel: "Tax rate",

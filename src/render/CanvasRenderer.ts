@@ -18,7 +18,8 @@ import { openWater } from '../sim/openWater';
 import { seaports, portTrade, shipRoute } from '../sim/seaport';
 import { shipRuns, shipsAt, shipSprite, shipBob, drawShipWater, SHIP_LENGTH, type Run, type Berth, type ShipState } from './clay/ships';
 import { drawPortSprite } from './clay/portArt';
-import { drawAirport, airportArtReady } from './clay/airport';
+import { drawAirport, airportArtReady, drawAirportNoRoad } from './clay/airport';
+import { t as tr } from '../i18n';
 import { buildingTripsAt } from '../sim/buildingTraffic';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
@@ -39,7 +40,7 @@ import { trafficVolume, roadCapacity } from '../sim/TrafficData';
 import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
 import { drawCommuteRoutes } from './clay/commuteRoute';
 import { BALANCE } from '../data/balance';
-import { ZONE_NONE, ZONE_R, ROAD_NONE, VEG_NONE, BUILDING_NONE } from '../sim/constants';
+import { ZONE_NONE, ZONE_R, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, VEG_NONE, BUILDING_NONE } from '../sim/constants';
 
 /** A whole-map tint the renderer can draw over the tiles. */
 export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
@@ -552,7 +553,10 @@ export class CanvasRenderer {
     if (kind === BUILDING_AIRPORT && airportArtReady()) {
       const active = buildingTripsAt(world, ax, ay)?.connected ?? true;
       const L = world.layers, grass = resolveTilePalette(L.vibeEgalitarian[anchor], L.vibeGreen[anchor], L.vibePlanned[anchor], BALANCE.character.axisMax).grass;
-      drawAirport(ctx, camera.worldToScreenX(Projection.tileToWorldX(ax)), camera.worldToScreenY(Projection.tileToWorldY(ay)), camera.zoom * TILE_SIZE, now * 0.001, active, ((anchor * 2654435761) >>> 0) / 4294967296, grass);
+      const sx = camera.worldToScreenX(Projection.tileToWorldX(ax)), sy = camera.worldToScreenY(Projection.tileToWorldY(ay));
+      drawAirport(ctx, sx, sy, camera.zoom * TILE_SIZE, now * 0.001, active, ((anchor * 2654435761) >>> 0) / 4294967296, grass);
+      // No road along the terminal: where it must go, and a note (the owner saw no planes and could not tell why).
+      if (!active) drawAirportNoRoad(ctx, sx, sy, camera.zoom * TILE_SIZE, now * 0.001);
       return;
     }
     const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
@@ -1057,6 +1061,23 @@ export class CanvasRenderer {
         ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : roles[k] === 'dock' ? 'rgba(190,230,255,0.32)' : 'rgba(255,255,255,0.16)';
         ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
       });
+      // Its entrances (the airport's terminal frontage): the tiles just north of them, where a street must run.
+      // Teal where a street or avenue is needed, green where one already is.
+      const doors = tiles.filter((_, k) => roles[k] === 'frontage').map(p => ({ x: p.x, y: p.y - 1 })).filter(p => world.grid.inBounds(p.x, p.y));
+      if (doors.length > 0) {
+        for (const p of doors) {
+          const rc = world.layers.roadClass[world.grid.idx(p.x, p.y)], ok = rc === ROAD_STREET || rc === ROAD_AVENUE;
+          ctx.fillStyle = ok ? 'rgba(79,191,122,0.55)' : 'rgba(125,216,192,0.35)';
+          ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+        }
+        ctx.strokeStyle = '#7dd8c0'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); this._strokeTileSet(ctx, doors, X, Y); ctx.setLineDash([]);
+        if (ts >= 10) {
+          const mx = (X(doors[0].x) + X(doors[doors.length - 1].x + 1)) / 2, my = Y(doors[0].y) - 4;
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(16,22,29,0.85)'; ctx.strokeText(tr('ui.airport.roadHere'), mx, my);
+          ctx.fillStyle = '#7dd8c0'; ctx.fillText(tr('ui.airport.roadHere'), mx, my);
+        }
+      }
       ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
       this._strokeTileSet(ctx, tiles, X, Y);
       return;

@@ -74,6 +74,7 @@ export interface TranslationSchema {
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
     /** Labels on the trip drawn when a lot is inspected. */
     route: { jobs: string; shops: string; homes: string; none: string; noHomes: string };
+    airport: { noRoad: string; roadHere: string };
     econ: {
       title: string;
       taxLevel: string;

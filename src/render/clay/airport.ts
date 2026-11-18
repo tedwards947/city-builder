@@ -13,6 +13,7 @@
 // out in tiles from its footprint's top-left corner.
 
 import { AIRPORT_SPRITES, type AirportSpriteMeta } from './airportSpriteData';
+import { t as tr } from '../../i18n';
 
 interface Loaded { img: HTMLImageElement; m: AirportSpriteMeta }
 let sprites: Record<string, Loaded> | null = null;
@@ -215,4 +216,27 @@ function drawBridge(ctx: CanvasRenderingContext2D, s: Record<string, Loaded>, X:
     ctx.save(); ctx.globalAlpha = a; ctx.translate(ax, ay); ctx.scale(-1, 1);
     ctx.drawImage(l.img, -l.m.left * q, -l.m.top * q, l.m.w * q, l.m.h * q); ctx.restore();
   }
+}
+
+/** The terminal's entrances: the road tiles a street must run along (north of the frontage, dx 2–9), as x from the block's corner, on row −1. */
+export const ENTRANCE_X0 = 2, ENTRANCE_X1 = 9;
+
+/**
+ * An airport with no road to its terminal: the eight tiles where the street
+ * must go, outlined and pulsing amber, and a note above them. Drawn over the
+ * airport; (ox, oy) and `tile` as for drawAirport.
+ */
+export function drawAirportNoRoad(ctx: CanvasRenderingContext2D, ox: number, oy: number, tile: number, t: number): void {
+  const x0 = ox + ENTRANCE_X0 * tile, y0 = oy - tile, w = (ENTRANCE_X1 - ENTRANCE_X0 + 1) * tile, pulse = 0.5 + 0.5 * Math.sin(t * 4);
+  ctx.save();
+  ctx.fillStyle = `rgba(255,209,102,${0.12 + 0.18 * pulse})`; ctx.fillRect(x0, y0, w, tile);
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = Math.max(1.5, tile * 0.06); ctx.setLineDash([Math.max(3, tile * 0.18), Math.max(2, tile * 0.12)]);
+  ctx.strokeRect(x0, y0, w, tile); ctx.setLineDash([]);
+  const text = tr('ui.airport.noRoad'), fs = Math.round(Math.max(11, Math.min(15, tile * 0.32)));
+  ctx.font = `600 ${fs}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(text).width + fs * 1.2, th = fs * 1.9, cx = x0 + w / 2, cy = y0 - th * 0.75;
+  ctx.fillStyle = 'rgba(16,22,29,0.88)'; ctx.beginPath(); ctx.roundRect(cx - tw / 2, cy - th / 2, tw, th, th / 2); ctx.fill();
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#ffd166'; ctx.fillText(text, cx, cy + 1);
+  ctx.restore();
 }
