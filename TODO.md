@@ -87,8 +87,9 @@ Done and merged:
 - Lab grades the economy, service capacity and debt game over; tax-slider targets (#185, #193, #195, #197).
 - Trade suite: seaport and goods targets the owner approved (port.payback, port.split, port.farm, goods.today, goods.port.fix), probes in `src/balance/trade.ts`, sweep `npm run balance:trade`. Proposed numbers (preset "proposed", 12/12): goodsCapacity 0.55, shortageIncomePenalty 0.25, port exportTripsPerLevel 0.1, exportCapacity 15, exportIncomePerTrip 8, importCapacity 200, cost 200k, upkeep 30. ENGINE ships them in the seaport P5 numbers PR.
 
-In progress:
-- Re-tune T under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000); school and hospital PC pay is too high.
+Paused (2026-11-17, owner's break):
+- Re-tune T under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000); school and hospital PC pay is too high. Stopped at eval 211 of 400: score 25.806 → 8.856, 89/98 → 92/98 (fresh-128, testcity1, gen-s1-t10000, gen-suburban-s1-t10000). The partial best is T with service.perResident 4/5/6/7/8 → 0.0066 / 0.0066 / 0.00953 / 0.0102 / 0.0088, repeatFactor 0.25 → 0.45 and closureMultiplier 2.5 → 1.67. Saved locally in city-builder-eng3-econ/balance-results/tune-T-svc-partial.{json,log}; not yet graded or shipped.
+- To resume: put those values in `src/balance/tunedT.ts` on a branch, then rerun `caffeinate -i node scripts/balance-tune.mjs --start T --saves testcity1,gen-s1-t10000,gen-suburban-s1-t10000 --budget 200 --out balance-results/tune-T-svc.json` (about 2–3 hours). Grade the result against main's T with `npm run balance -- --suite pc --variants T` (plus `--suite svc`) and ship it in tunedT.ts if it's better.
 
 Next:
 1. Tune `BALANCE.budget.debtPcDrainPerDay` and the tax level's `satisfactionPerPoint` / `demandStrength`.
