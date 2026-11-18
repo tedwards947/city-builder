@@ -38,7 +38,7 @@ import { BALANCE } from '../data/balance';
 import { ZONE_NONE, ZONE_R, ROAD_NONE, VEG_NONE, BUILDING_NONE } from '../sim/constants';
 
 /** A whole-map tint the renderer can draw over the tiles. */
-export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe';
+export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
 
 /** Everything about a frame besides the world and the camera. All optional. */
 export interface RenderOptions {
@@ -122,6 +122,9 @@ const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [s
   crime: [['rgba(255,0,0,0.1)', 'Low'], ['rgba(255,0,0,0.4)', 'Moderate'], ['rgba(255,0,0,0.8)', 'High']],
   fire:  [['#333', 'None'], ['rgba(255,64,0,0.4)', 'Moderate'], ['rgba(255,128,0,0.8)', 'High']],
   vibe:  [['rgba(0,200,0,0.4)', 'Green'], ['rgba(200,100,0,0.4)', 'Industrial'], ['rgba(0,100,200,0.4)', 'Social']],
+  // The marks themselves are drawn by _drawSeatView (main.ts passes seatView for these two).
+  school: [['#7db8f0', 'Seats free'], ['#e0b050', 'School full / home without a seat']],
+  health: [['#7db8f0', 'Beds free'], ['#e0b050', 'Hospital full / home without a bed']],
 };
 
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
@@ -258,7 +261,7 @@ export class CanvasRenderer {
     const p = resolvePalette(world.character, BALANCE.character.axisMax);
     const tsi = Math.ceil(ts) + 1;
     const crimeOverlay = overlay === 'crime', fireOverlay = overlay === 'fire', vibeOverlay = overlay === 'vibe';
-    const hasOverlay = overlay !== 'none';
+    const hasOverlay = crimeOverlay || fireOverlay || vibeOverlay;   // the school and health maps tint no tiles
     const clayTile = Math.ceil(ts);
     beginClayFrame(clayTile, now);
     beginWildTreeFrame(clayTile, now);
@@ -615,8 +618,15 @@ export class CanvasRenderer {
     ctx.globalAlpha = 1.0;
     ctx.font = '11px sans-serif';
     ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';   // the badges leave it centred
+    const entries = OVERLAY_LEGENDS[overlay];
+    // A dark backing, so the key reads over a bright city.
+    let total = 0;
+    for (const [, label] of entries) total += 28 + ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(13,27,42,0.78)';
+    ctx.fillRect(lx - 6, ly - 6, total - 2, 22);
     let lxOff = lx;
-    for (const [color, label] of OVERLAY_LEGENDS[overlay]) {
+    for (const [color, label] of entries) {
       ctx.fillStyle = color;
       ctx.fillRect(lxOff, ly, 10, 10);
       ctx.fillStyle = '#ccc';
