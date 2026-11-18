@@ -10,7 +10,10 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-1. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
+**Now: Landscaping UI** (LANDSCAPING_DESIGN.md). Mocks with feedback form: `art/clay-set/landscape-tools.html` (toolbar A1/A2, species B1/B2, brush C1–C3, water preview D1–D4, warning placement E1/E2); waiting on the owner's picks. API agreed with ENGINE: `PlantTreesCommand(tiles, species)`, `ClearTreesCommand(tiles)`, `treeQuote(world, tiles, species)` in `src/sim/landscaping.ts` (trees PR in progress); `EditWaterCommand(tiles, add)` / `waterQuote` later. Tool ids `trees`, `eraseTrees`, `addWater`, `removeWater` (graphics owns the toolbar and InputController side).
+
+1. **Ships: rework (owner not satisfied).** Start right after landscaping; ask the owner what's off first.
+2. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
 
 Request text says why homes still lack a service ("nearby schools are full" / "no school in reach", from ENGINE's `unmetReason`), in the badge tooltip and the request log.
 

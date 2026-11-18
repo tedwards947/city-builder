@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Landscape tools mocks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 460px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 460px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, #overall { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  #overall { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+
+  /* The game's own toolbar styles (index.html), so the mocks look like the real thing. */
+  .stage { position: relative; width: 440px; height: 420px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #47693c; overflow: hidden; }
+  .bar { position: absolute; right: 10px; top: 10px; background: rgba(0,0,0,0.6); border-radius: 6px; padding: 6px; display: grid; grid-template-columns: repeat(2, 40px); gap: 4px; }
+  .tb-tile { position: relative; width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05); color: #dfe7ee; display: grid; place-items: center; }
+  .tb-tile.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
+  .tb-tile.dim { opacity: .45; }
+  .tb-tile svg, .tb-ico svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .tb-tile.more::after { content: ""; position: absolute; left: 3px; bottom: 3px; border: 3px solid transparent; border-left-color: currentColor; border-bottom-color: currentColor; opacity: 0.7; }
+  .tb-fly { position: absolute; right: 108px; top: 10px; background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px; white-space: nowrap; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  .tb-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #8aa; margin: 0 3px 4px; font-weight: 600; }
+  .tb-row { display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 5px; border-radius: 6px; color: #dfe7ee; font-size: 13px; }
+  .tb-row.on { background: rgba(74,122,154,0.65); color: #fff; }
+  .tb-ico { color: #b9d39a; } .tb-ico.w { color: #8fc3ea; } .tb-ico.e { color: #e0a080; }
+  .tb-cost { color: #7dd87d; margin-left: auto; padding-left: 16px; font-size: 12px; }
+  .tb-mode { margin-top: 6px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .tb-sub { font-size: 10px; color: #8aa; margin: 0 3px 3px; text-transform: uppercase; letter-spacing: .5px; }
+  .tb-seg { display: flex; gap: 3px; }
+  .tb-seg span { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #dfe7ee; border-radius: 6px; padding: 3px 7px; font-size: 12px; text-align: center; }
+  .tb-seg span.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
+  .sp { display: grid; gap: 3px; }
+  .sp span { width: 34px; height: 38px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); display: grid; place-items: end center; padding-bottom: 2px; overflow: hidden; }
+  .sp span.on { background: #4a7a9a; border-color: #8cc0e0; }
+  .sp span.mix { place-items: center; font-size: 10px; color: #cde; }
+  .sp canvas { border: 0; border-radius: 0; background: none; }
+  .hint { font-size: 10px; color: #8aa; margin: 4px 3px 0; }
+</style>
+</head>
+<body>
+<h1>Landscape tools mocks</h1>
+<p>Mocks for the new <b>Landscape</b> tools (LANDSCAPING_DESIGN.md): plant trees of a chosen species with a brush, erase trees, and add or remove water. Beaches follow the water by themselves, using today's sand art. The toolbars below copy the game's own styles. The map scenes are drawn by code with the real clay trees, so <b>no paid images</b>. All prices are placeholders until the lab sets them.</p>
+<p>Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+
+<h2>A. Where the tools live</h2>
+<div class="rowf">
+  <figure><div class="stage" id="A1"></div><figcaption><span class="code">A1</span>One <b>Landscape</b> family (tree icon), next to Parks. The fly-out lists Trees, Tree eraser, Add water and Remove water with their prices. When Trees is picked, the species and brush size show underneath, like the options under other tools today.</figcaption></figure>
+  <figure><div class="stage" id="A2"></div><figcaption><span class="code">A2</span>Two families: <b>Trees</b> (each species as its own row, plus the eraser) and <b>Water</b> (add, remove). There's no separate species picker, but it adds a tile to the toolbar.</figcaption></figure>
+</div>
+
+<h2>B. Picking a species</h2>
+<div class="rowf">
+  <figure><div class="stage" id="B1"></div><figcaption><span class="code">B1</span>The six clay species as picture buttons: beech, larch, pine, spruce, poplar, cypress.</figcaption></figure>
+  <figure><div class="stage" id="B2"></div><figcaption><span class="code">B2</span>As B1, plus <b>Mixed</b>: each tree is picked at random from the six, so a belt looks like natural woodland. Mixed is the default.</figcaption></figure>
+</div>
+
+<h2>C. The tree brush</h2>
+<div class="rowf">
+  <figure><canvas id="C1" width="440" height="300"></canvas><figcaption><span class="code">C1</span>A round brush in three sizes (1 tile, 3 across, 5 across; <b>[</b> and <b>]</b> change it). Drag to paint; trees ghost in under the ring with the running price by the cursor. Roads, buildings and water are skipped.</figcaption></figure>
+  <figure><canvas id="C2" width="440" height="300"></canvas><figcaption><span class="code">C2</span>Drag a rectangle, like zoning, with a <b>density</b> choice (sparse or full). Good for long straight buffer belts beside industry.</figcaption></figure>
+  <figure><canvas id="C3" width="440" height="300"></canvas><figcaption><span class="code">C3</span><b>The eraser</b> uses the same brush: trees under the ring turn red, and the cursor tag says how many go.</figcaption></figure>
+</div>
+
+<h2>D. Water: the placement preview</h2>
+<p>You drag across tiles; the stroke shows as ghost water (adding) or ghost land (removing), and a tag by the cursor sums it up. Blocked tiles are red. Nothing changes until you let go, and one stroke is one undo.</p>
+<div class="rowf">
+  <figure><canvas id="D1" width="440" height="300"></canvas><figcaption><span class="code">D1</span><b>Adding water across a road:</b> the road tile is red and skipped. The tag gives the price and "bulldoze the road first". The new canal gets sand along its banks.</figcaption></figure>
+  <figure><canvas id="D2" width="440" height="300"></canvas><figcaption><span class="code">D2</span><b>Flooding buildings:</b> the homes in the way are outlined red. The tag adds how many buildings are lost and the PC cost of displacing their residents, in the usual PC colour.</figcaption></figure>
+  <figure><canvas id="D3" width="440" height="300"></canvas><figcaption><span class="code">D3</span><b>Removing water that cuts off a port</b> and leaves a water pump dry: amber warnings in the tag, "trade stops, upkeep continues" and "pump stops working". The port and pump get an amber ring.</figcaption></figure>
+  <figure><canvas id="D4" width="440" height="300"></canvas><figcaption><span class="code">D4</span><b>Digging a canal that reconnects a cut-off port:</b> a green line in the tag says trade starts again.</figcaption></figure>
+</div>
+
+<h2>E. Where the warnings go</h2>
+<div class="rowf">
+  <figure><canvas id="E1" width="440" height="300"></canvas><figcaption><span class="code">E1</span>Everything in the <b>cursor tag</b>, as in D1–D4. It's all in one place, but the tag can get tall.</figcaption></figure>
+  <figure><canvas id="E2" width="440" height="300"></canvas><figcaption><span class="code">E2</span>A <b>short cursor tag</b> (price and PC), with warnings in a banner at the top of the screen, like the alerts the game already shows.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="Overall notes (names, prices, what's missing)"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+// ── Icons (24px strokes, as the game's toolbar) ──────────────────────────────
+const ICON = {
+  tree: '<svg viewBox="0 0 24 24"><path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/></svg>',
+  erase: '<svg viewBox="0 0 24 24"><path d="M12 3l4 6h-2.5l3.5 5H7l3.5-5H8z"/><path d="M12 14v3"/><path d="M5 20L19 6"/></svg>',
+  addw: '<svg viewBox="0 0 24 24"><path d="M10 4s-5 6-5 9.5a5 5 0 0010 0C15 10 10 4 10 4z"/><path d="M19 13v6M16 16h6"/></svg>',
+  remw: '<svg viewBox="0 0 24 24"><path d="M10 4s-5 6-5 9.5a5 5 0 0010 0C15 10 10 4 10 4z"/><path d="M16 16h6"/></svg>',
+  street: '<svg viewBox="0 0 24 24"><path d="M8 3L5 21M16 3l3 18M12 5v3M12 11v3M12 17v3"/></svg>',
+  res: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg>',
+  power: '<svg viewBox="0 0 24 24"><path d="M13 3L6 13h5l-1 8 7-10h-5z"/></svg>',
+  police: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>',
+  park: '<svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M8 21h8"/></svg>',
+  port: '<svg viewBox="0 0 24 24"><path d="M12 3v14M8 7h8M4 14c1 4 4 6 8 6s7-2 8-6"/></svg>',
+  layers: '<svg viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/></svg>',
+  bulldoze: '<svg viewBox="0 0 24 24"><path d="M3 17h11v-5H7l-2 5M14 14h3l3 3"/><circle cx="6" cy="19" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>',
+};
+const SPECIES = ['beech', 'larch', 'pine', 'spruce', 'poplar', 'cypress'];
+const RECTS = { beech: [[1,21,23,44],[25,10,30,55],[56,3,36,62],[93,5,42,60]], larch: [[136,26,28,39],[165,12,38,53],[204,4,44,61],[249,3,52,62]], pine: [[302,28,26,37],[329,17,32,48],[362,12,36,53],[399,11,36,54]], spruce: [[436,27,25,38],[462,17,32,48],[495,11,36,54],[532,12,36,53]], poplar: [[569,15,18,50],[588,0,27,65]], cypress: [[616,19,18,46],[635,10,20,55],[656,4,27,61],[684,5,27,60]] };
+const atlas = new Image();
+const pad = s => '<div class="tb-tile' + s + '</div>';
+
+// ── Toolbars ─────────────────────────────────────────────────────────────────
+function bar(onIcon) {
+  const tiles = [['bulldoze'], ['street', 1], ['res', 1], ['power', 1], ['police', 1], ['park', 1], [onIcon, 1, 'on'], ['port'], ['layers', 1]];
+  return '<div class="bar">' + tiles.map(([i, more, on]) => `<div class="tb-tile${more ? ' more' : ''}${on ? ' on' : ''}">${ICON[i]}</div>`).join('') + '</div>';
+}
+const row = (ico, cls, name, cost, on) => `<div class="tb-row${on ? ' on' : ''}"><span class="tb-ico ${cls}">${ICON[ico]}</span>${name}<span class="tb-cost">${cost}</span></div>`;
+const thumbs = (mix, cols) => `<div class="sp" style="grid-template-columns:repeat(${cols},34px)">${mix ? '<span class="mix on">Mixed</span>' : ''}${SPECIES.map((s, k) => `<span class="${!mix && k === 0 ? 'on' : ''}"><canvas data-tree="${s}" width="30" height="34"></canvas></span>`).join('')}</div>`;
+const brush = `<div class="tb-sub" style="margin-top:7px">Brush</div><div class="tb-seg"><span>1</span><span class="on">3</span><span>5</span></div><div class="hint">[ and ] change the brush</div>`;
+const STAGES = {
+  A1: bar('tree') + `<div class="tb-fly"><div class="tb-head">Landscape</div>${row('tree', '', 'Trees', '$10 a tree', true)}${row('erase', 'e', 'Tree eraser', 'free')}${row('addw', 'w', 'Add water', '$200 a tile')}${row('remw', 'w', 'Remove water', '$200 a tile')}<div class="tb-mode"><div class="tb-sub">Species</div>${thumbs(true, 4)}${brush}</div></div>`,
+  A2: bar('tree').replace('<div class="tb-tile more"><svg viewBox="0 0 24 24"><path d="M12 3v14', '<div class="tb-tile more">' + ICON.addw.slice(0, 0) + '<svg viewBox="0 0 24 24"><path d="M12 3v14') + `<div class="tb-fly"><div class="tb-head">Trees</div>${SPECIES.map((s, k) => row('tree', '', s[0].toUpperCase() + s.slice(1), '$10', k === 2)).join('')}${row('erase', 'e', 'Tree eraser', 'free')}<div class="tb-mode">${brush}</div></div>`,
+  B1: bar('tree') + `<div class="tb-fly"><div class="tb-head">Landscape</div>${row('tree', '', 'Trees', '$10 a tree', true)}<div class="tb-mode"><div class="tb-sub">Species</div>${thumbs(false, 3)}</div></div>`,
+  B2: bar('tree') + `<div class="tb-fly"><div class="tb-head">Landscape</div>${row('tree', '', 'Trees', '$10 a tree', true)}<div class="tb-mode"><div class="tb-sub">Species</div>${thumbs(true, 4)}</div></div>`,
+};
+for (const [id, html] of Object.entries(STAGES)) document.getElementById(id).innerHTML = html;
+// A2 has a second family tile for water, below the trees tile.
+{ const b = document.querySelector('#A2 .bar'); const t = document.createElement('div'); t.className = 'tb-tile more'; t.innerHTML = ICON.addw; b.insertBefore(t, b.children[7]); }
+
+// ── Map scenes ───────────────────────────────────────────────────────────────
+const T = 28, COLS = 15, ROWS = 10, OX = 10, OY = 10;
+const COL = { g: '#4f7a3e', g2: '#4a7339', w: '#3f72a0', w2: '#4a7eab', s: '#d8c58f', r: '#5f6266' };
+const hash = (x, y, k = 0) => { let n = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+
+// A map: rows of characters. g grass, w water, r road (east-west), R road (north-south), t trees, h home, P port, U pump.
+function parse(rows) { return rows.map(r => r.padEnd(COLS, 'g').split('')); }
+const isW = (m, x, y) => m[y] && (m[y][x] === 'w' || m[y][x] === 'B');
+function sandAt(m, x, y) { const c = m[y][x]; if (c !== 'g' && c !== 't') return false; return [[1,0],[-1,0],[0,1],[0,-1]].some(([dx, dy]) => isW(m, x + dx, y + dy)); }
+
+function tile(ctx, x, y, col) { ctx.fillStyle = col; ctx.fillRect(OX + x * T, OY + y * T, T, T); }
+function tree(ctx, sp, cx, by, s = 0.42, alpha = 1, tint = null) {
+  const r = RECTS[sp][Math.min(RECTS[sp].length - 1, 2)];
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(atlas, r[0], r[1], r[2], r[3], cx - r[2] * s / 2, by - r[3] * s, r[2] * s, r[3] * s);
+  if (tint) { ctx.fillStyle = tint; ctx.globalAlpha = alpha * 0.45; ctx.beginPath(); ctx.ellipse(cx, by - r[3] * s * 0.55, r[2] * s * 0.5, r[3] * s * 0.5, 0, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+function treesOn(ctx, x, y, alpha = 1, tint = null, sp = null) {
+  for (let k = 0; k < 2; k++) {
+    const s = sp || SPECIES[Math.floor(hash(x, y, k + 9) * 6)];
+    tree(ctx, s, OX + x * T + 8 + k * 12 + hash(x, y, k) * 4, OY + y * T + 14 + k * 10, 0.38, alpha, tint);
+  }
+}
+function home(ctx, x, y, out) {
+  const L = OX + x * T + 4, Tp = OY + y * T + 6;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(L + 3, Tp + 5, 21, 17);
+  ctx.fillStyle = '#e8dccb'; ctx.fillRect(L, Tp + 8, 20, 12);
+  ctx.fillStyle = '#b5523b'; ctx.beginPath(); ctx.moveTo(L - 2, Tp + 9); ctx.lineTo(L + 10, Tp); ctx.lineTo(L + 22, Tp + 9); ctx.fill();
+  ctx.fillStyle = '#5a6f86'; ctx.fillRect(L + 4, Tp + 12, 4, 4); ctx.fillRect(L + 12, Tp + 12, 4, 4);
+  if (out) { ctx.strokeStyle = '#ff5a4a'; ctx.lineWidth = 2; ctx.strokeRect(OX + x * T + 1, OY + y * T + 1, T - 2, T - 2); }
+}
+function port(ctx, x, y) {   // a 2×2 yard with a crane, docks to the east
+  const L = OX + x * T, Tp = OY + y * T;
+  ctx.fillStyle = '#c9c2b4'; ctx.fillRect(L, Tp, 2 * T, 2 * T);
+  ctx.fillStyle = '#8a8377'; ctx.fillRect(L + 2 * T - 5, Tp, 5, 2 * T);
+  const bx = ['#c75b3c', '#3f74a8', '#d8a640', '#5a8f5a'];
+  for (let k = 0; k < 8; k++) { ctx.fillStyle = bx[k % 4]; ctx.fillRect(L + 5 + (k % 4) * 8, Tp + 24 + Math.floor(k / 4) * 9, 7, 7); }
+  ctx.fillStyle = '#c75b3c'; ctx.fillRect(L + 38, Tp - 14, 4, 34); ctx.fillRect(L + 30, Tp - 14, 24, 4);
+}
+function pump(ctx, x, y) {
+  const cx = OX + x * T + T / 2, cy = OY + y * T + T / 2;
+  ctx.fillStyle = '#d9dee4'; ctx.fillRect(cx - 9, cy - 6, 18, 14);
+  ctx.fillStyle = '#4a8fc4'; ctx.beginPath(); ctx.moveTo(cx, cy - 4); ctx.quadraticCurveTo(cx + 5, cy + 3, cx, cy + 5); ctx.quadraticCurveTo(cx - 5, cy + 3, cx, cy - 4); ctx.fill();
+}
+function road(ctx, x, y, ns) {
+  tile(ctx, x, y, COL.r);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (let k = 0; k < 3; k++) ns ? ctx.fillRect(OX + x * T + T / 2 - 1, OY + y * T + 3 + k * 9, 2, 5) : ctx.fillRect(OX + x * T + 3 + k * 9, OY + y * T + T / 2 - 1, 5, 2);
+}
+function draw(ctx, m) {
+  ctx.fillStyle = '#3b5a30'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = m[y][x];
+    if (c === 'w') tile(ctx, x, y, (x + y) % 2 ? COL.w : COL.w2);
+    else if (c === 'r' || c === 'R') road(ctx, x, y, c === 'R');
+    else if (c === 'B') { tile(ctx, x, y, COL.w); road(ctx, x, y, true); }
+    else tile(ctx, x, y, sandAt(m, x, y) ? COL.s : (x + y) % 2 ? COL.g : COL.g2);
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(OX + x * T + 0.5, OY); ctx.lineTo(OX + x * T + 0.5, OY + ROWS * T); ctx.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(OX, OY + y * T + 0.5); ctx.lineTo(OX + COLS * T, OY + y * T + 0.5); ctx.stroke(); }
+}
+function things(ctx, m, skip = new Set()) {
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (skip.has(x + ',' + y)) continue;
+    const c = m[y][x];
+    if (c === 't') treesOn(ctx, x, y); else if (c === 'h') home(ctx, x, y); else if (c === 'P') port(ctx, x, y); else if (c === 'U') pump(ctx, x, y);
+  }
+}
+function ghost(ctx, cells, col, line) {
+  for (const [x, y] of cells) { ctx.fillStyle = col; ctx.fillRect(OX + x * T, OY + y * T, T, T); if (line) { ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.strokeRect(OX + x * T + 1, OY + y * T + 1, T - 2, T - 2); } }
+}
+function blocked(ctx, x, y) {
+  const L = OX + x * T, Tp = OY + y * T;
+  ctx.fillStyle = 'rgba(230,60,50,0.55)'; ctx.fillRect(L, Tp, T, T);
+  ctx.strokeStyle = '#ffdfda'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L + 8, Tp + 8); ctx.lineTo(L + T - 8, Tp + T - 8); ctx.moveTo(L + T - 8, Tp + 8); ctx.lineTo(L + 8, Tp + T - 8); ctx.stroke();
+}
+function ring(ctx, x, y, col) { ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.setLineDash([5, 3]); ctx.beginPath(); ctx.arc(x, y, 30, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+function cursor(ctx, x, y) {
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 15); ctx.lineTo(x + 4, y + 11); ctx.lineTo(x + 7, y + 17); ctx.lineTo(x + 9, y + 16); ctx.lineTo(x + 6, y + 10); ctx.lineTo(x + 11, y + 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+// The cursor tag, in the game's tooltip style. Lines: [text, colour?, bold?].
+function tag(ctx, x, y, lines) {
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+  const w = Math.max(...lines.map(l => { ctx.font = (l[2] ? '600 ' : '') + '12px -apple-system, sans-serif'; return ctx.measureText(l[0]).width; })) + 22, h = lines.length * 17 + 12;
+  if (x + w > ctx.canvas.width - 4) x = ctx.canvas.width - 4 - w;
+  ctx.fillStyle = 'rgba(10,18,28,0.95)'; ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill(); ctx.stroke();
+  lines.forEach((l, k) => { ctx.font = (l[2] ? '600 ' : '') + '12px -apple-system, sans-serif'; ctx.fillStyle = l[1] || '#dde'; ctx.fillText(l[0], x + 11, y + 19 + k * 17); });
+}
+function banner(ctx, title, text) {
+  ctx.font = '600 11px -apple-system, sans-serif'; const w = 300, x = (ctx.canvas.width - w) / 2, y = 14;
+  ctx.fillStyle = 'rgba(10,18,28,0.95)'; ctx.beginPath(); ctx.roundRect(x, y, w, 44, 6); ctx.fill();
+  ctx.fillStyle = '#e0b050'; ctx.fillRect(x, y, 4, 44);
+  ctx.fillStyle = '#e0b050'; ctx.fillText(title.toUpperCase(), x + 14, y + 17);
+  ctx.font = '12px -apple-system, sans-serif'; ctx.fillStyle = '#dde'; ctx.fillText(text, x + 14, y + 34);
+}
+const AMBER = '#e0b050', RED = '#ff7a6a', GREEN = '#7dd87d', PCC = '#7dd8c0';
+
+const MAP_TREES = parse([
+  'gggggggggggwwww', 'ggtttgggggggwww', 'ggtttgggggggggw', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg',
+  'ggghhgghhgggggg', 'ggghhgghhgggggg', 'ggggggggggggggg', 'gggiiiiiiiigggg', 'gggiiiiiiiigggg']);
+function factories(ctx) {
+  for (const [x, y] of [[3, 8], [6, 8], [9, 8]]) {
+    const L = OX + x * T + 4, Tp = OY + y * T + 4;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(L + 4, Tp + 6, 3 * T - 10, 2 * T - 10);
+    ctx.fillStyle = '#b9b2a6'; ctx.fillRect(L, Tp + 10, 3 * T - 14, 2 * T - 18);
+    ctx.fillStyle = '#8d867b'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(L + k * 17, Tp + 10); ctx.lineTo(L + k * 17 + 17, Tp + 2); ctx.lineTo(L + k * 17 + 17, Tp + 10); ctx.fill(); }
+    ctx.fillStyle = '#6d675f'; ctx.fillRect(L + 3 * T - 26, Tp - 12, 6, 22);
+  }
+}
+const SCENES = {
+  C1(ctx) {
+    const m = MAP_TREES.map(r => r.map(c => c === 'i' ? 'g' : c)); draw(ctx, m); things(ctx, m); factories(ctx);
+    const cx = 9, cy = 7;   // a belt between the homes and the factories, brush 3 across
+    const done = [[2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7]], under = [[8, 7], [9, 7], [10, 7], [9, 6].slice(0, 0)].filter(c => c.length);
+    for (const [x, y] of done) treesOn(ctx, x, y, 0.8, null);
+    for (const [x, y] of under) treesOn(ctx, x, y, 0.55);
+    ring(ctx, OX + (cx + 0.5) * T, OY + (cy + 0.5) * T, '#e8f3d6');
+    cursor(ctx, OX + (cx + 0.5) * T, OY + (cy + 0.5) * T);
+    tag(ctx, OX + (cx + 1.3) * T, OY + (cy - 3.2) * T, [['Trees: Mixed', '#fff', true], ['18 trees · $180', GREEN], ['Brush 3 · [ ] to change', '#9ab']]);
+  },
+  C2(ctx) {
+    const m = MAP_TREES.map(r => r.map(c => c === 'i' ? 'g' : c)); draw(ctx, m); things(ctx, m); factories(ctx);
+    const L = OX + 1 * T, Tp = OY + 7 * T;
+    for (let x = 1; x <= 12; x++) treesOn(ctx, x, 7, 0.55);
+    ctx.strokeStyle = '#e8f3d6'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(L, Tp, 12 * T, T); ctx.setLineDash([]);
+    cursor(ctx, L + 12 * T, Tp + T);
+    tag(ctx, OX + 6 * T, OY + 3.6 * T, [['Trees: Mixed · full', '#fff', true], ['24 trees · $240', GREEN], ['Density: sparse | full', '#9ab']]);
+  },
+  C3(ctx) {
+    const m = parse(['gggggggggggwwww', 'ggtttttgggggwww', 'ggtttttgggggggw', 'ggtttttggtttggg', 'ggtttttggtttggg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'ggghhgghhgggggg', 'ggghhgghhgggggg', 'ggggggggggggggg']);
+    draw(ctx, m);
+    const red = new Set(['4,2', '5,2', '3,3', '4,3', '5,3', '4,4', '3,2', '5,4', '3,4']);
+    things(ctx, m, red);
+    for (const k of red) { const [x, y] = k.split(',').map(Number); treesOn(ctx, x, y, 1, '#ff4030'); }
+    ring(ctx, OX + 4.5 * T, OY + 3.5 * T, '#ff9a8a'); cursor(ctx, OX + 4.5 * T, OY + 3.5 * T);
+    tag(ctx, OX + 6 * T, OY + 0.4 * T, [['Tree eraser', '#fff', true], ['Removes 18 trees · free', '#dde']]);
+  },
+  D1(ctx) {
+    const m = parse(['wwwwggggggggggg', 'wwwwggggggggggg', 'wwwggggggggtggg', 'wwggggggggttggg', 'RggggggggggggRg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'gghhgggghhggggg', 'gghhgggghhggggg', 'ggggggggggggggg']);
+    // Show the banks as they will be: the canal's neighbours turn to sand.
+    const canal = [[4, 2], [5, 2], [6, 2], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]];
+    const after = m.map(r => r.slice()); for (const [x, y] of canal) if (after[y][x] === 'g') after[y][x] = 'w';
+    draw(ctx, m);
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (m[y][x] === 'g' && sandAt(after, x, y) && !sandAt(m, x, y)) { ctx.fillStyle = 'rgba(216,197,143,0.6)'; ctx.fillRect(OX + x * T, OY + y * T, T, T); }
+    things(ctx, m);
+    ghost(ctx, canal.filter(([x, y]) => m[y][x] !== 'r'), 'rgba(80,150,215,0.75)', 'rgba(200,230,255,0.9)');
+    blocked(ctx, 7, 5);
+    cursor(ctx, OX + 7.5 * T, OY + 6.5 * T);
+    tag(ctx, OX + 8.4 * T, OY + 6.3 * T, [['Add water', '#fff', true], ['7 tiles · $1,400', GREEN], ['1 road tile: bulldoze the road first', RED]]);
+  },
+  D2(ctx) {
+    const m = parse(['wwwwwwggggggggg', 'wwwwwwggggggggg', 'wwwwwgggggggggg', 'ggggghhghhggggg', 'ggggghhghhggggg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'ggggggggttggggg', 'gggggggttgggggg', 'ggggggggggggggg']);
+    draw(ctx, m);
+    const stroke = [[5, 2], [6, 2], [7, 2], [5, 3], [6, 3], [7, 3], [5, 4], [6, 4]];
+    things(ctx, m);
+    ghost(ctx, stroke, 'rgba(80,150,215,0.6)', 'rgba(200,230,255,0.9)');
+    for (const [x, y] of [[5, 3], [6, 3], [5, 4], [6, 4]]) home(ctx, x, y, true);
+    cursor(ctx, OX + 6.5 * T, OY + 4.5 * T);
+    tag(ctx, OX + 7.6 * T, OY + 0.5 * T, [['Add water', '#fff', true], ['8 tiles · $1,600', GREEN], ['Floods 4 homes (11 residents)', RED], ['−6 PC to displace them', PCC]]);
+  },
+  D3(ctx) {
+    const m = parse(['gggggggggggwwww', 'gggggggggggwwww', 'gggPPwwwwwwwwww', 'gggPPwwwwwwwwww', 'ggggUgggggggggg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'gghhggghhgggggg', 'gghhggghhgggggg', 'ggggggggggggggg']);
+    // Re-type the port's 2×2 so only its corner draws it.
+    m[2][4] = 'x'; m[3][3] = 'x'; m[3][4] = 'x';
+    draw(ctx, m); things(ctx, m);
+    const stroke = [[7, 2], [7, 3], [8, 2], [8, 3]];
+    ghost(ctx, stroke, 'rgba(120,150,80,0.85)', 'rgba(230,240,200,0.9)');
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2.5; ctx.setLineDash([5, 3]);
+    ctx.strokeRect(OX + 3 * T - 3, OY + 2 * T - 17, 2 * T + 6, 2 * T + 20); ctx.strokeRect(OX + 4 * T + 1, OY + 4 * T + 1, T - 2, T - 2); ctx.setLineDash([]);
+    cursor(ctx, OX + 8.5 * T, OY + 3.5 * T);
+    tag(ctx, OX + 6.3 * T, OY + 5.6 * T, [['Remove water', '#fff', true], ['4 tiles · $800', GREEN], ['⚠ Cuts the seaport off from the sea:', AMBER], ['   trade stops, upkeep continues', AMBER], ['⚠ Leaves a water pump dry: it stops', AMBER]]);
+  },
+  D4(ctx) {
+    const m = parse(['ggggggggggggggg', 'gggggggggwwwwww', 'gggPPwwgggwwwww', 'gggPPwwgggwwwww', 'ggggggggggggggg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'gghhggghhgggggg', 'gghhggghhgggggg', 'ggggggggggggggg']);
+    m[2][4] = 'x'; m[3][3] = 'x'; m[3][4] = 'x';
+    draw(ctx, m); things(ctx, m);
+    ghost(ctx, [[7, 2], [8, 2], [9, 2]], 'rgba(80,150,215,0.75)', 'rgba(200,230,255,0.9)');
+    cursor(ctx, OX + 9.5 * T, OY + 2.5 * T);
+    tag(ctx, OX + 5.8 * T, OY + 3.4 * T, [['Add water', '#fff', true], ['3 tiles · $600', GREEN], ['✓ Reconnects the seaport: trade starts again', GREEN]]);
+  },
+  E1(ctx) { SCENES.D3(ctx); },
+  E2(ctx) {
+    const m = parse(['ggggggggggggggg', 'ggggggggggggggg', 'gggPPwwwwwwwwww', 'gggPPwwwwwwwwww', 'ggggUgggggggggg', 'rrrrrrrrrrrrrrr', 'ggggggggggggggg', 'gghhggghhgggggg', 'gghhggghhgggggg', 'ggggggggggggggg']);
+    m[2][4] = 'x'; m[3][3] = 'x'; m[3][4] = 'x';
+    draw(ctx, m); things(ctx, m);
+    ghost(ctx, [[7, 2], [7, 3], [8, 2], [8, 3]], 'rgba(120,150,80,0.85)', 'rgba(230,240,200,0.9)');
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2.5; ctx.setLineDash([5, 3]);
+    ctx.strokeRect(OX + 3 * T - 3, OY + 2 * T - 17, 2 * T + 6, 2 * T + 20); ctx.strokeRect(OX + 4 * T + 1, OY + 4 * T + 1, T - 2, T - 2); ctx.setLineDash([]);
+    cursor(ctx, OX + 8.5 * T, OY + 3.5 * T);
+    tag(ctx, OX + 9.2 * T, OY + 3.6 * T, [['Remove water', '#fff', true], ['4 tiles · $800 · ⚠ 2', GREEN]]);
+    banner(ctx, 'If you let go here', 'Seaport cut off (upkeep continues) · pump dry');
+  },
+};
+function render() {
+  for (const [id, fn] of Object.entries(SCENES)) { const c = document.getElementById(id); fn(c.getContext('2d')); }
+  for (const c of document.querySelectorAll('canvas[data-tree]')) {
+    const ctx = c.getContext('2d'), r = RECTS[c.dataset.tree][2], s = Math.min(28 / r[2], 33 / r[3]);
+    ctx.clearRect(0, 0, c.width, c.height); ctx.drawImage(atlas, r[0], r[1], r[2], r[3], (c.width - r[2] * s) / 2, c.height - r[3] * s, r[2] * s, r[3] * s);
+  }
+}
+atlas.addEventListener('load', render); atlas.src = '../../public/sprites/clay/trees.png'; render();
+
+// ── Feedback form: saved in this browser, copied out as text ─────────────────
+const KEY = 'city-builder-landscape-mocks-v1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() {
+  const v = CODES.map(id => (state[id] || {}).v);
+  document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`;
+}
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (label, val, cls) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+const overall = document.getElementById('overall');
+overall.value = state._overall || ''; overall.oninput = () => { state._overall = overall.value; save(); };
+document.getElementById('copy').onclick = async () => {
+  const text = ['Landscape tools mocks feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
