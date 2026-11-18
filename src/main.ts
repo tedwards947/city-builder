@@ -476,6 +476,13 @@ if (DEBUG) {
   more.textContent = '+$10k';
   more.addEventListener('click', () => { state.world.budget.money += 10000; });
   statMoney.after(more);
+  // Graphics check: every seaport sends a ship now, even with no trade yet.
+  const ship = document.createElement('button');
+  ship.id = 'debug-ship';
+  ship.type = 'button';
+  ship.textContent = 'Send ship';
+  ship.addEventListener('click', () => renderer.sendShips());
+  more.after(ship);
 }
 const debtUi = new DebtUi({
   getWorld: () => state.world, formatMoney,

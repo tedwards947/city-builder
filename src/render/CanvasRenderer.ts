@@ -149,6 +149,9 @@ export class CanvasRenderer {
   private _clayEffects: ClayEffect[] = [];
   /** Per frame: seconds since a ship tied up at each seaport (by anchor), for its cranes. */
   private _portWork = new Map<number, number>();
+  /** ?debug=true "Send ship": when (renderer seconds) every port last sent a ship regardless of trade. */
+  private _shipsSentAt = -Infinity;
+  private _lastShipT = 0;
   /** Each seaport's sailing path and berth, kept while its route (cached by the sim until the map changes) is the same. */
   private _shipPaths = new WeakMap<readonly number[], { path: ShipPath; berth: Berth }>();
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
@@ -467,21 +470,28 @@ export class CanvasRenderer {
    * comes from the clock, its port's route and ships a day, so nothing is
    * stored. Bridge tiles are cut out of the drawing, so ships pass under them.
    */
+  /** Debug: every seaport with a sea route sends a ship now, trade or not. */
+  sendShips(): void { this._shipsSentAt = this._lastShipT; }
+
   private _drawShips(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, now: number): void {
     this._portWork.clear();
     const { width, height } = world.grid, { terrain, roadClass } = world.layers;
     const tile = camera.zoom * TILE_SIZE, t = now * 0.001;   // exact, so ships stay on their tiles across a big map
     const ox = camera.worldToScreenX(0), oy = camera.worldToScreenY(0);
+    this._lastShipT = t;
+    const sent = t - this._shipsSentAt;
     for (const port of seaports(world)) {
       const anchor = world.grid.idx(port.tx, port.ty);
       const trade = portTrade(world, anchor);
-      if (!trade || trade.shipsPerDay <= 0) continue;
+      const forced = sent >= 0 && sent < 120;
+      if (!forced && (!trade || trade.shipsPerDay <= 0)) continue;
       const route = shipRoute(world, anchor);
       if (!route || route.length === 0) continue;
       let p = this._shipPaths.get(route);
       if (!p) { const berth = portBerth(world, anchor, route); p = { berth, path: shipPath(route, width, height, berth) }; this._shipPaths.set(route, p); }
       const seed = ((anchor * 2654435761) >>> 0) / 4294967296;
-      const st = shipAt(p.path, p.berth, t, trade.shipsPerDay, seed);
+      // A sent ship is the first of a fresh timeline starting now (it sails off again after one visit).
+      const st = (forced ? shipAt(p.path, p.berth, sent, 1, 0) : null) ?? (trade && trade.shipsPerDay > 0 ? shipAt(p.path, p.berth, t, trade.shipsPerDay, seed) : null);
       if (!st) continue;
       if (st.work >= 0) this._portWork.set(anchor, st.work);
       const r = SHIP_SIZE[st.type].L / 2 + 2.5;
