@@ -129,6 +129,9 @@ const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [s
 
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
 const SMOULDER_MS = 20000;
+/** Off until the painted ship sprites are in (the code-drawn ships are going). */
+const SHOW_SHIPS = false;
+
 /** Tile size (px) from which roads show cars. */
 const TRAFFIC_MIN_TILE = 12;
 /** Tile size (px) from which roads show every car; below it, half of them. */
@@ -476,6 +479,8 @@ export class CanvasRenderer {
 
   private _drawShips(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, now: number): void {
     this._portWork.clear();
+    // Hidden while painted ships replace the code-drawn ones (owner, 2026-11-17: too big, broke the look).
+    if (!SHOW_SHIPS) return;
     const { width, height } = world.grid;
     const tile = camera.zoom * TILE_SIZE, t = now * 0.001;   // exact, so ships stay on their tiles across a big map
     const ox = camera.worldToScreenX(0), oy = camera.worldToScreenY(0);
