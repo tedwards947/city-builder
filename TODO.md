@@ -109,7 +109,7 @@ Done and merged:
 Proposed, waiting on ENGINE (ships with the PC numbers-on PR):
 - `BALANCE.budget.debtPcDrainPerDay` 0 → 0.75 (lab preset "proposed" in `src/balance/taxdebt.ts`): debt.pcDrain 0.15 on every city, debt.squeeze passes. `debt.test.ts` pins the drain at 0 while PC is off, so ENGINE turns it on with the rest.
 
-Waiting on ENGINE: the 3-day hold on school, hospital, power and water requests; then re-grade T.
+- Preset T re-graded after #248 and #253 (3-day request holds): 96/98 PC (this PR).
 
 Next:
 1. Landscaping numbers (trees, water editing; GAME ENGINE item 1): propose targets first, tune after the owner's OK.
