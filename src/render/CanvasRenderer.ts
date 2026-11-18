@@ -16,7 +16,7 @@ import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
 import { seaports, portTrade, shipRoute } from '../sim/seaport';
-import { shipRuns, shipsAt, shipSprite, type Run, type Berth, type ShipState } from './clay/ships';
+import { shipRuns, shipsAt, shipSprite, shipBob, drawShipWater, SHIP_LENGTH, type Run, type Berth, type ShipState } from './clay/ships';
 import { drawPortSprite } from './clay/portArt';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
@@ -498,16 +498,16 @@ export class CanvasRenderer {
       const ships = shipsAt(p.runs, p.berth, t, trade?.shipsPerDay ?? 0, seed, forced ? sent : -1);
       for (const st of ships) {
         if (st.work >= 0) this._portWork.set(anchor, st.work);
-        if (st.a > 0) this._drawOneShip(ctx, world, camera, bounds, st, ox, oy, tile);
+        if (st.a > 0) this._drawOneShip(ctx, world, camera, bounds, st, ox, oy, tile, t);
       }
     }
   }
 
   /** One painted ship, faded by its `a` and clipped out of bridge tiles so it passes under. */
   private _drawOneShip(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, st: ShipState,
-    ox: number, oy: number, tile: number): void {
+    ox: number, oy: number, tile: number, t: number): void {
     const { width, height } = world.grid, { terrain, roadClass } = world.layers;
-    const r = 1.5;
+    const r = SHIP_LENGTH / 2 + 1.8;   // the hull and its wake
     if (st.x + r < bounds.x0 || st.x - r > bounds.x1 + 1 || st.y + r < bounds.y0 || st.y - r > bounds.y1 + 2) return;
     ctx.save();
     let clipped = false;
@@ -521,10 +521,12 @@ export class CanvasRenderer {
       ctx.rect(L, T, Math.floor(ox + (x + 1) * tile) - L, Math.floor(oy + (y + 1) * tile) - T);
     }
     if (clipped) ctx.clip('evenodd');
+    const sx = ox + st.x * tile, sy = oy + st.y * tile;
+    drawShipWater(ctx, st, sx, sy, tile, t);
     ctx.globalAlpha = st.a;
-    // Side-on, the hull's near side sits a little in front of the ship's middle.
+    // Side-on, the hull's near side sits a little in front of the ship's middle. It bobs on the swell.
     const { name, flip } = shipSprite(st), side = st.hx !== 0;
-    drawPortSprite(ctx, name, ox + st.x * tile, oy + (st.y + (side ? 0.12 : 0)) * tile, tile, flip, !side);
+    drawPortSprite(ctx, name, sx, sy + ((side ? 0.18 : 0) + shipBob(st, t)) * tile, tile, flip, !side);
     ctx.restore();
   }
 
@@ -1101,7 +1103,10 @@ function portBerth(world: World, anchor: number, route: readonly number[]): Bert
   const mid = (pts: { x: number; y: number }[]) => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length + 0.5, y: pts.reduce((s, p) => s + p.y, 0) / pts.length + 0.5 });
   const d = mid(docks.map(w)), yd = mid(yard.map(w));
   const ex = Math.sign(Math.round(d.x - yd.x)), ey = ex !== 0 ? 0 : Math.sign(d.y - yd.y);
-  const bx = d.x + ex, by = d.y + ey, tx = Math.floor(bx), ty = Math.floor(by);
+  // Under the crane booms, where the trolleys lower the boxes: a tile beyond the docks' middle when they face
+  // east or west (side-on cranes), further out when they face north or south (end-on cranes, longer booms).
+  const out = ex !== 0 ? 1 : 1.4;
+  const bx = d.x + ex * out, by = d.y + ey * out, tx = Math.floor(bx), ty = Math.floor(by);
   const ok = tx >= 0 && ty >= 0 && tx < width && ty < height && world.layers.terrain[ty * width + tx] === TERRAIN_WATER;
   return ok ? { x: bx, y: by, qx: ex !== 0 ? 0 : 1, qy: ex !== 0 ? 1 : 0 } : { x: start.x + 0.5, y: start.y + 0.5, qx: ex !== 0 ? 0 : 1, qy: ex !== 0 ? 1 : 0 };
 }
