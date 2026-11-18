@@ -679,6 +679,11 @@ describe('TransitSystem — goods (shops fetch from industry)', () => {
 
   it('industry supplies up to goodsCapacity per level, then shops go to the next factory', () => {
     // A small factory beside the shops, a big one a little further on.
+    // Capacity set so the two together can supply the shops (the shipped value leaves them short).
+    const TT = BALANCE.transit as unknown as Record<string, number>;
+    const was = TT.goodsCapacity;
+    TT.goodsCapacity = 2;
+    try {
     const w = makeWorld(48, 12);
     roadRow(w, 2, 44, 5);
     zoneAt(w, 24, 4, ZONE_I, 1);                                   // near, small
@@ -691,6 +696,7 @@ describe('TransitSystem — goods (shops fetch from industry)', () => {
     expect(demand).toBeGreaterThan(T.goodsCapacity * 2);           // more than the near one supplies
     expect(d.goods.field.doorLoad[w.grid.idx(24, 5)]).toBeCloseTo(T.goodsCapacity, 3);
     expect(d.goods.volume[w.grid.idx(21, 5)]).toBeCloseTo(demand - T.goodsCapacity, 3);
+    } finally { TT.goodsCapacity = was; }
   });
 
   it('markets are listed generically and by name', () => {
