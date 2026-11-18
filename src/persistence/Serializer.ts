@@ -30,6 +30,7 @@ export function serialize(world: World): WorldSnapshot {
         active: [...world.politics.ordinances.active],
         suspended: [...world.politics.ordinances.suspended],
       },
+      requestNotBefore: { ...world.politics.requestNotBefore },
       requests: world.politics.requests.map(r => ({ ...r, ...(r.homes ? { homes: [...r.homes] } : {}), ...(r.samples ? { samples: [...r.samples] } : {}) })),
     },
     buildings: world.buildings.map(b => ({ ...b })),
@@ -89,6 +90,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   // needAtOpen and the split kinds are filled in by upgradeLoadedRequests once the layers are loaded.
   world.politics.requests = (requests ?? []).map(r => ({ ...r, needAtOpen: r.needAtOpen ?? NaN, ...(r.homes ? { homes: [...r.homes] } : {}), ...(r.samples ? { samples: [...r.samples] } : {}) }));
   world.politics.nextRequestId = nextRequestId ?? 1;
+  world.politics.requestNotBefore = { ...(snapshot.politics.requestNotBefore ?? {}) };
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
 

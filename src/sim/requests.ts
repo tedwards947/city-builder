@@ -17,7 +17,7 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
-import { ZONE_R, BUILDING_PARK, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from './constants';
+import { ZONE_R, BUILDING_PARK, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_AIRPORT } from './constants';
 import { trafficVolume, roadCapacity } from './TrafficData';
 import { changePc } from './politics';
 import { coveredBy, homesWithinReach, touchesAccessRoad } from './serviceValue';
@@ -56,11 +56,19 @@ export interface RequestKind {
   descKey: string;
   /** One request for the whole city at a time (the same need everywhere). */
   cityWide?: boolean;
+  /**
+   * A long-running ask about the city, not a neighbourhood's trouble (the
+   * airport): while open it does not stop the neighbourhood it is shown over
+   * from asking for something else, and does not count toward maxOpen.
+   */
+  standing?: boolean;
+  /** Extra conditions for asking, beyond the need (the airport: none stands and the city can pay for one). */
+  canAsk?(world: World): boolean;
   /** 0 (nothing missing) to 1 (entirely without it) for the area's homes. */
   need(world: World, area: Rect): number;
 }
 
-interface RequestNumbers { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number }
+interface RequestNumbers { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number; once?: boolean; cooldownDays?: number }
 
 type RequestConfig = {
   spawnEveryDays: number; maxOpen: number; cellSize: number; minHomes: number;
@@ -149,6 +157,23 @@ function blightNeed(world: World, a: Rect): number {
     }
   }
   return zoned ? empty / zoned : 0;
+}
+
+/** Whether an airport stands with a street or avenue along its terminal. */
+function hasConnectedAirport(world: World): boolean {
+  for (const b of world.buildings) if (b.kind === BUILDING_AIRPORT && world.buildingAccessRoads(b.tx, b.ty).length > 0) return true;
+  return false;
+}
+
+/** 0 once an airport stands with a road to its terminal, else 1: the whole city's need. */
+function airportNeed(world: World): number {
+  return hasConnectedAirport(world) ? 0 : 1;
+}
+
+/** Residents ask for an airport only while none stands (connected or not) and the city has the money for one. */
+function canAskForAirport(world: World): boolean {
+  if (world.buildings.some((b) => b.kind === BUILDING_AIRPORT)) return false;
+  return world.budget.money >= (BALANCE.buildings[BUILDING_AIRPORT]?.cost ?? Infinity);
 }
 
 // ── Road-shaped clusters for the coverage kinds ─────────────────────────────
@@ -318,8 +343,8 @@ export function planRequest(world: World, kind: string, area: Rect, rng: () => n
   return { area: boundsOf(world, homes), need: 1, seed, homes };
 }
 
-const kind = (id: string, need: RequestKind['need'], cityWide = false): RequestKind =>
-  ({ id, nameKey: `requests.${id}.name`, descKey: `requests.${id}.desc`, need, cityWide });
+const kind = (id: string, need: RequestKind['need'], cityWide = false, more: Partial<RequestKind> = {}): RequestKind =>
+  ({ id, nameKey: `requests.${id}.name`, descKey: `requests.${id}.desc`, need, cityWide, ...more });
 
 /** The registry. */
 export const REQUEST_KINDS: readonly RequestKind[] = [
@@ -331,9 +356,17 @@ export const REQUEST_KINDS: readonly RequestKind[] = [
   kind('utilities', utilitiesNeed, true),
   kind('trafficJam', trafficNeed),
   kind('blight', blightNeed),
+  kind('airport', airportNeed, true, { standing: true, canAsk: canAskForAirport }),
 ];
 
 export const requestKind = (id: string): RequestKind | undefined => REQUEST_KINDS.find((k) => k.id === id);
+
+/** Open requests that count toward maxOpen (every kind but the standing ones). */
+export function openSlotsUsed(world: World): number {
+  let n = 0;
+  for (const r of world.politics.requests) if (!requestKind(r.kind)?.standing) n++;
+  return n;
+}
 
 /**
  * The met rule (owner's): the target is reached (need ≤ metAt), or the gap
@@ -417,7 +450,7 @@ function unmetByReason(world: World, req: OpenRequest): { full: number; outOfRea
   return out;
 }
 
-const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', trafficJam: 'roads', blight: 'lots' };
+const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', airport: 'city', trafficJam: 'roads', blight: 'lots' };
 
 export function requestProgress(world: World, req: OpenRequest): RequestProgress {
   const k = requestKind(req.kind);
@@ -499,8 +532,10 @@ export function neighbourhoods(world: World): Rect[] {
 
 /**
  * The next request to open, or null if no neighbourhood needs anything badly
- * enough. Neighbourhoods that already have an open request are skipped, and
- * a city-wide kind is skipped while one is open.
+ * enough. Neighbourhoods that already have an open request are skipped
+ * (a standing request does not count), and a city-wide kind is skipped while
+ * one is open, while its own conditions (canAsk) do not hold, or before the
+ * tick it may next be asked (world.politics.requestNotBefore).
  *  1. Kinds with days > 0 (0 = switched off) that some free neighbourhood
  *     needs above the kind's askAt are
  *     eligible; one is drawn at random, weighted by its worst need, so every
@@ -512,7 +547,7 @@ export function pickRequest(world: World, rng: () => number):
     { kind: string; area: Rect; need: number; seed?: number; homes?: number[]; samples?: number[] } | null {
   const { randomness, kinds } = requestConfig();
   const open = world.politics.requests;
-  const areas = neighbourhoods(world).filter((area) => !open.some((r) => overlaps(r, area)));
+  const areas = neighbourhoods(world).filter((area) => !open.some((r) => !requestKind(r.kind)?.standing && overlaps(r, area)));
   if (!areas.length) return null;
 
   const eligible: { k: RequestKind; needs: number[]; worst: number }[] = [];
@@ -520,6 +555,7 @@ export function pickRequest(world: World, rng: () => number):
   for (const k of REQUEST_KINDS) {
     const n = kinds[k.id];
     if (!n || n.days <= 0 || (k.cityWide && open.some((r) => r.kind === k.id))) continue;
+    if (world.tick < (world.politics.requestNotBefore[k.id] ?? 0) || (k.canAsk && !k.canAsk(world))) continue;
     const needs = areas.map((a) => askingNeed(world, k, a));
     const worst = Math.max(...needs);
     if (worst <= n.askAt) continue;
@@ -584,17 +620,21 @@ function close(world: World, req: OpenRequest): boolean {
 /** Close an open request as met, paying its reward (which may take PC over the cap). */
 export function meetRequest(world: World, req: OpenRequest): void {
   if (!close(world, req)) return;
-  const reward = requestConfig().kinds[req.kind]?.reward ?? 0;
+  const n = requestConfig().kinds[req.kind];
+  const reward = n?.reward ?? 0;
   if (reward > 0) changePc(world, reward, 'requestMet');
+  if (n?.once) world.politics.requestNotBefore[req.kind] = Number.MAX_SAFE_INTEGER;   // once per city
   world.events.emit('requestMet', payload(req));
 }
 
 /** Close an open request as missed, charging its penalty (never into debt). */
 export function failRequest(world: World, req: OpenRequest): void {
   if (!close(world, req)) return;
-  const penalty = requestConfig().kinds[req.kind]?.penalty ?? 0;
+  const n = requestConfig().kinds[req.kind];
+  const penalty = n?.penalty ?? 0;
   const take = Math.min(penalty, Math.max(0, world.budget.politicalCapital));
   if (take > 0) changePc(world, -take, 'requestFailed');
+  if (n?.cooldownDays && n.cooldownDays > 0) world.politics.requestNotBefore[req.kind] = world.tick + n.cooldownDays * BALANCE.ticksPerDay;
   world.events.emit('requestFailed', payload(req));
 }
 

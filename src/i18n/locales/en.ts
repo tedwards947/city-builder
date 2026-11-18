@@ -48,6 +48,7 @@ export const en: TranslationSchema = {
     utilities: { name: 'Power and water back', desc: 'Residents here have lost power or water in the shortage and want it back.' },
     trafficJam: { name: 'Fix the traffic', desc: 'The roads around here are jammed; residents want them back under capacity.' },
     blight: { name: 'Clear the blight', desc: 'Abandoned buildings are dragging the area down; residents want them cleared or revived.' },
+    airport: { name: 'An airport', desc: 'The city can afford an airport and residents want one. Build it and run a street or avenue along its terminal.' },
   },
   ui: {
     tileInfo: {

@@ -609,7 +609,15 @@ export const BALANCE = {
         utilities: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0, smoothDays: 3, holdDays: 3 },
         trafficJam: { days: 20, reward: 5.91, penalty: 8, askAt: 0.1, metAt: 0.05, smoothDays: 3, holdDays: 3 },
         blight: { days: 20, reward: 5.91, penalty: 8, askAt: 0.1, metAt: 0 },
-      } as Record<string, { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number }>,
+        // "Residents want an airport" (owner, 2026-11-18): asked once the
+        // city can pay for one and has none; met by an airport with a road
+        // to its terminal. A long deadline and no penalty: it is a big ask,
+        // not neglect. PLACEHOLDER reward of about one full PC bar (it may
+        // take PC over the cap) until the Balance Lab proposes one. Asked
+        // once per city: never again after it is met, and after it expires
+        // only once cooldownDays have passed.
+        airport: { days: 120, reward: 150, penalty: 0, askAt: 0.5, metAt: 0, once: true, cooldownDays: 360 },
+      } as Record<string, { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number; once?: boolean; cooldownDays?: number }>,
     },
     // The toolbar tile and panel stay hidden while this is false
     // (ordinancesEnabled()).

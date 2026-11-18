@@ -363,14 +363,14 @@ describe('politics state', () => {
     expect(loaded.politics).toEqual({
       peakPopulation: 2600, regen: -0.25,
       ordinances: { active: ['curfew', 'freeTransit'], suspended: ['freeTransit'] },
-      requests: [], nextRequestId: 1,
+      requestNotBefore: {}, requests: [], nextRequestId: 1,
     });
     expect(loaded.politics).not.toBe(w.politics);
     expect(loaded.politics.ordinances.active).not.toBe(w.politics.ordinances.active);
   });
 
   it('a new city starts with nothing credited', () => {
-    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requests: [], nextRequestId: 1 });
+    expect(new World(16, 16, 1).politics).toEqual({ peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requestNotBefore: {}, requests: [], nextRequestId: 1 });
   });
 
   it('a v9 save from before ordinances loads with none', () => {
