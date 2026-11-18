@@ -1,7 +1,7 @@
 // npm run balance:taxdebt [-- options]
 //
 // Debt drain / tax level sweep: score a grid of BALANCE.budget.debtPcDrainPerDay ×
-// BALANCE.tax.level.satisfactionPerPoint × demandStrength (src/balance/taxdebt.ts) with the
+// BALANCE.tax.level.satisfactionPerPoint × demandStrength × exodusPerPoint (src/balance/taxdebt.ts) with the
 // debt.* and tax.* targets (src/balance/targets.ts) on the fresh town and the saved cities,
 // spread over the lab pool. Proposes numbers; changes nothing in the game.
 //
@@ -9,6 +9,7 @@
 //   --drain 0.5,0.75,1,1.25        debtPcDrainPerDay values
 //   --spp 0.008,0.01,0.012,0.015,0.02   satisfactionPerPoint values
 //   --strength 0.5,0.75,1,1.5,2    demandStrength values
+//   --exodus 0                     exodusPerPoint values (chance per point above neutral, per home, per growth pass)
 //   --saves ids          which saved cities (default testcity1 and cities/gen-*-t10000)
 //   --no-saves           fresh town only
 //   --days 300           game days on the fresh town (saved cities: at most 150)
@@ -37,8 +38,8 @@ if (!args.includes('--no-saves')) {
 }
 
 const points = [];
-for (const d of nums('--drain', '0.5,0.75,1,1.25')) for (const s of nums('--spp', '0.008,0.01,0.012,0.015,0.02')) for (const k of nums('--strength', '0.5,0.75,1,1.5,2')) {
-  points.push({ label: `drain ${d} spp ${s} strength ${k}`, values: { debtPcDrainPerDay: d, satisfactionPerPoint: s, demandStrength: k } });
+for (const d of nums('--drain', '0.5,0.75,1,1.25')) for (const s of nums('--spp', '0.008,0.01,0.012,0.015,0.02')) for (const k of nums('--strength', '0.5,0.75,1,1.5,2')) for (const e of nums('--exodus', '0')) {
+  points.push({ label: `drain ${d} spp ${s} strength ${k} exodus ${e}`, values: { debtPcDrainPerDay: d, satisfactionPerPoint: s, demandStrength: k, exodusPerPoint: e } });
 }
 
 const pool = createPool({ cities, days, fn: 'evaluateTaxDebt', ...(opt('--workers') ? { workers: Number(opt('--workers')) } : {}) });
@@ -48,7 +49,7 @@ try {
   const evals = await pool.evaluateAll(points.map((p) => p.values));
   const rows = points.map((p, k) => ({ ...p, score: evals[k].score, pass: evals[k].pass, graded: evals[k].graded, failing: Object.entries(evals[k].results).filter(([, ok]) => !ok).map(([id]) => id), taxdebt: evals[k].taxdebt }))
     .sort((a, b) => a.score - b.score || points.indexOf(a) - points.indexOf(b));
-  for (const r of rows.slice(0, 15)) console.log(`${String(r.score).padStart(7)}  ${r.pass}/${r.graded}  ${r.label}  | failing: ${r.failing.join(', ') || 'none'}`);
+  for (const r of rows.slice(0, Number(opt('--show') ?? 15))) console.log(`${String(r.score).padStart(7)}  ${r.pass}/${r.graded}  ${r.label}  | failing: ${r.failing.join(', ') || 'none'}`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify({ schema: 'city-builder/balance-taxdebt@1', generatedAt: new Date().toISOString(), durationSec: Math.round((Date.now() - t0) / 1000), cities: cities.map((c) => c.id), rows }, null, 1));
   console.log(`\nwritten ${out} (${Math.round((Date.now() - t0) / 1000)}s)`);

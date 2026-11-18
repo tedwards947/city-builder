@@ -23,22 +23,24 @@ import { PERSONAS, playPersona } from './personas';
 import { Recorder } from './recorder';
 import { loadCity, startSim, type CitySpec } from './world';
 
-/** Numbers to try: BALANCE.budget.debtPcDrainPerDay and BALANCE.tax.level's satisfactionPerPoint / demandStrength. */
+/** Numbers to try: BALANCE.budget.debtPcDrainPerDay and BALANCE.tax.level's satisfactionPerPoint / demandStrength / exodusPerPoint. */
 export interface TaxDebtValues {
   debtPcDrainPerDay?: number;
   satisfactionPerPoint?: number;
   demandStrength?: number;
+  exodusPerPoint?: number;
 }
 
 /** Apply `v` to BALANCE; returns a function that puts the old numbers back. */
 export function applyTaxDebtValues(v: TaxDebtValues): () => void {
   const budget = BALANCE.budget as { debtPcDrainPerDay: number };
-  const level = BALANCE.tax.level as { satisfactionPerPoint: number; demandStrength: number };
-  const old = { d: budget.debtPcDrainPerDay, s: level.satisfactionPerPoint, k: level.demandStrength };
+  const level = BALANCE.tax.level as { satisfactionPerPoint: number; demandStrength: number; exodusPerPoint: number };
+  const old = { d: budget.debtPcDrainPerDay, s: level.satisfactionPerPoint, k: level.demandStrength, e: level.exodusPerPoint };
   if (v.debtPcDrainPerDay !== undefined) budget.debtPcDrainPerDay = v.debtPcDrainPerDay;
   if (v.satisfactionPerPoint !== undefined) level.satisfactionPerPoint = v.satisfactionPerPoint;
   if (v.demandStrength !== undefined) level.demandStrength = v.demandStrength;
-  return () => { budget.debtPcDrainPerDay = old.d; level.satisfactionPerPoint = old.s; level.demandStrength = old.k; };
+  if (v.exodusPerPoint !== undefined) level.exodusPerPoint = v.exodusPerPoint;
+  return () => { budget.debtPcDrainPerDay = old.d; level.satisfactionPerPoint = old.s; level.demandStrength = old.k; level.exodusPerPoint = old.e; };
 }
 
 /** One run at one tax level. */
