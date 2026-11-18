@@ -34,6 +34,8 @@ export function portArtReady(): boolean {
 const SIDE = { legsX: 157, footY: 345, boomY: 122, runFrom: 110, runTo: 360 };
 /** The end-on crane's code boom: height and reach in tiles, measured from the quay edge. */
 const BOOM = { h: 1.375, thick: 0.125, from: 0.4, to: 2.4, half: 0.09 };
+/** The container yard: a grid of third-size stacks; w, row: column and row spacing as shares of the sprite's size; cells left empty (mod 11). */
+const BOXES = { cols: 3, rows: 4, w: 0.8, row: 0.5, gaps: [4, 9] };
 const BOX = ['#c75b3c', '#3f74a8', '#d8a640', '#5a8f5a', '#8a8f96', '#e08a3c'];
 
 /**
@@ -64,17 +66,26 @@ export function drawPortArt(ctx: CanvasRenderingContext2D, at: At, dx: number, d
   const k = tile / 128, side = dx !== 0;
   type Item = { y: number; draw: () => void };
   const items: Item[] = [];
-  const sprite = (name: string, x: number, y: number, flip = false, ax?: number) => {
+  const sprite = (name: string, x: number, y: number, flip = false, ax?: number, scale = 1) => {
     const { img, m } = s[name];
-    const fx = (ax ?? m.footX) * k;
+    const q = k * scale, fx = (ax ?? m.footX) * q;
     items.push({ y, draw: () => {
-      if (flip) { ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(img, -fx, -m.footY * k, m.w * k, m.h * k); ctx.restore(); }
-      else ctx.drawImage(img, x - fx, y - m.footY * k, m.w * k, m.h * k);
+      if (flip) { ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(img, -fx, -m.footY * q, m.w * q, m.h * q); ctx.restore(); }
+      else ctx.drawImage(img, x - fx, y - m.footY * q, m.w * q, m.h * q);
     } });
   };
 
-  // Containers, office and gate.
-  for (const u of [0.275, 0.725]) { const [x, y] = at(u, 0.583); sprite(side ? 'boxes-end' : 'boxes-long', x, y); }
+  // Containers: each block is a yard of small stacks, the painted stack at a third of its size
+  // (the owner found full-size boxes too big for the game), rows overlapping back to front, a few gaps.
+  for (const [bi, u] of [0.275, 0.725].entries()) {
+    const name = side ? 'boxes-end' : 'boxes-long', m = PORT_SPRITES[name];
+    const [x, y] = at(u, 0.583), cw = m.w * BOXES.w * k / 3, rh = m.h * BOXES.row * k / 3;
+    for (let r = 0; r < BOXES.rows; r++) for (let c = 0; c < BOXES.cols; c++) {
+      if (BOXES.gaps.includes((bi * 7 + r * BOXES.cols + c) % 11)) continue;
+      const sx = x + (c - (BOXES.cols - 1) / 2) * cw, sy = y + (r - (BOXES.rows - 1) / 2) * rh;
+      sprite(name, sx, sy, false, undefined, 1 / 3);
+    }
+  }
   { const [x, y] = at(0.875, 0.867); sprite('office', x, y); }
   { const [x, y] = at(0.15, 0.9); sprite('gate', x, y); }
 
@@ -119,7 +130,7 @@ export function drawPortArt(ctx: CanvasRenderingContext2D, at: At, dx: number, d
 
 /** A trolley at (x, y) on the boom, cables down to the spreader at `sy`, and a box under it when `carry`. */
 function trolley(ctx: CanvasRenderingContext2D, x: number, y: number, sy: number, tile: number, carry: boolean, col: string): void {
-  const w = Math.max(3, tile * 0.12), bw = Math.max(4, tile * 0.19), bh = Math.max(2, tile * 0.08);
+  const w = Math.max(3, tile * 0.12), bw = Math.max(3, tile * 0.13), bh = Math.max(2, tile * 0.06);
   ctx.fillStyle = '#3b3b3b'; ctx.fillRect(x - w, y, 2 * w, Math.max(2, tile * 0.05));
   ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(x - w * 0.6, y); ctx.lineTo(x - w * 0.6, sy); ctx.moveTo(x + w * 0.6, y); ctx.lineTo(x + w * 0.6, sy); ctx.stroke();

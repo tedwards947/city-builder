@@ -16,7 +16,7 @@ import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
 import { seaports, portTrade, shipRoute } from '../sim/seaport';
-import { shipPath, shipAt, drawShip, SHIP_SIZE, type ShipPath, type Berth } from './clay/ships';
+import { shipPath, shipsAt, drawShip, SHIP_SIZE, type ShipPath, type Berth, type ShipState } from './clay/ships';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -152,6 +152,7 @@ export class CanvasRenderer {
   /** ?debug=true "Send ship": when (renderer seconds) every port last sent a ship regardless of trade. */
   private _shipsSentAt = -Infinity;
   private _lastShipT = 0;
+  private _shipLayer: HTMLCanvasElement | null = null;
   /** Each seaport's sailing path and berth, kept while its route (cached by the sim until the map changes) is the same. */
   private _shipPaths = new WeakMap<readonly number[], { path: ShipPath; berth: Berth }>();
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
@@ -475,7 +476,7 @@ export class CanvasRenderer {
 
   private _drawShips(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, now: number): void {
     this._portWork.clear();
-    const { width, height } = world.grid, { terrain, roadClass } = world.layers;
+    const { width, height } = world.grid;
     const tile = camera.zoom * TILE_SIZE, t = now * 0.001;   // exact, so ships stay on their tiles across a big map
     const ox = camera.worldToScreenX(0), oy = camera.worldToScreenY(0);
     this._lastShipT = t;
@@ -490,28 +491,49 @@ export class CanvasRenderer {
       let p = this._shipPaths.get(route);
       if (!p) { const berth = portBerth(world, anchor, route); p = { berth, path: shipPath(route, width, height, berth) }; this._shipPaths.set(route, p); }
       const seed = ((anchor * 2654435761) >>> 0) / 4294967296;
-      // A sent ship is the first of a fresh timeline starting now (it sails off again after one visit).
-      const st = (forced ? shipAt(p.path, p.berth, sent, 1, 0) : null) ?? (trade && trade.shipsPerDay > 0 ? shipAt(p.path, p.berth, t, trade.shipsPerDay, seed) : null);
-      if (!st) continue;
-      if (st.work >= 0) this._portWork.set(anchor, st.work);
-      const r = SHIP_SIZE[st.type].L / 2 + 2.5;
-      if (st.x + r < bounds.x0 || st.x - r > bounds.x1 + 1 || st.y + r < bounds.y0 || st.y - r > bounds.y1 + 2) continue;
-      // Cut bridge tiles near the ship out of the drawing.
-      ctx.save();
-      let clipped = false;
-      const x0 = Math.max(0, Math.floor(st.x - r)), x1 = Math.min(width - 1, Math.ceil(st.x + r));
-      const y0 = Math.max(0, Math.floor(st.y - r)), y1 = Math.min(height - 1, Math.ceil(st.y + r));
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-        const i = y * width + x;
-        if (terrain[i] !== TERRAIN_WATER || roadClass[i] === ROAD_NONE) continue;
-        if (!clipped) { ctx.beginPath(); ctx.rect(0, 0, camera.viewportW, camera.viewportH); clipped = true; }
-        const L = Math.floor(ox + x * tile), T = Math.floor(oy + y * tile);
-        ctx.rect(L, T, Math.floor(ox + (x + 1) * tile) - L, Math.floor(oy + (y + 1) * tile) - T);
+      const ships = shipsAt(p.path, p.berth, t, trade?.shipsPerDay ?? 0, seed, forced ? sent : -1);
+      for (const st of ships) {
+        if (st.work >= 0) this._portWork.set(anchor, st.work);
+        if (st.a > 0) this._drawOneShip(ctx, world, camera, bounds, st, ox, oy, tile, t, Math.floor(t / 1000) + anchor);
       }
-      if (clipped) ctx.clip('evenodd');
-      drawShip(ctx, st, ox, oy, tile, t, Math.floor(t / 1000) + anchor);
-      ctx.restore();
     }
+  }
+
+  /** One ship, clipped out of bridge tiles; while it fades it is drawn whole off screen first, so its parts don't show through each other. */
+  private _drawOneShip(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, st: ShipState,
+    ox: number, oy: number, tile: number, t: number, cargo: number): void {
+    const { width, height } = world.grid, { terrain, roadClass } = world.layers;
+    const r = SHIP_SIZE[st.type].L / 2 + 2.5;
+    if (st.x + r < bounds.x0 || st.x - r > bounds.x1 + 1 || st.y + r < bounds.y0 || st.y - r > bounds.y1 + 2) return;
+    // Cut bridge tiles near the ship out of the drawing.
+    ctx.save();
+    let clipped = false;
+    const x0 = Math.max(0, Math.floor(st.x - r)), x1 = Math.min(width - 1, Math.ceil(st.x + r));
+    const y0 = Math.max(0, Math.floor(st.y - r)), y1 = Math.min(height - 1, Math.ceil(st.y + r));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const i = y * width + x;
+      if (terrain[i] !== TERRAIN_WATER || roadClass[i] === ROAD_NONE) continue;
+      if (!clipped) { ctx.beginPath(); ctx.rect(0, 0, camera.viewportW, camera.viewportH); clipped = true; }
+      const L = Math.floor(ox + x * tile), T = Math.floor(oy + y * tile);
+      ctx.rect(L, T, Math.floor(ox + (x + 1) * tile) - L, Math.floor(oy + (y + 1) * tile) - T);
+    }
+    if (clipped) ctx.clip('evenodd');
+    if (st.a >= 1) drawShip(ctx, st, ox, oy, tile, t, cargo);
+    else {
+      // The ship's box on screen (it stands up to a tile and a half tall), drawn at the canvas's own pixel density.
+      const dpr = ctx.getTransform().a || 1;
+      const L = Math.floor(ox + (st.x - r) * tile), T = Math.floor(oy + (st.y - r - 1.5) * tile);
+      const w = Math.ceil(2 * r * tile), h = Math.ceil((2 * r + 1.5) * tile);
+      const off = this._shipLayer ??= document.createElement('canvas');
+      if (off.width < w * dpr || off.height < h * dpr) { off.width = Math.max(off.width, Math.ceil(w * dpr)); off.height = Math.max(off.height, Math.ceil(h * dpr)); }
+      const o = off.getContext('2d')!;
+      o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, Math.ceil(w * dpr), Math.ceil(h * dpr));
+      o.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawShip(o, st, ox - L, oy - T, tile, t, cargo);
+      ctx.globalAlpha = st.a;
+      ctx.drawImage(off, 0, 0, Math.ceil(w * dpr), Math.ceil(h * dpr), L, T, Math.ceil(w * dpr) / dpr, Math.ceil(h * dpr) / dpr);
+    }
+    ctx.restore();
   }
 
   /**
