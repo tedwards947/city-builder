@@ -24,11 +24,18 @@ export class Autosave {
   private elapsedMs = 0;
   private lastTickAt: number | null = null;
   private inFlight = false;
+  private readonly onFailure?: (err: unknown) => void;
+  private failing = false;
 
-  constructor(target: AutosaveTarget, getWorld: () => World | null, intervalMs = AUTOSAVE_INTERVAL_MS) {
+  /**
+   * `onFailure` is called when a save fails, once per run of failures (not on
+   * every retry), so the player can be told instead of losing the city silently.
+   */
+  constructor(target: AutosaveTarget, getWorld: () => World | null, intervalMs = AUTOSAVE_INTERVAL_MS, onFailure?: (err: unknown) => void) {
     this.target = target;
     this.getWorld = getWorld;
     this.intervalMs = intervalMs;
+    this.onFailure = onFailure;
   }
 
   get isSaving(): boolean { return this.inFlight; }
@@ -68,9 +75,14 @@ export class Autosave {
     this.elapsedMs = 0;
     try {
       await this.target.saveGame(world, AUTOSAVE_SLOT, AUTOSAVE_NAME);
+      this.failing = false;
       return true;
     } catch (err) {
       console.warn('Autosave failed:', err);
+      if (!this.failing) {
+        this.failing = true;
+        try { this.onFailure?.(err); } catch { /* the notice must not break saving */ }
+      }
       return false;
     } finally {
       this.inFlight = false;

@@ -35,8 +35,20 @@ export class LocalStore implements IStore {
   async save(userId: string, slot: number, meta: SaveMeta, snapshot: WorldSnapshot): Promise<void> {
     const db = await openDB();
     const record: SaveRecord = { version: SAVE_VERSION, userId, slot, meta, snapshot };
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    await request(tx.objectStore(STORE_NAME).put(record));
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      // The request succeeding only means the write was queued: quota and disk
+      // errors surface when the transaction commits, so wait for that.
+      const done = new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+        tx.onabort    = () => reject(tx.error ?? new Error('Save was aborted.'));
+      });
+      tx.objectStore(STORE_NAME).put(record);
+      await done;
+    } finally {
+      db.close();
+    }
   }
 
   async load(userId: string, slot: number): Promise<SaveRecord | null> {

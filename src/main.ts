@@ -161,7 +161,8 @@ const store   = new LocalStore();
 const manager = new SaveManager(store, 'local', {
   bootstrapVibes: (world) => new VibeSystem().bootstrapVibes(world),
 });
-const autosave = new Autosave(manager, () => state.world);
+const autosave = new Autosave(manager, () => state.world, undefined, () =>
+  toastPanel.showToast(t('ui.toast.autosaveFailedTitle'), t('ui.toast.autosaveFailed'), 'alert'));
 
 function syncSpeedButtons(): void {
   const speed = state.scheduler.speed;

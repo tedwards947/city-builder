@@ -179,6 +179,8 @@ export const en: TranslationSchema = {
       water: "water",
     },
     toast: {
+      autosaveFailedTitle: "Autosave failed",
+      autosaveFailed: "Your city could not be saved in this browser. Use Save to file to keep a copy.",
       resourceShortage: "Resource Shortage",
       resourceRestored: "Resource Restored",
       powerDemandExceeds: "Power demand exceeds supply! Deficit: {deficit} MW",
