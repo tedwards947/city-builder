@@ -156,6 +156,7 @@ export interface TranslationSchema {
       needsWater: string;
       needsOpenWater: string;
       needsDockSite: string;
+      onePerCity: string;
       noPoliticalCapital: string;
     };
     hud: {

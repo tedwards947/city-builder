@@ -10,8 +10,10 @@
 // nothing requires a shape to be square or even convex.
 //
 // Each tile of a shape has a ROLE: 'body' stands on land, 'dock' stands on
-// open water (see World.checkPlacement). Every tile is 'body' unless the
-// shape says otherwise.
+// open water (see World.checkPlacement), 'frontage' stands on land and is
+// where the building meets the road: a kind with frontage tiles is entered
+// only from roads beside those (World.buildingAccessRoads). Every tile is
+// 'body' unless the shape says otherwise.
 //
 // A building can be ROTATED in quarter turns clockwise about its anchor
 // (0–3), so a seaport can face water on any side. The rotation is saved on
@@ -20,17 +22,18 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, TERRAIN_WATER } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
 
-/** What a tile of a shape stands on: 'body' on land, 'dock' on open water. */
-export type PartRole = 'body' | 'dock';
+/** What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road. */
+export type PartRole = 'body' | 'dock' | 'frontage';
 
 const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
 const ONE_BODY: readonly PartRole[] = ['body'];
 
+const RULES = new Map<number, PlacementRules>();
 const SHAPES = new Map<number, readonly ShapeOffset[]>();
 const ROLES = new Map<number, readonly PartRole[]>();
 const DOCKED = new Set<number>();
@@ -40,12 +43,13 @@ const ROTATED = new Map<number, (readonly ShapeOffset[])[]>();
 /**
  * The tiles a `kind` building stands on, as offsets from its anchor, turned
  * `rot` quarter turns clockwise about the anchor (0–3; the order of the tiles
- * does not change). One tile unless the kind has a shape.
+ * does not change). One tile unless the kind has a shape. A kind that is
+ * never turned (placement rule `noRotation`) has the same shape at every `rot`.
  */
 export function buildingShape(kind: number, rot = 0): readonly ShapeOffset[] {
   const shape = SHAPES.get(kind) ?? ONE_TILE;
   const r = rot & 3;
-  if (r === 0 || shape.length === 1) return shape;
+  if (r === 0 || shape.length === 1 || RULES.get(kind)?.noRotation) return shape;
   let turned = ROTATED.get(kind);
   if (!turned) { turned = []; ROTATED.set(kind, turned); }
   // Screen coordinates (y grows downward): one quarter turn clockwise takes (dx, dy) to (−dy, dx).
@@ -96,7 +100,8 @@ export function setBuildingShape(kind: number, shape: readonly ShapeOffset[], ro
     if (roles[shape.findIndex(([dx, dy]) => dx === 0 && dy === 0)] !== 'body') throw new Error(`building shape for kind ${kind}: the anchor must be a body tile`);
   }
   SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
-  if (roles && roles.includes('dock')) { ROLES.set(kind, [...roles]); DOCKED.add(kind); } else { ROLES.delete(kind); DOCKED.delete(kind); }
+  if (roles && roles.some((r) => r !== 'body')) ROLES.set(kind, [...roles]); else ROLES.delete(kind);
+  if (roles && roles.includes('dock')) DOCKED.add(kind); else DOCKED.delete(kind);
   ROTATED.delete(kind);
 }
 
@@ -125,6 +130,14 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
   const yard = block(4, 3), docks: ShapeOffset[] = [[0, -1], [1, -1], [2, -1], [3, -1]];
   setBuildingShape(BUILDING_SEAPORT, [...yard, ...docks], [...yard.map(() => 'body' as const), ...docks.map(() => 'dock' as const)]);
 }
+// The airport: a 12×5 block, anchor at its top-left. Rows from the north:
+// terminal, tower and hangar (dy 0–1), apron and gates (dy 2–3), runway
+// (dy 4). The terminal's frontage is the north edge at dx 2–9: only roads
+// along it reach the airport. The art has one facing, so it is never turned.
+{
+  const shape = block(12, 5);
+  setBuildingShape(BUILDING_AIRPORT, shape, shape.map(([dx, dy]) => (dy === 0 && dx >= 2 && dx <= 9 ? 'frontage' : 'body')));
+}
 
 // ── Where a kind may stand ───────────────────────────────────────────────────
 
@@ -136,10 +149,13 @@ export interface PlacementRules {
    * still stands on land. For a pump now, a seaport later.
    */
   needsWaterEdge?: boolean;
+  /** The kind has one facing: it is placed at rotation 0 whatever is asked for. */
+  noRotation?: boolean;
+  /** A city may have only one: it cannot be placed while another stands. */
+  onePerCity?: boolean;
 }
 
 const NO_RULES: PlacementRules = {};
-const RULES = new Map<number, PlacementRules>();
 
 /** The extra placement conditions of `kind` (none for most kinds). */
 export function placementRules(kind: number): PlacementRules {
@@ -153,6 +169,7 @@ export function setPlacementRules(kind: number, rules: PlacementRules = {}): voi
 
 // The large water plant is a pump: it draws from open water.
 setPlacementRules(BUILDING_LARGE_WATER_PLANT, { needsWaterEdge: true });
+setPlacementRules(BUILDING_AIRPORT, { noRotation: true, onePerCity: true });
 
 /**
  * Tile indices a `kind` building anchored at (tx, ty) and turned `rot`

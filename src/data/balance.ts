@@ -61,6 +61,10 @@ export const BALANCE = {
     // The seaport (a 4×3 yard plus a row of docks over open water). Placeholder
     // numbers until the lab tunes it: dear to build and dear to run.
     12: { cost: 200000, maintenance: 30 }, // BUILDING_SEAPORT
+    // The airport (12×5, one per city). Placeholder numbers until the lab
+    // tunes it with its traffic row (transit.buildings): the owner wants it
+    // really expensive.
+    13: { cost: 500000, maintenance: 75 }, // BUILDING_AIRPORT
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -322,6 +326,14 @@ export const BALANCE = {
       5: { takes: { jobs: 0 } },   // fire station
       6: { takes: { jobs: 0 } },   // school
       7: { takes: { jobs: 0 } },   // hospital
+      // The airport (passengers only). Homes send it visitors, and the city
+      // earns per passenger; arrivals leave it for the shops and to look for
+      // work; while it stands on a road, shops are in more demand.
+      13: {
+        takes: { visitors: 0 }, incomePerTrip: { visitors: 0 },
+        sends: { shopping: 0, jobs: 0 },
+        demandMult: { C: 1 },
+      },
     } as Record<number, BuildingTrafficRow>,
     congestionGrowthPenalty: 0.75, // max growth probability reduction at full congestion (congestion=255)
     // Growth multiplier floor for developed zone tiles with zero accessibility:

@@ -124,6 +124,8 @@ export interface PlacementCheck {
   noWater: boolean;
   /** Dock tiles that are on water, but water that does not reach the edge of the map (a pond or a lake). */
   notOpenWater: number[];
+  /** Set when the kind is one per city and the city already has one. */
+  alreadyBuilt?: true;
 }
 
 export interface BuildingEntity {
@@ -532,6 +534,9 @@ export class World {
         if (this.layers.terrain[i] === TERRAIN_WATER) { noWater = false; break; }
       }
     }
+    if (placementRules(kind).onePerCity && this.buildings.some((b) => b.kind === kind)) {
+      return { ok: false, offMap: false, blocked, noWater, notOpenWater, alreadyBuilt: true };
+    }
     return { ok: blocked.length === 0 && !noWater, offMap: false, blocked, noWater, notOpenWater };
   }
 
@@ -540,12 +545,13 @@ export class World {
    * word for a preview, or null if it can: 'offMap', 'blocked' (water, a
    * building or a road under its shape, or a dock not on water), 'noWater'
    * (the land is free but the kind must stand at the water's edge and no
-   * water is beside it), or 'notOpenWater' (its docks are on water that does
-   * not reach the edge of the map).
+   * water is beside it), 'notOpenWater' (its docks are on water that does
+   * not reach the edge of the map), or 'alreadyBuilt' (the site is free but
+   * the kind is one per city and the city has one).
    */
-  placeBlocker(tx: number, ty: number, kind: number, rot = 0): 'offMap' | 'blocked' | 'noWater' | 'notOpenWater' | null {
+  placeBlocker(tx: number, ty: number, kind: number, rot = 0): 'offMap' | 'blocked' | 'noWater' | 'notOpenWater' | 'alreadyBuilt' | null {
     const c = this.checkPlacement(tx, ty, kind, rot);
-    return c.ok ? null : c.offMap ? 'offMap' : c.blocked.length > 0 ? 'blocked' : c.notOpenWater.length > 0 ? 'notOpenWater' : 'noWater';
+    return c.ok ? null : c.offMap ? 'offMap' : c.blocked.length > 0 ? 'blocked' : c.notOpenWater.length > 0 ? 'notOpenWater' : c.noWater ? 'noWater' : 'alreadyBuilt';
   }
 
   /** Whether a `kind` building can be placed with its anchor at (tx, ty). See checkPlacement for the reason. */
@@ -555,7 +561,7 @@ export class World {
 
   /** Place a `b` building with its anchor at (tx, ty), turned `rot` quarter turns, on every tile of its shape. */
   placeBuilding(tx: number, ty: number, b: number, rot = 0): boolean {
-    rot &= 3;
+    rot = placementRules(b).noRotation ? 0 : rot & 3;
     if (!this.canPlaceBuilding(tx, ty, b, rot)) return false;
     const { width } = this.grid;
     const anchor = this.grid.idx(tx, ty);
@@ -615,7 +621,7 @@ export class World {
     return tiles && tiles.includes(i) ? tiles : [i];
   }
 
-  /** The role of (tx, ty) in its building's shape ('body' on land, 'dock' on water), or null if there is no building there. */
+  /** The role of (tx, ty) in its building's shape ('body' or 'frontage' on land, 'dock' on water), or null if there is no building there. */
   buildingPartRoleAt(tx: number, ty: number): PartRole | null {
     const part = this.buildingPartAt(tx, ty);
     if (part < 0) return null;
@@ -644,8 +650,10 @@ export class World {
     const { width, height } = this.grid;
     const roles = shapeRoles(this.layers.building[tiles[0]]);
     const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock') : tiles;
+    // A kind with a frontage is entered only from roads beside its frontage tiles.
+    const frontage = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] === 'frontage') : [];
     const out: number[] = [];
-    for (const i of footprintEdge(width, height, body)) {
+    for (const i of footprintEdge(width, height, frontage.length > 0 ? frontage : body)) {
       const rc = this.layers.roadClass[i];
       if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) out.push(i);
     }

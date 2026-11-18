@@ -33,7 +33,7 @@ export interface Placement {
 /** How badly a placement fails: 0 when it fits. Same count as the engine's suggestRotation. */
 export function placementScore(c: PlacementCheck): number {
   if (c.ok) return 0;
-  return c.offMap ? 1e9 : c.blocked.length + c.notOpenWater.length + (c.noWater ? 1 : 0);
+  return c.offMap ? 1e9 : c.blocked.length + c.notOpenWater.length + (c.noWater ? 1 : 0) + (c.alreadyBuilt ? 1 : 0);
 }
 
 let memo: { world: World; edits: number; key: string; value: Placement } | null = null;

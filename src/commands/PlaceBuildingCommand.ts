@@ -36,7 +36,7 @@ export class PlaceBuildingCommand extends Command {
     if (!where.ok) {
       // Free land, but this kind needs water beside it, or open water under its docks: worth saying so.
       const why = world.placeBlocker(this.tx, this.ty, this.kind, this.rot);
-      if (why === 'noWater' || why === 'notOpenWater') this.failReason = why;
+      if (why === 'noWater' || why === 'notOpenWater' || why === 'alreadyBuilt') this.failReason = why;
       return false;
     }
     const cost = BALANCE.buildings[this.kind]?.cost ?? 0;
