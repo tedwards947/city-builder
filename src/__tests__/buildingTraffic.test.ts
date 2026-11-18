@@ -103,6 +103,32 @@ describe('buildings in traffic', () => {
     expect(t.jobs.volume[idx(12, 13)]).toBeCloseTo(trips - 0.5);   // the overflow goes on to the industry
   });
 
+  it('a full building passes the rest on however far the zones are, on the road', () => {
+    // Industry 16 tiles past the station: further than a full door's overflow looks for room.
+    for (const x of [24, 25]) zone(x, 14, ZONE_I, 3);
+    const without = traffic();
+    const trips = 4 * T.tripsRtoI;
+    expect(without.jobs.volume[idx(15, 13)]).toBeCloseTo(trips);
+    rows({ [BUILDING_POLICE]: { takes: { jobs: 0.5 } } });
+    w.placeBuilding(8, 12, BUILDING_POLICE);
+    const t = traffic();
+    expect(buildingTripsAt(w, 8, 12)!.takes[0].trips).toBeCloseTo(0.5);
+    expect(t.jobs.field.doorLoad[idx(8, 13)]).toBeCloseTo(0.5);
+    expect(t.jobs.volume[idx(7, 13)]).toBeCloseTo(trips);           // everyone drives as far as the station
+    expect(t.jobs.volume[idx(8, 13)]).toBeCloseTo(trips);           // counted once on its tile
+    expect(t.jobs.volume[idx(15, 13)]).toBeCloseTo(trips - 0.5);    // and all but the half it took drive on
+    expect(t.jobs.field.doorLoad[idx(24, 13)] + t.jobs.field.doorLoad[idx(25, 13)]).toBeCloseTo(trips - 0.5);
+  });
+
+  it('with no zone to go on to, a full building keeps its overflow at the door', () => {
+    rows({ [BUILDING_POLICE]: { takes: { jobs: 0.5 } } });
+    w.placeBuilding(8, 12, BUILDING_POLICE);
+    const t = traffic();
+    const trips = 4 * T.tripsRtoI;
+    expect(t.jobs.field.doorLoad[idx(8, 13)]).toBeCloseTo(trips);
+    expect(t.jobs.volume[idx(15, 13)]).toBe(0);
+  });
+
   it('what a building takes is shared between the roads that touch it', () => {
     for (let x = 4; x <= 28; x++) w.setRoad(x, 11, ROAD_STREET);
     rows({ [BUILDING_POLICE]: { takes: { jobs: 10 } } });

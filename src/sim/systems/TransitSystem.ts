@@ -26,14 +26,20 @@
 //      most to the best one, less to each the more of a detour it is. Traffic
 //      ends at the first door it reaches.
 //
-//   3. SPILL. A door that got more trips than it has room for passes the
+//   3. PASS ON. A BUILDING's door (a school's jobs) is small. What arrives
+//      there beyond its room drives on, from that door along the roads, to
+//      the nearest zone door. So a building takes the trips it has room for
+//      and the rest still reach the zones, on the road, as they would
+//      without it.
+//
+//   4. SPILL. A door that got more trips than it has room for passes the
 //      excess to other doors within SPILL_RADIUS road tiles that still have
 //      room, nearest first — so a street of shops fills up along its length
 //      instead of everything stopping at the first one. What still does not
 //      fit stays at the door, which then shows as over capacity: the district
 //      needs more shops (or jobs, or industry).
 //
-// Nothing in 2 or 3 feeds back, so they cannot oscillate. The one feedback is
+// Nothing in 2 to 4 feeds back, so they cannot oscillate. The one feedback is
 // congestion → travel time → routes; it is kept calm by the smooth split in 2
 // and by averaging, per tile, any volume that keeps changing. Iterations
 // repeat until nothing moves much: a few per pass, more on the first pass,
@@ -97,6 +103,9 @@ export class TransitSystem {
   private _unstable: Uint8Array[] = [];
   private _firstIteration = true;   // nothing to compare against yet
   private _room!: Float32Array;     // capacity left at each door
+  private _bldCap!: Float32Array;   // the part of each door's capacity that buildings added, this market
+  private _onward!: Float32Array;   // trips leaving full building doors for the zones (see _passOn)
+  private _zoneRoute: TrafficField | null = null;   // the way to this market's zone doors only
   private _cost!: Float32Array;     // travel cost per road tile this iteration
   // Per road class byte: travel cost per tile (1 / speedMult). Refreshed each pass.
   private readonly _classCost: number[] = [0, 1, 1, 1];
@@ -189,6 +198,9 @@ export class TransitSystem {
       this._flow = new Float32Array(n);
       this._raw = new Float32Array(n);
       this._room = new Float32Array(n);
+      this._bldCap = new Float32Array(n);
+      this._onward = new Float32Array(n);
+      this._zoneRoute = null;
       this._cost = new Float32Array(n);
       // Each road tile is pushed at most once per neighbour plus once as a source.
       this._heapKey = new Float32Array(n * 5 + 1);
@@ -445,7 +457,8 @@ export class TransitSystem {
       this._flood(world, def.dest, field, marketCapacity(def), def.key);
       const demand = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
       this._openDoors(field, demand);
-      this._sweep(world, field, this._flow);
+      this._sweep(field, this._flow, field.doorLoad, true);
+      if (def.dest !== NO_ZONE && this._extraDoorCount[k] > 0) this._passOn(world, def.dest, marketCapacity(def), field);
       this._spill(world, field);
       moved = Math.max(moved, this._merge(world, m.volume, this._prev[k], this._unstable[k]));
     }
@@ -512,10 +525,12 @@ export class TransitSystem {
     }
 
     if (market !== undefined && hasDoorProviders()) {
+      const bldCap = this._bldCap;
+      for (let k = 0; k < roadCount; k++) bldCap[roads[k]] = 0;
       extraDoors(world, market, (ri, cap) => {
         if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
-        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += cap;
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { doorCap[ri] += cap; bldCap[ri] += cap; }
       });
     }
 
@@ -615,18 +630,19 @@ export class TransitSystem {
   }
 
   /**
-   * Sweep `flow` along the map from farthest to nearest, so every road tile
-   * accumulates the traffic passing through it (into `_raw`). Traffic ends
-   * at the first door it reaches.
+   * Sweep `flow` along the map `route` from farthest to nearest, so every
+   * road tile accumulates the traffic passing through it (into `_raw`, which
+   * is emptied first if `reset`). Traffic ends at the first door of `route`
+   * it reaches, and is counted there in `doorLoad`.
    */
-  private _sweep(_world: World, field: TrafficField, flow: Float32Array): void {
+  private _sweep(route: TrafficField, flow: Float32Array, doorLoad: Float32Array, reset: boolean): void {
     const nb = this._nb;
-    const { dist, parent, order, count, doorLoad } = field;
+    const { dist, parent, order, count } = route;
     const room = this._room;
     const raw = this._raw;
     const cost = this._cost;
     const roads = this._roads, roadCount = this._roadCount;
-    for (let k = 0; k < roadCount; k++) raw[roads[k]] = 0;
+    if (reset) for (let k = 0; k < roadCount; k++) raw[roads[k]] = 0;
 
     // Farthest first: every tile a stream is handed to is nearer, so it is
     // handled later.
@@ -634,7 +650,7 @@ export class TransitSystem {
       const ri = order[k];
       const f = flow[ri];
       if (f === 0) continue;
-      raw[ri] = f;
+      raw[ri] += f;
       if (parent[ri] < 0) {
         // A door: the stream ends here. (It may get more than it has room
         // for; _spill deals with that.)
@@ -667,6 +683,47 @@ export class TransitSystem {
       if (n2 >= 0) flow[n2] += share * w2;
       if (n3 >= 0) flow[n3] += share * w3;
     }
+  }
+
+  /**
+   * What arrived at a building's door beyond its room drives on to the zones:
+   * from that door, along the way to the nearest zone door of `zoneType`,
+   * adding to the roads in between. Without this a small building door near
+   * homes would swallow every trip of its neighbourhood (the spill only looks
+   * SPILL_RADIUS tiles for room) and the trips would never be on the road. A
+   * door shared by a building and a zone keeps its excess, like any zone door,
+   * and so does every door when no zone door can be reached.
+   */
+  private _passOn(world: World, zoneType: number, capPerLevel: number, field: TrafficField): void {
+    const { order, count, parent, doorLoad } = field;
+    const room = this._room, bldCap = this._bldCap, raw = this._raw;
+    let any = false;
+    for (let k = 0; k < count; k++) {
+      const door = order[k];
+      if (parent[door] >= 0) break;          // doors come first in `order` (travel time 0)
+      if (bldCap[door] > 0 && -room[door] > 1e-6) { any = true; break; }
+    }
+    if (!any) return;
+
+    const route = this._zoneRoute ??= makeTrafficField(this._n);
+    this._flood(world, zoneType, route, capPerLevel);
+    if (route.count === 0) return;
+    const onward = this._onward;
+    const roads = this._roads, roadCount = this._roadCount;
+    for (let k = 0; k < roadCount; k++) onward[roads[k]] = 0;
+    for (let k = 0; k < count; k++) {
+      const door = order[k];
+      if (parent[door] >= 0) break;
+      const excess = -room[door];
+      if (!(bldCap[door] > 0) || !(excess > 1e-6)) continue;
+      if (!(route.dist[door] < Infinity) || route.parent[door] < 0) continue;   // no zone door to go on to, or this is one
+      onward[door] = excess;
+      doorLoad[door] -= excess;
+      room[door] = 0;
+      // The sweep below counts these trips on this tile again as they leave: they are the same vehicles.
+      raw[door] = raw[door] > excess ? raw[door] - excess : 0;
+    }
+    this._sweep(route, onward, doorLoad, false);
   }
 
   /**
