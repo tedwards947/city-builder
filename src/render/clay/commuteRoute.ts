@@ -12,7 +12,7 @@ import { type TrafficField, bestAccessRoad, travelTime } from '../../sim/Traffic
 import { t } from '../../i18n';
 import { routeFrom } from '../TrafficOverlay';
 
-export type TripKey = 'jobs' | 'shops' | 'homes';
+export type TripKey = 'jobs' | 'shops' | 'customers' | 'workers';
 
 export interface LotTrip {
   key: TripKey;
@@ -32,7 +32,7 @@ export function lotTrips(world: World, i: number): LotTrip[] {
     return { key, road, field, time: road >= 0 ? travelTime(field, road) : Infinity };
   };
   // The same maps accessibility is measured on (TransitSystem): zones only for homes; for shops and industry, homes or a building that sends them trips.
-  return zone === ZONE_R ? [trip('jobs', d.toJobs), trip('shops', d.toShops)] : [trip('homes', zone === ZONE_C ? d.toCustomers : d.toWorkers)];
+  return zone === ZONE_R ? [trip('jobs', d.toJobs), trip('shops', d.toShops)] : [zone === ZONE_C ? trip('customers', d.toCustomers) : trip('workers', d.toWorkers)];
 }
 
 /** How a trip of `time` compares with the limit: 0 short, 1 middling, 2 long (60% of the limit or more, which is when the lot gets a commute badge). */
@@ -104,7 +104,7 @@ export function drawCommuteRoutes(ctx: CanvasRenderingContext2D, world: World, i
     ctx.strokeStyle = '#1b1e24'; ctx.lineWidth = Math.max(4, ts * 0.2);
     ctx.beginPath(); ctx.moveTo(lx - s, ly - s); ctx.lineTo(lx + s, ly + s); ctx.moveTo(lx + s, ly - s); ctx.lineTo(lx - s, ly + s); ctx.stroke();
     ctx.strokeStyle = TRIP_COLOUR[2]; ctx.lineWidth = Math.max(2, ts * 0.11); ctx.stroke();
-    pill(ctx, lx, ly - Math.max(16, ts * 0.85), t(trips[0].key === 'homes' ? 'ui.route.noHomes' : 'ui.route.none'), '#ff8b7e', text);
+    pill(ctx, lx, ly - Math.max(16, ts * 0.85), t(trips[0].key === 'customers' ? 'ui.route.noCustomers' : trips[0].key === 'workers' ? 'ui.route.noWorkers' : 'ui.route.none'), '#ff8b7e', text);
   } else {
     ctx.fillStyle = '#1b1e24'; ctx.beginPath(); ctx.arc(lx, ly, Math.max(4, ts * 0.2), 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(lx, ly, Math.max(2.5, ts * 0.13), 0, Math.PI * 2); ctx.fill();
