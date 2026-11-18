@@ -55,6 +55,8 @@ Status as of 2026-11-17, after the landscaping tree effects. Details of every sy
 2. **Seaport: five numbers still at no effect.** The split of `BALANCE.port` / `BALANCE.goods` with ENGINEER 3 is settled and the trade numbers are merged (trade suite #219, phase 5 numbers #220). Left at no effect because the lab has no target for them: `goods.shortageDemandPenalty`, `port.industrialDemandMult`, `port.truckWeight`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`. ENGINEER 3 proposes numbers once the owner approves targets. **Waiting on the owner (targets), then ENGINEER 3.** Nothing for ENGINE to build.
 3. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
 
+Done 2026-11-18: traffic requests made durable (owner's play-test bug: one opened and was met on noise). Asked on a 3-day average, met after 3 days held; `smoothDays` / `holdDays` per kind. School, hospital and utilities requests can also move without the player (seats re-dealt, demand dipping): left as they are, raised with the PM.
+
 Nothing else is unblocked: the next engine work comes from the on-hold list, at the owner's say-so.
 
 ### On hold (do not start without the owner)

@@ -41,6 +41,13 @@ export interface OpenRequest extends Rect {
    */
   seed?: number;
   homes?: number[];
+  /**
+   * Durable kinds only (smoothDays or holdDays above 1): the last smoothDays
+   * daily readings of the need, oldest first, and how many daily checks in a
+   * row their average has passed the met rule. Kept by observeRequests().
+   */
+  samples?: number[];
+  heldDays?: number;
 }
 
 export interface RequestKind {
@@ -53,13 +60,20 @@ export interface RequestKind {
   need(world: World, area: Rect): number;
 }
 
-interface RequestNumbers { days: number; reward: number; penalty: number; askAt: number; metAt: number }
+interface RequestNumbers { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number }
 
 type RequestConfig = {
   spawnEveryDays: number; maxOpen: number; cellSize: number; minHomes: number;
   randomness: number; kinds: Record<string, RequestNumbers>;
 };
 export const requestConfig = (): RequestConfig => BALANCE.politicalCapital.requests as unknown as RequestConfig;
+
+const wholeDays = (v: number | undefined): number => (v !== undefined && v > 1 ? Math.floor(v) : 1);
+/** Daily readings a kind's need is averaged over (1 = today's reading alone). */
+export const smoothDaysOf = (kind: string): number => wholeDays(requestConfig().kinds[kind]?.smoothDays);
+/** Daily checks in a row a request of this kind must pass before it counts as met (1 = at once). */
+export const holdDaysOf = (kind: string): number => wholeDays(requestConfig().kinds[kind]?.holdDays);
+const average = (v: readonly number[]): number => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0);
 
 /** Calls `f` for every developed, lived-in home tile in the area. */
 function forHomes(world: World, a: Rect, f: (i: number, x: number, y: number) => void): number {
@@ -199,10 +213,83 @@ function clusterNeed(world: World, req: OpenRequest): number {
   return live ? missing / live : 0;
 }
 
-/** The need a request is judged on: its asking homes for a cluster kind, else its area. */
-export function requestNeed(world: World, req: OpenRequest): number {
+/** A request's need as the map stands this tick: its asking homes for a cluster kind, else its area. */
+function rawNeed(world: World, req: OpenRequest): number {
   if (req.homes) return clusterNeed(world, req);
   return requestKind(req.kind)?.need(world, req) ?? 0;
+}
+
+/**
+ * The need a request is judged on. For a durable kind with readings taken,
+ * the average of its last smoothDays daily readings; otherwise the need now.
+ */
+export function requestNeed(world: World, req: OpenRequest): number {
+  if (req.samples?.length && smoothDaysOf(req.kind) > 1) return average(req.samples);
+  return rawNeed(world, req);
+}
+
+// Daily readings per neighbourhood for the smoothed kinds, so a request opens
+// only on a need that has lasted. Derived, not saved: after a load a smoothed
+// kind waits smoothDays days before it can ask again.
+const histories = new WeakMap<World, Map<string, number[]>>();
+
+/** A neighbourhood's grid cell (every home of one is in the same cell). */
+function cellKey(world: World, a: Rect): number {
+  const { cellSize } = requestConfig();
+  return Math.floor(a.y0 / cellSize) * Math.ceil(world.grid.width / cellSize) + Math.floor(a.x0 / cellSize);
+}
+
+/** The last daily readings of `kind` for a neighbourhood, oldest first (empty if none). */
+function historyOf(world: World, kind: string, area: Rect): readonly number[] {
+  return histories.get(world)?.get(`${kind}:${cellKey(world, area)}`) ?? [];
+}
+
+/**
+ * The need a neighbourhood is judged on for asking: for a smoothed kind, the
+ * average of a full smoothDays of readings (0 until there are that many);
+ * otherwise the need now.
+ */
+function askingNeed(world: World, k: RequestKind, area: Rect): number {
+  const days = smoothDaysOf(k.id);
+  if (days <= 1 || isClusterKind(k.id)) return k.need(world, area);
+  const h = historyOf(world, k.id, area);
+  return h.length >= days ? average(h) : 0;
+}
+
+/**
+ * The daily reading (RequestSystem, once a game day, before it resolves and
+ * opens): each open durable request takes today's need and counts the days
+ * its average has passed the met rule; each neighbourhood takes a reading for
+ * every smoothed kind that is switched on. Does nothing, and draws no random
+ * number, while no kind is durable or none is on.
+ */
+export function observeRequests(world: World): void {
+  const cfg = requestConfig();
+  for (const r of world.politics.requests) {
+    const n = cfg.kinds[r.kind];
+    const smooth = smoothDaysOf(r.kind), hold = holdDaysOf(r.kind);
+    if (!n || (smooth <= 1 && hold <= 1)) continue;
+    const samples = r.samples ?? (r.samples = []);
+    samples.push(rawNeed(world, r));
+    if (samples.length > smooth) samples.splice(0, samples.length - smooth);
+    r.heldDays = metAt(average(samples), r.needAtOpen, n.metAt) ? (r.heldDays ?? 0) + 1 : 0;
+  }
+  if (cfg.spawnEveryDays <= 0) return;
+  const smoothed = REQUEST_KINDS.filter((k) => !isClusterKind(k.id) && smoothDaysOf(k.id) > 1 && (cfg.kinds[k.id]?.days ?? 0) > 0);
+  if (!smoothed.length) { histories.delete(world); return; }
+  const before = histories.get(world);
+  const now = new Map<string, number[]>();      // rebuilt, so a neighbourhood that is gone is forgotten
+  for (const area of neighbourhoods(world)) {
+    for (const k of smoothed) {
+      const key = `${k.id}:${cellKey(world, area)}`;
+      const h = before?.get(key) ?? [];
+      h.push(k.need(world, area));
+      const days = smoothDaysOf(k.id);
+      if (h.length > days) h.splice(0, h.length - days);
+      now.set(key, h);
+    }
+  }
+  histories.set(world, now);
 }
 
 /**
@@ -255,10 +342,23 @@ function metAt(need: number, needAtOpen: number, target: number): boolean {
   return need <= target || (need <= needAtOpen / 2 && need < needAtOpen);
 }
 
+/**
+ * Whether a request counts as met. A kind with holdDays above 1 must have
+ * passed the met rule on that many daily checks in a row (observeRequests
+ * keeps the count), so a need that only dips for a day does not pay out.
+ */
 export function isMet(world: World, req: OpenRequest): boolean {
   const k = requestKind(req.kind);
   const n = requestConfig().kinds[req.kind];
-  return !k || !n || metAt(requestNeed(world, req), req.needAtOpen, n.metAt);
+  if (!k || !n) return true;
+  const hold = holdDaysOf(req.kind);
+  if (hold > 1) return (req.heldDays ?? 0) >= hold;
+  return metAt(requestNeed(world, req), req.needAtOpen, n.metAt);
+}
+
+/** A durable request that is passing its met rule but has not yet held for holdDays. It does not expire meanwhile. */
+export function isHolding(req: OpenRequest): boolean {
+  return holdDaysOf(req.kind) > 1 && (req.heldDays ?? 0) > 0;
 }
 
 /** What a request's progress looks like, for the quest log and badges. Shares are 0–1. */
@@ -267,6 +367,14 @@ export interface RequestProgress {
   coveredAtOpen: number;  // the same when the request opened
   coveredNeeded: number;  // met once covered reaches this (see `met` for the exact rule)
   met: boolean;           // exactly isMet()
+  /**
+   * Durable kinds (traffic): `covered` is an average over the last days, and
+   * the request is met once it has stayed at or past `coveredNeeded` for
+   * `holdDays` daily checks in a row; `heldDays` is the count so far (0 when
+   * it is not passing). Other kinds: holdDays 1, heldDays 0 or 1.
+   */
+  heldDays: number;
+  holdDays: number;
   units: number;          // how many things the share is of
   unit: 'homes' | 'roads' | 'lots' | 'city';
   daysLeft: number;       // whole game days to the deadline, ≥ 0
@@ -320,11 +428,15 @@ export function requestProgress(world: World, req: OpenRequest): RequestProgress
   else if (unit === 'homes') units = forHomes(world, req, () => {});
   else if (unit !== 'city') units = countTiles(world, unit === 'roads' ? growArea(world, req, 2) : req, unit);
   const unmet = unmetByReason(world, req);
+  const met = !k || !n || isMet(world, req);
+  const holdDays = holdDaysOf(req.kind);
   return {
     covered: 1 - need,
     coveredAtOpen: 1 - req.needAtOpen,
     coveredNeeded: 1 - Math.max(target, req.needAtOpen / 2),
-    met: !k || !n || metAt(need, req.needAtOpen, target),
+    met,
+    heldDays: holdDays > 1 ? Math.min(holdDays, req.heldDays ?? 0) : met ? 1 : 0,
+    holdDays,
     units,
     unit,
     daysLeft: Math.max(0, Math.ceil((req.deadlineTick - world.tick) / BALANCE.ticksPerDay)),
@@ -395,7 +507,7 @@ export function neighbourhoods(world: World): Rect[] {
  *     scaled by a random factor in [1 - randomness, 1].
  */
 export function pickRequest(world: World, rng: () => number):
-    { kind: string; area: Rect; need: number; seed?: number; homes?: number[] } | null {
+    { kind: string; area: Rect; need: number; seed?: number; homes?: number[]; samples?: number[] } | null {
   const { randomness, kinds } = requestConfig();
   const open = world.politics.requests;
   const areas = neighbourhoods(world).filter((area) => !open.some((r) => overlaps(r, area)));
@@ -406,7 +518,7 @@ export function pickRequest(world: World, rng: () => number):
   for (const k of REQUEST_KINDS) {
     const n = kinds[k.id];
     if (!n || n.days <= 0 || (k.cityWide && open.some((r) => r.kind === k.id))) continue;
-    const needs = areas.map((a) => k.need(world, a));
+    const needs = areas.map((a) => askingNeed(world, k, a));
     const worst = Math.max(...needs);
     if (worst <= n.askAt) continue;
     eligible.push({ k, needs, worst });
@@ -427,7 +539,12 @@ export function pickRequest(world: World, rng: () => number):
   });
   if (best < 0) return null;
   const plan = planRequest(world, chosen.k.id, areas[best], rng);
-  return plan ? { kind: chosen.k.id, ...plan } : null;
+  if (!plan) return null;
+  if (!isClusterKind(chosen.k.id) && smoothDaysOf(chosen.k.id) > 1) {
+    // A smoothed kind opens at the averaged need, with the readings behind it.
+    return { kind: chosen.k.id, ...plan, need: chosen.needs[best], samples: [...historyOf(world, chosen.k.id, areas[best])] };
+  }
+  return { kind: chosen.k.id, ...plan };
 }
 
 // ── Opening and resolving (RequestSystem, and the debug panel's buttons) ─────
@@ -438,7 +555,7 @@ const payload = (r: OpenRequest) =>
 /** Open a request of `kind` for `area`, due in `days` game days; `needAtOpen` is the area's need now. */
 export function openRequest(
   world: World, kind: string, area: Rect, days: number, needAtOpen: number,
-  cluster?: { seed?: number; homes?: number[] },
+  cluster?: { seed?: number; homes?: number[]; samples?: number[] },
 ): OpenRequest {
   const req: OpenRequest = {
     id: world.politics.nextRequestId++,
@@ -449,6 +566,7 @@ export function openRequest(
     needAtOpen,
   };
   if (cluster?.homes) { req.seed = cluster.seed; req.homes = [...cluster.homes]; }
+  if (cluster?.samples) req.samples = [...cluster.samples];
   world.politics.requests.push(req);
   world.events.emit('requestOpened', payload(req));
   return req;
