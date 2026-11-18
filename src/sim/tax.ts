@@ -47,6 +47,17 @@ export function taxDemandMult(level: number): number {
   return level > 0 ? (neutral / level) ** demandStrength : Infinity;
 }
 
+/**
+ * Tax exodus: the chance, each growth pass, that a developed home loses one
+ * level at `level`. exodusPerPoint for every point above neutral; 0 at or
+ * below neutral and while exodusPerPoint is 0. At most 1.
+ */
+export function taxExodusChance(level: number): number {
+  const { neutral, exodusPerPoint } = BALANCE.tax.level as { neutral: number; exodusPerPoint: number };
+  if (level <= neutral || !(exodusPerPoint > 0)) return 0;
+  return Math.min(1, (level - neutral) * exodusPerPoint);
+}
+
 /** City satisfaction after the tax level's effect, kept within 0–1. `base` is satisfaction before it. */
 export function withTaxSatisfaction(world: World, base: number): number {
   const delta = taxSatisfactionDelta(world.budget.taxLevel);
@@ -104,6 +115,8 @@ export interface TaxEffect {
    * rates and demand's own limits (so it can be Infinity at 0%).
    */
   demandMult: number;
+  /** Tax exodus: the chance per growth pass that a developed home loses a level. 0 at or below neutral. */
+  exodusChance: number;
   /** What the level adds to satisfaction (0–1 scale). */
   satisfactionDelta: number;
   /** Projected city satisfaction, 0–1. */
@@ -141,6 +154,7 @@ export function taxEffect(world: World, level: number = world.budget.taxLevel): 
     incomeChange: income - current,
     net: income - world.budget.expenses,
     demandMult: taxDemandMult(level),
+    exodusChance: taxExodusChance(level),
     satisfactionDelta,
     satisfaction,
     pcRegenPerDay: regenPerTick(world, satisfaction) * BALANCE.ticksPerDay,

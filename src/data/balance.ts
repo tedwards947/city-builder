@@ -61,7 +61,10 @@ export const BALANCE = {
     // (loses it for every point above). Growth demand in every zone is
     // multiplied by (neutral ÷ level) ^ demandStrength: 1 = the same rule as
     // the per-zone rates, 0 = no effect. At neutral nothing changes.
-    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1 },
+    // Tax exodus: for each point above neutral, every developed home has an
+    // exodusPerPoint chance per growth pass (growth.tickInterval ticks) of
+    // losing one level, down to an empty lot. 0 = off (shipped until tuned).
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1, exodusPerPoint: 0 },
   },
   maintenance: {
     road: 0.04,

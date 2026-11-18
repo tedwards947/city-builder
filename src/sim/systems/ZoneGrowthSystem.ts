@@ -6,6 +6,7 @@ import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../c
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import { markDeveloped } from '../established';
+import { taxExodusChance } from '../tax';
 
 /** Inverse of `a` modulo `m`, or 0 if there is none (a and m share a factor). */
 function modInverse(a: number, m: number): number {
@@ -137,6 +138,22 @@ export class ZoneGrowthSystem {
         if (dev[i] === 1) markDeveloped(world, i);   // built up from empty: its years start now
         world.grid.markDirty(x, y);
         world.events.emit('tileDeveloped', { tx: x, ty: y, zone: zone[i], level: dev[i] });
+      }
+    }
+
+    // Tax exodus: while the tax level is above neutral, each developed home
+    // may lose one level this pass. No rolls at all while it is off.
+    const exodus = taxExodusChance(world.budget.taxLevel);
+    if (exodus > 0) {
+      const { zoned, zonedCount } = world.index;
+      for (let q = 0; q < zonedCount; q++) {
+        const i = zoned[q];
+        if (zone[i] !== ZONE_R || dev[i] === 0 || abandoned[i] !== 0) continue;
+        if (world.rng() >= exodus) continue;
+        dev[i]--;
+        const x = i % width;
+        world.grid.markDirty(x, (i - x) / width);
+        world.events.emit('tileDeclined', { tx: x, ty: (i - x) / width, zone: ZONE_R, level: dev[i], reason: 'tax' });
       }
     }
   }

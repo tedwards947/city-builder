@@ -47,6 +47,9 @@ export type CityEvents = {
   tileAbandoned:    { tx: number; ty: number; zone: number; level: number };
   // Zone growth (emitted by ZoneGrowthSystem)
   tileDeveloped:    { tx: number; ty: number; zone: number; level: number };
+  // Tax exodus: a home lost one level because the tax level is above neutral.
+  // `level` is the level it has now (0 = an empty lot again).
+  tileDeclined:     { tx: number; ty: number; zone: number; level: number; reason: 'tax' };
   // Political capital changed by one command (emitted by changePc in
   // sim/politics.ts; passive regeneration does not emit). `delta` is signed.
   // `undo` is true when the command is being undone. A drag emits one per
