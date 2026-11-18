@@ -123,6 +123,16 @@ export class VibeSystem {
       this._spatialNudge(world, tx, ty, 'vibePlanned', n.planned.roadBuilt);
     });
 
+    // The tree brush and eraser: each tree nudges its own tile along the green axis.
+    const trees = (points: () => number) => (p: Record<string, unknown>) => {
+      const pts = points();
+      if (pts === 0) return;
+      const { width } = world.grid;
+      for (const i of p.tiles as number[]) this._spatialNudge(world, i % width, (i - (i % width)) / width, 'vibeGreen', pts);
+    };
+    ev.on('treesPlanted', trees(() => n.green.treePlanted));
+    ev.on('treesCleared', trees(() => n.green.treeCleared));
+
     ev.on('buildingPlaced', (p) => {
       const tx = p.tx as number;
       const ty = p.ty as number;

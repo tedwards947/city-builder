@@ -41,6 +41,7 @@ export class LandValueSystem {
   private _easing: Rect = { x0: 0, y0: 0, x1: -1, y1: -1 }; // tiles that changed last run
   private _acc = new Float64Array(0);          // each tile's target while it is being added up
   private _cong = new Uint8Array(0);           // highest congestion on a road within 2 tiles
+  private _trees = new Uint16Array(0);         // trees within treeRadius, while the tree bonus is on
 
   update(world: World): void {
     if (world.tick % BALANCE.growth.tickInterval !== 0) return;
@@ -57,6 +58,7 @@ export class LandValueSystem {
     const abandoned = world.layers.abandoned;
     const congestion = world.layers.congestion;
     const roadClass = world.layers.roadClass;
+    const veg = world.layers.vegetation;
 
     // ── Per-tile land value ────────────────────────────────────────────────────
     // Which tiles to recompute. The first run on a layer does the whole map
@@ -161,6 +163,34 @@ export class LandValueSystem {
             else if (what === 2) acc[i] -= LV.industryPenalty / (Math.abs(x - qx) + Math.abs(y - qy));
             else acc[i] += LV.neighborBonus;
           }
+        }
+      }
+    }
+
+    // 3b. Trees nearby (off while treeBonus is 0). Each tree adds one to the
+    //     count of every tile within treeRadius of it; the bonus is capped,
+    //     so a forest is worth no more than a well-planted street.
+    const treeBonus = (LV as { treeBonus: number }).treeBonus;
+    if (treeBonus !== 0 && sx0 <= sx1 && sy0 <= sy1) {
+      const tr = Math.max(0, LV.treeRadius | 0), cap = LV.treeBonusMax;
+      if (this._trees.length !== n) this._trees = new Uint16Array(n);
+      const trees = this._trees;
+      for (let y = sy0; y <= sy1; y++) trees.fill(0, y * width + sx0, y * width + sx1 + 1);
+      const tx0 = Math.max(0, sx0 - tr), tx1 = Math.min(width - 1, sx1 + tr);
+      const ty0 = Math.max(0, sy0 - tr), ty1 = Math.min(height - 1, sy1 + tr);
+      for (let qy = ty0; qy <= ty1; qy++) {
+        for (let qx = tx0; qx <= tx1; qx++) {
+          if (veg[qy * width + qx] === 0) continue;
+          const ax0 = Math.max(sx0, qx - tr), ax1 = Math.min(sx1, qx + tr);
+          const ay0 = Math.max(sy0, qy - tr), ay1 = Math.min(sy1, qy + tr);
+          for (let y = ay0; y <= ay1; y++) {
+            for (let i = y * width + ax0, end = y * width + ax1; i <= end; i++) trees[i]++;
+          }
+        }
+      }
+      for (let y = Math.max(region.y0, sy0); y <= Math.min(region.y1, sy1); y++) {
+        for (let i = y * width + sx0, end = y * width + sx1; i <= end; i++) {
+          if (trees[i] !== 0) acc[i] += Math.min(cap, trees[i] * treeBonus);
         }
       }
     }

@@ -203,6 +203,14 @@ export const BALANCE = {
     industryPenalty: 24,  // per adjacent developed I zone tile
     neighborBonus: 8,     // per adjacent developed non-I zone tile
     abandonedPenalty: 20, // per adjacent abandoned tile
+    // Trees nearby raise land value (LANDSCAPING_DESIGN.md): treeBonus per
+    // tree tile within treeRadius tiles (a square, the tile itself included),
+    // up to treeBonusMax in all. Wild and planted trees count alike. Applied
+    // within reach of the built-up area only. SWITCHED OFF at treeBonus 0
+    // until the lab sets it.
+    treeBonus: 0,
+    treeRadius: 2,
+    treeBonusMax: 20,
     smoothing: 0.25,      // blend rate toward target per LandValueSystem tick
   },
   demand: {
@@ -345,6 +353,12 @@ export const BALANCE = {
       },
       green: {
         parkBuilt:             5.0,
+        // Per tree planted with the tree brush, and per tree removed with the
+        // eraser (a negative number makes clearing un-green). On the tree's
+        // own tile; it spreads like any other nudge. SWITCHED OFF at 0 until
+        // the lab sets them.
+        treePlanted:           0,
+        treeCleared:           0,
         industrialZone:       -3.0,  // per I zone painted
         powerPlantBuilt:      -2.0,
         residentialZone:       0.2,
