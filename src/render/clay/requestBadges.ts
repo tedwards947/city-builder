@@ -107,6 +107,12 @@ function glyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k
     ctx.moveTo(x + r * 0.12, y - r * 0.58); ctx.lineTo(x - r * 0.34, y + r * 0.08); ctx.lineTo(x - r * 0.02, y + r * 0.08);
     ctx.lineTo(x - r * 0.12, y + r * 0.58); ctx.lineTo(x + r * 0.34, y - r * 0.1); ctx.lineTo(x + r * 0.02, y - r * 0.1);
     ctx.closePath(); ctx.fill();
+  } else if (kind === 'airport') {             // a plane seen from above, climbing to the upper right
+    const P: [number, number][] = [[0, -0.6], [0.09, -0.46], [0.09, -0.12], [0.56, 0.12], [0.56, 0.23], [0.09, 0.08], [0.08, 0.38], [0.24, 0.5], [0.24, 0.59], [0, 0.51]];
+    const pts = [...P, ...P.slice(1, -1).reverse().map(([px, py]): [number, number] => [-px, py])];
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+    ctx.beginPath(); pts.forEach(([px, py], k) => (k ? ctx.lineTo(px * r, py * r) : ctx.moveTo(px * r, py * r))); ctx.closePath(); ctx.fill();
+    ctx.restore();
   } else if (kind === 'trafficJam') {          // a car, side on
     ctx.beginPath(); ctx.roundRect(x - r * 0.52, y - r * 0.05, r * 1.04, r * 0.3, r * 0.08); ctx.fill();
     ctx.beginPath(); ctx.roundRect(x - r * 0.28, y - r * 0.32, r * 0.56, r * 0.32, r * 0.08); ctx.fill();
