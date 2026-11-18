@@ -21,6 +21,7 @@ import { ZONE_R, BUILDING_PARK, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL,
 import { trafficVolume, roadCapacity } from './TrafficData';
 import { changePc } from './politics';
 import { coveredBy, homesWithinReach, touchesAccessRoad } from './serviceValue';
+import { hasCapacity, homeSeat } from './serviceCapacity';
 
 export interface Rect { x0: number; y0: number; x1: number; y1: number }
 
@@ -273,6 +274,37 @@ export interface RequestProgress {
   penalty: number;
   rect: Rect;                // the request's area (for a cluster kind, its homes' bounding box)
   homes: readonly number[];  // the asking homes' tile indices (cluster kinds; else empty)
+  /**
+   * Coverage kinds only (else all 0 / null): the asking homes still without
+   * the service, by why. `unmetFull`: a building reaches the home but it and
+   * every other in reach are full (only kinds with a capacity: school,
+   * hospital); the remedy is more seats. `unmetOutOfReach`: no building
+   * reaches it; the remedy is one nearer. `unmetReason` is the commoner of the
+   * two (out of reach on a tie), null when no asking home is without it.
+   * Seats are re-dealt once a game day and on a map change, so for a tick or
+   * two after an edit the two counts may not add up to every home lacking it.
+   */
+  unmetFull: number;
+  unmetOutOfReach: number;
+  unmetReason: UnmetReason | null;
+}
+
+export type UnmetReason = 'full' | 'outOfReach';
+
+/** The asking homes of a cluster request still without the service, by why (see RequestProgress). */
+function unmetByReason(world: World, req: OpenRequest): { full: number; outOfReach: number } {
+  const out = { full: 0, outOfReach: 0 };
+  const service = SERVICE_OF[req.kind];
+  if (!req.homes || service === undefined) return out;
+  const w = world.grid.width;
+  const seats = hasCapacity(service);
+  for (const i of req.homes) {
+    if (!isHome(world, i) || !lacks(world, req.kind, i)) continue;
+    if (!seats) { out.outOfReach++; continue; }
+    const reason = homeSeat(world, i % w, (i - (i % w)) / w, service)?.reason;
+    if (reason === 'full') out.full++; else if (reason === 'outOfReach') out.outOfReach++;
+  }
+  return out;
 }
 
 const UNITS: Record<string, RequestProgress['unit']> = { utilities: 'city', trafficJam: 'roads', blight: 'lots' };
@@ -287,6 +319,7 @@ export function requestProgress(world: World, req: OpenRequest): RequestProgress
   if (req.homes) units = req.homes.filter((i) => isHome(world, i)).length;
   else if (unit === 'homes') units = forHomes(world, req, () => {});
   else if (unit !== 'city') units = countTiles(world, unit === 'roads' ? growArea(world, req, 2) : req, unit);
+  const unmet = unmetByReason(world, req);
   return {
     covered: 1 - need,
     coveredAtOpen: 1 - req.needAtOpen,
@@ -299,6 +332,9 @@ export function requestProgress(world: World, req: OpenRequest): RequestProgress
     penalty: n?.penalty ?? 0,
     rect: { x0: req.x0, y0: req.y0, x1: req.x1, y1: req.y1 },
     homes: req.homes ?? [],
+    unmetFull: unmet.full,
+    unmetOutOfReach: unmet.outOfReach,
+    unmetReason: unmet.full + unmet.outOfReach === 0 ? null : unmet.full > unmet.outOfReach ? 'full' : 'outOfReach',
   };
 }
 

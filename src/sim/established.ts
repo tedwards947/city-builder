@@ -42,7 +42,7 @@ export function developedYears(world: World, i: number): number {
 
 /** Years a lot must stay developed to count as established. 0 = nothing ever counts (switched off). */
 export function establishedAfterYears(): number {
-  return (BALANCE.politicalCapital as { establishedYears?: number }).establishedYears ?? 0;
+  return BALANCE.politicalCapital.establishedYears;
 }
 
 /** Whether the lot on tile `i` is established. Always false while the threshold is 0. */
