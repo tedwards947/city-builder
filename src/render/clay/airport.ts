@@ -47,8 +47,10 @@ const TOUCH_X = 0.8, PLANE = 2;
 /** The terminal's front (the line it stands on) and middle; the tower's and hangar's feet. */
 const TERM_Y = 1.1, TERM_X = 6.2, TOWER = [0.9, 1.0] as const, HANGAR = [11.3, 1.1] as const;
 const APRON = { x0: 0, y0: 0.95, x1: 12, y1: 3.4 };
-/** Seconds in one cycle: land, park, turn round, take off, a little quiet. */
-export const CYCLE_S = 60;
+/** Seconds in one cycle: land, park, turn round, take off, a little quiet. Planes stay in sight a long way out (owner: they should last longer before fading). */
+export const CYCLE_S = 70;
+/** The approach takes LAND_S seconds; everything on the ground runs SHIFT seconds later than the first cut's 5 s approach did. */
+const LAND_S = 12, SHIFT = LAND_S - 5;
 
 const E = (f: number) => f * f * (3 - 2 * f), clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f, seg = (c: number, t0: number, t1: number) => clamp((c - t0) / (t1 - t0), 0, 1);
@@ -58,10 +60,11 @@ const hash = (n: number) => { n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n = Math
 export interface PlaneState { x: number; y: number; alt: number; a: number }
 
 /** The plane of the cycle at second `c` (0 ≤ c < CYCLE_S), or null in the quiet at the end. */
-export function airportPlaneAt(c: number): PlaneState | null {
+export function airportPlaneAt(t: number): PlaneState | null {
   const at = (x: number, y: number, alt = 0, a = 1): PlaneState => ({ x, y, alt, a });
   const R = RUNWAY.y, G = GATES[2];
-  if (c < 5) { const f = c / 5; return at(TOUCH_X - 6.2 * (1 - f), R, 1.7 * Math.pow(1 - f, 1.3), seg(c, 0, 1)); }   // approach
+  if (t < LAND_S) { const f = t / LAND_S; return at(TOUCH_X - 18 * (1 - f), R, 4 * Math.pow(1 - f, 1.3), seg(t, 0, 1.5)); }   // a long approach, in sight from 18 tiles out
+  const c = t - SHIFT;
   if (c < 10) { const f = (c - 5) / 5; return at(lerp(TOUCH_X, EXIT_X, 1 - (1 - f) * (1 - f)), R); }                 // roll-out
   if (c < 13.5) return at(EXIT_X, lerp(R, GATE_Y, E((c - 10) / 3.5)));                                                // slide off the runway
   if (c < 16) { const f = (c - 13.5) / 2.5; return at(lerp(EXIT_X, G, 1 - (1 - f) * (1 - f)), GATE_Y); }             // pull up to the bridge
@@ -70,12 +73,13 @@ export function airportPlaneAt(c: number): PlaneState | null {
   if (c < 44) return at(lerp(G - 0.5, DEPART_X, E((c - 36) / 8)), TAXI_Y);                                            // pushed along the taxilane
   if (c < 45.5) return at(DEPART_X, TAXI_Y);
   if (c < 49) return at(DEPART_X, lerp(TAXI_Y, R, E((c - 45.5) / 3.5)));                                              // slide onto the runway
-  if (c < 56) { const f = (c - 49) / 7, x = DEPART_X + 15 * f * f; return at(x, R, Math.max(0, x - DEPART_X - 6.5) * 0.35, 1 - seg(x, 13, 16.5)); }   // take-off
+  if (c < 59) { const f = (c - 49) / 10, x = DEPART_X + 34 * f * f; return at(x, R, Math.max(0, x - DEPART_X - 6.5) * 0.35, 1 - seg(x, 25, 34)); }   // take-off, climbing out of sight
   return null;
 }
 
 /** How far the active gate's bridge is out at second `c`: 0 pulled back … 1 at the door. */
-export function bridgeOut(c: number): number {
+export function bridgeOut(t: number): number {
+  const c = t - SHIFT;
   return c < 16 ? 0 : c < 17.5 ? E((c - 16) / 1.5) : c < 31.5 ? 1 : c < 33 ? 1 - E((c - 31.5) / 1.5) : 0;
 }
 
@@ -87,8 +91,8 @@ export function airportLivery(n: number): string {
 }
 
 interface Vehicle { n: string; x: number; y: number; flip?: boolean; a?: number }
-function vehicles(c: number, p: PlaneState | null): Vehicle[] {
-  const V: Vehicle[] = [], G = GATES[2], OUT = 12.5;
+function vehicles(t: number, p: PlaneState | null): Vehicle[] {
+  const c = t - SHIFT, V: Vehicle[] = [], G = GATES[2], OUT = 12.5;
   const visit = (n: string, t0: number, t1: number, t2: number, t3: number, x: number, y: number) => {
     if (c < t0 || c >= t3) return;
     const out = c >= t2;
@@ -122,7 +126,7 @@ export function drawAirport(ctx: CanvasRenderingContext2D, ox: number, oy: numbe
     ctx.drawImage(img, -m.footX * q, -m.footY * q, m.w * q, m.h * q); ctx.restore();
   };
 
-  const clock = t + seed * CYCLE_S, n = Math.floor(clock / CYCLE_S), c = active ? clock - n * CYCLE_S : 20;
+  const clock = t + seed * CYCLE_S, n = Math.floor(clock / CYCLE_S), c = active ? clock - n * CYCLE_S : 20 + SHIFT;
   const p = active ? airportPlaneAt(c) : null;
 
   // Ground: grass, the apron with its markings, taxiways, the runway.
