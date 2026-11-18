@@ -2,12 +2,14 @@
 // so the nightly lab reports it. Replace with a newer tuner result (best.values of
 // balance-results/tune-*.json) when one beats it. The game's debug panel shows the
 // same object as preset T (src/ui/pcVariantValues.ts), so this file is the only copy.
-// Source: overnight tuner run 2026-11-17 on fresh-128 + testcity1 (from the T re-tune; 337 evaluations), re-graded on main e662224: 51/52 PC on those cities (previous T 45/52).
+// Source: T re-tune under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000),
+// 2026-11-17, 400 evaluations from the paused run's partial best, on fresh-128, testcity1,
+// gen-s1-t10000 and gen-suburban-s1-t10000: 92/98 PC on those cities (previous T 86/98).
 
 export const TUNED_T: Record<string, unknown> = {
   "overCapFadePerDay": 0.03,
   "max": 150,
-  "capPerResident": 0.015,
+  "capPerResident": 0.008,
   "baseRegen": 0,
   "neutralSatisfaction": 0.7,
   "satisfactionRegenBonus": 1.12,
@@ -30,7 +32,7 @@ export const TUNED_T: Record<string, unknown> = {
         "weight": 0.3
       }
     ],
-    "industrialPerResident": 0.1,
+    "industrialPerResident": 0.0667,
     "buildingPerResident": {
       "1": 0.267,
       "3": 0.178
@@ -38,14 +40,14 @@ export const TUNED_T: Record<string, unknown> = {
   },
   "service": {
     "perResident": {
-      "4": 0.0099,
-      "5": 0.0099,
-      "6": 0.0143,
-      "7": 0.0229,
-      "8": 0.0132
+      "4": 0.0044,
+      "5": 0.0044,
+      "6": 0.00635,
+      "7": 0.00398,
+      "8": 0.00587
     },
-    "repeatFactor": 0.25,
-    "closureMultiplier": 2.5
+    "repeatFactor": 0.45,
+    "closureMultiplier": 1.67
   },
   "milestones": [
     {
@@ -122,7 +124,7 @@ export const TUNED_T: Record<string, unknown> = {
   "ordinancesEnabled": true,
   "ordinances": {
     "neighbourhoodWatch": {
-      "enactCost": 15,
+      "enactCost": 10,
       "dailyUpkeep": 0.18,
       "dailyMoney": 0,
       "modifiers": {
@@ -130,7 +132,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "curfew": {
-      "enactCost": 25,
+      "enactCost": 17,
       "dailyUpkeep": 0.36,
       "dailyMoney": 0,
       "modifiers": {
@@ -139,7 +141,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "cleanAirAct": {
-      "enactCost": 30,
+      "enactCost": 20,
       "dailyUpkeep": 0.3,
       "dailyMoney": 0,
       "modifiers": {
@@ -148,7 +150,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "businessIncentives": {
-      "enactCost": 25,
+      "enactCost": 17,
       "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
@@ -159,7 +161,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "freeTransit": {
-      "enactCost": 30,
+      "enactCost": 20,
       "dailyUpkeep": 0.24,
       "dailyMoney": 700,
       "modifiers": {
@@ -167,7 +169,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "fastTrackPermits": {
-      "enactCost": 20,
+      "enactCost": 13,
       "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
@@ -177,7 +179,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "eminentDomain": {
-      "enactCost": 40,
+      "enactCost": 27,
       "dailyUpkeep": 0.32,
       "dailyMoney": 0,
       "modifiers": {
@@ -186,7 +188,7 @@ export const TUNED_T: Record<string, unknown> = {
       }
     },
     "heritageProtection": {
-      "enactCost": 30,
+      "enactCost": 20,
       "dailyUpkeep": 0.24,
       "dailyMoney": 0,
       "modifiers": {
