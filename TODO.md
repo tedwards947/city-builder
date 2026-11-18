@@ -101,16 +101,14 @@ Done and merged:
 - Tuned PC preset T (`src/balance/tunedT.ts`, used by the lab and the debug panel) (#169, #190), re-tuned under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000): 92/98 PC on fresh-128, testcity1, gen-s1-t10000 and gen-suburban-s1-t10000 (previous T 86/98). School and hospital first-opening pay is in range (pc.ribbon.first) on every city.
 - Lab grades the economy, service capacity and debt game over; tax-slider targets (#185, #193, #195, #197).
 - Trade suite: seaport and goods targets (#219); ENGINE shipped the numbers (#220).
-- Debt / tax suite: the owner's debt.pcDrain, debt.squeeze, tax.high, tax.low, tax.noDominant targets, probes and sweep (this PR).
-
-Open question for the owner:
-- pc.closure.lonely (closing the only hospital ≥ 0.3 of cap) now fails on all four cities (0.14–0.2). With one `closureMultiplier` for every kind it pulls against pc.ribbon.first (first hospital ≤ 0.15) and pc.move (moving a school ≤ 0.05): multiplier 2 / 2.5 / 3 scores 91 / 89 / 91 of 98. Options: a per-kind closure multiplier (ENGINE), a lower closure.lonely range, or accept the miss.
+- Debt / tax suite: the owner's debt.pcDrain, debt.squeeze, tax.high, tax.low, tax.noDominant targets, probes and sweep (#246).
+- Owner's answers (2026-11-18): pc.closure.lonely lowered to ≥ 0.15 of cap, one closureMultiplier kept; tax.low's growth check on mature cities only, fresh town at 0 must still fail econ.noSoftlock. Preset T closureMultiplier 1.67 → 1.85: 95/98 PC (was 94 at 1.67 with the new range); closure.lonely passes on every city, moving a school now costs 0.054 / 0.061 of cap on testcity1 / gen-s1-t10000 against pc.move ≤ 0.05 (this PR).
 
 Proposed, waiting on ENGINE (ships with the PC numbers-on PR):
 - `BALANCE.budget.debtPcDrainPerDay` 0 → 0.75 (lab preset "proposed" in `src/balance/taxdebt.ts`): debt.pcDrain 0.15 on every city, debt.squeeze passes. `debt.test.ts` pins the drain at 0 while PC is off, so ENGINE turns it on with the rest.
 
-Open question for the owner (tax level):
-- tax.high / tax.low can't pass by tuning `satisfactionPerPoint` / `demandStrength`. Tax income is linear in the level (20 earns exactly 2× level 10 on every city, against a target of +40–90%), and the tax demand rule only slows growth into empty zoned land, so built-out cities lose 0–1% of residents at 20 in 150 days. The fresh town also goes broke at 5 (game over on day 122), which fails tax.low's "growth 10–40% higher". Satisfaction passes (10 points lower at 20 with 0.01). For the targets to pass, high tax has to make people leave a built city (emigration or abandonment above some level, ENGINE), and low tax must not bankrupt a new town, or else the targets should change.
+Waiting on ENGINE (owner approved 2026-11-18):
+- A gentle tax exodus: tax above 10 slowly drains residents or levels from developed homes, key(s) at 0. Then tune `satisfactionPerPoint`, `demandStrength` and the exodus key(s) together against tax.high / tax.low (income is linear in the level, so tax.high's +40–90% income needs the exodus to take residents).
 
 Next:
 1. Landscaping numbers (trees, water editing; GAME ENGINE item 1): propose targets first, tune after the owner's OK.

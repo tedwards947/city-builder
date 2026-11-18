@@ -5,6 +5,7 @@
 // Source: T re-tune under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000),
 // 2026-11-17, 400 evaluations from the paused run's partial best, on fresh-128, testcity1,
 // gen-s1-t10000 and gen-suburban-s1-t10000: 92/98 PC on those cities (previous T 86/98).
+// 2026-11-18: closureMultiplier 1.67 → 1.85 for pc.closure.lonely ≥ 0.15 (owner): 95/98.
 
 export const TUNED_T: Record<string, unknown> = {
   "overCapFadePerDay": 0.03,
@@ -47,7 +48,7 @@ export const TUNED_T: Record<string, unknown> = {
       "8": 0.00587
     },
     "repeatFactor": 0.45,
-    "closureMultiplier": 1.67
+    "closureMultiplier": 1.85
   },
   "milestones": [
     {
