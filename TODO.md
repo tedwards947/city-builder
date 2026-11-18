@@ -12,6 +12,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 1. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
 
+Request text says why homes still lack a service ("nearby schools are full" / "no school in reach", from ENGINE's `unmetReason`), in the badge tooltip and the request log.
+
 School and health map views are in: Overlays → School seats (`g`) and Hospital beds (`b`) show the seat marks (fill bar under each building, amber dot on homes in reach without a place) with no tool selected, with a key bottom-left. The overlay key now has a dark backing and no longer inherits the badges' centred text.
 
 Seaport G2 and the seaport art are in (picks A1, B3, C1–C4, D2/D3 → E1 on `art/clay-set/seaport.html`): painted kit from two sprite sheets (`art/clay-set/raw-port/`, cut by `port-sheet.mjs` to `public/sprites/clay/port/`; 4 paid images, one of them wasted; office replaced by option 4 of `sheet-3.png` at the owner's request), stone docks, code-drawn ships on `shipRoute` (`src/render/clay/ships.ts`), cranes working while a ship is in (`portArt.ts`). **Ships only show once a port trades**: the lab has the port trade numbers at 0 on main, so no port has ships yet (engine/ENGINEER 3). Seen in a browser with trade forced on: docks east, west, north and south, a ship under a bridge, zoomed out.

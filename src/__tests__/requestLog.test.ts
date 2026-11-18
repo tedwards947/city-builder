@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { areaName, progressPercents } from '../ui/requestInfo';
+import { areaName, progressPercents, unmetKey } from '../ui/requestInfo';
+import { t } from '../i18n';
 import { requestLogShown, requestLogState } from '../ui/RequestLog';
 import { Camera } from '../render/Camera';
 import { TILE_SIZE } from '../render/Projection';
@@ -23,6 +24,15 @@ describe('quest log', () => {
     // The engine's rule can lag the raw figure by a hair: until it says met, stay one short.
     expect(progressPercents({ covered: 0.75, coveredNeeded: 0.75, met: false })).toEqual({ covered: 74, needed: 75 });
     expect(progressPercents({ covered: 0.8, coveredNeeded: 0.75, met: true })).toEqual({ covered: 80, needed: 75 });
+  });
+
+  it('says why the asking homes still lack the service', () => {
+    expect(t(unmetKey('school', 'full')!)).toBe('nearby schools are full');
+    expect(t(unmetKey('hospital', 'outOfReach')!)).toBe('no hospital in reach');
+    expect(unmetKey('school', null)).toBeNull();
+    expect(unmetKey('park', 'full')).toBeNull();          // parks have no seats
+    // Every kind the engine can give a reason for has a string.
+    for (const k of ['park', 'police', 'fire', 'school', 'hospital']) expect(t(unmetKey(k, 'outOfReach')!)).not.toContain('ui.');
   });
 
   it('shows its tile only when requests can happen or one is open', () => {
