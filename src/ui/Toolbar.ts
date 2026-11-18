@@ -7,6 +7,9 @@
 // a family; to add a family, add an entry.
 
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
+import { BRUSH_RADII, landscapeBrush, setLandscapeBrush, treeChoice, setTreeChoice } from '../input/landscape';
+import { TREE_SPECIES_MAX } from '../sim/landscaping';
+import { WILD_SPECIES, drawTreeIcon, loadWildTrees } from '../render/clay/wildTrees';
 import type { Tool, RoadMode } from '../input/InputController';
 import { roadClassForTool, zoneForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
@@ -88,6 +91,12 @@ export const TOOLBAR: ToolbarEntry[] = [
   { family: 'parks', icon: 'park', items: [
     { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
   ] },
+  // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
+  { family: 'landscape', icon: 'tree', items: [
+    { key: 'trees', icon: 'tree', tool: 'trees', hotkey: 'k' },
+    { key: 'addWater', icon: 'addWater', tool: 'addWater' },
+    { key: 'removeWater', icon: 'removeWater', tool: 'removeWater' },
+  ] },
   // Trade (SEAPORT_DESIGN.md): a yard on land with docks over open water.
   { key: 'seaport', icon: 'port', tool: 'seaport' },
   'sep',
@@ -120,7 +129,8 @@ const BUILDING_KIND: Partial<Record<Tool, number>> = {
 /** Flat per-tile prices, read when asked so a change to BALANCE shows at once. */
 function flatCost(tool: Tool): number | undefined {
   const c = BALANCE.costs;
-  return tool === 'zoneR' ? c.zoneR : tool === 'zoneC' ? c.zoneC : tool === 'zoneI' ? c.zoneI : tool === 'bulldoze' ? c.bulldoze : undefined;
+  return tool === 'zoneR' ? c.zoneR : tool === 'zoneC' ? c.zoneC : tool === 'zoneI' ? c.zoneI : tool === 'bulldoze' ? c.bulldoze
+    : tool === 'trees' ? c.tree : tool === 'addWater' || tool === 'removeWater' ? c.water : undefined;
 }
 
 /** The building a tool places, if it places one. */
@@ -160,7 +170,7 @@ export function toolPrice(tool: Tool): { cost?: string; upkeep?: string } {
   const flat = flatCost(tool);
   // A tool whose price is set to 0 (zoning, since it became free) is free, not "$0 / tile".
   if (flat === 0) return { cost: t('ui.toolbar.free') };
-  return flat !== undefined ? { cost: money(flat) + ' / tile' } : {};
+  return flat !== undefined ? { cost: money(flat) + (tool === 'trees' ? ' / tree' : ' / tile') } : {};
 }
 
 /** Every pickable item, families flattened. */
@@ -222,6 +232,9 @@ export class Toolbar {
     });
     this.render();
   }
+
+  /** Redraws now (a setting changed from the keyboard, e.g. the brush size). */
+  refresh(): void { this.render(); }
 
   /**
    * Call every frame: redraws if an item's `shown` answer changed (a feature
@@ -329,13 +342,14 @@ export class Toolbar {
         row.appendChild(node('span', 'tb-pc')).textContent = PC_SYMBOL + ' ' + t('ui.toolbar.pcNearHomes');
       }
       const cost = item.tool !== undefined ? toolPrice(item.tool).cost : undefined;
-      if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '');
+      if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '').replace(' / tree', '');
       row.addEventListener('click', () => { this.open = null; this.pick(item); this.render(); });
       this.hover(row, () => this.itemTip(item), fly);
       fly.append(row);
     }
     if (f.family === 'roads') fly.append(this.roadModeSwitch());
     if (f.family === 'zones') fly.append(this.zoneModeSwitch());
+    if (f.family === 'landscape') fly.append(this.landscapeOptions());
 
     // Line up with the tile, but stay on screen.
     requestAnimationFrame(() => {
@@ -367,6 +381,43 @@ export class Toolbar {
       });
       seg.append(b);
     }
+    return box;
+  }
+
+  /** The tree species (Mixed or one of six, shown while Trees is picked) and the brush size, for the Landscape tools. */
+  private landscapeOptions(): HTMLElement {
+    const box = node('div', 'tb-mode');
+    if (this.tool === 'trees') {
+      box.appendChild(node('div', 'tb-head')).textContent = t('ui.landscape.species');
+      const grid = box.appendChild(node('div', 'tb-species'));
+      for (let sp = 0; sp <= TREE_SPECIES_MAX; sp++) {
+        const b = node('button', sp === treeChoice() ? 'on' : '');
+        b.type = 'button';
+        const name = sp === 0 ? t('ui.landscape.mixed') : t(('ui.landscape.' + WILD_SPECIES[sp - 1]) as 'ui.landscape.beech');
+        b.setAttribute('aria-label', name);
+        b.title = name;
+        if (sp === 0) b.textContent = name;
+        else {
+          const c = document.createElement('canvas'); c.width = 28; c.height = 32;
+          const ctx = c.getContext('2d');
+          if (ctx && !drawTreeIcon(ctx, sp, 28, 32)) loadWildTrees(() => drawTreeIcon(ctx, sp, 28, 32));
+          b.append(c);
+        }
+        b.addEventListener('click', () => { setTreeChoice(sp); this.render(); });
+        grid.append(b);
+      }
+    }
+    box.appendChild(node('div', 'tb-head')).textContent = t('ui.landscape.brush');
+    const seg = box.appendChild(node('div', 'tb-seg'));
+    for (const r of BRUSH_RADII) {
+      const b = node('button', r === landscapeBrush() ? 'on' : '');
+      b.type = 'button';
+      b.textContent = String(2 * r + 1);
+      b.style.textAlign = 'center';
+      b.addEventListener('click', () => { setLandscapeBrush(r); this.render(); });
+      seg.append(b);
+    }
+    box.appendChild(node('div', 'tb-hint')).textContent = t('ui.landscape.brushHint');
     return box;
   }
 

@@ -21,6 +21,7 @@ import { drawPortSprite } from './clay/portArt';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
+import type { LandscapePreview, TagTone } from '../ui/landscapePreview';
 import type { World } from '../sim/World';
 import type { Camera, TileBounds } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
@@ -64,6 +65,8 @@ export interface RenderOptions {
   zonePreview?: ZonePreview | null;
   /** Political capital at the pointer: fall-off rings, homes that object, and the PC price. */
   pcPreview?: PcPreview | null;
+  /** A Landscape brush or stroke: ghost trees or water, blocked tiles, what it floods, and its tag. */
+  landscape?: LandscapePreview | null;
   /** Resident requests that have just been met or missed, to mark for a moment. */
   requestOutcomes?: readonly RequestOutcome[];
   /** Areas to outline (tiles, inclusive corners), each at `alpha` 0–1: where the camera just jumped to, or the request under the pointer. */
@@ -204,7 +207,7 @@ export class CanvasRenderer {
   /** Draws one frame. The passes run back to front. */
   render(world: World, camera: Camera, options: RenderOptions = {}): void {
     if (camera.zoom < 0.1) return;
-    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null } = options;
+    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null, landscape = null } = options;
 
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
@@ -245,6 +248,7 @@ export class CanvasRenderer {
     if (options.seatView) this._drawSeatView(ctx, world, camera, bounds, ts, options.seatView);
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
+    if (landscape !== null) this._drawLandscapePreview(ctx, world, camera, ts, landscape);
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok, pcPreview?.warning === true);
 
     const tlsx = camera.worldToScreenX(0);
@@ -797,6 +801,80 @@ export class CanvasRenderer {
   }
 
   /** The lots a zone fill would zone: tinted in the zone's colour and outlined, the price by the pointer. */
+  /** A Landscape brush or stroke (art/clay-set/landscape-tools.html, C1 and D1–D4) with its tag by the pointer (E1). */
+  private _drawLandscapePreview(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, p: LandscapePreview): void {
+    const W = world.grid.width, size = Math.ceil(ts);
+    const at = (i: number): [number, number] => [
+      Math.floor(camera.worldToScreenX(Projection.tileToWorldX(i % W))),
+      Math.floor(camera.worldToScreenY(Projection.tileToWorldY(Math.floor(i / W)))),
+    ];
+    ctx.save();
+    // The brush: a faint outline round every tile it covers.
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+    for (const i of p.brush) { const [x, y] = at(i); ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1); }
+    // What would change: ghost trees, ghost water or ghost land.
+    if (p.tool === 'trees') {
+      ctx.globalAlpha = 0.6;
+      for (let k = 0; k < p.change.length; k++) {
+        const i = p.change[k], [x, y] = at(i);
+        if (ts >= 6) drawWildTrees(ctx, p.species[k], wildVariant(i % W, Math.floor(i / W)), 2, x, y, ts);
+        else { ctx.fillStyle = '#3f7a35'; ctx.fillRect(x, y, size, size); }
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      const add = p.tool === 'addWater';
+      ctx.fillStyle = add ? 'rgba(80,150,215,0.7)' : 'rgba(125,150,85,0.85)';
+      ctx.strokeStyle = add ? 'rgba(205,232,255,0.9)' : 'rgba(232,240,205,0.9)'; ctx.lineWidth = 1.5;
+      for (const i of p.change) { const [x, y] = at(i); ctx.fillRect(x, y, size, size); ctx.strokeRect(x + 1, y + 1, size - 2, size - 2); }
+    }
+    // What blocks it: red with a cross.
+    ctx.lineWidth = Math.max(1.5, ts * 0.07);
+    for (const i of p.blocked) {
+      const [x, y] = at(i), m = size * 0.28;
+      ctx.fillStyle = 'rgba(230,60,50,0.55)'; ctx.fillRect(x, y, size, size);
+      ctx.strokeStyle = '#ffdfda'; ctx.beginPath(); ctx.moveTo(x + m, y + m); ctx.lineTo(x + size - m, y + size - m); ctx.moveTo(x + size - m, y + m); ctx.lineTo(x + m, y + size - m); ctx.stroke();
+    }
+    // What adding water would bulldoze: every tile of each building, outlined red.
+    ctx.strokeStyle = '#ff5a4a'; ctx.lineWidth = 2;
+    for (const a of p.demolished) {
+      const ax = a % W, ay = Math.floor(a / W);
+      const tiles = world.layers.building[a] !== 0 ? world.buildingTilesAt(ax, ay) : [a];
+      for (const i of tiles) { const [x, y] = at(i); ctx.strokeRect(x + 1, y + 1, size - 2, size - 2); }
+    }
+    // Ports and pumps the stroke cuts off, leaves dry or reconnects: a dashed ring round the whole building.
+    ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
+    for (const { anchor, tone } of p.rings) {
+      const tiles = world.buildingTilesAt(anchor % W, Math.floor(anchor / W));
+      if (tiles.length === 0) continue;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const i of tiles) { const [x, y] = at(i); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + size); y1 = Math.max(y1, y + size); }
+      ctx.strokeStyle = tone === 'warn' ? '#e0b050' : '#7dd87d';
+      ctx.strokeRect(x0 - 2.5, y0 - 2.5, x1 - x0 + 5, y1 - y0 + 5);
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+    this._drawTagLines(ctx, camera.worldToScreenX(Projection.tileToWorldX(p.at.tx)) + ts + 10, camera.worldToScreenY(Projection.tileToWorldY(p.at.ty)) + ts / 2, p.lines);
+  }
+
+  /** A tag of lines beside the pointer in the game's tooltip style, kept on screen. */
+  private _drawTagLines(ctx: CanvasRenderingContext2D, x: number, y: number, lines: readonly { text: string; tone: TagTone }[]): void {
+    if (lines.length === 0) return;
+    const COLOUR: Record<TagTone, string> = { title: '#ffffff', money: '#7dd87d', bad: '#ff7a6a', pc: '#7dd8c0', warn: '#e0b050', good: '#7dd87d', dim: '#9aabb8' };
+    const font = (tone: TagTone) => (tone === 'title' ? '600 ' : '500 ') + '12px system-ui, sans-serif';
+    ctx.save();
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    let w = 0;
+    for (const l of lines) { ctx.font = font(l.tone); w = Math.max(w, ctx.measureText(l.text).width); }
+    const LH = 17, h = lines.length * LH + 10, bw = w + 20;
+    const vw = ctx.canvas.width / (ctx.getTransform().a || 1), vh = ctx.canvas.height / (ctx.getTransform().d || 1);
+    if (x + bw > vw - 6) x = Math.max(6, x - bw - 40);
+    y = Math.max(6, Math.min(vh - h - 6, y - h / 2));
+    ctx.fillStyle = 'rgba(10,18,28,0.92)'; ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x + 0.5, y + 0.5, bw, h, 6); ctx.fill(); ctx.stroke();
+    lines.forEach((l, k) => { ctx.font = font(l.tone); ctx.fillStyle = COLOUR[l.tone]; ctx.fillText(l.text, x + 10, y + 5 + LH / 2 + k * LH); });
+    ctx.restore();
+  }
+
   private _drawZonePreview(ctx: CanvasRenderingContext2D, camera: Camera, ts: number, preview: ZonePreview): void {
     const { tiles, ok, color, label, at } = preview;
     const size = Math.ceil(ts);

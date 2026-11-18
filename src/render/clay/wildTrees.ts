@@ -169,3 +169,14 @@ export function drawWildTrees(ctx: CanvasRenderingContext2D, vegetation: number,
   if (!ctx.imageSmoothingEnabled) ctx.imageSmoothingEnabled = true;
   ctx.drawImage(entry.canvas, sx - tile * PAD_X, sy - tile * PAD_TOP, tile * (1 + PAD_X * 2), tile * (1 + PAD_TOP + PAD_BOTTOM));
 }
+
+/** One tree of a species (1–6), fitted into a w×h canvas standing on its bottom edge: the Landscape species buttons. */
+export function drawTreeIcon(ctx: CanvasRenderingContext2D, vegetation: number, w: number, h: number): boolean {
+  const species = WILD_SPECIES[vegetation - 1];
+  const rects = species ? WILD_TREE_RECTS[species] : undefined;
+  if (!atlas || !rects?.length) return false;
+  const [x, y, rw, rh] = rects[Math.min(2, rects.length - 1)], s = Math.min((w - 2) / rw, (h - 1) / rh);
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(atlas, x, y, rw, rh, (w - rw * s) / 2, h - rh * s, rw * s, rh * s);
+  return true;
+}

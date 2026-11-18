@@ -123,6 +123,12 @@
     .tb-seg button { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #dfe7ee; border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; line-height: 1.3; cursor: pointer; text-align: left; }
     .tb-seg button.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
     .tb-seg small { display: block; color: #9ab; font-size: 10px; }
+    .tb-species { display: grid; grid-template-columns: repeat(4, 36px); gap: 3px; margin-bottom: 7px; }
+    .tb-species button { width: 36px; height: 38px; padding: 1px 0 0; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #cde; font: inherit; font-size: 10px; cursor: pointer; display: grid; place-items: end center; overflow: hidden; }
+    .tb-species button:first-child { place-items: center; }
+    .tb-species button.on { background: #4a7a9a; border-color: #8cc0e0; color: #fff; }
+    .tb-species canvas { display: block; }
+    .tb-hint { font-size: 10px; color: #8aa; margin: 5px 3px 0; }
     .tb-seg button.on small { color: #d5e6f2; }
 
     /* ── Hint ── */

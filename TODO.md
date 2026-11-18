@@ -10,7 +10,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-**Now: Landscaping UI** (LANDSCAPING_DESIGN.md). Mocks with feedback form: `art/clay-set/landscape-tools.html` (toolbar A1/A2, species B1/B2, brush C1–C3, water preview D1–D4, warning placement E1/E2); waiting on the owner's picks. API agreed with ENGINE: `PlantTreesCommand(tiles, species)`, `ClearTreesCommand(tiles)`, `treeQuote(world, tiles, species)` in `src/sim/landscaping.ts` (trees PR in progress); `EditWaterCommand(tiles, add)` / `waterQuote` later. Tool ids `trees`, `eraseTrees`, `addWater`, `removeWater` (graphics owns the toolbar and InputController side).
+**Landscaping UI is in** (owner's picks from `art/clay-set/landscape-tools.html`: A1, B2 by default, C1, D1–D4, E1; no eraser, the bulldozer clears trees). Toolbar family Landscape (Trees `K`, Add water, Remove water) with species (Mixed + six) and brush 1/3/5 (`[` `]`) in the fly-out; strokes gather under a round brush and apply on release as one undo (`src/input/landscape.ts`, InputController); ghost trees/water, red blocked tiles, flood outlines, port/pump rings and the cursor tag (`src/ui/landscapePreview.ts`, renderer). Engine commands: TreeCommands (#234), EditWaterCommand (#236), warnings (#237). Not done: an inspect-pane line for a cut-off port or dry pump.
 
 1. **Ships: rework (owner not satisfied).** Start right after landscaping; ask the owner what's off first.
 2. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
