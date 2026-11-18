@@ -151,6 +151,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.roadNetDirty = true;
   world.grid.markAllDirty();
 
+  // A building kind's shape may have changed since the city was saved (the airport's runway grew).
+  world.fitBuildingsToShapes();
   upgradeLoadedRequests(world);
   return world;
 }
