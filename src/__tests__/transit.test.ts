@@ -703,7 +703,7 @@ describe('TransitSystem — goods (shops fetch from industry)', () => {
     const w = simpleTown();
     run(w);
     const d = w.traffic!;
-    expect(d.markets.map(m => m.def.key)).toEqual(['shopping', 'jobs', 'goods', 'exports']);
+    expect(d.markets.map(m => m.def.key)).toEqual(['shopping', 'jobs', 'goods', 'exports', 'visitors']);
     expect(d.markets[0]).toBe(d.shopping);
     expect(d.markets[2]).toBe(d.goods);
     expect(d.goods.def.origin).toBe(ZONE_C);

@@ -19,6 +19,7 @@ import { ordinanceModifier } from '../ordinances';
 import { taxDemandMult } from '../tax';
 import { goodsDemandMult } from '../goods';
 import { portIndustrialDemandMult } from '../seaport';
+import { buildingDemandMult } from '../buildingTraffic';
 import { isEstablished, establishedAfterYears } from '../established';
 import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
@@ -255,10 +256,11 @@ export class LandValueSystem {
     const iTaxMult = taxClamp(TAX.zoneI / taxRates.I * cityTax);
 
     const sqrtClamp = (v: number) => Math.max(DM.min, Math.min(DM.max, Math.sqrt(v)));
-    world.stats.rDemand = taxClamp(sqrtClamp(rRatio) * rTaxMult);
+    world.stats.rDemand = taxClamp(sqrtClamp(rRatio) * rTaxMult * buildingDemandMult(world, 'R'));
     // Business Incentives scales demand for shops and industry. Shops short of goods are in
     // less demand (sim/goods.ts); a connected seaport raises demand for industry (sim/seaport.ts).
-    world.stats.cDemand = taxClamp(sqrtClamp(cRatio) * cTaxMult * ordinanceModifier(world, 'commercialDemand') * goodsDemandMult(world));
-    world.stats.iDemand = taxClamp(sqrtClamp(iRatio) * iTaxMult * ordinanceModifier(world, 'industrialDemand') * portIndustrialDemandMult(world));
+    // A building can scale any of the three while it stands on a road (an airport and shops: sim/buildingTraffic.ts).
+    world.stats.cDemand = taxClamp(sqrtClamp(cRatio) * cTaxMult * ordinanceModifier(world, 'commercialDemand') * goodsDemandMult(world) * buildingDemandMult(world, 'C'));
+    world.stats.iDemand = taxClamp(sqrtClamp(iRatio) * iTaxMult * ordinanceModifier(world, 'industrialDemand') * portIndustrialDemandMult(world) * buildingDemandMult(world, 'I'));
   }
 }

@@ -145,6 +145,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "goods": "b000d6af",
     "jobs": "31f2e34b",
     "shopping": "095ff719",
+    "visitors": "5e509dc5",
   },
 }
 `;
@@ -222,6 +223,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "goods": "1e6ca8d6",
     "jobs": "fc3c6384",
     "shopping": "3dfe927a",
+    "visitors": "5e509dc5",
   },
 }
 `;
@@ -299,6 +301,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
     "goods": "f2768f44",
     "jobs": "0c47cd5a",
     "shopping": "87bbc354",
+    "visitors": "5e509dc5",
   },
 }
 `;

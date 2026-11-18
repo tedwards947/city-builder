@@ -4,7 +4,7 @@
 
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from './constants';
-import { BALANCE } from '../data/balance';
+import { BALANCE, type TrafficMarketKey } from '../data/balance';
 
 /** One travel-time map: time to the nearest destination, and the way there. */
 export interface TrafficField {
@@ -31,7 +31,7 @@ export interface TrafficField {
  * door capacities, prices and road volumes. To add a kind of trip, add a row
  * to MARKET_DEFS; the traffic pass, overlay and debug tools all loop over it.
  */
-export type MarketKey = 'shopping' | 'jobs' | 'goods' | 'exports';
+export type MarketKey = TrafficMarketKey;
 
 /** `dest` of a market no zone receives: its only destinations are buildings (door providers). */
 export const NO_ZONE = -1;
@@ -61,6 +61,9 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   { key: 'exports',  origin: ZONE_I, dest: NO_ZONE,
     rate: () => BALANCE.port.exportTripsPerLevel, capacity: () => 0,
     weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach },
+  // Homes send visitors to buildings that draw them (an airport, a landmark: BALANCE.transit.buildings).
+  // No zone receives visitors, so with no such building (or the trips at 0) this market does not run.
+  { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0 },
 ];
 
 // ── Doors that are not zones ────────────────────────────────────────────────
@@ -98,6 +101,61 @@ export function extraDoors(world: World, market: MarketKey, add: (roadTile: numb
   for (const provider of doorProviders) provider(world, market, add);
 }
 
+// ── Origins that are not zones ──────────────────────────────────────────────
+//
+// A market's trips normally start at developed zone tiles of `def.origin`. A
+// BUILDING can send trips too (arrivals at an airport heading for the shops):
+// it registers a trip provider, which is asked on every traffic pass for the
+// road tiles its trips start from and how many. Those trips behave exactly
+// like a zone's: they take the quickest way to the nearest door, fill it and
+// spill. Trips with no way to a door (or beyond the market's reach) count as
+// stranded. With no provider registered nothing changes.
+
+/**
+ * Called once per market per traffic pass. Call `add(roadTile, trips)` for
+ * each source: a street or avenue tile (anything else is ignored) and the
+ * trips per tick starting there (0 or less is ignored). Must be a pure
+ * function of the world and the balance numbers, like a DoorProvider.
+ */
+export type TripProvider = (world: World, market: MarketKey, add: (roadTile: number, trips: number) => void) => void;
+
+const tripProviders: TripProvider[] = [];
+
+/** Register a trip provider. Returns a function that removes it again (for tests). */
+export function addTripProvider(provider: TripProvider): () => void {
+  tripProviders.push(provider);
+  return () => { const k = tripProviders.indexOf(provider); if (k >= 0) tripProviders.splice(k, 1); };
+}
+
+/** Whether any building can send trips at all. */
+export function hasTripProviders(): boolean {
+  return tripProviders.length > 0;
+}
+
+/** Every extra source of `market`'s trips, from every provider. */
+export function extraTrips(world: World, market: MarketKey, add: (roadTile: number, trips: number) => void): void {
+  for (const provider of tripProviders) provider(world, market, add);
+}
+
+/**
+ * Trips served at one building's doors in one market on the last pass: what
+ * arrived, up to the room, by the building's share of each door. `roads` are
+ * its door tiles and `capacity` what it can take in total, as it told the
+ * door provider. In road units: divide by marketWeight for trips.
+ */
+export function servedAtDoors(roads: readonly number[], field: { doorLoad: Float32Array; doorCap: Float32Array } | undefined, capacity: number): number {
+  if (!field || !(capacity > 0) || roads.length === 0) return 0;
+  const share = capacity / roads.length;
+  let trips = 0;
+  for (const ri of roads) {
+    const cap = field.doorCap[ri];
+    if (!(cap > 0)) continue;
+    // A door may be shared (two buildings on one road, or one beside a zone): take this building's part of it.
+    trips += Math.min(field.doorLoad[ri], cap) * Math.min(1, share / cap);
+  }
+  return trips;
+}
+
 /** Trips each origin level sends in this market. */
 export function marketRate(def: MarketDef): number { return def.rate(); }
 /** Trips each destination level can take in this market. */
@@ -125,6 +183,7 @@ export interface TrafficData {
   jobs: TrafficMarket;     // homes → industry
   goods: TrafficMarket;    // commerce → industry (shops fetching goods)
   exports: TrafficMarket;  // industry → seaport (all zero while no port takes exports)
+  visitors: TrafficMarket; // homes → buildings that draw visitors (all zero while none takes them)
   /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
   toR: TrafficField;
   /** False while the pass is still settling toward a stable assignment. */
@@ -136,7 +195,7 @@ export function makeTrafficData(n: number): TrafficData {
   const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
   return {
     version: 0, markets,
-    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'),
+    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'),
     toR: makeTrafficField(n), settled: false,
   };
 }

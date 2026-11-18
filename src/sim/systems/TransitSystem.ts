@@ -6,6 +6,11 @@
 //     shopping: homes → commerce     jobs: homes → industry
 //     goods:    commerce → industry  (shops fetch goods from industry)
 //     exports:  industry → seaports  (only while a connected port takes them)
+//     visitors: homes → buildings that draw visitors (only while one takes them)
+//
+//   Buildings can also take or send trips in any market (BALANCE.transit
+//   .buildings, sim/buildingTraffic.ts): their access roads are extra doors
+//   or extra sources.
 //
 //   1. MAP. A flood over the road network gives every road tile its travel
 //      time to the nearest destination of the market and the way there.
@@ -57,9 +62,10 @@ import {
   type TrafficData, type TrafficField, type MarketKey,
   makeTrafficData, marketRate, marketCapacity, marketWeight, marketReach, NO_ZONE,
   bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
-  hasDoorProviders, extraDoors,
+  hasDoorProviders, extraDoors, hasTripProviders, extraTrips,
 } from '../TrafficData';
 import '../seaport';   // registers the seaports' doors with the markets
+import '../buildingTraffic';   // registers the doors and trips of BALANCE.transit.buildings
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
 const ITERATIONS_FIRST_PASS = 24;   // first pass of a game, and recompute()
@@ -122,10 +128,12 @@ export class TransitSystem {
   // without working out and checking each neighbour again.
   private _nb!: Int32Array;
   private _nbStale = true;
-  // Per market: how many doors buildings added on this pass, and whether the
-  // market is switched off and holding nothing (a market no zone receives,
-  // with no building door or no trips: it is then skipped altogether).
+  // Per market: how many doors and how many sources of trips buildings added
+  // on this pass, and whether the market is switched off and holding nothing
+  // (a market no zone receives, with no building door or no trips: it is then
+  // skipped altogether).
   private _extraDoorCount: number[] = [];
+  private _extraTripCount: number[] = [];
   private _idle: boolean[] = [];
 
   update(world: World): void {
@@ -186,6 +194,7 @@ export class TransitSystem {
       this._prev = this._data.markets.map(() => new Float32Array(n));
       this._unstable = this._data.markets.map(() => new Uint8Array(n));
       this._extraDoorCount = this._data.markets.map(() => 0);
+      this._extraTripCount = this._data.markets.map(() => 0);
       this._idle = this._data.markets.map(() => false);
       this._firstIteration = true;
       this._lastInputHash = NaN;
@@ -228,6 +237,19 @@ export class TransitSystem {
           if (cap > 0) this._extraDoorCount[k]++;
           h = Math.imul(h ^ (ri * 4 + k), 0x9e3779b1);
           h = Math.imul(h ^ Math.round(cap * 1000), 0x85ebca6b);
+          h ^= h >>> 15;
+        });
+      }
+    }
+    // So are the trips buildings send (arrivals at an airport).
+    if (hasTripProviders()) {
+      for (let k = 0; k < data.markets.length; k++) {
+        this._extraTripCount[k] = 0;
+        extraTrips(world, data.markets[k].def.key, (ri, trips) => {
+          if (!(trips > 0)) return;
+          this._extraTripCount[k]++;
+          h = Math.imul(h ^ (ri * 8 + k), 0x9e3779b1);
+          h = Math.imul(h ^ Math.round(trips * 1000), 0x85ebca6b);
           h ^= h >>> 15;
         });
       }
@@ -390,15 +412,17 @@ export class TransitSystem {
     for (let k = 0; k < markets.length; k++) {
       const m = markets[k];
       const { def, field } = m;
-      const rate = marketRate(def) * marketWeight(def) * this._tripsScale;
-      if (def.dest === NO_ZONE && (rate === 0 || this._extraDoorCount[k] === 0)) {
+      // Road units per trip: a building's trips are scaled like a zone's.
+      const scale = marketWeight(def) * this._tripsScale;
+      const rate = marketRate(def) * scale;
+      if (def.dest === NO_ZONE && (this._extraDoorCount[k] === 0 || (rate === 0 && this._extraTripCount[k] === 0))) {
         // Nowhere to go, or nothing to send: the market holds nothing and costs nothing.
         if (!this._idle[k]) { this._emptyMarket(k); this._idle[k] = true; }
         continue;
       }
       this._idle[k] = false;
       this._flood(world, def.dest, field, marketCapacity(def), def.key);
-      const demand = this._inject(world, field, def.origin, rate, this._flow, marketReach(def));
+      const demand = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
       this._openDoors(field, demand);
       this._sweep(world, field, this._flow);
       this._spill(world, field);
@@ -507,31 +531,43 @@ export class TransitSystem {
 
   /**
    * Put each origin zone's trips on its best adjacent road. Returns the total.
-   * An origin further than `reach` from the nearest door sends nothing.
+   * An origin further than `reach` from the nearest door sends nothing. With
+   * `market` given, the trips buildings send in it are added too, each times
+   * `scale`, straight onto the road tiles they start from.
    */
-  private _inject(world: World, field: TrafficField, originZone: number, rate: number, flow: Float32Array, reach = Infinity): number {
+  private _inject(world: World, field: TrafficField, originZone: number, rate: number, flow: Float32Array, reach = Infinity, market?: MarketKey, scale = 1): number {
     const zone = world.layers.zone;
     const dev  = world.layers.devLevel;
+    const roadClass = world.layers.roadClass;
     const roads = this._roads, roadCount = this._roadCount;
     const lots = this._lots, lotCount = this._lotCount;
     for (let k = 0; k < roadCount; k++) flow[roads[k]] = 0;
     field.stranded = 0;
-    if (rate === 0) return 0;
+    // No destination of this type anywhere: every trip wanted is stranded.
+    const nowhere = field.count === 0;
     let total = 0, stranded = 0;
-    if (field.count === 0) {
-      // No destination of this type anywhere: every trip wanted is stranded.
-      for (let q = 0; q < lotCount; q++) if (zone[lots[q]] === originZone) stranded += dev[lots[q]] * rate;
-      field.stranded = stranded;
-      return 0;
+    if (rate !== 0) {
+      for (let q = 0; q < lotCount; q++) {
+        const i = lots[q];
+        if (zone[i] !== originZone) continue;
+        const trips = dev[i] * rate;
+        if (nowhere) { stranded += trips; continue; }
+        const road = bestAccessRoad(world, i, field);
+        if (road < 0 || !(field.dist[road] < Infinity) || field.dist[road] > reach) { stranded += trips; continue; }
+        flow[road] += trips;
+        total += trips;
+      }
     }
-    for (let q = 0; q < lotCount; q++) {
-      const i = lots[q];
-      if (zone[i] !== originZone) continue;
-      const trips = dev[i] * rate;
-      const road = bestAccessRoad(world, i, field);
-      if (road < 0 || !(field.dist[road] < Infinity) || field.dist[road] > reach) { stranded += trips; continue; }
-      flow[road] += trips;
-      total += trips;
+    if (market !== undefined) {
+      extraTrips(world, market, (ri, n) => {
+        if (!(n > 0) || ri < 0 || ri >= roadClass.length) return;
+        const rc = roadClass[ri];
+        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) return;
+        const trips = n * scale;
+        if (nowhere || !(field.dist[ri] < Infinity) || field.dist[ri] > reach) { stranded += trips; return; }
+        flow[ri] += trips;
+        total += trips;
+      });
     }
     field.stranded = stranded;
     return total;

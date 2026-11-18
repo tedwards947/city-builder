@@ -22,7 +22,7 @@
 import type { World, BuildingEntity } from './World';
 import { BALANCE } from '../data/balance';
 import { BUILDING_SEAPORT } from './constants';
-import { addDoorProvider } from './TrafficData';
+import { addDoorProvider, servedAtDoors as served } from './TrafficData';
 import { BUILDING_NONE, TERRAIN_WATER } from './constants';
 import { shapeRoles } from './buildingShapes';
 import { openWater } from './openWater';
@@ -106,20 +106,6 @@ export interface PortTrade {
   importCapacity: number;
   /** Money its exports earn per tick. */
   income: number;
-}
-
-/** Trips served at one port's doors in one market: what arrived, up to the room, by the port's share of each door. */
-function served(roads: readonly number[], field: { doorLoad: Float32Array; doorCap: Float32Array } | undefined, capacity: number): number {
-  if (!field || !(capacity > 0) || roads.length === 0) return 0;
-  const share = capacity / roads.length;
-  let trips = 0;
-  for (const ri of roads) {
-    const cap = field.doorCap[ri];
-    if (!(cap > 0)) continue;
-    // A door may be shared (two ports on one road, or a port beside industry): take this port's part of it.
-    trips += Math.min(field.doorLoad[ri], cap) * Math.min(1, share / cap);
-  }
-  return trips;
 }
 
 /** What the port at (tx, ty) (any of its tiles) is doing, or null if there is no seaport there. */
