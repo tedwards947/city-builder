@@ -16,6 +16,9 @@ export const BALANCE = {
     // and per tree removed with the eraser. 0 until the lab sets them.
     tree: 0,
     treeClear: 0,
+    // Per tile turned to water or to land with the water tools. Flooding a
+    // building or zoned lot also costs `bulldoze` and its displacement PC.
+    water: 0,
   },
   // Placement cost and per-tick maintenance for every BUILDING_* kind.
   // Keyed by the numeric constant (1=power plant, 2=water tower, …, 8=park).
