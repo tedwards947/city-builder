@@ -2,7 +2,7 @@
 // words and percentages, and where on the map it is.
 
 import type { World } from '../sim/World';
-import type { OpenRequest, Rect, RequestProgress } from '../sim/requests';
+import type { OpenRequest, Rect, RequestProgress, UnmetReason } from '../sim/requests';
 import { requestProgress } from '../sim/requests';
 import { t } from '../i18n';
 
@@ -28,7 +28,22 @@ export function progressView(world: World, req: OpenRequest): ProgressView {
   const p = requestProgress(world, req);
   if (p.unit === 'city') return { text: t('ui.requests.progressBy.city'), bar: null };
   const bar = progressPercents(p);
-  return { text: t('ui.requests.progressBy.' + p.unit, bar), bar };
+  const why = unmetKey(req.kind, p.unmetReason);
+  return { text: t('ui.requests.progressBy.' + p.unit, bar) + (why ? ' · ' + t(why) : ''), bar };
+}
+
+const FULL_KINDS = new Set(['school', 'hospital']);
+const REACH_KINDS = new Set(['park', 'police', 'fire', 'school', 'hospital']);
+
+/**
+ * The string key for why a coverage request's homes still lack the service
+ * ("nearby schools are full" or "no school in reach"), or null when there is
+ * nothing to say: no reason given, or a kind without a string.
+ */
+export function unmetKey(kind: string, reason: UnmetReason | null): string | null {
+  if (reason === 'full' && FULL_KINDS.has(kind)) return 'ui.requests.unmet.full.' + kind;
+  if (reason === 'outOfReach' && REACH_KINDS.has(kind)) return 'ui.requests.unmet.outOfReach.' + kind;
+  return null;
 }
 
 export type AreaName = 'centre' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';

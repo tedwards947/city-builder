@@ -296,6 +296,10 @@ export const en: TranslationSchema = {
         lots: "{covered}% of lots in use, {needed}% needed",
         city: "waiting for the shortage to end",
       },
+      unmet: {
+        full: { school: "nearby schools are full", hospital: "nearby hospitals are full" },
+        outOfReach: { park: "no park in reach", police: "no police station in reach", fire: "no fire station in reach", school: "no school in reach", hospital: "no hospital in reach" },
+      },
       show: "Show on map",
       where: { centre: "city centre", n: "north", ne: "north-east", e: "east side", se: "south-east", s: "south", sw: "south-west", w: "west side", nw: "north-west" },
       want: "Residents want: {what}",

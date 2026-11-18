@@ -222,6 +222,11 @@ export interface TranslationSchema {
       none: string;
       noneNote: string;
       progressBy: Record<'homes' | 'roads' | 'lots' | 'city', string>;
+      /** Why the asking homes still lack the service: every building in reach is full, or none reaches them. */
+      unmet: {
+        full: Record<'school' | 'hospital', string>;
+        outOfReach: Record<'park' | 'police' | 'fire' | 'school' | 'hospital', string>;
+      };
       show: string;
       where: Record<'centre' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw', string>;
       want: string;
