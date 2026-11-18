@@ -209,7 +209,7 @@ startGame(new World(256, 256, 42, { vegAmount: 'low' }));
 let currentTool: Tool = 'none';
 let hoverTile: { tx: number; ty: number } | null = null;
 // At most one overlay is shown at a time.
-type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe';
+type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
 let overlay: Overlay = 'none';
 
 // A refused click or drag says why, at most once every few seconds per reason
@@ -582,6 +582,9 @@ function frame(now: number): void {
     const kind = state.world.layers.building[state.world.grid.idx(hoverTile.tx, hoverTile.ty)];
     if (kind !== 0 && hasCapacity(kind)) seatView = { kind, gained: [] };
   }
+  // The school or health map: the same marks, without a tool selected.
+  if (seatView === null && overlay === 'school') seatView = { kind: BUILDING_SCHOOL, gained: [] };
+  else if (seatView === null && overlay === 'health') seatView = { kind: BUILDING_HOSPITAL, gained: [] };
   renderer.render(state.world, camera, {
     seatView,
     pcPreview,

@@ -25,7 +25,7 @@ import { t } from '../i18n';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
-export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe';
+export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
 export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
@@ -96,6 +96,8 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'crime', icon: 'crime', overlay: 'crime', hotkey: 'c' },
     { key: 'fire', icon: 'fire', overlay: 'fire', hotkey: 'f' },
     { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
+    { key: 'schoolMap', icon: 'school', overlay: 'school', hotkey: 'g' },
+    { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
   { key: 'ordinances', icon: 'ordinances', action: 'ordinances', hotkey: 'o', shown: ordinancesShown },

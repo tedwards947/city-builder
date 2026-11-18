@@ -247,6 +247,8 @@ export interface TranslationSchema {
       crime: string;
       fire: string;
       vibe: string;
+      schoolMap: string;
+      healthMap: string;
       view: string;
       inspect: string;
       street: string;
@@ -310,6 +312,8 @@ export interface TranslationSchema {
       crime: string;
       fire: string;
       vibe: string;
+      schoolMap: string;
+      healthMap: string;
       view: string;
       inspect: string;
       street: string;
