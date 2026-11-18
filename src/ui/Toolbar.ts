@@ -99,6 +99,8 @@ export const TOOLBAR: ToolbarEntry[] = [
   ] },
   // Trade (SEAPORT_DESIGN.md): a yard on land with docks over open water.
   { key: 'seaport', icon: 'port', tool: 'seaport' },
+  // Airport (art/clay-set/airport3.html): one per city, 12×5, never turned.
+  { key: 'airport', icon: 'plane', tool: 'airport' },
   'sep',
   { family: 'overlays', icon: 'layers', items: [
     { key: 'traffic', icon: 'traffic', overlay: 'traffic', hotkey: 't' },
