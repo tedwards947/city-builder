@@ -12,6 +12,10 @@ export const BALANCE = {
     zoneC: 0,
     zoneI: 0,
     bulldoze: 5,
+    // Landscaping (sim/landscaping.ts): per tree planted with the tree brush,
+    // and per tree removed with the eraser. 0 until the lab sets them.
+    tree: 0,
+    treeClear: 0,
   },
   // Placement cost and per-tick maintenance for every BUILDING_* kind.
   // Keyed by the numeric constant (1=power plant, 2=water tower, …, 8=park).
