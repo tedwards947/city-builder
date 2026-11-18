@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
@@ -41,7 +42,7 @@ function runDays(w: World, sys: RequestSystem, days: number): void {
 }
 
 describe('request registry', () => {
-  it('has the six kinds, switched off', () => {
+  it('has the six kinds, switched off with PC off', () => {
     expect(REQUEST_KINDS.map((k) => k.id)).toEqual(['park', 'police', 'fire', 'school', 'hospital', 'utilities', 'trafficJam', 'blight']);
     expect(cfg.spawnEveryDays).toBe(0);
     for (const k of REQUEST_KINDS) expect(cfg.kinds[k.id]).toMatchObject({ days: 0, reward: 0, penalty: 0 });

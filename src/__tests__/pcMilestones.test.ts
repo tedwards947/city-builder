@@ -1,6 +1,7 @@
 // Population milestones: a one-off PC reward the first time the city reaches
 // each threshold. The shipped list is empty, so these tests pass their own.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
@@ -27,7 +28,7 @@ beforeEach(() => {
 });
 
 describe('population milestones', () => {
-  it('the shipped list is empty', () => {
+  it('the list is empty with PC off', () => {
     expect(BALANCE.politicalCapital.milestones).toEqual([]);
     w.stats.population = 99_999;
     w.budget.politicalCapital = 10;

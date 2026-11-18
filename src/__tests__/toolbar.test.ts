@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect } from 'vitest';
 import { TOOLBAR, toolPrice, toolbarItems, hotkeyLabel, toolNuisanceRadius } from '../ui/Toolbar';
 import { TEST_NUISANCE } from './pcTestWorld';

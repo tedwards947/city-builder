@@ -2,6 +2,7 @@
 // modifiers are all 1 (no effect), so these tests set numbers for their duration
 // and compare a city run with an ordinance against the same city without it.
 
+import './pcOffBaseline';
 import { describe, it, expect, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { Scheduler } from '../sim/Scheduler';

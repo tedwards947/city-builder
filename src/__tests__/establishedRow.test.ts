@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, afterEach } from 'vitest';
 import { establishedRow } from '../ui/TileInfoPanel';
 import { markDeveloped, DAYS_PER_YEAR } from '../sim/established';

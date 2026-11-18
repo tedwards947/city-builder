@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect } from 'vitest';
 import { areaName, progressPercents, unmetKey } from '../ui/requestInfo';
 import { t } from '../i18n';

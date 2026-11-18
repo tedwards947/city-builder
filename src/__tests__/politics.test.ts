@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
@@ -74,7 +75,7 @@ describe('politics: the PC write point', () => {
     expect(w.budget.politicalCapital).toBe(pcCap(w) + 10);
   });
 
-  it('regenRate with the shipped numbers never drains: 0.1 at worst, 0.4 at best', () => {
+  it('regenRate with PC off never drains: 0.1 at worst, 0.4 at best', () => {
     expect(BALANCE.politicalCapital.neutralSatisfaction).toBe(0);
     expect(regenRate(0)).toBeCloseTo(0.1);
     expect(regenRate(1)).toBeCloseTo(0.4);
@@ -373,7 +374,7 @@ describe('politics: PC banked above the cap fades', () => {
   beforeEach(() => { w = landWorld(); });
   afterEach(() => { cfg.overCapFadePerDay = 0; });
 
-  it('is switched off in the shipped balance: a hoard stays put', () => {
+  it('is switched off with PC off: a hoard stays put', () => {
     expect(cfg.overCapFadePerDay).toBe(0);
     w.budget.politicalCapital = pcCap(w) + 500;
     expect(fadeOverCap(w)).toBe(0);

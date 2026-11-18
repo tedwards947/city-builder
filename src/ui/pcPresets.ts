@@ -1,5 +1,5 @@
 // Political Capital number sets for the debug tuning panel's variant picker. Only the keys listed are changed; the rest keep their current
-// value. balance.ts itself stays at the shipped numbers until a numbers-on PR.
+// value. T is the shipped BALANCE.politicalCapital; Off (PC_OFF, src/data/pcOff.ts) is every PC effect at 0.
 
 import { VARIANT_VALUES } from './pcVariantValues';
 
@@ -10,13 +10,13 @@ export interface PcVariant {
   name: string;
   /** One line for the panel. */
   desc: string;
-  /** A partial BALANCE.politicalCapital tree, applied over the shipped numbers. */
+  /** A partial BALANCE.politicalCapital tree, applied over the shipped numbers with PC switched off (PC_OFF). */
   values: Record<string, unknown>;
 }
 
 /**
  * The play-test variants on the panel's picker. Choosing one resets to
- * the shipped numbers, then applies its values. The numbers are in
+ * the shipped numbers, switches PC off (PC_OFF), then applies its values. The numbers are in
  * pcVariantValues.ts (A–D are the engine session's dry-run sets, B the accepted
  * one; T is the Balance Lab tuner's best set, found starting from D).
  */
@@ -25,7 +25,7 @@ export const PC_VARIANTS: readonly PcVariant[] = [
   { id: 'B', name: 'Balanced', desc: 'A full bar in 5 minutes; a tower costs about a third of it.', values: VARIANT_VALUES.B },
   { id: 'C', name: 'Strict planner', desc: 'PC is slow and dear: every demolition is a decision.', values: VARIANT_VALUES.C },
   { id: 'D', name: 'Political', desc: 'PC flows fast both ways: bigger rewards, costs and ordinances.', values: VARIANT_VALUES.D },
-  { id: 'T', name: 'Tuned', desc: 'Auto-tuned from D: passes the most Balance Lab targets.', values: VARIANT_VALUES.T },
+  { id: 'T', name: 'Tuned', desc: 'The shipped numbers: auto-tuned from D, passes the most Balance Lab targets.', values: VARIANT_VALUES.T },
 ];
 
 type Tree = Record<string, unknown>;

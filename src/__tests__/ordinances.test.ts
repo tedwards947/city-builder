@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
@@ -28,7 +29,7 @@ function events(w: World): string[] {
 }
 
 describe('ordinance registry', () => {
-  it('has the eight ordinances (Rent Control parked), switched off: no cost, no upkeep, every modifier 1', () => {
+  it('has the eight ordinances (Rent Control parked), and with PC off: no cost, no upkeep, every modifier 1', () => {
     expect(ORDINANCES.map((o) => o.id)).toEqual([...ORDINANCE_IDS]);
     expect(ORDINANCE_IDS).toHaveLength(8);
     expect(ORDINANCE_IDS as readonly string[]).not.toContain('rentControl');
@@ -84,7 +85,7 @@ describe('enacting and repealing', () => {
     expect(enactBlocker(w, 'cleanAirAct')).toBe('active');
   });
 
-  it('are switched off in normal play', () => {
+  it('are switched off with PC off', () => {
     expect(ordinancesEnabled()).toBe(false);
   });
 
