@@ -236,6 +236,9 @@ export class PoliticsTuningPanel {
       button('Set PC', () => { const v = parseFloat(pc.value); if (Number.isFinite(v)) this.getWorld().budget.politicalCapital = v; }),
       button('Fill to cap', () => { const w = this.getWorld(); w.budget.politicalCapital = pcCap(w); }));
 
+    // Money out of the way so PC can be play-tested; the economy gets its own play-test.
+    row(button('+$10k', () => { this.getWorld().budget.money += 10_000; }));
+
     const kind = document.createElement('select');
     kind.style.cssText = 'font-size:11px;max-width:130px;';
     for (const k of REQUEST_KINDS) kind.add(new Option(k.id, k.id));
