@@ -16,9 +16,10 @@ import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
 import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
 import type { TradeResult } from './trade';
+import type { TaxDebtResult, LevelRun } from './taxdebt';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt';
 
 export interface Outcome {
   value: unknown;
@@ -41,6 +42,8 @@ export interface EvalCtx {
   svc?: SvcResult | null;
   /** Trade suite: seaport and goods probes on the saved city as it stands. */
   trade?: TradeResult | null;
+  /** Debt / tax suite: drain, squeeze and tax-level twin runs on the city. */
+  taxdebt?: TaxDebtResult | null;
 }
 
 export interface Target {
@@ -331,9 +334,56 @@ const TRADE_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { const h = tradeOf(c)?.heavy; if (!h || h.withPort === null) return NA('no port site'); if (!(BALANCE.port.importCapacity > 0)) return NA('imports switched off'); if (!(h.shortage > 0)) return NA('no shortage'); return range(h.withPort / h.shortage, -Infinity, 0.5); } },
 ];
 
+// ── Debt PC drain and the tax level, approved by the owner 2026-11-17 (ENGINEER 3's proposal, as written) ──
+const tdOf = (c: EvalCtx) => c.taxdebt ?? null;
+const growth = (r: LevelRun) => r.popEnd - r.popStart;
+/** Twin runs at `lv` and at neutral; n/a when the city barely grows at neutral (a ratio of ~0 says nothing). */
+const twins = (c: EvalCtx, lv: number): { a: LevelRun; n: LevelRun } | Outcome => {
+  const L = tdOf(c)?.levels; const a = L?.[lv], n = L?.[BALANCE.tax.level.neutral];
+  if (!a || !n) return NA('not run at that level');
+  if (growth(n) < Math.max(20, 0.01 * n.popStart)) return NA(`city barely grows at neutral (${growth(n)} people)`);
+  return { a, n };
+};
+const TAXDEBT_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'debt.pcDrain', metric: 'PC lost to the debt drain over the grace period (city held just below $0 from a full cap) ÷ cap, under the tuned PC numbers', target: '10–25%', persona: 'probe', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-17): debt should cost goodwill you can feel, without being a second game over.',
+    evaluate: c => { const d = tdOf(c)?.drain; if (!d) return NA('not run'); if (d.share === null) return { value: null, pass: false, miss: 1, note: 'drain switched off' }; return range(d.share, 0.1, 0.25); } },
+  { id: 'debt.squeeze', metric: 'Planner on a fresh town, own money: PC when its first run of debt before the first services ends, drain on ÷ drain off', target: '≥ 0.7', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-17): a short early squeeze is normal (econ.firstServices) and shouldn\'t be punished hard.',
+    evaluate: c => { const q = tdOf(c)?.squeeze; if (!q) return NA('fresh cities only'); if (q.ratio === null) return q.note === 'drain off' ? { value: null, pass: false, miss: 1, note: 'drain switched off' } : NA(q.note ?? 'no value'); return { ...range(q.ratio, 0.7), note: q.note ?? `${q.debtDays} days in debt, ending day ${q.endDay}` }; } },
+  { id: 'tax.high', metric: 'Twin runs of a mature city at tax level 20 against 10: income change, population growth ÷ growth at 10, satisfaction drop in points', target: 'income +40–90%; growth 20–50% lower; satisfaction 8–20 points lower', persona: 'planner (own money)', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-17): high tax pays now and costs growth and goodwill.',
+    evaluate: c => {
+      if (c.cityKind === 'fresh') return NA('mature (saved) cities only');
+      const t = twins(c, 20); if (!('a' in t)) return t;
+      return all({ income: range(t.a.incomeLate / Math.max(1, t.n.incomeLate) - 1, 0.4, 0.9), growth: range(growth(t.a) / growth(t.n), 0.5, 0.8), satisfaction: range((t.n.satEnd - t.a.satEnd) * 100, 8, 20) });
+    } },
+  { id: 'tax.low', metric: 'Twin runs of a mature city at tax level 5 against 10: growth ÷ growth at 10, and income; on the fresh town at level 0, the longest run of days in debt', target: 'growth 10–40% higher, income lower; fresh town at 0: econ.noSoftlock fails (> 30 days in debt or game over)', persona: 'planner (own money)', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-17): low tax buys growth with money; no tax at all is no free lunch.',
+    evaluate: c => {
+      const L = tdOf(c)?.levels; if (!L) return NA('not run');
+      if (c.cityKind === 'fresh') {
+        const z = L[0]; if (!z) return NA('not run at 0');
+        const stuck = z.gameOverDay !== null || z.longestDebtRun > 30;
+        return { value: z.longestDebtRun, pass: stuck, miss: stuck ? 0 : r3((31 - z.longestDebtRun) / 31), note: z.gameOverDay !== null ? `game over on day ${z.gameOverDay}` : `${z.longestDebtRun} days in debt at most` };
+      }
+      const t = twins(c, 5); if (!('a' in t)) return t;
+      return all({ growth: range(growth(t.a) / growth(t.n), 1.1, 1.4), income: range(t.n.incomeLate - t.a.incomeLate, 1e-9) });
+    } },
+  { id: 'tax.noDominant', metric: 'Fresh town, 300 days at tax levels 0, 5, 15, 20: any level with both more income (last 30 days) and more people than level 10', target: 'none', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-17): an exploit check; no setting is simply better than neutral.',
+    evaluate: c => {
+      if (c.cityKind !== 'fresh') return NA('fresh cities only');
+      const L = tdOf(c)?.levels; const n = L?.[BALANCE.tax.level.neutral]; if (!L || !n) return NA('not run');
+      const beats = Object.values(L).filter(r => r.level !== n.level && r.incomeLate > n.incomeLate && r.popEnd > n.popEnd).map(r => r.level);
+      return { value: beats.length ? beats.join(', ') : 'none', pass: beats.length === 0, miss: beats.length, note: Object.values(L).map(r => `${r.level}: pop ${r.popEnd}, income ${r.incomeLate}`).join('; ') };
+    } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
   ...SVC_TARGETS.map(t => ({ ...t, suite: 'svc' as const })),
   ...TRADE_TARGETS.map(t => ({ ...t, suite: 'trade' as const })),
+  ...TAXDEBT_TARGETS.map(t => ({ ...t, suite: 'taxdebt' as const })),
 ];

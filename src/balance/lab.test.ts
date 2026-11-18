@@ -14,24 +14,25 @@ describe('balance lab', () => {
     expect(JSON.stringify(BALANCE)).toBe(before);
     expect(r.schema).toBe(REPORT_SCHEMA);
     expect(r.targets.map(t => t.id)).toEqual(TARGETS.map(t => t.id));
-    for (const t of r.targets) if (t.suite !== 'trade') for (const v of t.suite === 'pc' ? ['Off', 'B'] : t.suite === 'econ' ? ['shipped', 'recommended'] : ['nocap', 'shipped']) expect(t.results[v]?.fresh).toBeDefined();
+    for (const t of r.targets) if (t.suite !== 'trade') for (const v of t.suite === 'pc' ? ['Off', 'B'] : t.suite === 'econ' ? ['shipped', 'recommended'] : t.suite === 'taxdebt' ? ['shipped'] : ['nocap', 'shipped']) expect(t.results[v]?.fresh).toBeDefined();
     expect(r.econRuns.recommended.fresh.econ.moneyStart).toBeGreaterThan(0);
     expect(r.runs.B.fresh.planner.end.population).toBeGreaterThan(0);
     expect(Object.keys(r.summary)).toEqual(['Off', 'B']);
     expect(Object.keys(r.econSummary)).toEqual(['shipped', 'recommended']);
     expect(Object.keys(r.svcSummary)).toEqual(['nocap', 'shipped']);
     expect(r.svcRuns.shipped.fresh.kinds.school.buildings).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(r.taxDebtRuns.shipped.fresh.levels).map(Number)).toEqual([0, 5, 10, 15, 20]);
   }, 60_000);
 
   it('target ids are unique and stable in form', () => {
     const ids = TARGETS.map(t => t.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^(pc|econ|svc|port|goods)\.[a-zA-Z.]+$/);
+    for (const id of ids) expect(id).toMatch(/^(pc|econ|svc|port|goods|debt|tax)\.[a-zA-Z.]+$/);
   });
 
   it('is deterministic', () => {
     const a = small(), b = small();
-    const strip = (r: ReturnType<typeof small>) => JSON.stringify({ runs: r.runs, probes: r.probes, econ: r.econRuns, svc: r.svcRuns });
+    const strip = (r: ReturnType<typeof small>) => JSON.stringify({ runs: r.runs, probes: r.probes, econ: r.econRuns, svc: r.svcRuns, taxdebt: r.taxDebtRuns });
     expect(strip(a)).toBe(strip(b));
   }, 120_000);
 });

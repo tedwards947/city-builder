@@ -15,7 +15,8 @@
     "balance": "node scripts/balance.mjs",
     "balance:tune": "node scripts/balance-tune.mjs",
     "balance:svc": "node scripts/balance-svc.mjs",
-    "balance:trade": "node scripts/balance-trade.mjs"
+    "balance:trade": "node scripts/balance-trade.mjs",
+    "balance:taxdebt": "node scripts/balance-taxdebt.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

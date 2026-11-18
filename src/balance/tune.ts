@@ -7,6 +7,7 @@ import { runLab, type Report } from './lab';
 import { TUNED_T } from './tunedT';
 import type { CitySpec } from './world';
 import type { TradeValues } from './trade';
+import type { TaxDebtValues } from './taxdebt';
 
 /** A PC number set in the shape of VARIANT_VALUES[x] (applied with applyValues). */
 export type ValueTree = Record<string, unknown>;
@@ -139,6 +140,26 @@ export function evaluateTrade(values: Tree, cities: CitySpec[], days: number): E
     }
   }
   return { score: Math.round(score * 1000) / 1000, pass, graded, results, values, trade: r.tradeRuns.X ?? {} };
+}
+
+/**
+ * Score a debt-drain / tax-level number set (TaxDebtValues, src/balance/taxdebt.ts) with the
+ * debt / tax targets; same Eval shape as evaluate(), plus the probe readings. For scripts/balance-taxdebt.mjs.
+ */
+export function evaluateTaxDebt(values: Tree, cities: CitySpec[], days: number): Eval & { taxdebt: unknown } {
+  const r: Report = runLab({ suites: ['taxdebt'], taxDebtPresets: ['X'], customTaxDebtPresets: { X: { id: 'X', name: 'Sweep', desc: '', values: values as TaxDebtValues } }, cities, daysFresh: days, daysSave: Math.min(days, 150) });
+  let score = 0, pass = 0, graded = 0;
+  const results: Record<string, boolean> = {};
+  for (const t of r.targets) {
+    if (t.status !== 'graded') continue;
+    for (const [city, o] of Object.entries(t.results.X ?? {})) {
+      if (o.pass === null) continue;
+      graded++;
+      results[`${t.id}@${city}`] = o.pass;
+      if (o.pass) pass++; else score += 1 + Math.min(o.miss ?? 1, 3);
+    }
+  }
+  return { score: Math.round(score * 1000) / 1000, pass, graded, results, values, taxdebt: r.taxDebtRuns.X ?? {} };
 }
 
 export interface TuneResult {

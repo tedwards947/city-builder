@@ -590,7 +590,7 @@ Prints the time of a sim tick (in Node and in Chrome, with the cost of each syst
 ### Balance Lab
 
 ```
-npm run balance                 # both suites, every city (~10 min with generated cities)
+npm run balance                 # every suite, every city (~10 min with generated cities)
 npm run balance -- --suite econ # economy only;  --suite pc for PC only
 npm run balance -- --quick      # PC variant B + preset recommended, fresh city, 120 days: seconds
 npm run balance -- --summary-md out.md   # also a short markdown summary (CI job summaries)
@@ -602,6 +602,7 @@ Scripted players ("personas": Planner, Sprawler, Demolisher, Neglecter, Request-
 
 - **Auto-tuner:** `npm run balance:tune -- --start B` searches the PC keys the variants set (levers in `src/balance/tune.ts`) for a number set that passes more PC targets on the fresh town (`--saves` adds testcity1 and the 10k generated cities, `--saves testcity1` just that one; `--from <tune.json>` continues from an earlier result). Each round scores every lever up and down as one batch, spread over `--workers` processes (`scripts/balance-pool.mjs`; `--workers 1` = one process, about 14 s an evaluation). Budget 900 evaluations by default (a round is 42; about 50 min with 9 workers). Grade its result on every city with `npm run balance -- --suite pc --tuned balance-results/tune-B.json`; it shows as variant `T`. By default the lab grades `T` from `src/balance/tunedT.ts` (the current best; replace it when a tuner run beats it). The tuner proposes numbers; putting them in the game is a separate change.
 - **Services sweep:** `npm run balance:svc -- --reach` (or `--capacity --school-range 16 --hospital-range 24`) scores a grid of school / hospital reach or capacity with the `svc.*` targets over the pool; `--saves testcity1` adds that city. Writes `balance-results/svc-<mode>.json`.
+- **Debt / tax suite** (`--suite taxdebt`, `src/balance/taxdebt.ts`): the real-money Planner at several tax levels (fresh town 0–20 in steps of 5; saved cities 5, 10, 20) plus two debt probes under preset T: the drain over the grace period, and the early squeeze with the drain on against off. Targets debt.pcDrain, debt.squeeze, tax.high, tax.low, tax.noDominant. Sweep: `npm run balance:taxdebt` (`--drain`, `--spp`, `--strength` lists) over the pool; writes `balance-results/taxdebt.json`.
 - Target ids are stable; change a range in `targets.ts`, not an id. A new target needs the owner's OK (through the PM).
 - The lab only reads BALANCE (it applies a variant or preset, then puts the shipped numbers back). It is not part of the game build, and its test (`src/balance/lab.test.ts`) only checks that it runs, is deterministic and restores BALANCE.
 
