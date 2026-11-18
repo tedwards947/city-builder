@@ -12,7 +12,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 **Landscaping UI is in** (owner's picks from `art/clay-set/landscape-tools.html`: A1, B2 by default, C1, D1–D4, E1; no eraser, the bulldozer clears trees). Toolbar family Landscape (Trees `K`, Add water, Remove water) with species (Mixed + six) and brush 1/3/5 (`[` `]`) in the fly-out; strokes gather under a round brush and apply on release as one undo (`src/input/landscape.ts`, InputController); ghost trees/water, red blocked tiles, flood outlines, port/pump rings and the cursor tag (`src/ui/landscapePreview.ts`, renderer). Engine commands: TreeCommands (#234), EditWaterCommand (#236), warnings (#237). Not done: an inspect-pane line for a cut-off port or dry pump.
 
-1. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
+1. **Ships: another round (owner still not happy after #243, 2026-11-17 night).** Ask what's off first (size, look, how they move?), then workshop again with `art/clay-set/ships.html`.
+2. **Seaport polish** (optional, from `art/clay-set/seaport.html`): trucks driving in through the gate; the barrier arm lifting (cut the painted arm and draw it in code). Owner hasn't asked.
 
 Request text says why homes still lack a service ("nearby schools are full" / "no school in reach", from ENGINE's `unmetReason`), in the badge tooltip and the request log.
 
