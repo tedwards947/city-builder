@@ -14,6 +14,7 @@
   figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
   figcaption { color: #a9b6c2; font-size: 12px; max-width: 940px; }
   .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas[data-zoom] { align-self: flex-start; }
   canvas { display: block; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); max-width: 100%; }
   .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 940px; }
   .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
@@ -43,12 +44,12 @@
 </div>
 
 <h2>J. Jet bridges</h2>
-<p>The new bridges come as long and short pairs, so they can visibly reach out to the plane when it pulls up and pull back before pushback (a quick swap between the two).</p>
+<p>The new bridges come as long and short pairs, so they can visibly reach out to the plane when it pulls up and pull back before pushback (a quick swap between the two). The small close-up above each scene loops just the bridge every 6 seconds: out, hold, back.</p>
 <div class="rowf">
-  <figure><canvas width="960" height="384" data-bridge="old" data-off="16"></canvas><figcaption><span class="code">J1</span>Round 1's bridge: one picture that slides a little.</figcaption></figure>
-  <figure><canvas width="960" height="384" data-bridge="diag-r" data-off="16"></canvas><figcaption><span class="code">J2</span>Diagonal, from up and to the right of the nose, telescoping. Clear of the plane, over open apron.</figcaption></figure>
-  <figure><canvas width="960" height="384" data-bridge="diag-l" data-off="16"></canvas><figcaption><span class="code">J3</span>Diagonal from up and to the left: the bridge comes down behind the plane to its far-side door. More like a real gate; now visible because the side-on plane is low.</figcaption></figure>
-  <figure><canvas width="960" height="384" data-bridge="side" data-off="16"></canvas><figcaption><span class="code">J4</span>Long and sideways: runs along in front of the terminal and meets the door from behind. Long and graceful, but the three bridges overlap.</figcaption></figure>
+  <figure><canvas width="480" height="250" data-bridge="old" data-zoom="1"></canvas><canvas width="960" height="384" data-bridge="old" data-off="16"></canvas><figcaption><span class="code">J1</span>Round 1's bridge: one picture that slides a little.</figcaption></figure>
+  <figure><canvas width="480" height="250" data-bridge="diag-r" data-zoom="1"></canvas><canvas width="960" height="384" data-bridge="diag-r" data-off="16"></canvas><figcaption><span class="code">J2</span>Diagonal, from up and to the right of the nose, telescoping. Clear of the plane, over open apron.</figcaption></figure>
+  <figure><canvas width="480" height="250" data-bridge="diag-l" data-zoom="1"></canvas><canvas width="960" height="384" data-bridge="diag-l" data-off="16"></canvas><figcaption><span class="code">J3</span>Diagonal from up and to the left: the bridge comes down behind the plane to its far-side door. More like a real gate; now visible because the side-on plane is low.</figcaption></figure>
+  <figure><canvas width="480" height="250" data-bridge="side" data-zoom="1"></canvas><canvas width="960" height="384" data-bridge="side" data-off="16"></canvas><figcaption><span class="code">J4</span>Long and sideways: runs along in front of the terminal and meets the door from behind. Long and graceful, but the three bridges overlap.</figcaption></figure>
 </div>
 
 <h2>M. How the plane gets to the gate and back</h2>
@@ -186,10 +187,10 @@ function vehicles(c, p, PL) {
 
 function ground(ctx, box) {
   const T = ctx.T, W = ctx.canvas.width;
-  for (let y = 0; y < 8; y++) for (let x = 0; x < W / T; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
-  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, W, 0.4 * T);
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 20; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, 20 * T, 0.4 * T);
   ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
-  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(W, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(20 * T, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = '#bdb8ac'; ctx.fillRect(2 * T, 2.45 * T, 12 * T, 2.45 * T);
   ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
   for (let x = 3; x < 14; x++) { ctx.beginPath(); ctx.moveTo(x * T, 2.45 * T); ctx.lineTo(x * T, 4.9 * T); ctx.stroke(); }
@@ -233,16 +234,20 @@ function lights(ctx, t) {
 }
 
 function scene(cv, t) {
-  const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = 48;
+  // data-zoom: a close-up of gate 3 at twice the size, the plane parked and only the bridge moving, every 6 s.
+  const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = d.zoom ? 96 : 48;
   const exit = d.exit || 'crab', PL = +(d.pl || 2.2), planes = PLANES[d.planes || 'side'], veh = VEH[d.veh || 'side'], br = d.bridge || 'diag-r';
-  const tt = t + +(d.off || 0), c = tt % L, k = Math.floor(tt / L) % planes.length, T = ctx.T, np = planes.length;
+  const tt = t + +(d.off || 0), c = d.zoom ? 24 : tt % L, k = d.zoom ? 0 : Math.floor(tt / L) % planes.length, T = ctx.T, np = planes.length;
   ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.save(); if (d.zoom) ctx.translate(-8.2 * T, -1.75 * T);
   ground(ctx, d.box);
   lights(ctx, tt);
   spr(ctx, ST.tower, 2.9 * T, 2.5 * T, { h: 1.9 });
   spr(ctx, ST.term, 8.2 * T, 2.6 * T, { w: 7.4 });
   spr(ctx, ST.hangar, 13.3 * T, 2.6 * T, { w: 1.3 });
-  const e = c < 16 ? 0 : c < 17.5 ? E((c - 16) / 1.5) : c < 31.5 ? 1 : c < 33 ? 1 - E((c - 31.5) / 1.5) : 0;
+  const z = tt % 6;
+  const e = d.zoom ? (z < 1.5 ? E(z / 1.5) : z < 3.5 ? 1 : z < 5 ? 1 - E((z - 3.5) / 1.5) : 0)
+    : c < 16 ? 0 : c < 17.5 ? E((c - 16) / 1.5) : c < 31.5 ? 1 : c < 33 ? 1 - E((c - 31.5) / 1.5) : 0;
   bridge(ctx, br, GX[0], 1, PL); bridge(ctx, br, GX[1], 1, PL); bridge(ctx, br, GX[2], e, PL);
   const p = planeAt(c, exit);
   const items = [
@@ -253,6 +258,7 @@ function scene(cv, t) {
   for (const v of vehicles(c, p, PL)) items.push({ y: v.y, draw: () => spr(ctx, veh[v.n], v.x * T, v.y * T, { w: VW[v.n], flip: v.flip, a: v.a ?? 1 }) });
   items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
   if (p && p.alt > 0) plane(ctx, planes[k], p, PL);
+  ctx.restore();
 }
 
 function single(cv) {
