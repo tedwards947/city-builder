@@ -1,6 +1,7 @@
 // Established lots (developed for many years) and Heritage Protection's two
 // effects on them. The threshold ships at 0 (off) and the modifiers at 1.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
@@ -32,7 +33,7 @@ afterEach(() => {
 });
 
 describe('how long a lot has been developed', () => {
-  it('ships switched off: nothing is ever established', () => {
+  it('with PC off, nothing is ever established', () => {
     expect(establishedAfterYears()).toBe(0);
     home(w, 5, 5);
     markDeveloped(w, w.grid.idx(5, 5));

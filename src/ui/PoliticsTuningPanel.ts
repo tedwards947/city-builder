@@ -13,6 +13,7 @@ import { BALANCE } from '../data/balance';
 import { pcCap, regenPerTick, overCapFadePerDay } from '../sim/politics';
 import * as C from '../sim/constants';
 import { PC_VARIANTS, applyValues, type PcVariant } from './pcPresets';
+import { PC_OFF } from '../data/pcOff';
 import { debugDock, panelFold } from './debugDock';
 import { balanceInputs, fold, smallButton } from './tuningWidgets';
 import { REQUEST_KINDS, requestConfig, planRequest, openRequest, meetRequest, failRequest, neediestFor } from '../sim/requests';
@@ -113,7 +114,7 @@ export class PoliticsTuningPanel {
     for (const v of [...PC_VARIANTS, null]) {
       const b = document.createElement('button');
       b.textContent = v ? v.id : 'Off';
-      b.title = v ? `${v.id} ${v.name}: ${v.desc}` : 'The shipped numbers (Political Capital effects switched off)';
+      b.title = v ? `${v.id} ${v.name}: ${v.desc}` : 'Political Capital effects switched off (the numbers from before T shipped)';
       b.style.cssText = 'font-size:11px;padding:2px 0;cursor:pointer;border-radius:4px;border:1px solid #556;background:#223;color:#dde;';
       b.addEventListener('click', () => this.chooseVariant(v));
       picker.appendChild(b);
@@ -152,7 +153,7 @@ export class PoliticsTuningPanel {
     });
     advanced.appendChild(buttons);
     const note = document.createElement('div');
-    note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D or T.';
+    note.textContent = 'Not saved. Changes apply from the next tick or hover. Open a variant directly with ?pcPreset=A…D, T or off.';
     note.style.cssText = 'margin-top:6px;color:#888;';
     advanced.appendChild(note);
     body.appendChild(fold('Advanced', advanced));
@@ -160,13 +161,19 @@ export class PoliticsTuningPanel {
     debugDock().prepend(panel); // first in the dock: it is what the PC play-test watches
 
     const fromUrl = new URLSearchParams(location.search).get('pcPreset')?.toUpperCase();
-    this.chooseVariant(PC_VARIANTS.find((v) => v.id === fromUrl) ?? null, false);
+    // No ?pcPreset: the shipped numbers, which are T. ?pcPreset=off switches PC off.
+    if (fromUrl === 'OFF') this.chooseVariant(null);
+    else this.chooseVariant(PC_VARIANTS.find((v) => v.id === (fromUrl ?? 'T')) ?? PC_VARIANTS.find((v) => v.id === 'T')!, fromUrl !== undefined);
   }
 
-  /** Reset to the shipped numbers, then apply the variant (null = shipped). */
+  /**
+   * Reset to the shipped numbers, switch PC off, then apply the variant
+   * (null = Off). T is the shipped numbers, so it ends where it started.
+   */
   private chooseVariant(v: PcVariant | null, apply = true): void {
-    if (apply || v) {
+    if (apply) {
       applyValues(PC, structuredClone(this.defaults));
+      applyValues(PC, structuredClone(PC_OFF));
       if (v) applyValues(PC, structuredClone(v.values));
       this.buildSettings();
       this.renderReadout();
@@ -178,7 +185,7 @@ export class PoliticsTuningPanel {
       b.style.borderColor = on ? '#8cc0e0' : '#556';
       b.style.color = on ? '#fff' : '#dde';
     }
-    this.variantDesc.textContent = v ? `${v.id} ${v.name}: ${v.desc}` : 'Off: the shipped numbers.';
+    this.variantDesc.textContent = v ? `${v.id} ${v.name}: ${v.desc}` : 'Off: Political Capital effects switched off.';
   }
 
   /** Call every frame: refreshes the read-outs on a new tick or when PC or the open requests change. */

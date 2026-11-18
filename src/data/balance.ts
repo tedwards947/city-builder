@@ -424,8 +424,9 @@ export const BALANCE = {
     // game-over screen exists (ui/DebtUi.ts).
     debtGraceDays: 30,
     // PC lost per game day while money is below zero, times cap ÷ max like
-    // regeneration. SWITCHED OFF at 0 until the Political Capital numbers pass.
-    debtPcDrainPerDay: 0,
+    // regeneration. 0 = off. 0.75: a city in debt for the 30-day grace period
+    // loses about 15% of its cap.
+    debtPcDrainPerDay: 0.75,
   },
 
   ticksPerDay: 8,
@@ -435,32 +436,36 @@ export const BALANCE = {
 
   // ── Political Capital ────────────────────────────────────────────────────────
   // PC regenerates each tick based on citizen satisfaction.
+  // These are the Balance Lab's tuned numbers ("preset T"), shipped 2026-11-18.
+  // The numbers the lab tunes are the keys of PC_OFF (src/data/pcOff.ts, the
+  // debug panel's Off preset: every PC effect at 0); src/balance/tunedT.ts
+  // reads them back from here, so this block is the only copy of T.
   // Disruptive player actions drain it. The cap is enforced by PoliticsSystem.
   politicalCapital: {
     // The cap at no population. Passive regeneration and the blight-clearing
     // reward stop at the cap; other one-off rewards may go over it.
-    max: 100,
+    max: 150,
     // Extra cap per resident, so a bigger city can hold more (0.01 = +1 per
-    // 100 people). SWITCHED OFF at 0 until the Political Capital numbers pass.
-    capPerResident: 0,
+    // 100 people). 0 = off.
+    capPerResident: 0.008,
     // PC banked above the cap fades: once per game day, this share of the
     // excess is lost (0.02 = 2% a day, half gone in about 35 days). It never
-    // takes PC below the cap. SWITCHED OFF at 0 until the numbers pass.
-    overCapFadePerDay: 0,
+    // takes PC below the cap. 0 = off.
+    overCapFadePerDay: 0.03,
     // Passive change per tick:
     //   (baseRegen + (satisfaction − neutralSatisfaction) × satisfactionRegenBonus)
     //     × (cap ÷ max)
     // The last factor makes a bigger city (a bigger cap) fill or drain
     // proportionally faster, so empty-to-full takes the same time at any size.
     // A positive result stops at the cap; a negative one drains PC, down to 0.
-    // With the numbers below it runs from 0.1 (miserable city) to 0.4 (happy city).
-    baseRegen: 0.1,
-    satisfactionRegenBonus: 0.3,
+    // With the numbers below a city at satisfaction 1 earns 0.336 a tick at
+    // the base cap, and one at 0.4 loses as much.
+    baseRegen: 0,
+    satisfactionRegenBonus: 1.12,
     // The satisfaction (0–1) at which the satisfaction part is zero: above it
-    // the city earns, below it the city loses. SWITCHED OFF at 0 (with a
-    // positive baseRegen nothing ever drains) until the Political Capital
-    // numbers pass; the plan is a neutral point around 0.6 and baseRegen 0.
-    neutralSatisfaction: 0,
+    // the city earns, below it the city loses. (0, with a positive baseRegen,
+    // means nothing ever drains.)
+    neutralSatisfaction: 0.7,
     // Named satisfaction factors with weights (must sum to 1.0).
     // Keys are matched by name to SatisfactionFactor.name in PoliticsSystem.
     // Add new factors here + implement compute() in PoliticsSystem.defaultFactors().
@@ -473,16 +478,15 @@ export const BALANCE = {
     // Costs for disruptive actions — applied at execute() time, same as money costs.
     // Gating: if budget.politicalCapital < cost, the action is blocked.
     disruptionCosts: {
-      // Per displaced resident (level-3 R zone = 20 pop → 70 PC), times
-      // cap ÷ max: a bigger city (a bigger cap) pays proportionally more, so
-      // a tower is the same share of the cap at any size. No change while
-      // capPerResident is 0.
-      bulldozePerPop: 3.5,
-      abandonedBuildingReward: 2.5, // per abandoned building level cleared (clearing blight is popular)
+      // Per displaced resident, times cap ÷ max: a bigger city (a bigger cap)
+      // pays proportionally more, so a tower is the same share of the cap at
+      // any size.
+      bulldozePerPop: 2.33,
+      abandonedBuildingReward: 3.5, // per abandoned building level cleared (clearing blight is popular)
     },
     // Unpopular things put near homes cost PC for each resident within reach,
     // less the further away they live. Homes built later next to one do not count.
-    // SWITCHED OFF: every rate is 0 until the Political Capital numbers pass.
+    // A rate of 0 switches that nuisance off.
     nuisance: {
       // Fall-off bands by manhattan distance, nearest first: a home within
       // `within` tiles objects at `weight`. The last band is the radius. The
@@ -493,34 +497,39 @@ export const BALANCE = {
         { within: 6, weight: 0.3 },
       ] as { within: number; weight: number }[],
       // PC per resident at weight 1, for each industrial tile zoned.
-      industrialPerResident: 0,
+      industrialPerResident: 0.0667,
       // PC per resident at weight 1, by building kind (1 = power plant, 3 =
       // sewage plant, 9 = large power plant, 11 = large sewage plant, 12 =
       // seaport). A large building is felt from its nearest tile (a seaport
-      // from its yard, not its docks).
-      buildingPerResident: { 1: 0, 3: 0, 9: 0, 11: 0, 12: 0 } as Record<number, number>,
+      // from its yard, not its docks). 9, 11 and 12 have no tuned number yet.
+      buildingPerResident: { 1: 0.267, 3: 0.178, 9: 0, 11: 0, 12: 0 } as Record<number, number>,
     },
     // One-off PC rewards the first time the city's population reaches each
     // threshold, e.g. { population: 1000, reward: 20 }. They may go over the
     // cap. Each pays once per city, however the population moves afterwards.
-    // SWITCHED OFF: the list is empty until the Political Capital numbers pass.
-    milestones: [] as { population: number; reward: number }[],
+    // An empty list switches them off.
+    milestones: [
+      { population: 1000, reward: 40 },
+      { population: 2500, reward: 60 },
+      { population: 5000, reward: 80 },
+      { population: 10000, reward: 120 },
+      { population: 25000, reward: 200 },
+      { population: 50000, reward: 300 },
+    ] as { population: number; reward: number }[],
     // Ordinances (src/sim/ordinances.ts): a lump of PC to enact, a daily PC
     // (and for some, money) upkeep, and multipliers the sim systems read
-    // through ordinanceModifier(). 1 = no effect. SWITCHED OFF: every cost
-    // is 0 and every multiplier 1 until the numbers are play-tested.
+    // through ordinanceModifier(). 1 = no effect.
     // "Established" (Heritage Protection's establishedLandValue and
     // establishedDemolitionCost) is not defined yet: which tiles count is an
     // open design question for the owner and the PM. Until it is decided,
     // nothing reads those two names.
     // Heritage Protection: a tile counts as "established" once it has stayed
     // developed for this many game years (engine wires it). 0 = off.
-    establishedYears: 0,
-    // Resident requests (src/sim/requests.ts, RequestSystem). SWITCHED OFF:
-    // spawnEveryDays is 0, so none ever opens; days, rewards and penalties
-    // are set in the balance play-test.
+    establishedYears: 1.5,
+    // Resident requests (src/sim/requests.ts, RequestSystem). spawnEveryDays 0
+    // would switch them off, as would days 0 for one kind.
     requests: {
-      spawnEveryDays: 0,  // a new request every this many game days while under maxOpen (0 = never)
+      spawnEveryDays: 6,  // a new request every this many game days while under maxOpen (0 = never)
       maxOpen: 3,
       cellSize: 12,       // neighbourhoods are cells of this many tiles square…
       minHomes: 6,        // …with at least this many developed homes
@@ -535,47 +544,47 @@ export const BALANCE = {
       // on this many daily checks in a row. Both default to 1 (the reading
       // of the day, met at once).
       kinds: {
-        park: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        police: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        fire: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        school: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
-        hospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
-        utilities: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0, smoothDays: 3, holdDays: 3 },
-        trafficJam: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0.05, smoothDays: 3, holdDays: 3 },
-        blight: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0 },
+        park: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
+        police: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
+        fire: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
+        school: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
+        hospital: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
+        utilities: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0, smoothDays: 3, holdDays: 3 },
+        trafficJam: { days: 20, reward: 5.91, penalty: 8, askAt: 0.1, metAt: 0.05, smoothDays: 3, holdDays: 3 },
+        blight: { days: 20, reward: 5.91, penalty: 8, askAt: 0.1, metAt: 0 },
       } as Record<string, { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number }>,
     },
-    // Off until the ordinance numbers are play-tested: the toolbar tile and
-    // panel stay hidden while this is false (ordinancesEnabled()).
-    ordinancesEnabled: false,
+    // The toolbar tile and panel stay hidden while this is false
+    // (ordinancesEnabled()).
+    ordinancesEnabled: true as boolean,
     ordinances: {
-      neighbourhoodWatch: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1 } }, // Crime −15%; PC upkeep only
-      curfew: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { crime: 1, commercialIncome: 1 } }, // Crime −30%; shop income −10%
-      cleanAirAct: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { industrialPollution: 1, industrialGrowth: 1 } }, // Industrial pollution −30%; industry grows slower
-      businessIncentives: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { commercialDemand: 1, industrialDemand: 1, commercialIncome: 1, industrialIncome: 1 } }, // Shop and industry demand up; their tax income down
-      freeTransit: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { trafficTrips: 1 } }, // Less traffic; money upkeep too
-      fastTrackPermits: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { growth: 1, pollution: 1, crime: 1 } }, // Zones grow faster; a bit more pollution and crime
-      eminentDomain: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { displacementCost: 1, satisfaction: 1 } }, // Displacing residents costs half the PC; satisfaction drops
-      heritageProtection: { enactCost: 0, dailyUpkeep: 0, dailyMoney: 0, modifiers: { establishedLandValue: 1, establishedDemolitionCost: 1 } }, // Established neighbourhoods gain land value; very expensive to demolish
+      neighbourhoodWatch: { enactCost: 10, dailyUpkeep: 0.18, dailyMoney: 0, modifiers: { crime: 0.75 } },
+      curfew: { enactCost: 17, dailyUpkeep: 0.36, dailyMoney: 0, modifiers: { crime: 0.55, commercialIncome: 0.9 } },
+      cleanAirAct: { enactCost: 20, dailyUpkeep: 0.3, dailyMoney: 0, modifiers: { industrialPollution: 0.15, industrialGrowth: 0.8 } },
+      businessIncentives: { enactCost: 17, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { commercialDemand: 1.4, industrialDemand: 1.4, commercialIncome: 0.8, industrialIncome: 0.8 } },
+      freeTransit: { enactCost: 20, dailyUpkeep: 0.24, dailyMoney: 700, modifiers: { trafficTrips: 0.7 } },
+      fastTrackPermits: { enactCost: 13, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { growth: 1.8, pollution: 1.15, crime: 1.15 } },
+      eminentDomain: { enactCost: 27, dailyUpkeep: 0.32, dailyMoney: 0, modifiers: { displacementCost: 0.4, satisfaction: 0.88 } },
+      heritageProtection: { enactCost: 20, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { establishedLandValue: 1.3, establishedDemolitionCost: 4 } },
     } as Record<string, { enactCost: number; dailyUpkeep: number; dailyMoney: number; modifiers: Record<string, number> }>,
     // Opening a service building earns PC for the residents it covers; closing
     // one costs what they lose (see sim/serviceValue.ts).
-    // SWITCHED OFF: every value is 0 until the Political Capital numbers pass.
+    // A value of 0 switches that kind off.
     service: {
       // PC per resident for the first building of a kind covering them, by
       // building kind (4 police, 5 fire, 6 school, 7 hospital, 8 park).
-      perResident: { 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 } as Record<number, number>,
+      perResident: { 4: 0.0044, 5: 0.0044, 6: 0.00635, 7: 0.00398, 8: 0.00587 } as Record<number, number>,
       // Each further building of the same kind covering a resident is worth
       // this fraction of the one before. (Not used for a kind that has a
       // capacity, see service.capacity: those are priced by the residents
       // who gain or lose a seat.)
-      repeatFactor: 0.5,
+      repeatFactor: 0.45,
       // Closing a service costs this many times the value lost by residents
       // it leaves with no building of that kind. (Residents another still
       // covers are charged their reduced loss once, so moving a service is
       // cheap.) Keep it at 1 or more, or building and bulldozing a service
       // becomes a way to farm PC.
-      closureMultiplier: 1.5,
+      closureMultiplier: 1.85,
     },
   },
 } as const;

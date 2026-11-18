@@ -2,6 +2,7 @@
 // and costs when it closes. The shipped values are 0, so these tests set
 // BALANCE's values for their duration.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
@@ -48,7 +49,7 @@ afterEach(() => {
 });
 
 describe('service value', () => {
-  it('is switched off in the shipped balance, with a closure multiplier of at least 1', () => {
+  it('is switched off with PC off, with a closure multiplier of at least 1', () => {
     expect(Object.values(shipped.perResident).every(v => v === 0)).toBe(true);
     expect(shipped.closureMultiplier).toBeGreaterThanOrEqual(1);
     expect(shipped.repeatFactor).toBeGreaterThanOrEqual(0);

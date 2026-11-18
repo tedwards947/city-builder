@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { World } from '../sim/World';
 import { pcQuote, pcQuoteMany, pcCap, nuisanceRings, zonesCutOffByHighway } from '../sim/politics';
@@ -91,7 +92,7 @@ describe('pcQuote: displacement and blight', () => {
 });
 
 describe('pcQuote: nuisance near homes', () => {
-  it('is switched off in the shipped balance', () => {
+  it('is switched off with PC off', () => {
     homes(w, 4, 4, 8, 8);
     expect(pcQuote(w, { type: 'zone', tx: 9, ty: 6, zone: ZONE_I }).parts).toEqual([]);
     expect(pcQuote(w, { type: 'building', tx: 9, ty: 6, kind: BUILDING_POWER_PLANT }).parts).toEqual([]);

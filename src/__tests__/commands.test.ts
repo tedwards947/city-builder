@@ -1,3 +1,4 @@
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';

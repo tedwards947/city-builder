@@ -1,6 +1,7 @@
 // The cost of unpopular things near homes, with the rates switched on. The
 // shipped rates are 0, so these tests set BALANCE's rates for their duration.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { CommandHistory } from '../commands/CommandHistory';
@@ -47,7 +48,7 @@ afterEach(() => {
 });
 
 describe('nuisance cost, switched on', () => {
-  it('the shipped rates are all zero', () => {
+  it('the rates are all zero with PC off', () => {
     expect(shipped.industrialPerResident).toBe(0);
     expect(Object.values(shipped.buildingPerResident).every(v => v === 0)).toBe(true);
   });

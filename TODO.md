@@ -59,6 +59,8 @@ Status as of 2026-11-17, after the landscaping tree effects. Details of every sy
 
 Done 2026-11-18: traffic requests made durable (owner's play-test bug: one opened and was met on noise). Asked on a 3-day average, met after 3 days held; `smoothDays` / `holdDays` per kind. School, hospital and utilities requests can also move without the player (seats re-dealt, demand dipping): given the same 3 / 3 rule on the owner's say (2026-11-18).
 
+Done 2026-11-18: PC numbers on (owner: ship T). Preset T is the shipped `BALANCE.politicalCapital`, `budget.debtPcDrainPerDay` 0.75; balance.ts is the only copy of T, `PC_OFF` (src/data/pcOff.ts) is the Off preset. Not changed, for the owner: `startingPoliticalCapital` is still 100 against a cap of 150; the debt drain stays on under the Off preset (it is a budget number).
+
 Nothing else is unblocked: the next engine work comes from the on-hold list, at the owner's say-so.
 
 ### On hold (do not start without the owner)

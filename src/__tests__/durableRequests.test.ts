@@ -3,6 +3,7 @@
 // per kind (smoothDays / holdDays); these tests switch it on for blight, whose
 // need a test can set exactly.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';

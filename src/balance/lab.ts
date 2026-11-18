@@ -5,6 +5,7 @@ import { BALANCE } from '../data/balance';
 import { PC_VARIANTS } from '../ui/pcPresets';
 import { applyValues } from '../ui/pcPresets';
 import { TUNED_T } from './tunedT';
+import { PC_OFF } from '../data/pcOff';
 import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset, type SvcResult } from './services';
 import { TRADE_PRESETS, applyTradeValues, tradeResult, type TradePreset, type TradeResult } from './trade';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
@@ -279,6 +280,7 @@ export function runLab(o: LabOptions): Report {
     // ── PC suite ──
     for (const v of variants) {
       applyValues(BALANCE.politicalCapital as never, shippedPc);
+      applyValues(BALANCE.politicalCapital as never, structuredClone(PC_OFF) as never); // Off = PC effects at 0; the shipped numbers are T
       if (v !== 'Off') applyValues(BALANCE.politicalCapital as never, (o.customVariants?.[v]?.values ?? PC_VARIANTS.find(x => x.id === v)!.values) as never);
       const ordinancesOn = ordinancesEnabled();
       report.runs[v] = {}; report.probes[v] = {};

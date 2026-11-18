@@ -1,6 +1,6 @@
 // The PC play-test variants' numbers. A–D were designed and dry-run by the engine
-// session (2026-11-16); T is the Balance Lab tuner's best (src/balance/tunedT.ts); service values rescaled for the service ranges of #116. Each is a partial BALANCE.politicalCapital tree, applied
-// over the shipped numbers by the debug panel's picker (see pcPresets.ts).
+// session (2026-11-16); T is the Balance Lab tuner's best, now the shipped numbers (src/balance/tunedT.ts reads them from balance.ts); service values rescaled for the service ranges of #116. Each is a partial BALANCE.politicalCapital tree, applied
+// over PC_OFF by the debug panel's picker (see pcPresets.ts).
 
 import { TUNED_T } from '../balance/tunedT';
 

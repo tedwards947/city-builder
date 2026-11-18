@@ -1,6 +1,7 @@
 // Debt as a failure condition: the limit, its warnings, the countdown, game
 // over, the daily PC drain and the debug revive.
 
+import './pcOffBaseline';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { Scheduler } from '../sim/Scheduler';
@@ -34,14 +35,15 @@ function listen(world: World) {
 const tick = (n = 1) => { for (let k = 0; k < n; k++) { w.tick++; sys.update(w); } };
 const names = () => seen.map((e) => e.name + (e.p.level ? ':' + e.p.level : ''));
 
-beforeEach(() => { w = city(2); sys = new EconomySystem(); listen(w); });
+// The drain is off for these tests unless one sets it; the shipped 0.75 is checked below.
+beforeEach(() => { B.debtPcDrainPerDay = 0; w = city(2); sys = new EconomySystem(); listen(w); });
 afterEach(() => { Object.assign(B, shipped); });
 
 describe('debt', () => {
-  it('ships with a 30-day limit and a 30-day countdown, and the PC drain switched off', () => {
+  it('ships with a 30-day limit, a 30-day countdown and a PC drain of 0.75 a day', () => {
     expect(B.debtLimitDays).toBe(30);
     expect(B.debtGraceDays).toBe(30);
-    expect(B.debtPcDrainPerDay).toBe(0);
+    expect(shipped.debtPcDrainPerDay).toBe(0.75);
   });
 
   it('with the countdown off, the limit warns but the game never ends', () => {
