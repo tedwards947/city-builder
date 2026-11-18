@@ -69,6 +69,9 @@ export class HealthcareSystem {
       let sicknessSum = 0;
       let sicknessCount = 0;
       let affectedTiles = 0;
+      // The sickest home (first on a tie), so the toast can show where. A crisis needs an
+      // average above the threshold, so some home was counted and worst is never -1 then.
+      let worst = -1;
       const { zoned, zonedCount } = world.index;
       for (let k = 0; k < zonedCount; k++) {
         const i = zoned[k];
@@ -76,11 +79,12 @@ export class HealthcareSystem {
           sicknessSum += sickness[i];
           sicknessCount++;
           if (sickness[i] > b.crisisThreshold) affectedTiles++;
+          if (worst < 0 || sickness[i] > sickness[worst]) worst = i;
         }
       }
       const avgSickness = sicknessCount > 0 ? sicknessSum / sicknessCount : 0;
       if (avgSickness > b.crisisThreshold) {
-        world.events.emit('healthcareCrisis', { avgSickness, threshold: b.crisisThreshold, affectedTiles });
+        world.events.emit('healthcareCrisis', { avgSickness, threshold: b.crisisThreshold, affectedTiles, tx: worst % world.grid.width, ty: Math.floor(worst / world.grid.width) });
         this._lastCrisisAlertTick = world.tick;
       }
     }

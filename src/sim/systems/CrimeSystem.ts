@@ -81,6 +81,9 @@ export class CrimeSystem {
       let crimeSum = 0;
       let crimeCount = 0;
       let affectedTiles = 0;
+      // The tile with the most crime (first on a tie), so the toast can show where. An alert
+      // needs an average above the threshold, so some tile was counted and worst is never -1 then.
+      let worst = -1;
       const { zoned, zonedCount } = world.index;
       for (let k = 0; k < zonedCount; k++) {
         const i = zoned[k];
@@ -88,11 +91,12 @@ export class CrimeSystem {
           crimeSum += crime[i];
           crimeCount++;
           if (crime[i] > b.alertThreshold) affectedTiles++;
+          if (worst < 0 || crime[i] > crime[worst]) worst = i;
         }
       }
       const avgCrime = crimeCount > 0 ? crimeSum / crimeCount : 0;
       if (avgCrime > b.alertThreshold) {
-        world.events.emit('crimeSpike', { avgCrime, threshold: b.alertThreshold, affectedTiles });
+        world.events.emit('crimeSpike', { avgCrime, threshold: b.alertThreshold, affectedTiles, tx: worst % world.grid.width, ty: Math.floor(worst / world.grid.width) });
         this._lastAlertTick = world.tick;
       }
     }
