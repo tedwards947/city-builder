@@ -48,8 +48,10 @@
 // Then: CONGESTION = volume / capacity of the road class, as a 0-255 byte,
 // and ACCESSIBILITY per zone tile from travel time — homes look for the
 // nearer of commerce or industry, commerce and industry look for homes.
-// Only ZONES count: a building that takes shoppers or commuters (a school's
-// staff, an airport) is a door for traffic but gives homes no accessibility.
+// For homes only ZONES count: a building that takes shoppers or commuters (a
+// school's staff, an airport) is a door for traffic but gives homes no
+// accessibility. For commerce and industry a building that SENDS shoppers or
+// job seekers (an airport's arrivals) counts like homes do.
 // 255 = next door, falling linearly to 0 at BALANCE.transit.commuteMax.
 // ZoneGrowthSystem uses it as a growth multiplier.
 //
@@ -150,6 +152,11 @@ export class TransitSystem {
   // shopping or jobs market; otherwise the market's own map is the same thing.
   private _zoneShops: TrafficField | null = null;
   private _zoneJobs: TrafficField | null = null;
+  // The way to the nearest customers (for shops) and workers (for industry):
+  // homes plus buildings that send shoppers / job seekers. Made and filled
+  // only while a building sends such trips; otherwise it is the way to homes.
+  private _customers: TrafficField | null = null;
+  private _workers: TrafficField | null = null;
   private _idle: boolean[] = [];
 
   update(world: World): void {
@@ -222,6 +229,8 @@ export class TransitSystem {
       this._nbStale = true;
       this._zoneShops = null;
       this._zoneJobs = null;
+      this._customers = null;
+      this._workers = null;
     }
 
     const roadClass = world.layers.roadClass;
@@ -323,6 +332,17 @@ export class TransitSystem {
       toJobs = this._zoneJobs ??= makeTrafficField(n);
       this._flood(world, ZONE_I, toJobs, 1);
     }
+    // And the way to customers and workers: homes, plus buildings that send shoppers or job seekers.
+    let toCustomers = data.toR, toWorkers = data.toR;
+    if (this._extraTripCount[shopsK] > 0) {
+      toCustomers = this._customers ??= makeTrafficField(n);
+      this._flood(world, ZONE_R, toCustomers, 1, undefined, 'shopping');
+    }
+    if (this._extraTripCount[jobsK] > 0) {
+      toWorkers = this._workers ??= makeTrafficField(n);
+      this._flood(world, ZONE_R, toWorkers, 1, undefined, 'jobs');
+    }
+    data.toShops = toShops; data.toJobs = toJobs; data.toCustomers = toCustomers; data.toWorkers = toWorkers;
 
     // ── Congestion ────────────────────────────────────────────────────────────
     const congestion = world.layers.congestion;
@@ -338,11 +358,12 @@ export class TransitSystem {
 
     // ── Accessibility ─────────────────────────────────────────────────────────
     // What each zone type needs within reach. Homes: the nearer of commerce
-    // (shopping) or industry (jobs). Commerce and industry: homes. Zones
-    // only: doors that buildings add to a market do not count.
+    // (shopping) or industry (jobs), zones only: doors that buildings add to
+    // a market do not count. Commerce: customers, which are homes or a
+    // building that sends shoppers. Industry: workers, homes or a building
+    // that sends job seekers.
     // (TODO.md: let commerce also need industry, via the goods market's map.)
     const accessibility = world.layers.accessibility;
-    const toHomes = data.toR;
     const commuteMax = T.commuteMax;
 
     accessibility.fill(0);
@@ -358,7 +379,7 @@ export class TransitSystem {
         if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;
         const t = zoneType === ZONE_R
           ? Math.min(travelTime(toShops, ri), travelTime(toJobs, ri))
-          : travelTime(toHomes, ri);
+          : travelTime(zoneType === ZONE_C ? toCustomers : toWorkers, ri);
         if (t < best) best = t;
       }
 
@@ -489,8 +510,10 @@ export class TransitSystem {
    * (Dijkstra from all doors at once). A zone is entered from an adjacent
    * street or avenue; its capacity is shared between its doors. For a market
    * (`market` given), buildings registered as destinations add their doors too.
+   * With `sendersOf` given, the roads from which buildings send that market's
+   * trips are destinations as well (for the way to customers and workers).
    */
-  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, market?: MarketKey): void {
+  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, market?: MarketKey, sendersOf?: MarketKey): void {
     const { width, height } = world.grid;
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
@@ -531,6 +554,14 @@ export class TransitSystem {
         if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { doorCap[ri] += cap; bldCap[ri] += cap; }
+      });
+    }
+
+    if (sendersOf !== undefined) {
+      extraTrips(world, sendersOf, (ri, trips) => {
+        if (!(trips > 0) || ri < 0 || ri >= roadClass.length) return;
+        const rc = roadClass[ri];
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += trips;
       });
     }
 
