@@ -4,7 +4,8 @@
 
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT } from '../sim/constants';
+import { buildingTripsAt } from '../sim/buildingTraffic';
 import type {World} from "../sim/World";
 import {
   TERRAIN_GRASS,
@@ -87,7 +88,7 @@ function tripRows(world: World, i: number): string {
   const trips = lotTrips(world, i);
   if (!trips.length) return "";
   const limit = BALANCE.transit.commuteMax;
-  const label = {jobs: "ui.tileInfo.tripJobs", shops: "ui.tileInfo.tripShops", homes: "ui.tileInfo.tripHomes"} as const;
+  const label = {jobs: "ui.tileInfo.tripJobs", shops: "ui.tileInfo.tripShops", customers: "ui.tileInfo.tripCustomers", workers: "ui.tileInfo.tripWorkers"} as const;
   let html = "";
   for (const trip of trips) {
     const reached = trip.time < limit;
@@ -123,6 +124,7 @@ const BUILDING_NAME: Record<number, string> = {
   [BUILDING_WATER_TOWER]: "buildings.waterTower",
   [BUILDING_SEWAGE_PLANT]: "buildings.sewagePlant",
   [BUILDING_SEAPORT]: "buildings.seaport",
+  [BUILDING_AIRPORT]: "buildings.airport",
   [BUILDING_LARGE_POWER_PLANT]: "buildings.largePowerPlant",
   [BUILDING_LARGE_WATER_PLANT]: "buildings.largeWaterPlant",
   [BUILDING_LARGE_SEWAGE_PLANT]: "buildings.largeSewagePlant",
@@ -241,6 +243,31 @@ function analyzeZone(
   return {level: dev, maxLevel, reqs};
 }
 
+/**
+ * The airport: what it does, then (with a road to its terminal) passengers
+ * this tick against its seats, what they earn, the arrivals it sends into the
+ * city and the boost to shops; without one, the warning. Upkeep either way.
+ */
+function airportRows(world: World, tx: number, ty: number): string {
+  const trips = buildingTripsAt(world, tx, ty), row = BALANCE.transit.buildings[BUILDING_AIRPORT];
+  let html = `<div class="ti-detail">${t("ui.tileInfo.airportAbout")}</div>`;
+  if (!trips?.connected) html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.airportNoRoad")}</div>`;
+  else {
+    const pax = trips.takes.find((m) => m.market === "visitors");
+    if (pax) {
+      const fill = pax.capacity > 0 ? Math.min(1, pax.trips / pax.capacity) : 0;
+      html += `<div class="ti-detail ti-seats"><span>${t("ui.tileInfo.airportPassengers")}</span><b>${t("ui.tileInfo.airportPerTick", {n: Math.round(pax.trips).toLocaleString("en-US"), cap: pax.capacity.toLocaleString("en-US")})}</b></div>`;
+      html += `<div class="ti-meter"><span style="width:${(fill * 100).toFixed(1)}%"></span></div>`;
+    }
+    if (trips.income > 0) html += `<div class="ti-detail">${t("ui.tileInfo.airportEarns", {amount: Math.round(trips.income).toLocaleString("en-US")})}</div>`;
+    const sent = (k: string) => Math.round(trips.sends.find((m) => m.market === k)?.trips ?? 0);
+    if (trips.sends.length > 0) html += `<div class="ti-detail">${t("ui.tileInfo.airportArrivals", {shops: sent("shopping"), jobs: sent("jobs")})}</div>`;
+    const boost = row?.demandMult?.C ?? 1;
+    if (boost > 1) html += `<div class="ti-detail">${t("ui.tileInfo.airportDemand", {pct: Math.round((boost - 1) * 100)})}</div>`;
+  }
+  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[BUILDING_AIRPORT]?.maintenance ?? 0})}</div>`;
+}
+
 /** A street or avenue beside any tile of the building at (tx, ty). */
 function isBuildingConnected(world: World, tx: number, ty: number): boolean {
   // A street or avenue along the building's body; a seaport's docks do not count.
@@ -321,6 +348,7 @@ export class TileInfoPanel {
       if (building === BUILDING_LARGE_WATER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.water.largePlantOutput})}</div>`;
       if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
       if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
+      if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
 
       // Connectivity warning for utilities
       if (

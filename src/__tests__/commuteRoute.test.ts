@@ -26,7 +26,7 @@ describe('commute trips', () => {
     expect(trips.map((t) => t.key)).toEqual(['jobs', 'shops']);
     expect(trips[1].time).toBeLessThan(trips[0].time); // the shop is nearer than the factory
     expect(trips[0].road).toBe(5 * 64 + 2);
-    expect(lotTrips(w, shop).map((t) => t.key)).toEqual(['homes']);
+    expect(lotTrips(w, shop).map((t) => t.key)).toEqual(['customers']);
   });
 
   it('reports nothing in reach as an infinite trip with no road', () => {
