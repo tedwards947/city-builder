@@ -77,6 +77,8 @@ Second engine session: engine tasks the main engine session isn't on, cleanup an
 2. **Highway beside a home with no road.** _Done._ Upgrading a street or avenue to highway still abandons the developed zones beside it that have no other street or avenue, and charges displacement for the homes among them. A highway built on empty land, or over a highway, cuts nobody off, so a home that never had a road is left alone (owner's rule, `zonesCutOffByHighway`).
 3. **Political Capital live tuning panel** (`?debug=true`): _Built._ It has an input for every `BALANCE.politicalCapital` number, generated from the balance object, so new keys appear by themselves. It shows PC / cap, regeneration (applied, and the rate at the current satisfaction), 0 → cap refill time, satisfaction with each factor, and the next milestone. "Load proposed" switches on the engine's proposed numbers (`src/ui/pcPresets.ts`), "Reset" puts the shipped ones back, and "Copy values" exports the block for a numbers-on PR.
 4. **CI and cleanup proposals** sent to the PM for the owner: perf numbers in CI, Cloudflare Pages PR previews (needs the owner's account), require CI before merging, prune merged branches.
+5. **+$10k cheat** (DESIGN 7): _Done._ A "+$10k" button in the PC panel's Shortcuts (`?debug=true`) adds $10,000 to the city's money.
+6. **Click a toast to focus** (DESIGN 5): _Next._ Agree files with GRAPHICS first (`src/ui`, `src/render`).
 
 ## ENGINEER 3
 
