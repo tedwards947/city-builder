@@ -71,7 +71,7 @@ export class ToastPanel {
       this.showToast(t('ui.toast.resourceRestored'), t('ui.toast.sewageStabilized'), 'info');
     };
     this.handlers['crimeSpike'] = (p: CityEvents['crimeSpike']) => {
-      this.showToast(t('ui.toast.crimeWaveTitle'), t('ui.toast.crimeWaveMsg', { affectedTiles: p.affectedTiles }), 'warning');
+      this.showToast(t('ui.toast.crimeWaveTitle'), t('ui.toast.crimeWaveMsg', { affectedTiles: p.affectedTiles }), 'warning', tile(p.tx, p.ty));
     };
     // Fires: one grouped toast from the sim's summary, and only for fires no
     // station can reach. A fire inside fire cover goes out by itself, so each
@@ -81,7 +81,7 @@ export class ToastPanel {
       if (text) this.showToast(t('ui.toast.fireAlertTitle'), text, 'alert', tile(p.tx, p.ty));
     };
     this.handlers['healthcareCrisis'] = (p: CityEvents['healthcareCrisis']) => {
-      this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert');
+      this.showToast(t('ui.toast.healthcareCrisisTitle'), t('ui.toast.healthcareCrisisMsg', { affectedTiles: p.affectedTiles }), 'alert', tile(p.tx, p.ty));
     };
     this.handlers['budgetWarning'] = (p: CityEvents['budgetWarning']) => {
       this.showToast(t('ui.toast.lowFundsTitle'), t('ui.toast.lowFundsMsg', { days: Math.max(1, Math.round(p.daysLeft)) }), 'warning');

@@ -312,7 +312,7 @@ The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every a
 | `waterRestored` | WaterSystem | `supply, demand` |
 | `sewageShortage` | SewageSystem | `supply, demand, deficit` |
 | `sewageRestored` | SewageSystem | `supply, demand` |
-| `crimeSpike` | CrimeSystem | `avgCrime, threshold, affectedTiles` (cooldown-throttled) |
+| `crimeSpike` | CrimeSystem | `avgCrime, threshold, affectedTiles, tx, ty` (cooldown-throttled; `tx, ty` = the tile with the most crime, first in loop order on a tie; the toast focuses there) |
 | `fireIgnition` | FireSystem | `tx, ty, zone, devLevel` |
 | `fireSpreading` | FireSystem | `tx, ty` |
 | `fireDamage` | FireSystem | `tx, ty, zone, level` (level after the fire) |
@@ -321,7 +321,7 @@ The authoritative type catalog is `CityEvents` in `src/sim/EventBus.ts`. Every a
 | `tileAbandoned` | AbandonmentSystem | `tx, ty, zone, level` |
 | `tileDeveloped` | ZoneGrowthSystem | `tx, ty, zone, level` |
 | `deathEvent` | HealthcareSystem | `tx, ty` |
-| `healthcareCrisis` | HealthcareSystem | `avgSickness, threshold, affectedTiles` (cooldown-throttled) |
+| `healthcareCrisis` | HealthcareSystem | `avgSickness, threshold, affectedTiles, tx, ty` (cooldown-throttled; `tx, ty` = the sickest home, first in loop order on a tie; the toast focuses there) |
 | `pcChanged` | `changePc` (politics.ts) | `delta, reason, tx?, ty?, undo` (every PC cost or reward, never regeneration; `delta` is what was applied, which can be less than asked: a reward cut at the cap, an undo refund reduced by regeneration since; nothing when it is 0) |
 | `pcAction` | CommandHistory | `delta, tx?, ty?, undo` (one net PC change per finished player action) |
 | `populationMilestone` | PoliticsSystem | `population, reward` |

@@ -192,9 +192,12 @@ describe('CrimeSystem events', () => {
       }
     }
 
+    world.layers.crime[world.grid.idx(4, 2)] = BALANCE.crime.alertThreshold + 60;   // the worst tile
+
     const events = capture(world, 'crimeSpike', () => sys.update(world));
     expect(events).toHaveLength(1);
     const e = events[0];
+    expect(e).toMatchObject({ tx: 4, ty: 2 });   // where the toast focuses
     expect(e).toMatchObject({
       avgCrime:      expect.any(Number),
       threshold:     BALANCE.crime.alertThreshold,
@@ -363,9 +366,12 @@ describe('HealthcareSystem events', () => {
       world.layers.sickness[i] = BALANCE.healthcare.crisisThreshold + 50;
     }
 
+    world.layers.sickness[world.grid.idx(3, 0)] = BALANCE.healthcare.crisisThreshold + 90;   // the sickest home
+
     const events = capture(world, 'healthcareCrisis', () => sys.update(world));
     expect(events).toHaveLength(1);
     const e = events[0];
+    expect(e).toMatchObject({ tx: 3, ty: 0 });   // where the toast focuses
     expect(e).toMatchObject({
       avgSickness:   expect.any(Number),
       threshold:     BALANCE.healthcare.crisisThreshold,

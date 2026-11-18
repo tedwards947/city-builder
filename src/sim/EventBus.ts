@@ -17,7 +17,7 @@ export type CityEvents = {
   sewageShortage:   { supply: number; demand: number; deficit: number };
   sewageRestored:   { supply: number; demand: number };
   // Crime
-  crimeSpike:       { avgCrime: number; threshold: number; affectedTiles: number };
+  crimeSpike:       { avgCrime: number; threshold: number; affectedTiles: number; tx: number; ty: number };  // tx, ty: the worst tile
   // Fire
   // `covered`: a fire station reaches the tile, so the fire will be out in a
   // few ticks and do no damage. (Optional so older emitters still type-check.)
@@ -77,7 +77,7 @@ export type CityEvents = {
   requestFailed: { id: number; kind: string; x0: number; y0: number; x1: number; y1: number; deadlineTick: number };
   // Healthcare
   deathEvent:       { tx: number; ty: number };
-  healthcareCrisis: { avgSickness: number; threshold: number; affectedTiles: number };
+  healthcareCrisis: { avgSickness: number; threshold: number; affectedTiles: number; tx: number; ty: number };  // tx, ty: the sickest home
 };
 
 export class EventBus {
