@@ -30,39 +30,39 @@
 <body>
 <h1>Airport workshop</h1>
 <p>One airport, 12×5 tiles: a single runway running left to right (it is <b>runway 9</b>, so planes land left→right; the far end reads 27 as on a real runway), one terminal with three jet bridges, a tower and a hangar. Every scene loops through about a minute: a plane lands, rolls out, leaves the runway, <b>pulls up to the third jet bridge</b>, gets bags and fuel, is pushed back by a tug, taxis out and takes off. The plane is one flat painted picture that never turns: it parks side-on beside the terminal and the bridge reaches its far-side door.</p>
-<p>New art: 8 paid images, as agreed (5 terminal sheets, planes, ground vehicles, 1 redo that came back unchanged). The houses are the game's own, for size. Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+<p>New art: 8 paid images, as agreed (5 terminal sheets, planes, ground vehicles, 1 redo that came back unchanged). The houses, shop, office tower and large power plant beside each airport are the game's own sprites, for size. Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
 <p><b>How it might work in the game (imagined, not built):</b> like the ships, nothing is simulated. What's happening at the airport comes from the clock and the airport's flights a day, so it costs nothing off screen and needs no saving: one arrival-and-departure cycle at a time, planes fading in out over the map's west edge on approach and fading out after take-off.</p>
 
 <h2>A. Terminal style</h2>
 <div class="rowf">
-  <figure><canvas width="768" height="384" data-style="jetage" data-off="0"></canvas><figcaption><span class="code">A1</span>Jet age: white concrete wings like the TWA Flight Center, with a LAX-style saucer on arches at the east end. (Its jet bridge came out with a nose like a plane's: fun, or confusing?)</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="steel" data-off="12"></canvas><figcaption><span class="code">A2</span>90s steel and glass: a long curved metal roof over a blue-green curtain wall, white trusses at the ends (SLC-ish).</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="brutalist" data-off="24"></canvas><figcaption><span class="code">A3</span>Surprise 1, brutalist: a huge board-marked concrete slab with a waffle underside on tapered piers. Heavy and calm.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="deco" data-off="36"></canvas><figcaption><span class="code">A4</span>Surprise 2, 1930s streamline: cream walls with rounded ends, teal and chrome stripes, portholes and a clock tower entrance.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="timber" data-off="48"></canvas><figcaption><span class="code">A5</span>Surprise 3, mass timber: a honey-coloured wave roof on tree-like wooden columns over a glass wall, with a planted strip.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="jetage" data-off="0"></canvas><figcaption><span class="code">A1</span>Jet age: white concrete wings like the TWA Flight Center, with a LAX-style saucer on arches at the east end. (Its jet bridge came out with a nose like a plane's: fun, or confusing?)</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-off="12"></canvas><figcaption><span class="code">A2</span>90s steel and glass: a long curved metal roof over a blue-green curtain wall, white trusses at the ends (SLC-ish).</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="brutalist" data-off="24"></canvas><figcaption><span class="code">A3</span>Surprise 1, brutalist: a huge board-marked concrete slab with a waffle underside on tapered piers. Heavy and calm.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="deco" data-off="36"></canvas><figcaption><span class="code">A4</span>Surprise 2, 1930s streamline: cream walls with rounded ends, teal and chrome stripes, portholes and a clock tower entrance.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="timber" data-off="48"></canvas><figcaption><span class="code">A5</span>Surprise 3, mass timber: a honey-coloured wave roof on tree-like wooden columns over a glass wall, with a planted strip.</figcaption></figure>
 </div>
 
 <h2>B. Getting on and off the runway</h2>
 <p>The plane never turns, so moving north to the gate (and south to the runway for take-off) needs a trick. The pushback is fine as it is: a tug really does shove the plane backwards and sideways.</p>
 <div class="rowf">
-  <figure><canvas width="768" height="384" data-style="steel" data-exit="crab" data-off="8"></canvas><figcaption><span class="code">B1</span>Slide: the plane just slides sideways the two tiles to the gate lane, still side-on. Simple; reads like a toy being moved.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="steel" data-exit="squash" data-off="8"></canvas><figcaption><span class="code">B2</span>Squash: it slides too, but narrows as it goes, as if half-turning away from you, then widens again. A cheap hint of a turn.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="steel" data-exit="fade" data-off="8"></canvas><figcaption><span class="code">B3</span>Fade: like the ships, it fades out on the runway and fades back in at the gate lane.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-exit="crab" data-off="8"></canvas><figcaption><span class="code">B1</span>Slide: the plane just slides sideways the two tiles to the gate lane, still side-on. Simple; reads like a toy being moved.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-exit="squash" data-off="8"></canvas><figcaption><span class="code">B2</span>Squash: it slides too, but narrows as it goes, as if half-turning away from you, then widens again. A cheap hint of a turn.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-exit="fade" data-off="8"></canvas><figcaption><span class="code">B3</span>Fade: like the ships, it fades out on the runway and fades back in at the gate lane.</figcaption></figure>
 </div>
 
 <h2>C. Runway lights</h2>
 <div class="rowf">
-  <figure><canvas width="768" height="384" data-style="steel" data-lights="1" data-off="50"></canvas><figcaption><span class="code">C1</span>Steady only: white edge lights, green at the landing end, red at the far end, blue along the taxiways.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="steel" data-lights="2" data-off="50"></canvas><figcaption><span class="code">C2</span>Plus approach lights on the grass before the runway, with the "rabbit": a bright flash racing towards the runway twice a second.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="steel" data-lights="3" data-off="50"></canvas><figcaption><span class="code">C3</span>At dusk: glowing lights and a blinking red beacon on the plane. Only if the game gets a night look; shown so you can see the lights properly.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-lights="1" data-off="50"></canvas><figcaption><span class="code">C1</span>Steady only: white edge lights, green at the landing end, red at the far end, blue along the taxiways.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-lights="2" data-off="50"></canvas><figcaption><span class="code">C2</span>Plus approach lights on the grass before the runway, with the "rabbit": a bright flash racing towards the runway twice a second.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="steel" data-lights="3" data-off="50"></canvas><figcaption><span class="code">C3</span>At dusk: glowing lights and a blinking red beacon on the plane. Only if the game gets a night look; shown so you can see the lights properly.</figcaption></figure>
 </div>
 
 <h2>D. Plane size</h2>
-<p>The dashed box is the 12×5 footprint. A house is one tile.</p>
+<p>The dashed box is the 12×5 footprint. The houses, shop, office tower and power plant on the right are the game's own sprites at game scale.</p>
 <div class="rowf">
-  <figure><canvas width="768" height="384" data-style="deco" data-pl="1.6" data-box="1" data-off="16"></canvas><figcaption><span class="code">D1</span>1.6 tiles across: small and tidy; the terminal looks grand.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="deco" data-pl="2.2" data-box="1" data-off="16"></canvas><figcaption><span class="code">D2</span>2.2 tiles: what the other scenes use, about the size of a ship.</figcaption></figure>
-  <figure><canvas width="768" height="384" data-style="deco" data-pl="2.8" data-box="1" data-off="16"></canvas><figcaption><span class="code">D3</span>2.8 tiles: big and readable, but gates crowd and the plane dwarfs houses.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="deco" data-pl="1.6" data-box="1" data-off="16"></canvas><figcaption><span class="code">D1</span>1.6 tiles across: small and tidy; the terminal looks grand.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="deco" data-pl="2.2" data-box="1" data-off="16"></canvas><figcaption><span class="code">D2</span>2.2 tiles: what the other scenes use, about the size of a ship.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-style="deco" data-pl="2.8" data-box="1" data-off="16"></canvas><figcaption><span class="code">D3</span>2.8 tiles: big and readable, but gates crowd and the plane dwarfs houses.</figcaption></figure>
 </div>
 
 <h2>E. Liveries</h2>
@@ -106,6 +106,14 @@ const M = window.AIR_META || {};
 const IMG = {};
 const img = n => IMG[n] || (IMG[n] = Object.assign(new Image(), { src: `sprites/airport/${n}.png` }));
 const house = new Image(); house.src = '../../public/sprites/clay/res-1.png';
+// The game's own buildings for size, drawn on their lots as the game does (claySpriteData.ts: w, h, plot left, right, bottom; lot size in tiles).
+const REF = { 'res-1': [128, 128, 13, 113, 109, 1], 'com-1': [128, 128, 13, 113, 109, 1], 'com-3': [128, 128, 13, 113, 109, 1], 'power-large': [384, 384, 38, 345, 332, 3] };
+const REF_IMG = {}; for (const n in REF) REF_IMG[n] = Object.assign(new Image(), { src: `../../public/sprites/clay/${n}.png` });
+function lot(ctx, n, tx, ty, label) {   // (tx, ty): the lot's top-left tile
+  const im = REF_IMG[n], [w, h, l, r, b, N] = REF[n], T = ctx.T; if (!im.complete || !im.naturalWidth) return;
+  const q = N * T / (r - l); ctx.drawImage(im, tx * T - l * q, (ty + N) * T - b * q, w * q, h * q);
+  if (label) { ctx.save(); ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.fillText(label, (tx + N / 2) * T, (ty + N) * T + 2); ctx.restore(); }
+}
 const STYLES = {
   // cab: which end of the painted bridge has the wheels (the end at the plane); bw: its width in tiles.
   steel: { term: 'steel-1', tower: 'steel-2', bridge: 'steel-3', hangar: 'steel-6', cab: 'L', bw: 0.9 },
@@ -195,11 +203,11 @@ function vehicles(c, p, PL) {
 
 function ground(ctx, box) {
   const T = ctx.T;
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 16; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+  for (let y = 0; y < 8; y++) for (let x = 0; x < ctx.canvas.width / T; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
   // Land side: a road behind the terminal.
-  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, 16 * T, 0.4 * T);
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(0, 0.95 * T, ctx.canvas.width, 0.4 * T);
   ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
-  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(16 * T, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(0, 1.15 * T); ctx.lineTo(ctx.canvas.width, 1.15 * T); ctx.stroke(); ctx.setLineDash([]);
   // Apron.
   ctx.fillStyle = '#bdb8ac'; ctx.fillRect(2 * T, 2.45 * T, 12 * T, 2.45 * T);
   ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
@@ -223,8 +231,10 @@ function ground(ctx, box) {
   for (const x of [RX0 + 2.3, RX1 - 2.9]) for (const s of [-1, 1]) ctx.fillRect(x * T, RY * T + s * rh * 0.22 - rh * 0.06, 0.6 * T, rh * 0.12);
   ctx.font = `bold ${Math.round(0.42 * T)}px -apple-system, "Helvetica Neue", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const [txt, x, rot] of [['9', RX0 + 0.85, Math.PI / 2], ['27', RX1 - 0.85, -Math.PI / 2]]) { ctx.save(); ctx.translate(x * T, RY * T); ctx.rotate(rot); ctx.fillText(txt, 0, 0); ctx.restore(); }
-  // Houses for size, outside the airport.
-  for (const [x, y] of [[0.8, 7.7], [1.9, 7.55], [15.2, 7.7]]) if (house.complete && house.naturalWidth) ctx.drawImage(house, x * T - T / 2, y * T - T, T, T);
+  // The game's own buildings for size, outside the airport.
+  lot(ctx, 'res-1', 0.3, 6.6, 'house'); lot(ctx, 'res-1', 1.4, 6.5);
+  lot(ctx, 'com-1', 15, 3.3, 'shop'); lot(ctx, 'com-3', 16.6, 2.2, 'office tower'); lot(ctx, 'res-1', 18.3, 2.3, 'house');
+  lot(ctx, 'power-large', 16.3, 4.4, 'large power plant (3×3)');
   if (box) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeRect(2 * T, 1.5 * T, 12 * T, 5 * T); ctx.setLineDash([]); }
 }
 
