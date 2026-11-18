@@ -107,7 +107,8 @@ Done and merged:
 - Owner's answers (2026-11-18): pc.closure.lonely lowered to ≥ 0.15 of cap, one closureMultiplier kept; tax.low's growth check on mature cities only, fresh town at 0 must still fail econ.noSoftlock. Preset T closureMultiplier 1.67 → 1.85: 95/98 PC (was 94 at 1.67 with the new range); closure.lonely passes on every city, moving a school now costs 0.054 / 0.061 of cap on testcity1 / gen-s1-t10000 against pc.move ≤ 0.05 (#250).
 - Owner's answers (2026-11-18, second round): pc.move relaxed to ≤ 0.07; the Request-chaser's traffic-jam target lowered to ≥ 30% after the 3-day hold (#248), to revisit after the owner plays; tax.high / tax.low graded on residents against level 10 (2–8% fewer at 20; no fewer at 5, for less income). Shipped `tax.level.exodusPerPoint` 1e-4 (#252).
 - pc.refill counts 99% of the cap as refilled (owner, 2026-11-18): since #248 a city left alone fails the odd traffic request and can sit a point short of the cap (this PR).
-- Preset T re-graded after #248 and #253 (3-day request holds): 96/98 PC (this PR).
+- Preset T re-graded after #248 and #253 (3-day request holds): 96/98 PC (#255).
+- tax.low allows 0.5% fewer residents at level 5 (owner, 2026-11-18): after PC went on (#256) gen-s1 missed by one home (this PR).
 
 Proposed, waiting on ENGINE (ships with the PC numbers-on PR):
 - `BALANCE.budget.debtPcDrainPerDay` 0 → 0.75 (lab preset "proposed" in `src/balance/taxdebt.ts`): debt.pcDrain 0.15 on every city, debt.squeeze passes. `debt.test.ts` pins the drain at 0 while PC is off, so ENGINE turns it on with the rest.
