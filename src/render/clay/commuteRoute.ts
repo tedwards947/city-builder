@@ -6,7 +6,7 @@
  * `lotTrips` is pure and tested; `drawCommuteRoutes` needs a canvas.
  */
 import type { World } from '../../sim/World';
-import { ZONE_NONE, ZONE_R } from '../../sim/constants';
+import { ZONE_NONE, ZONE_R, ZONE_C } from '../../sim/constants';
 import { BALANCE } from '../../data/balance';
 import { type TrafficField, bestAccessRoad, travelTime } from '../../sim/TrafficData';
 import { t } from '../../i18n';
@@ -31,7 +31,8 @@ export function lotTrips(world: World, i: number): LotTrip[] {
     const road = bestAccessRoad(world, i, field);
     return { key, road, field, time: road >= 0 ? travelTime(field, road) : Infinity };
   };
-  return zone === ZONE_R ? [trip('jobs', d.jobs.field), trip('shops', d.shopping.field)] : [trip('homes', d.toR)];
+  // The same maps accessibility is measured on (TransitSystem): zones only for homes; for shops and industry, homes or a building that sends them trips.
+  return zone === ZONE_R ? [trip('jobs', d.toJobs), trip('shops', d.toShops)] : [trip('homes', zone === ZONE_C ? d.toCustomers : d.toWorkers)];
 }
 
 /** How a trip of `time` compares with the limit: 0 short, 1 middling, 2 long (60% of the limit or more, which is when the lot gets a commute badge). */

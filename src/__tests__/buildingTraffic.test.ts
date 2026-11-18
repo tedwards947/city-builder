@@ -95,6 +95,39 @@ describe('buildings in traffic', () => {
     expect(w.layers.accessibility[idx(5, 14)]).toBe(0);
   });
 
+  it('a building that sends shoppers counts as customers for shops, and one that sends job seekers as workers for industry', () => {
+    // Shops and industry at the far east end of the street, 18 tiles and more from the homes.
+    zone(24, 14, ZONE_C, 2);
+    zone(26, 14, ZONE_I, 2);
+    traffic();
+    const shopsBefore = w.layers.accessibility[idx(24, 14)], industryBefore = w.layers.accessibility[idx(26, 14)];
+    expect(shopsBefore).toBeLessThan(180);
+    expect(w.traffic!.toCustomers).toBe(w.traffic!.toR);
+    // A building across the street from the shops that sends shoppers: the shops have customers next door.
+    rows({ [BUILDING_SCHOOL]: { sends: { shopping: 5 } } });
+    w.placeBuilding(24, 12, BUILDING_SCHOOL);
+    let t = traffic();
+    expect(w.layers.accessibility[idx(24, 14)]).toBe(255);
+    expect(w.layers.accessibility[idx(26, 14)]).toBe(industryBefore);   // shoppers are no use to industry
+    expect(t.toCustomers).not.toBe(t.toR);
+    expect(t.toCustomers.dist[idx(24, 13)]).toBe(0);
+    expect(t.toWorkers).toBe(t.toR);
+    // Homes gain nothing from it: it takes no trips.
+    expect(w.layers.accessibility[idx(5, 14)]).toBeLessThan(180);
+    // Job seekers instead: the industry has workers next door, the shops are back where they were.
+    rows({ [BUILDING_SCHOOL]: { sends: { jobs: 5 } } });
+    t = traffic();
+    expect(w.layers.accessibility[idx(26, 14)]).toBeGreaterThan(industryBefore);
+    expect(w.layers.accessibility[idx(26, 14)]).toBeGreaterThan(240);
+    expect(w.layers.accessibility[idx(24, 14)]).toBe(shopsBefore);
+    expect(t.toCustomers).toBe(t.toR);
+    // With the building gone both are as before.
+    w.clearTile(24, 12);
+    traffic();
+    expect(w.layers.accessibility[idx(24, 14)]).toBe(shopsBefore);
+    expect(w.layers.accessibility[idx(26, 14)]).toBe(industryBefore);
+  });
+
   it('a full building passes the rest on', () => {
     for (const x of [14, 15]) zone(x, 14, ZONE_I, 3);
     rows({ [BUILDING_POLICE]: { takes: { jobs: 0.5 } } });

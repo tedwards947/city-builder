@@ -186,6 +186,15 @@ export interface TrafficData {
   visitors: TrafficMarket; // homes → buildings that draw visitors (all zero while none takes them)
   /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
   toR: TrafficField;
+  // What accessibility is measured on (TransitSystem). Each is one of the maps above unless a
+  // building takes part in the shopping or jobs market, when it is a map of its own.
+  /** Homes' way to the nearest shops / jobs, counting zones only (not doors that buildings add). */
+  toShops: TrafficField;
+  toJobs: TrafficField;
+  /** Shops' way to the nearest customers: homes, or a building that sends shoppers (an airport). */
+  toCustomers: TrafficField;
+  /** Industry's way to the nearest workers: homes, or a building that sends job seekers. */
+  toWorkers: TrafficField;
   /** False while the pass is still settling toward a stable assignment. */
   settled: boolean;
 }
@@ -193,10 +202,11 @@ export interface TrafficData {
 export function makeTrafficData(n: number): TrafficData {
   const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(n), volume: new Float32Array(n) }));
   const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
+  const toR = makeTrafficField(n);
   return {
     version: 0, markets,
     shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'),
-    toR: makeTrafficField(n), settled: false,
+    toR, toShops: byKey('shopping').field, toJobs: byKey('jobs').field, toCustomers: toR, toWorkers: toR, settled: false,
   };
 }
 
