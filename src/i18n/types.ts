@@ -117,6 +117,8 @@ export interface TranslationSchema {
       water: string;
     };
     toast: {
+      autosaveFailedTitle: string;
+      autosaveFailed: string;
       resourceShortage: string;
       resourceRestored: string;
       powerDemandExceeds: string;

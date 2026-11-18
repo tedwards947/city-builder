@@ -102,4 +102,21 @@ it('does not count time away in a hidden tab (no second save on coming back)', a
     await flush();
     expect(saves.length).toBe(0);
   });
+
+  it('reports a failed save once per run of failures, and again after a success', async () => {
+    const world = new World(16, 16, 1);
+    let fail = true;
+    const target = { saveGame: () => (fail ? Promise.reject(new Error('quota')) : Promise.resolve()) };
+    const onFailure = vi.fn();
+    const auto = new Autosave(target, () => world, 1000, onFailure);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await auto.saveNow()).toBe(false);
+    expect(await auto.saveNow()).toBe(false);
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    fail = false;
+    expect(await auto.saveNow()).toBe(true);
+    fail = true;
+    await auto.saveNow();
+    expect(onFailure).toHaveBeenCalledTimes(2);
+  });
 });
