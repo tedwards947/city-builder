@@ -85,16 +85,17 @@ Balance Lab: targets, tuner, grading and the tuned numbers (`src/balance/`, `scr
 Done and merged:
 - Tuned PC preset T (`src/balance/tunedT.ts`, used by the lab and the debug panel) (#169, #190).
 - Lab grades the economy, service capacity and debt game over; tax-slider targets (#185, #193, #195, #197).
+- Trade suite: seaport and goods targets the owner approved (port.payback, port.split, port.farm, goods.today, goods.port.fix), probes in `src/balance/trade.ts`, sweep `npm run balance:trade`. Proposed numbers (preset "proposed", 12/12): goodsCapacity 0.55, shortageIncomePenalty 0.25, port exportTripsPerLevel 0.1, exportCapacity 15, exportIncomePerTrip 8, importCapacity 200, cost 200k, upkeep 30. ENGINE ships them in the seaport P5 numbers PR.
 
 In progress:
 - Re-tune T under the shipped service numbers (school 20 / 4,000, hospital 30 / 8,000); school and hospital PC pay is too high.
 
 Next:
-1. Seaport and goods targets the owner approved (port.payback 150–450 days, port.split, port.farm, goods.today, goods.port.fix), then tune `BALANCE.port` and `BALANCE.goods`.
-2. Tune `BALANCE.budget.debtPcDrainPerDay` and the tax level's `satisfactionPerPoint` / `demandStrength`.
+1. Tune `BALANCE.budget.debtPcDrainPerDay` and the tax level's `satisfactionPerPoint` / `demandStrength`.
 
 Waiting on:
 - ENGINE: the tax slider's growth-demand follow-up, before its targets can be added.
+- ENGINE: the seaport P5 numbers PR, shipping the proposed trade numbers.
 
 ## DESIGN
 

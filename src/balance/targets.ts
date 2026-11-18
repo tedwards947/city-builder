@@ -15,9 +15,10 @@ import { ORDINANCE_IDS } from '../sim/ordinances';
 import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
 import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
+import type { TradeResult } from './trade';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade';
 
 export interface Outcome {
   value: unknown;
@@ -38,6 +39,8 @@ export interface EvalCtx {
   ordinancesOn: boolean;
   /** Services suite: seating and probes on the Planner's city at the end of the run. */
   svc?: SvcResult | null;
+  /** Trade suite: seaport and goods probes on the saved city as it stands. */
+  trade?: TradeResult | null;
 }
 
 export interface Target {
@@ -292,8 +295,45 @@ const SVC_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => capOff(c) ? NA('no capacity') : perKind(c, k => { const a = k.pc?.loopBuildClose, b = k.pc?.loopCloseReopen; const parts: Record<string, Outcome> = {}; if (a !== null && a !== undefined) parts.buildClose = range(a, -Infinity, 0); if (b !== null && b !== undefined) parts.closeReopen = range(b, -Infinity, 0); return Object.keys(parts).length ? all(parts) : NA('not measured'); }) },
 ];
 
+// Seaport and goods (approved by the owner 2026-11-17). No target on an idle port (building one too
+// early is the player's call) or on truck traffic.
+const tradeOf = (c: EvalCtx) => c.trade ?? null;
+/** The port probe, or n/a when there's no port or no industry reaches it. */
+const portOf = (c: EvalCtx): { p: NonNullable<TradeResult['port']> } | Outcome => {
+  const t = tradeOf(c);
+  if (!t?.port) return NA(t?.note ?? 'no trade probe');
+  if (!(BALANCE.port.exportCapacity > 0 && BALANCE.port.exportTripsPerLevel > 0)) return NA('exports switched off');
+  if (!(t.port.fullShare > 0)) return NA('no industry within the port\'s reach');
+  return { p: t.port };
+};
+const TRADE_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'port.payback', metric: 'Game days for a port beside the industrial district to repay its cost from net export income (1 day = 4 s at 1×)', target: '150–450 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner: the longer payback, about 10–30 minutes at 1×. A port is an investment, not an instant win.',
+    evaluate: c => { const r = portOf(c); if (!('p' in r)) return r; return r.p.paybackDays === null ? { value: null, pass: false, miss: 1, note: 'never pays back' } : range(r.p.paybackDays, 150, 450); } },
+  { id: 'port.split', metric: 'Extra export income from a second port on the same district ÷ the first port\'s income', target: '≤ 0.10, unless the first is ≥ 90% full', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'A second port pays only when the first is full: no stacking ports for free money.',
+    evaluate: c => { const s = tradeOf(c)?.split; if (!s) return NA('no second port'); if (s.firstFull >= 0.9) return { value: r3(s.gain), pass: true, miss: 0, note: 'first port full' }; return range(s.gain, -Infinity, 0.1); } },
+  { id: 'port.farm', metric: 'Port income per industry level served ÷ industry\'s own tax per level; port income ÷ the city\'s whole income', target: '≤ 1.5 and ≤ 0.30', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Exports reward industry without becoming the economy: no port farm.',
+    evaluate: c => { const r = portOf(c); if (!('p' in r)) return r; const parts: Record<string, Outcome> = { share: range(r.p.incomeShare, -Infinity, 0.3) }; if (r.p.perLevelRatio !== null) parts.perLevel = range(r.p.perLevelRatio, -Infinity, 1.5); return all(parts); } },
+  { id: 'goods.today', metric: 'Goods shortage with no port: as the city stands when zoning is balanced (shops ≤ 2× industry by level); with shops ≥ 3× industry (dezoned to it, or as it stands) the shortage and the share of shop income lost', target: 'balanced ≤ 0.1; shops ≥ 3×: shortage ≥ 0.3 and 5–20% lost', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Shops need goods: a lopsided city feels it, a balanced one does not.',
+    evaluate: c => {
+      const t = tradeOf(c); if (!t) return NA('no trade probe');
+      const ratio = t.levels.c / Math.max(1, t.levels.i);
+      const parts: Record<string, Outcome> = {};
+      if (ratio <= 2) parts.balanced = range(t.shortage, -Infinity, 0.1);
+      if (t.heavy) { parts.heavy = range(t.heavy.shortage, 0.3); parts.lost = range(t.heavy.incomeLoss, 0.05, 0.2); }
+      return Object.keys(parts).length ? all(parts) : NA('no shops');
+    } },
+  { id: 'goods.port.fix', metric: 'Goods shortage with shops ≥ 3× industry, after a port opens by the shops ÷ before', target: '≤ 0.5', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Imports are a real fix for a goods shortage.',
+    evaluate: c => { const h = tradeOf(c)?.heavy; if (!h || h.withPort === null) return NA('no port site'); if (!(BALANCE.port.importCapacity > 0)) return NA('imports switched off'); if (!(h.shortage > 0)) return NA('no shortage'); return range(h.withPort / h.shortage, -Infinity, 0.5); } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
   ...SVC_TARGETS.map(t => ({ ...t, suite: 'svc' as const })),
+  ...TRADE_TARGETS.map(t => ({ ...t, suite: 'trade' as const })),
 ];

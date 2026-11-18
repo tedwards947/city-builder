@@ -10,16 +10,18 @@
 // testcity1.citysave.json; never commit it); every cities/gen-*.citysave.json
 // (generated cities); and any --city <file>.
 //
-// Three suites: "pc" grades the PC targets per PC variant; "svc" the services targets per
+// Four suites: "pc" grades the PC targets per PC variant; "svc" the services targets per
 // school / hospital capacity preset; "econ" grades the
-// economy targets per economy preset (the Planner on the city's own money).
+// economy targets per economy preset (the Planner on the city's own money); "trade" the
+// seaport and goods targets per trade preset, on saved cities only.
 // Cities above 20k residents only run the econ suite (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ|svc      one suite only (default all three)
+//   --suite pc|econ|svc|trade  one suite only (default all four)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
+//   --trade-presets shipped,.. which seaport / goods presets (src/balance/trade.ts; default all)
 //   --pc-max-pop 20000       saved cities above this skip the PC and services suites
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
@@ -75,6 +77,7 @@ try {
     customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,
     econPresets: quick ? ['recommended'] : list(opt('--presets')),
     svcPresets: quick ? ['shipped'] : list(opt('--svc-presets')),
+    tradePresets: quick ? ['shipped'] : list(opt('--trade-presets')),
     pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
     personas: list(opt('--personas')),
     daysFresh: Number(opt('--days-fresh') ?? (quick ? 120 : 300)),
@@ -93,6 +96,7 @@ try {
   if (report.best) console.log(`pc best: ${[report.best.variant, ...report.best.tied].join(' = ')} (${report.best.pass}/${report.best.of})`);
   for (const [v, s] of Object.entries(report.econSummary)) console.log(`econ ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.svcSummary ?? {})) console.log(`svc  ${v.padEnd(12)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.tradeSummary ?? {})) console.log(`trade ${v.padEnd(11)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -115,7 +119,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;

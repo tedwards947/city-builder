@@ -14,7 +14,8 @@
     "gen-city": "node scripts/gen-city.mjs",
     "balance": "node scripts/balance.mjs",
     "balance:tune": "node scripts/balance-tune.mjs",
-    "balance:svc": "node scripts/balance-svc.mjs"
+    "balance:svc": "node scripts/balance-svc.mjs",
+    "balance:trade": "node scripts/balance-trade.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
