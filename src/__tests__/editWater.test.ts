@@ -13,6 +13,8 @@ import { shipRoute } from '../sim/seaport';
 import { EditWaterCommand } from '../commands/EditWaterCommand';
 import { CommandHistory } from '../commands/CommandHistory';
 import { landWorld, home, displacementCost } from './pcTestWorld';
+import { WaterSystem } from '../sim/systems/WaterSystem';
+import { BUILDING_LARGE_WATER_PLANT } from '../sim/constants';
 
 const C = BALANCE.costs as Record<string, number>;
 const bulldoze = C.bulldoze;
@@ -175,5 +177,34 @@ describe('removing water', () => {
     expect(new EditWaterCommand(canal, true).execute(w)).toBe(true);
     expect(isOpenWater(w, idx(11, 8))).toBe(true);
     expect(shipRoute(w, anchor)!.length).toBeGreaterThan(0);
+  });
+});
+
+describe('a water plant left dry', () => {
+  it('supplies nothing once the water beside it is gone, and again when it is back', () => {
+    for (let y = 0; y <= 9; y++) for (let x = 0; x < 32; x++) w.layers.terrain[idx(x, y)] = W;
+    for (let x = 5; x <= 12; x++) w.setRoad(x, 12, ROAD_STREET);
+    expect(w.placeBuilding(8, 10, BUILDING_LARGE_WATER_PLANT)).toBe(true);   // x 8–9, y 10–11: the sea is above it
+    const anchor = idx(8, 10);
+    const sys = new WaterSystem();
+    sys.update(w);
+    expect(w.stats.waterSupply).toBe(BALANCE.water.largePlantOutput);
+
+    // One of the two water tiles beside it: still wet.
+    expect(waterQuote(w, [idx(8, 9)], false).pumpsDry).toEqual([]);
+    // Both: dry.
+    const both = [idx(8, 9), idx(9, 9)];
+    expect(waterQuote(w, both, false)).toMatchObject({ tiles: both, pumpsDry: [anchor], portsCutOff: [] });
+    const cmd = new EditWaterCommand(both, false);
+    expect(cmd.execute(w)).toBe(true);
+    sys.update(w);
+    expect(w.stats.waterSupply).toBe(0);
+    expect(w.layers.water[anchor]).toBe(0);
+    expect(w.buildings.length).toBe(1);                      // still standing
+    cmd.undo(w);
+    sys.update(w);
+    expect(w.stats.waterSupply).toBe(BALANCE.water.largePlantOutput);
+    // Flooding the plant itself is a demolition, not a dry pump.
+    expect(waterQuote(w, [anchor], true)).toMatchObject({ demolished: [anchor], pumpsDry: [] });
   });
 });

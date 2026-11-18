@@ -47,11 +47,11 @@ Seaport G2 and the seaport art are in (picks A1, B3, D3 → E1 on `art/clay-set/
 
 ## GAME ENGINE
 
-Status as of 2026-11-17, after the landscaping water command. Details of every system below are in AGENT.md.
+Status as of 2026-11-17, after the landscaping water rules. Details of every system below are in AGENT.md.
 
 ### Next (ranked)
 
-1. **Landscaping** (LANDSCAPING_DESIGN.md). Merged: the tree brush and eraser commands, and the water command (`EditWaterCommand`, `waterQuote`, beach re-laid round each edit; roads block adding, roads and buildings block removing). Toolbar and preview are GRAPHICS'. Next: the two live rules that do not exist today: a seaport whose docks lose open water stops trading (upkeep continues) and trades again when reconnected; a large water plant with no water beside it supplies nothing; and `waterQuote` listing ports cut off or reconnected and pumps left dry. Then tree effects (land value, green vibe; pollution already has one, left as it is by the owner) with lab numbers. Nothing is waiting on anyone.
+1. **Landscaping** (LANDSCAPING_DESIGN.md). The engine side of trees and water is merged: tree brush and eraser commands; `EditWaterCommand` with beaches re-laid; a cut-off seaport stops trading and a dry large water plant stops supplying; `treeQuote` / `waterQuote` previews with port and pump warnings. Toolbar and preview are GRAPHICS' (waiting on the owner's mock picks). Left for the engine: tree effects (land value, green vibe; pollution already has one, left as it is by the owner), keys at 0 for the lab. **Next up; then waiting on ENGINEER 3 (lab) for numbers**: tree price and effects, water price.
 2. **Seaport: five numbers still at no effect.** The split of `BALANCE.port` / `BALANCE.goods` with ENGINEER 3 is settled and the trade numbers are merged (trade suite #219, phase 5 numbers #220). Left at no effect because the lab has no target for them: `goods.shortageDemandPenalty`, `port.industrialDemandMult`, `port.truckWeight`, `pollution.seaportOutput`, `nuisance.buildingPerResident[12]`. ENGINEER 3 proposes numbers once the owner approves targets. **Waiting on the owner (targets), then ENGINEER 3.** Nothing for ENGINE to build.
 3. **Re-measure the service speed fix (#206) on a quiet machine** and add the figures to that PR. Ask ENGINEER 3 to "freeze" the tuner first. Optional.
 

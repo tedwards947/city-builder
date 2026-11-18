@@ -11,6 +11,11 @@
 //   DEMAND    While the city has a connected port, industrial growth demand
 //             is multiplied by industrialDemandMult, city-wide.
 //
+// A port trades only while its docks stand on open water (water that reaches
+// the edge of the map). The player can cut it off by filling water in; it
+// then earns and supplies nothing, though its upkeep continues, until a way
+// to the edge is dug again.
+//
 // Numbers live in BALANCE.port and are read live. Everything here is derived
 // from the map and the last traffic pass: nothing is saved.
 
@@ -20,16 +25,53 @@ import { BUILDING_SEAPORT } from './constants';
 import { addDoorProvider } from './TrafficData';
 import { BUILDING_NONE, TERRAIN_WATER } from './constants';
 import { shapeRoles } from './buildingShapes';
+import { openWater } from './openWater';
 
 /** Every seaport standing in the city. */
 export function seaports(world: World): BuildingEntity[] {
   return world.buildings.filter((b) => b.kind === BUILDING_SEAPORT);
 }
 
-/** Whether the city has a seaport that a street or avenue reaches. */
+/** The dock tiles of the port anchored at (tx, ty). */
+function dockTiles(world: World, tx: number, ty: number): number[] {
+  const roles = shapeRoles(BUILDING_SEAPORT);
+  return world.buildingTilesAt(tx, ty).filter((_, k) => roles[k] === 'dock');
+}
+
+/** Whether a port's docks, given as tile indices, all stand on open water in `mask` (see openWater). */
+export function docksOnOpenWater(docks: readonly number[], mask: Uint8Array): boolean {
+  for (const d of docks) if (mask[d] === 0) return false;
+  return true;
+}
+
+const cutOffCache = new WeakMap<World, { edits: number; byAnchor: Map<number, boolean> }>();
+
+/**
+ * Whether the port is cut off from the sea: some dock of it no longer stands
+ * on open water. Remembered until the map next changes.
+ */
+export function portCutOff(world: World, b: BuildingEntity): boolean {
+  let cached = cutOffCache.get(world);
+  if (!cached || cached.edits !== world.grid.edits) { cached = { edits: world.grid.edits, byAnchor: new Map() }; cutOffCache.set(world, cached); }
+  const anchor = b.ty * world.grid.width + b.tx;
+  let cut = cached.byAnchor.get(anchor);
+  if (cut === undefined) {
+    cut = !docksOnOpenWater(dockTiles(world, b.tx, b.ty), openWater(world));
+    cached.byAnchor.set(anchor, cut);
+  }
+  return cut;
+}
+
+/** The roads a port trades through: its yard's access roads, or none while it is cut off from the sea. */
+function tradeRoads(world: World, b: BuildingEntity): number[] {
+  const roads = world.buildingAccessRoads(b.tx, b.ty);
+  return roads.length > 0 && portCutOff(world, b) ? [] : roads;
+}
+
+/** Whether the city has a seaport that a street or avenue reaches and that is not cut off from the sea. */
 export function hasConnectedPort(world: World): boolean {
   for (const b of world.buildings) {
-    if (b.kind === BUILDING_SEAPORT && world.buildingAccessRoads(b.tx, b.ty).length > 0) return true;
+    if (b.kind === BUILDING_SEAPORT && tradeRoads(world, b).length > 0) return true;
   }
   return false;
 }
@@ -43,7 +85,7 @@ addDoorProvider((world, market, add) => {
   if (!(capacity > 0)) return;
   for (const b of world.buildings) {
     if (b.kind !== BUILDING_SEAPORT) continue;
-    const roads = world.buildingAccessRoads(b.tx, b.ty);
+    const roads = tradeRoads(world, b);
     for (const ri of roads) add(ri, capacity / roads.length);
   }
 });
@@ -52,6 +94,8 @@ addDoorProvider((world, market, add) => {
 export interface PortTrade {
   /** Whether a street or avenue reaches its yard. */
   connected: boolean;
+  /** Whether its docks have lost their way to the edge of the map. A cut-off port trades nothing. */
+  cutOff: boolean;
   /** Export trips arriving that it has room for. */
   exports: number;
   /** The most export trips it can take. */
@@ -83,12 +127,13 @@ export function portTradeAt(world: World, tx: number, ty: number): PortTrade | n
   const b = world.buildingAt(tx, ty);
   if (!b || b.kind !== BUILDING_SEAPORT) return null;
   const P = BALANCE.port;
-  const roads = world.buildingAccessRoads(b.tx, b.ty);
+  const roads = tradeRoads(world, b);
   const weight = P.truckWeight > 0 ? P.truckWeight : 1;
   const exports = served(roads, world.traffic?.exports.field, exportDoorCapacity()) / weight;
   const imports = served(roads, world.traffic?.goods.field, P.importCapacity);
   return {
-    connected: roads.length > 0,
+    connected: world.buildingAccessRoads(b.tx, b.ty).length > 0,
+    cutOff: portCutOff(world, b),
     exports, exportCapacity: P.exportCapacity,
     imports, importCapacity: P.importCapacity,
     income: exports * P.exportIncomePerTrip,
@@ -104,7 +149,7 @@ export function exportIncome(world: World): number {
   let trips = 0;
   for (const b of world.buildings) {
     if (b.kind !== BUILDING_SEAPORT) continue;
-    trips += served(world.buildingAccessRoads(b.tx, b.ty), field, exportDoorCapacity());
+    trips += served(tradeRoads(world, b), field, exportDoorCapacity());
   }
   return trips / weight * P.exportIncomePerTrip;
 }

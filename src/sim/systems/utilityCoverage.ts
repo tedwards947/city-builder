@@ -7,7 +7,7 @@
 
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY } from '../constants';
-import { footprintTiles, footprintEdge } from '../buildingShapes';
+import { footprintTiles, footprintEdge, hasNeededWater } from '../buildingShapes';
 
 /**
  * Recompute a coverage layer (1 = covered, 0 = not) for one utility. Returns
@@ -41,6 +41,8 @@ export function spreadUtility(
         connected = true;
       }
     }
+    // A plant that draws from the water supplies nothing once the water beside it is gone.
+    if (connected && !hasNeededWater(b.kind, tiles, world.layers.terrain, width, height)) connected = false;
     if (connected) {
       supply += output;
       for (const i of tiles) layer[i] = 1;

@@ -6,6 +6,9 @@ import type { World } from './World';
 import { BALANCE } from '../data/balance';
 import { BUILDING_NONE, ROAD_NONE, TERRAIN_GRASS, TERRAIN_SAND, TERRAIN_WATER, VEG_NONE, VEG_TREE_6, ZONE_NONE } from './constants';
 import { pcQuote } from './politics';
+import { openWater, openWaterOf } from './openWater';
+import { BUILDING_SEAPORT } from './constants';
+import { footprintTiles, hasNeededWater, placementRules, shapeRoles } from './buildingShapes';
 
 /** Tree species run from 1 to this. */
 export const TREE_SPECIES_MAX = VEG_TREE_6;
@@ -80,6 +83,12 @@ export interface WaterQuote {
   affordable: boolean;
   /** Political capital for the demolitions, summed. */
   pc: { cost: number; reward: number; displacedPopulation: number; affordable: boolean };
+  /** Seaports (anchor tile indices) the edit would cut off from the edge of the map: they stop trading, upkeep continues. */
+  portsCutOff: number[];
+  /** Seaports (anchor tile indices), cut off now, that the edit would reconnect. */
+  portsReconnected: number[];
+  /** Buildings that draw from the water (the large water plant; anchor tile indices) the edit would leave with none beside them: they stop supplying. */
+  pumpsDry: number[];
 }
 
 /**
@@ -111,7 +120,37 @@ export function waterQuote(world: World, tiles: readonly number[], add: boolean)
   const have = world.budget.politicalCapital;
   pc.affordable = pc.cost <= 0 || (have >= 0 && have >= pc.cost);
   const cost = out.length * BALANCE.costs.water + demolished.length * BALANCE.costs.bulldoze;
-  return { tiles: out, blocked, demolished, cost, affordable: world.budget.money >= cost, pc };
+  return { tiles: out, blocked, demolished, cost, affordable: world.budget.money >= cost, pc, ...waterSideEffects(world, out, add, targets) };
+}
+
+/** Which ports and water plants the edit would cut off, reconnect or leave dry. Free for a city that has neither. */
+function waterSideEffects(world: World, changed: readonly number[], add: boolean, demolished: ReadonlySet<number>) {
+  const portsCutOff: number[] = [], portsReconnected: number[] = [], pumpsDry: number[] = [];
+  const { width, height } = world.grid;
+  const affected = changed.length === 0 ? [] : world.buildings.filter((b) =>
+    (b.kind === BUILDING_SEAPORT || placementRules(b.kind).needsWaterEdge) && !demolished.has(b.ty * width + b.tx));
+  if (affected.length === 0) return { portsCutOff, portsReconnected, pumpsDry };
+
+  // The map as the edit would leave it.
+  const after = world.layers.terrain.slice();
+  for (const i of changed) after[i] = add ? TERRAIN_WATER : TERRAIN_GRASS;
+  let now: Uint8Array | null = null, then: Uint8Array | null = null;
+  const roles = shapeRoles(BUILDING_SEAPORT);
+  for (const b of affected) {
+    const anchor = b.ty * width + b.tx;
+    const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, b.rot ?? 0) ?? [anchor];
+    if (b.kind === BUILDING_SEAPORT) {
+      now ??= openWater(world);
+      then ??= openWaterOf(after, width, height);
+      const docks = tiles.filter((_, k) => roles[k] === 'dock');
+      const wasOpen = docks.every((d) => now![d] !== 0), willBeOpen = docks.every((d) => then![d] !== 0);
+      if (wasOpen && !willBeOpen) portsCutOff.push(anchor);
+      else if (!wasOpen && willBeOpen) portsReconnected.push(anchor);
+    } else if (hasNeededWater(b.kind, tiles, world.layers.terrain, width, height) && !hasNeededWater(b.kind, tiles, after, width, height)) {
+      pumpsDry.push(anchor);
+    }
+  }
+  return { portsCutOff, portsReconnected, pumpsDry };
 }
 
 /**
