@@ -528,7 +528,8 @@ export const BALANCE = {
       // Per kind: a neighbourhood asks only when its need is above askAt (so
       // a well-served city goes quiet), and the request is met once the need
       // is down to metAt. Need is 0–1, see requests.ts.
-      // A kind whose need swings by itself (traffic) can be made durable:
+      // A kind whose need swings by itself (traffic; school and hospital
+      // seats; a power or water shortage) can be made durable:
       // smoothDays = judge it on the average of this many daily readings,
       // for asking and for meeting; holdDays = it is met only after passing
       // on this many daily checks in a row. Both default to 1 (the reading
@@ -537,9 +538,9 @@ export const BALANCE = {
         park: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
         police: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
         fire: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        school: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        hospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25 },
-        utilities: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0 },
+        school: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
+        hospital: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
+        utilities: { days: 0, reward: 0, penalty: 0, askAt: 0.5, metAt: 0, smoothDays: 3, holdDays: 3 },
         trafficJam: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0.05, smoothDays: 3, holdDays: 3 },
         blight: { days: 0, reward: 0, penalty: 0, askAt: 0.1, metAt: 0 },
       } as Record<string, { days: number; reward: number; penalty: number; askAt: number; metAt: number; smoothDays?: number; holdDays?: number }>,

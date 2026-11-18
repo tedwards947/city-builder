@@ -247,11 +247,13 @@ function historyOf(world: World, kind: string, area: Rect): readonly number[] {
 /**
  * The need a neighbourhood is judged on for asking: for a smoothed kind, the
  * average of a full smoothDays of readings (0 until there are that many);
- * otherwise the need now.
+ * otherwise the need now. A smoothed coverage kind (school, hospital) is
+ * asked for on the neighbourhood's averaged need too; its request then opens
+ * on the homes lacking the service that day, with no readings yet.
  */
 function askingNeed(world: World, k: RequestKind, area: Rect): number {
   const days = smoothDaysOf(k.id);
-  if (days <= 1 || isClusterKind(k.id)) return k.need(world, area);
+  if (days <= 1) return k.need(world, area);
   const h = historyOf(world, k.id, area);
   return h.length >= days ? average(h) : 0;
 }
@@ -275,7 +277,7 @@ export function observeRequests(world: World): void {
     r.heldDays = metAt(average(samples), r.needAtOpen, n.metAt) ? (r.heldDays ?? 0) + 1 : 0;
   }
   if (cfg.spawnEveryDays <= 0) return;
-  const smoothed = REQUEST_KINDS.filter((k) => !isClusterKind(k.id) && smoothDaysOf(k.id) > 1 && (cfg.kinds[k.id]?.days ?? 0) > 0);
+  const smoothed = REQUEST_KINDS.filter((k) => smoothDaysOf(k.id) > 1 && (cfg.kinds[k.id]?.days ?? 0) > 0);
   if (!smoothed.length) { histories.delete(world); return; }
   const before = histories.get(world);
   const now = new Map<string, number[]>();      // rebuilt, so a neighbourhood that is gone is forgotten
@@ -368,7 +370,7 @@ export interface RequestProgress {
   coveredNeeded: number;  // met once covered reaches this (see `met` for the exact rule)
   met: boolean;           // exactly isMet()
   /**
-   * Durable kinds (traffic): `covered` is an average over the last days, and
+   * Durable kinds (traffic, school, hospital, utilities): `covered` is an average over the last days, and
    * the request is met once it has stayed at or past `coveredNeeded` for
    * `holdDays` daily checks in a row; `heldDays` is the count so far (0 when
    * it is not passing). Other kinds: holdDays 1, heldDays 0 or 1.

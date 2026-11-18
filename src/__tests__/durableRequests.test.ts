@@ -49,11 +49,13 @@ function runDays(w: World, sys: RequestSystem, days: number): void {
 }
 
 describe('durable requests', () => {
-  it('ship on for traffic only: three days to ask, three days held to be met', () => {
-    expect(saved.kinds.trafficJam).toMatchObject({ smoothDays: 3, holdDays: 3 });
-    expect(smoothDaysOf('trafficJam')).toBe(3);
-    expect(holdDaysOf('trafficJam')).toBe(3);
-    for (const k of ['park', 'police', 'fire', 'school', 'hospital', 'utilities']) {
+  it('ship on for the kinds that move without the player: three days to ask, three days held to be met', () => {
+    for (const k of ['trafficJam', 'school', 'hospital', 'utilities']) {
+      expect(saved.kinds[k]).toMatchObject({ smoothDays: 3, holdDays: 3 });
+      expect(smoothDaysOf(k)).toBe(3);
+      expect(holdDaysOf(k)).toBe(3);
+    }
+    for (const k of ['park', 'police', 'fire']) {
       expect(smoothDaysOf(k)).toBe(1);
       expect(holdDaysOf(k)).toBe(1);
     }
@@ -143,6 +145,21 @@ describe('durable requests', () => {
     runDays(fixedLate, sys, 2);
     expect(fixedLate.politics.requests).toEqual([]);
     expect(fixedLate.budget.politicalCapital).toBe(60);
+  });
+
+  it('asks for a school only after the neighbourhood has gone without for three days', () => {
+    Object.assign(cfg, { spawnEveryDays: 1, maxOpen: 3 });
+    Object.assign(cfg.kinds.school, { days: 20 });
+    const w = city();                           // no school anywhere: need 1
+    const sys = new RequestSystem();
+    runDays(w, sys, 2);
+    expect(w.politics.requests).toEqual([]);
+    runDays(w, sys, 1);
+    expect(w.politics.requests.map((r) => r.kind)).toEqual(['school']);
+    const r = w.politics.requests[0];
+    expect(r.needAtOpen).toBe(1);               // opens on the homes lacking it that day
+    expect(r.homes!.length).toBeGreaterThan(0);
+    expect(r.samples).toBeUndefined();
   });
 
   it('saves the readings and the days held', () => {
