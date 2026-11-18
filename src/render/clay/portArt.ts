@@ -137,3 +137,16 @@ function trolley(ctx: CanvasRenderingContext2D, x: number, y: number, sy: number
   ctx.fillStyle = '#e0b030'; ctx.fillRect(x - bw, sy - 1, 2 * bw, Math.max(1.5, tile * 0.03));
   if (carry) { ctx.fillStyle = col; ctx.fillRect(x - bw, sy + 1, 2 * bw, bh); ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x - bw, sy + 1, 2 * bw, Math.max(1, bh * 0.3)); }
 }
+
+/**
+ * One painted port sprite (a ship) with its foot at screen (x, y), mirrored when
+ * `flip`; `mid` puts the middle of its height there instead (a ship seen bow- or
+ * stern-on, whose middle is where it floats). Nothing until the images load.
+ */
+export function drawPortSprite(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, tile: number, flip = false, mid = false): void {
+  const l = load()?.[name];
+  if (!l || !l.img.complete || l.img.naturalWidth === 0) return;
+  const { img, m } = l, q = tile / 128, fx = m.footX * q, fy = (mid ? m.footY * 0.5 : m.footY) * q;
+  if (flip) { ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(img, -fx, -fy, m.w * q, m.h * q); ctx.restore(); }
+  else ctx.drawImage(img, x - fx, y - fy, m.w * q, m.h * q);
+}

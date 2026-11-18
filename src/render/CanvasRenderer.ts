@@ -16,7 +16,8 @@ import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
 import { seaports, portTrade, shipRoute } from '../sim/seaport';
-import { shipPath, shipsAt, drawShip, SHIP_SIZE, type ShipPath, type Berth, type ShipState } from './clay/ships';
+import { shipRuns, shipsAt, shipSprite, type Run, type Berth, type ShipState } from './clay/ships';
+import { drawPortSprite } from './clay/portArt';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -129,9 +130,6 @@ const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [s
 
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
 const SMOULDER_MS = 20000;
-/** Off until the painted ship sprites are in (the code-drawn ships are going). */
-const SHOW_SHIPS = false;
-
 /** Tile size (px) from which roads show cars. */
 const TRAFFIC_MIN_TILE = 12;
 /** Tile size (px) from which roads show every car; below it, half of them. */
@@ -155,9 +153,8 @@ export class CanvasRenderer {
   /** ?debug=true "Send ship": when (renderer seconds) every port last sent a ship regardless of trade. */
   private _shipsSentAt = -Infinity;
   private _lastShipT = 0;
-  private _shipLayer: HTMLCanvasElement | null = null;
   /** Each seaport's sailing path and berth, kept while its route (cached by the sim until the map changes) is the same. */
-  private _shipPaths = new WeakMap<readonly number[], { path: ShipPath; berth: Berth }>();
+  private _shipPaths = new WeakMap<readonly number[], { runs: Run[]; berth: Berth }>();
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
   private _markerQueue: number[] = [];
   private _utilityQueue: number[] = [];
@@ -479,9 +476,7 @@ export class CanvasRenderer {
 
   private _drawShips(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, now: number): void {
     this._portWork.clear();
-    // Hidden while painted ships replace the code-drawn ones (owner, 2026-11-17: too big, broke the look).
-    if (!SHOW_SHIPS) return;
-    const { width, height } = world.grid;
+    const { width } = world.grid;
     const tile = camera.zoom * TILE_SIZE, t = now * 0.001;   // exact, so ships stay on their tiles across a big map
     const ox = camera.worldToScreenX(0), oy = camera.worldToScreenY(0);
     this._lastShipT = t;
@@ -494,23 +489,22 @@ export class CanvasRenderer {
       const route = shipRoute(world, anchor);
       if (!route || route.length === 0) continue;
       let p = this._shipPaths.get(route);
-      if (!p) { const berth = portBerth(world, anchor, route); p = { berth, path: shipPath(route, width, height, berth) }; this._shipPaths.set(route, p); }
+      if (!p) { p = { berth: portBerth(world, anchor, route), runs: shipRuns(route, width) }; this._shipPaths.set(route, p); }
       const seed = ((anchor * 2654435761) >>> 0) / 4294967296;
-      const ships = shipsAt(p.path, p.berth, t, trade?.shipsPerDay ?? 0, seed, forced ? sent : -1);
+      const ships = shipsAt(p.runs, p.berth, t, trade?.shipsPerDay ?? 0, seed, forced ? sent : -1);
       for (const st of ships) {
         if (st.work >= 0) this._portWork.set(anchor, st.work);
-        if (st.a > 0) this._drawOneShip(ctx, world, camera, bounds, st, ox, oy, tile, t, Math.floor(t / 1000) + anchor);
+        if (st.a > 0) this._drawOneShip(ctx, world, camera, bounds, st, ox, oy, tile);
       }
     }
   }
 
-  /** One ship, clipped out of bridge tiles; while it fades it is drawn whole off screen first, so its parts don't show through each other. */
+  /** One painted ship, faded by its `a` and clipped out of bridge tiles so it passes under. */
   private _drawOneShip(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, st: ShipState,
-    ox: number, oy: number, tile: number, t: number, cargo: number): void {
+    ox: number, oy: number, tile: number): void {
     const { width, height } = world.grid, { terrain, roadClass } = world.layers;
-    const r = SHIP_SIZE[st.type].L / 2 + 2.5;
+    const r = 1.5;
     if (st.x + r < bounds.x0 || st.x - r > bounds.x1 + 1 || st.y + r < bounds.y0 || st.y - r > bounds.y1 + 2) return;
-    // Cut bridge tiles near the ship out of the drawing.
     ctx.save();
     let clipped = false;
     const x0 = Math.max(0, Math.floor(st.x - r)), x1 = Math.min(width - 1, Math.ceil(st.x + r));
@@ -523,21 +517,10 @@ export class CanvasRenderer {
       ctx.rect(L, T, Math.floor(ox + (x + 1) * tile) - L, Math.floor(oy + (y + 1) * tile) - T);
     }
     if (clipped) ctx.clip('evenodd');
-    if (st.a >= 1) drawShip(ctx, st, ox, oy, tile, t, cargo);
-    else {
-      // The ship's box on screen (it stands up to a tile and a half tall), drawn at the canvas's own pixel density.
-      const dpr = ctx.getTransform().a || 1;
-      const L = Math.floor(ox + (st.x - r) * tile), T = Math.floor(oy + (st.y - r - 1.5) * tile);
-      const w = Math.ceil(2 * r * tile), h = Math.ceil((2 * r + 1.5) * tile);
-      const off = this._shipLayer ??= document.createElement('canvas');
-      if (off.width < w * dpr || off.height < h * dpr) { off.width = Math.max(off.width, Math.ceil(w * dpr)); off.height = Math.max(off.height, Math.ceil(h * dpr)); }
-      const o = off.getContext('2d')!;
-      o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, Math.ceil(w * dpr), Math.ceil(h * dpr));
-      o.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawShip(o, st, ox - L, oy - T, tile, t, cargo);
-      ctx.globalAlpha = st.a;
-      ctx.drawImage(off, 0, 0, Math.ceil(w * dpr), Math.ceil(h * dpr), L, T, Math.ceil(w * dpr) / dpr, Math.ceil(h * dpr) / dpr);
-    }
+    ctx.globalAlpha = st.a;
+    // Side-on, the hull's near side sits a little in front of the ship's middle.
+    const { name, flip } = shipSprite(st), side = st.hx !== 0;
+    drawPortSprite(ctx, name, ox + st.x * tile, oy + (st.y + (side ? 0.12 : 0)) * tile, tile, flip, !side);
     ctx.restore();
   }
 
