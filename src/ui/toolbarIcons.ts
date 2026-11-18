@@ -22,6 +22,8 @@ const ICONS = {
   hospital: p('M9 3h6v6h6v6h-6v6H9v-6H3V9h6z'),
   // An anchor.
   port: p('M12 8v13M12 21c-4 0-7-3-7-7h3M12 21c4 0 7-3 7-7h-3M9 12h6') + '<circle cx="12" cy="5.5" r="2.5"/>',
+  // A plane seen from above.
+  plane: p('M12 2.5c1 0 1.6 1 1.6 2.4V9l7.4 4.4v2.2l-7.4-2.3v4.4l2.2 1.7v1.9L12 20.4l-3.8.9v-1.9l2.2-1.7v-4.4L3 15.6v-2.2L10.4 9V4.9c0-1.4.6-2.4 1.6-2.4z'),
   // A conifer, and drops with a plus or a minus (the Landscape tools).
   tree: p('M12 3l5 7h-3l4 6H6l4-6H7zM12 16v5'),
   addWater: p('M10 4c3 4 5 6.5 5 9.5a5 5 0 01-10 0c0-3 2-5.5 5-9.5zM19 13v6M16 16h6'),

@@ -8,7 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
-import { TERRAIN_WATER } from '../sim/constants';
+import { TERRAIN_WATER, BUILDING_AIRPORT } from '../sim/constants';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
@@ -18,6 +18,8 @@ import { openWater } from '../sim/openWater';
 import { seaports, portTrade, shipRoute } from '../sim/seaport';
 import { shipRuns, shipsAt, shipSprite, shipBob, drawShipWater, SHIP_LENGTH, type Run, type Berth, type ShipState } from './clay/ships';
 import { drawPortSprite } from './clay/portArt';
+import { drawAirport, airportArtReady } from './clay/airport';
+import { buildingTripsAt } from '../sim/buildingTraffic';
 import { shapeBox, shapeTiles, drawBigStandIn, drawBigArtExtras, footprintBand } from './clay/bigBuildings';
 import { layoutRequestBadges, drawRequestBadge, drawRequestOutcome, type RequestBadge, type RequestOutcome } from './clay/requestBadges';
 import type { PcPreview } from '../ui/pcPreview';
@@ -25,7 +27,7 @@ import type { LandscapePreview, TagTone } from '../ui/landscapePreview';
 import type { World } from '../sim/World';
 import type { Camera, TileBounds } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
-import { resolvePalette } from './CharacterPalette';
+import { resolvePalette, resolveTilePalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
 import { ChunkCache } from './ChunkCache';
 import { chunkPainter, CLAY_TREE_MIN_TILE } from './chunkPainter';
@@ -546,6 +548,13 @@ export class CanvasRenderer {
         if (world.layers.terrain[i] === TERRAIN_WATER) { water = { x: i % width, y: (i - (i % width)) / width }; break; }
       }
     }
+    // The airport draws its own ground, props and the planes coming and going (clay/airport.ts) once its art has loaded.
+    if (kind === BUILDING_AIRPORT && airportArtReady()) {
+      const active = buildingTripsAt(world, ax, ay)?.connected ?? true;
+      const L = world.layers, grass = resolveTilePalette(L.vibeEgalitarian[anchor], L.vibeGreen[anchor], L.vibePlanned[anchor], BALANCE.character.axisMax).grass;
+      drawAirport(ctx, camera.worldToScreenX(Projection.tileToWorldX(ax)), camera.worldToScreenY(Projection.tileToWorldY(ay)), camera.zoom * TILE_SIZE, now * 0.001, active, ((anchor * 2654435761) >>> 0) / 4294967296, grass);
+      return;
+    }
     const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
     const box = shapeBox(kind, rot), n = box.maxX - box.minX + 1;
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
@@ -1027,6 +1036,12 @@ export class CanvasRenderer {
       const ghost = bigClaySprite(placing), box = shapeBox(placing, a.rot);
       // No art yet: the stand-in itself, faint, so the yard, quay and docks show where they would be.
       if (!ghost && docks && check.ok) { ctx.globalAlpha = 0.6; drawBigStandIn(ctx, placing, tiles, X, Y, 0); ctx.globalAlpha = 1; }
+      // The airport: its own art, faint, planes parked.
+      if (placing === BUILDING_AIRPORT && check.ok && airportArtReady()) {
+        ctx.globalAlpha = 0.6;
+        drawAirport(ctx, camera.worldToScreenX(Projection.tileToWorldX(a.tx)), camera.worldToScreenY(Projection.tileToWorldY(a.ty)), camera.zoom * TILE_SIZE, 0, false, 0, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 1;
+      }
       if (ghost && tiles.length === (box.maxX - box.minX + 1) ** 2) {
         ctx.globalAlpha = 0.55;
         drawClaySprite(ctx, ghost, X(a.tx + box.minX), Y(a.ty + box.minY), (box.maxX - box.minX + 1) * Math.ceil(ts));
@@ -1037,7 +1052,8 @@ export class CanvasRenderer {
         if (!world.grid.inBounds(p.x, p.y)) return;
         const i = world.grid.idx(p.x, p.y);
         // A dock on a pond is a problem tile too; a dock that fits shows blue-white, on the water.
-        const blocked = check.blocked.includes(i) || check.notOpenWater.includes(i);
+        // A second airport: every tile is the problem (one per city).
+        const blocked = check.blocked.includes(i) || check.notOpenWater.includes(i) || !!check.alreadyBuilt;
         ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : roles[k] === 'dock' ? 'rgba(190,230,255,0.32)' : 'rgba(255,255,255,0.16)';
         ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
       });
