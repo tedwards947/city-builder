@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rail workshop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p, ul { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b, li b { color: #e6edf3; } ul { padding-left: 20px; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 760px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; align-self: flex-start; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); max-width: 100%; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 760px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Rail workshop</h1>
+<p>Rail as agreed in RAIL_DESIGN.md: one track network on three levels (ground, elevated, subway). Track, pillars, tunnels and junctions are <b>drawn in code</b>, and this page shows how they could look, at the game's scale, next to the game's own houses and shops. The stations, subway entrance, ramps and train cars will be <b>paintings</b>. Until those are made, they show here as dashed boxes and plain code trains.</p>
+<p>Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+
+<h2>T. Ground track</h2>
+<p>A main line through a straight station, a branch off a 3-way junction, a 4-way crossing and two level crossings where roads cross the track. At a level crossing the barriers come down and cars wait while a train passes.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-scene="ground" data-track="classic"></canvas><figcaption><span class="code">T1</span>Classic: brown ballast, wooden sleepers, steel rails.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="ground" data-track="modern" data-off="7"></canvas><figcaption><span class="code">T2</span>Modern: pale ballast and concrete sleepers. Lighter and quieter on the map.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="ground" data-track="toy" data-off="14"></canvas><figcaption><span class="code">T3</span>Clay toy: a rounded tan bed with chunky sleepers and thick shiny rails, like a toy train set, to match the clay buildings.</figcaption></figure>
+</div>
+
+<h2>E. Elevated track</h2>
+<p>The line climbs a ramp (drawn in code here; the real ramp will be a painting), runs on pillars over a road, and splits at a 3-way junction with a branch running north over another road. Its shadow falls down and to the right, like the buildings' shadows.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-scene="elevated" data-el="concrete" data-track="modern"></canvas><figcaption><span class="code">E1</span>Concrete: a pale box-girder deck on round pillars, one per tile.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="elevated" data-el="steel" data-track="classic" data-off="5"></canvas><figcaption><span class="code">E2</span>Steel: a dark girder deck with a lattice side on paired steel legs, one pair every two tiles. Old-city "El".</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="elevated" data-el="slim" data-track="modern" data-off="10"></canvas><figcaption><span class="code">E3</span>Slim modern: a white deck with a teal glass parapet on T-shaped pillars, one every two tiles.</figcaption></figure>
+</div>
+
+<h2>U. Subway and the underground view</h2>
+<p>Each scene switches between the surface and the underground view every few seconds. The subway line comes out of a ground↔subway portal on the left, has a 4-tile platform under the street (its 1×1 entrance is on the surface) and a branch heading north. The subway train shows only in the underground view. On the ground stretch you see it all the time.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-scene="subway" data-ug="blueprint" data-track="modern"></canvas><figcaption><span class="code">U1</span>Blueprint: the surface dims to dark blue and the tunnels glow pale cyan. Clear, like a map.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="subway" data-ug="cutaway" data-track="modern" data-off="3"></canvas><figcaption><span class="code">U2</span>Cutaway: the surface fades to a ghost and the tunnels show as earth-brown tubes with lit rails, as if the ground were cut open.</figcaption></figure>
+</div>
+
+<h2>J. Junctions up close</h2>
+<p>Junctions are rail's weak point: a 3-way junction has a penalty and a 4-way junction a much bigger one. These close-ups ask whether the map should show that.</p>
+<div class="rowf">
+  <figure><canvas width="460" height="300" data-scene="junction" data-sig="0" data-track="classic"></canvas><figcaption><span class="code">J1</span>Switches only: the junction looks like track and nothing more.</figcaption></figure>
+  <figure><canvas width="460" height="300" data-scene="junction" data-sig="1" data-track="classic"></canvas><figcaption><span class="code">J2</span>With signals: small red and green signal lamps on each approach. A train waits at red while another crosses, and a soft amber glow on the junction marks it as a slow spot.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="e.g. mix two styles, wider track, darker tunnels…"></textarea>
+
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<script>
+// ── Helpers ──
+const lerp = (a, b, f) => a + (b - a) * f, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const E = f => f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2, seg = (v, a, b) => clamp((v - a) / (b - a), 0, 1);
+const REF = { 'res-1': [128, 128, 13, 113, 109, 1], 'com-1': [128, 128, 13, 113, 109, 1], 'com-3': [128, 128, 13, 113, 109, 1] };
+const REF_IMG = {}; for (const n in REF) REF_IMG[n] = Object.assign(new Image(), { src: `../../public/sprites/clay/${n}.png` });
+function lot(ctx, n, tx, ty) {   // the game's own building on its lot, (tx, ty) its top-left tile
+  const im = REF_IMG[n], [w, h, l, r, b, N] = REF[n], T = ctx.T; if (!im.complete || !im.naturalWidth) return;
+  const q = N * T / (r - l); ctx.drawImage(im, tx * T - l * q, (ty + N) * T - b * q, w * q, h * q);
+}
+function label(ctx, txt, x, y) {
+  ctx.save(); ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.fillText(txt, x * ctx.T, y * ctx.T); ctx.restore();
+}
+function footprint(ctx, x, y, w, h, txt) {
+  const T = ctx.T; ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(x * T, y * T, w * T, h * T); ctx.strokeRect(x * T + 0.5, y * T + 0.5, w * T - 1, h * T - 1); ctx.restore();
+  label(ctx, txt, x + w / 2, y + 0.3);
+}
+
+// ── Ground: grass and roads, as the airport workshop drew them ──
+function grass(ctx, W, H) {
+  const T = ctx.T;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+}
+function road(ctx, x0, y0, x1, y1) {   // a 1-tile road from tile (x0, y0) to (x1, y1), straight
+  const T = ctx.T, v = x0 === x1;
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(Math.min(x0, x1) * T, Math.min(y0, y1) * T, (Math.abs(x1 - x0) + 1) * T, (Math.abs(y1 - y0) + 1) * T);
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
+  ctx.beginPath(); if (v) { ctx.moveTo((x0 + 0.5) * T, Math.min(y0, y1) * T); ctx.lineTo((x0 + 0.5) * T, (Math.max(y0, y1) + 1) * T); }
+  else { ctx.moveTo(Math.min(x0, x1) * T, (y0 + 0.5) * T); ctx.lineTo((Math.max(x0, x1) + 1) * T, (y0 + 0.5) * T); } ctx.stroke(); ctx.setLineDash([]);
+}
+
+// ── Track network: tiles with connection bits N=1 E=2 S=4 W=8 and a level ──
+const N = 1, EA = 2, S = 4, W = 8, DIR = { 1: [0, -1], 2: [1, 0], 4: [0, 1], 8: [-1, 0] }, OPP = { 1: 4, 2: 8, 4: 1, 8: 2 };
+function net() { return new Map(); }
+function line(m, x0, y0, x1, y1, lv, h0, h1) {   // straight run; h0/h1: deck height at each end for ramps (0 = ground, 1 = full elevated)
+  const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0), n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  const d = dx > 0 ? EA : dx < 0 ? W : dy > 0 ? S : N;
+  for (let k = 0; k <= n; k++) {
+    const key = `${x0 + dx * k},${y0 + dy * k}`, t = m.get(key) || { x: x0 + dx * k, y: y0 + dy * k, c: 0, lv };
+    if (k < n) t.c |= d; if (k > 0) t.c |= OPP[d];
+    if (h0 !== undefined) { t.h0 = lerp(h0, h1, (k - 0.5) / n); t.h1 = lerp(h0, h1, (k + 0.5) / n); if (dx < 0 || dy < 0) [t.h0, t.h1] = [t.h1, t.h0]; }
+    t.lv = lv; m.set(key, t);
+  }
+}
+// A tile's track pieces as samplers p(s) → [x, y, tangent x, tangent y], in tile units from the tile's corner.
+function pieces(c) {
+  const out = [], has = b => (c & b) !== 0, n = [N, EA, S, W].filter(has).length;
+  const H = () => out.push({ L: 1, p: s => [s, 0.5, 1, 0] }), V = () => out.push({ L: 1, p: s => [0.5, s, 0, 1] });
+  const arc = (a, b) => {   // quarter circle round the corner the two edges share
+    const cx = (a | b) & EA ? 1 : 0, cy = (a | b) & S ? 1 : 0;
+    const m1 = [0.5 + DIR[a][0] / 2, 0.5 + DIR[a][1] / 2], m2 = [0.5 + DIR[b][0] / 2, 0.5 + DIR[b][1] / 2];
+    let A1 = Math.atan2(m1[1] - cy, m1[0] - cx), A2 = Math.atan2(m2[1] - cy, m2[0] - cx);
+    if (A2 - A1 > Math.PI) A2 -= 2 * Math.PI; if (A1 - A2 > Math.PI) A2 += 2 * Math.PI;
+    out.push({ L: Math.PI / 4, p: s => { const A = lerp(A1, A2, s), sg = Math.sign(A2 - A1); return [cx + 0.5 * Math.cos(A), cy + 0.5 * Math.sin(A), -Math.sin(A) * sg, Math.cos(A) * sg]; } });
+  };
+  if (n === 4) { H(); V(); return out; }
+  const hz = has(EA) && has(W), vt = has(N) && has(S);
+  if (hz) H(); if (vt) V();
+  // Curves join each perpendicular pair; at a 3-way junction that is the branch with each end of the straight.
+  for (const a of [N, S]) for (const b of [EA, W]) if (has(a) && has(b)) arc(a, b);
+  if (n === 1) { const b = [N, EA, S, W].find(has), [dx, dy] = DIR[b]; out.push({ L: 0.5, stub: true, p: s => [0.5 + dx * s / 2, 0.5 + dy * s / 2, dx, dy] }); }
+  return out;
+}
+const TRACK = {
+  classic: { bed: '#857a6c', bedW: 0.62, sl: '#6b4a32', slW: 0.08, slL: 0.5, slGap: 0.16, rail: '#d6dade', railW: 2, under: '#3f3a35' },
+  modern: { bed: '#aaa69e', bedW: 0.6, sl: '#dcd8cf', slW: 0.07, slL: 0.48, slGap: 0.14, rail: '#eef1f4', railW: 2, under: '#5b5a57' },
+  toy: { bed: '#c9a878', bedW: 0.66, sl: '#7a4f2e', slW: 0.11, slL: 0.54, slGap: 0.22, rail: '#e9eef2', railW: 3.2, under: '#4a3a2a', round: true },
+};
+const GAUGE = 0.16;
+function sampleTile(t, pc, k, nn, d, lift) {   // point k of nn along a piece, offset d across, raised by lift(s)
+  const s = k / nn, [x, y, tx, ty] = pc.p(s); return [(t.x + x - ty * d), (t.y + y + tx * d) - (lift ? lift(t, s, tx, ty) : 0)];
+}
+function strokePiece(ctx, t, pc, d, lift) {
+  const T = ctx.T, nn = pc.L === 1 ? 2 : 14; ctx.beginPath();
+  for (let k = 0; k <= nn; k++) { const [x, y] = sampleTile(t, pc, k, nn, d, lift); k ? ctx.lineTo(x * T, y * T) : ctx.moveTo(x * T, y * T); } ctx.stroke();
+}
+function drawTrack(ctx, tiles, st, lift, bed = true) {   // bed, then sleepers, then rails, so joined tiles merge
+  const T = ctx.T; ctx.save(); ctx.lineCap = st.round ? 'round' : 'butt';
+  if (bed) { ctx.strokeStyle = st.bed; ctx.lineWidth = st.bedW * T; for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, lift); }
+  ctx.strokeStyle = st.sl; ctx.lineWidth = st.slW * T; ctx.lineCap = st.round ? 'round' : 'butt';
+  for (const t of tiles) for (const pc of pieces(t.c)) {
+    const n = Math.max(1, Math.round(pc.L / st.slGap));
+    for (let k = 0; k < n; k++) {
+      const s = (k + 0.5) / n, [x, y, tx, ty] = pc.p(s), h = lift ? lift(t, s, tx, ty) : 0, half = st.slL / 2;
+      ctx.beginPath(); ctx.moveTo((t.x + x - ty * half) * T, (t.y + y + tx * half - h) * T); ctx.lineTo((t.x + x + ty * half) * T, (t.y + y - tx * half - h) * T); ctx.stroke();
+    }
+  }
+  for (const [col, w, dy] of [[st.under, st.railW + 1.5, 0.6], [st.rail, st.railW, 0]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'butt';
+    for (const t of tiles) for (const pc of pieces(t.c)) for (const d of [-GAUGE, GAUGE]) { ctx.save(); ctx.translate(0, dy); strokePiece(ctx, t, pc, d, lift); ctx.restore(); }
+  }
+  for (const t of tiles) for (const pc of pieces(t.c)) if (pc.stub) {   // buffer stop at a dead end
+    const [x, y, tx, ty] = pc.p(0.85); ctx.fillStyle = '#c0392b'; ctx.fillRect((t.x + x - 0.2 - (ty ? 0 : 0.04)) * T, (t.y + y - 0.08) * T, 0.4 * T, 0.12 * T);
+  }
+  ctx.restore();
+}
+
+// ── Elevated decks ──
+const ELEV = {
+  concrete: { deck: '#d3cec4', face: '#a7a196', pillar: '#bdb7ab', pillarDark: '#99938a', every: 1, round: true },
+  steel: { deck: '#6f7781', face: '#4d545d', pillar: '#5f6670', pillarDark: '#40464e', every: 2, lattice: true, pair: true },
+  slim: { deck: '#eeece7', face: '#c9c6bf', pillar: '#e3e0da', pillarDark: '#b8b5ae', every: 2, glass: true, tee: true },
+};
+const EH = 0.62;   // full deck height in tiles
+const height = (t, s) => t.h0 !== undefined ? lerp(t.h0, t.h1, s) * EH : t.lv === 'e' ? EH : 0;
+function drawElevated(ctx, tiles, el, st) {
+  const T = ctx.T;
+  // Shadow on the ground, pushed right by the deck's height.
+  ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.66 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) { ctx.save(); strokePiece(ctx, t, pc, 0, (tt, s) => -height(tt, s) * 0.2); ctx.restore(); }
+  ctx.restore();
+  // Pillars (at tile centres; every second tile for the lighter styles), behind decks.
+  const sorted = [...tiles].sort((a, b) => a.y - b.y);
+  for (const t of sorted) {
+    const h = height(t, 0.5); if (h < 0.12 || (t.x + t.y) % el.every) continue;
+    const cx = (t.x + 0.5) * T, cy = (t.y + 0.5) * T, top = cy - h * T, pw = 0.13 * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx + 0.06 * T, cy + 0.02 * T, pw * 1.3, pw * 0.5, 0, 0, 7); ctx.fill();
+    const col = (x, w) => { const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0); g.addColorStop(0, el.pillar); g.addColorStop(1, el.pillarDark); ctx.fillStyle = g; ctx.fillRect(x - w / 2, top, w, cy - top); };
+    if (el.pair) { col(cx - 0.18 * T, pw * 0.7); col(cx + 0.18 * T, pw * 0.7); ctx.fillStyle = el.pillarDark; ctx.fillRect(cx - 0.24 * T, top + 0.05 * T, 0.48 * T, 0.04 * T); }
+    else col(cx, pw);
+    if (el.tee) { ctx.fillStyle = el.pillar; ctx.fillRect(cx - 0.3 * T, top - 0.02 * T, 0.6 * T, 0.08 * T); }
+  }
+  // Deck: the front face first (a band below the top), then the top, then track.
+  const lift = (t, s) => height(t, s);
+  ctx.save(); ctx.lineCap = 'butt';
+  ctx.strokeStyle = el.face; ctx.lineWidth = 0.7 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, (tt, s) => height(tt, s) - 0.12);
+  if (el.lattice) {   // a zigzag down the front face of east–west runs
+    ctx.strokeStyle = 'rgba(30,34,40,0.7)'; ctx.lineWidth = 1;
+    for (const t of tiles) if ((t.c & (EA | W)) && !(t.c & (N | S))) {
+      const h = height(t, 0.5), y0 = (t.y + 0.5 + 0.35 - h) * T, y1 = y0 + 0.12 * T; ctx.beginPath();
+      for (let k = 0; k <= 6; k++) { const x = (t.x + k / 6) * T; k % 2 ? ctx.lineTo(x, y1) : (k ? ctx.lineTo(x, y0) : ctx.moveTo(x, y0)); } ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = el.deck; ctx.lineWidth = 0.7 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, lift);
+  ctx.restore();
+  drawTrack(ctx, tiles, { ...st, bedW: 0.5, bed: shade(el.deck, -0.12) }, lift);
+  if (el.glass) { ctx.save(); ctx.strokeStyle = 'rgba(120,220,210,0.75)'; ctx.lineWidth = 2;
+    for (const t of tiles) for (const pc of pieces(t.c)) for (const d of [-0.33, 0.33]) strokePiece(ctx, t, pc, d, (tt, s) => height(tt, s) + 0.06); ctx.restore(); }
+}
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(clamp(v * (1 + f), 0, 255))); return `rgb(${c})`; }
+
+// ── Code trains (stand-ins until the train cars are painted) ──
+const LIV = { rail: ['#c0392b', '#f1e6cf'], metro: ['#c9d0d6', '#2f6fb3'] };
+function trainH(ctx, x, y, cars, liv, a = 1, dir = 1) {   // side-on, running east–west; x = the front's tile x, y = the track's tile y (already lifted)
+  const T = ctx.T, L = 0.95, [body, band] = LIV[liv]; ctx.save(); ctx.globalAlpha *= a;
+  for (let k = 0; k < cars; k++) {
+    const x0 = (dir > 0 ? x - (k + 1) * L : x + k * L) * T + 1, w = L * T - 2, top = (y - 0.3) * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x0 + 3, (y + 0.05) * T, w, 0.08 * T);
+    ctx.fillStyle = body; roundRect(ctx, x0, top, w, 0.32 * T, 0.07 * T); ctx.fill();
+    ctx.fillStyle = band; ctx.fillRect(x0 + 2, top + 0.17 * T, w - 4, 0.05 * T);
+    ctx.fillStyle = '#2b3542'; for (let j = 0; j < 4; j++) ctx.fillRect(x0 + (0.1 + j * 0.21) * T, top + 0.06 * T, 0.13 * T, 0.08 * T);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x0 + 3, top + 1, w - 6, 2);
+  }
+  ctx.restore();
+}
+function trainV(ctx, x, y, cars, liv, a = 1, dir = 1) {   // running north–south: roof from above plus the south end's face; y = the front's tile y
+  const T = ctx.T, L = 0.95, [body, band] = LIV[liv]; ctx.save(); ctx.globalAlpha *= a;
+  for (let k = cars - 1; k >= 0; k--) {
+    const y0 = (dir > 0 ? y - (k + 1) * L : y + k * L), cx = x * T, w = 0.42 * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(cx - w / 2 + 4, y0 * T + 4, w, L * T - 2);
+    ctx.fillStyle = shade(body, 0.08); roundRect(ctx, cx - w / 2, (y0 - 0.25) * T + 1, w, L * T - 2, 0.06 * T); ctx.fill();
+    ctx.fillStyle = band; ctx.fillRect(cx - 1.5, (y0 - 0.25) * T + 3, 3, L * T - 6);
+    ctx.fillStyle = shade(body, -0.15); ctx.fillRect(cx - w / 2, (y0 + L - 0.25) * T - 1, w, 0.22 * T);
+    ctx.fillStyle = '#2b3542'; ctx.fillRect(cx - w / 2 + 3, (y0 + L - 0.22) * T, w - 6, 0.08 * T);
+  }
+  ctx.restore();
+}
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+// Front of a train that pulls in to a station, waits, and leaves: enters at a, stops at b, leaves past c; period P seconds.
+function stopAndGo(t, a, b, c, P, run = 6, dwell = 4) {
+  const u = t % P; if (u < run) return { x: lerp(a, b, 1 - Math.pow(1 - u / run, 2)), on: true, u };
+  if (u < run + dwell) return { x: b, on: true, u }; if (u < 2 * run + dwell) return { x: lerp(b, c, Math.pow((u - run - dwell) / run, 2)), on: true, u };
+  return { on: false, u };
+}
+const pass = (t, a, c, P, run) => { const u = t % P; return u < run ? { x: lerp(a, c, u / run), on: true } : { on: false }; };
+const fadeAt = (x, lo, hi) => Math.min(seg(x, lo, lo + 1), 1 - seg(x, hi - 1, hi));
+
+// ── Level crossing: barriers and lamps; down while a train is within reach ──
+function crossing(ctx, x, y, vertRoad, down, t, st) {
+  const T = ctx.T;
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(x * T, y * T, T, T);
+  ctx.strokeStyle = '#3a3836'; ctx.lineWidth = st.railW;   // rails set into the road
+  for (const d of [-GAUGE, GAUGE]) { ctx.beginPath(); if (vertRoad) { ctx.moveTo(x * T, (y + 0.5 + d) * T); ctx.lineTo((x + 1) * T, (y + 0.5 + d) * T); } else { ctx.moveTo((x + 0.5 + d) * T, y * T); ctx.lineTo((x + 0.5 + d) * T, (y + 1) * T); } ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (const s of [-1, 1]) if (vertRoad) ctx.fillRect((x + 0.08) * T, (y + 0.5 + s * 0.38) * T - 1, 0.84 * T, 2); else ctx.fillRect((x + 0.5 + s * 0.38) * T - 1, (y + 0.08) * T, 2, 0.84 * T);
+  const posts = vertRoad ? [[x + 0.06, y + 0.06, 1], [x + 0.94, y + 0.94, -1]] : [[x + 0.06, y + 0.94, 1], [x + 0.94, y + 0.06, -1]];
+  for (const [px, py, s] of posts) {
+    ctx.fillStyle = '#ddd'; ctx.fillRect(px * T - 1.5, (py - 0.3) * T, 3, 0.3 * T);
+    const blink = down && Math.floor(t * 3 + (s > 0 ? 0 : 0.5) * 2) % 2 === 0;
+    ctx.fillStyle = blink ? '#ff3b30' : '#5a1c18'; if (blink) { ctx.shadowColor = '#ff3b30'; ctx.shadowBlur = 8; }
+    ctx.beginPath(); ctx.arc(px * T, (py - 0.32) * T, 0.06 * T, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    const len = 0.8 * T, ang = down ? 0 : -Math.PI / 2 * 0.95;   // the arm swings from up to across the road
+    ctx.save(); ctx.translate(px * T, (py - 0.18) * T); ctx.rotate(vertRoad ? (s > 0 ? ang : Math.PI - ang) : (s > 0 ? -Math.PI / 2 - ang : Math.PI / 2 - ang) );
+    for (let k = 0; k < 5; k++) { ctx.fillStyle = k % 2 ? '#fff' : '#e03a2f'; ctx.fillRect(k * len / 5, -2, len / 5, 4); }
+    ctx.restore();
+  }
+}
+function car(ctx, x, y, col, vert) {   // a stand-in car on a road
+  const T = ctx.T; ctx.fillStyle = col;
+  if (vert) { roundRect(ctx, (x - 0.13) * T, (y - 0.2) * T, 0.26 * T, 0.4 * T, 3); ctx.fill(); ctx.fillStyle = 'rgba(30,40,55,0.8)'; ctx.fillRect((x - 0.1) * T, (y - 0.1) * T, 0.2 * T, 0.08 * T); }
+  else { roundRect(ctx, (x - 0.2) * T, (y - 0.15) * T, 0.4 * T, 0.24 * T, 3); ctx.fill(); ctx.fillStyle = 'rgba(30,40,55,0.8)'; ctx.fillRect((x - 0.05) * T, (y - 0.13) * T, 0.12 * T, 0.08 * T); }
+}
+
+// ── Scenes ──
+const GROUND = (() => { const m = net(); line(m, -1, 3, 20, 3, 'g'); line(m, 4, 3, 4, 5, 'g'); line(m, 4, 5, 7, 5, 'g'); line(m, 18, -1, 18, 8, 'g'); return [...m.values()]; })();
+function sceneGround(ctx, t, d) {
+  const T = ctx.T, st = TRACK[d.track];
+  grass(ctx, 20, 8); road(ctx, 0, 6, 19, 6); road(ctx, 15, 0, 15, 5); road(ctx, 0, 0, 14, 0);
+  const tiles = GROUND.filter(g => !((g.x === 15 && g.y === 3) || (g.x === 18 && g.y === 6)));
+  drawTrack(ctx, tiles, st);
+  const h = stopAndGo(t, -4, 10.6, 25, 26), v = pass(t + 9, -3, 12, 26, 7);
+  const near = (tx, x, lo, hi) => tx.on && x > lo && x < hi;
+  const downA = near(h, h.x, 12, 19.5), downB = near(v, v.x, 3.5, 10);
+  crossing(ctx, 15, 3, true, downA, t, st); crossing(ctx, 18, 6, false, downB, t, st);
+  // A car on the vertical road waits above the crossing while the barriers are down.
+  const cy = downA ? 1.9 : 0.6 + ((t * 1.5) % 7); car(ctx, 15.3, Math.min(cy, downA ? 1.9 : 99), '#3a7bd5', true);
+  const cx = downB ? 16.8 : 19.5 - ((t * 1.7) % 20); car(ctx, cx, 6.45, '#e0b050');
+  lot(ctx, 'res-1', 1, 4); lot(ctx, 'res-1', 2, 4); lot(ctx, 'com-1', 11, 1); lot(ctx, 'com-3', 12, 1); lot(ctx, 'res-1', 16, 7); lot(ctx, 'res-1', 5, 7);
+  footprint(ctx, 8, 2, 4, 3, 'straight station 4×3 (painting to come)');
+  if (v.on) trainV(ctx, 18.5, v.x, 3, 'rail', fadeAt(v.x, -1, 10));
+  if (h.on) trainH(ctx, h.x, 3.5, 4, 'rail', fadeAt(h.x, 0, 24));
+  label(ctx, '3-way junction', 4.5, 2.25); label(ctx, '4-way crossing', 18.5, 2.25); label(ctx, 'level crossing', 15.5, 4.3);
+}
+const ELEVATED = (() => { const m = net(); line(m, -1, 3, 2, 3, 'g'); line(m, 2, 3, 4, 3, 'r', 0, 1); line(m, 4, 3, 20, 3, 'e'); line(m, 12, 3, 12, -1, 'e'); return [...m.values()]; })();
+function sceneElevated(ctx, t, d) {
+  const T = ctx.T, st = TRACK[d.track], el = ELEV[d.el];
+  grass(ctx, 20, 8); road(ctx, 7, 0, 7, 7); road(ctx, 0, 6, 19, 6); road(ctx, 8, 1, 19, 1);
+  lot(ctx, 'res-1', 1, 4); lot(ctx, 'res-1', 3, 5); lot(ctx, 'com-1', 9, 4); lot(ctx, 'com-3', 10, 4); lot(ctx, 'res-1', 14, 4); lot(ctx, 'res-1', 16, 7);
+  const g = ELEVATED.filter(x => x.lv === 'g'), up = ELEVATED.filter(x => x.lv !== 'g');
+  drawTrack(ctx, g, st);
+  drawElevated(ctx, up, el, st);
+  const h = pass(t, -3, 24, 14, 10), x = h.x;
+  if (h.on) { const lift = x < 3 ? 0 : x < 5 ? (x - 3) / 2 * EH : EH;   // rough: the front's height; good enough for a stand-in
+    trainH(ctx, x, 3.5 - lift, 3, 'rail', fadeAt(x, 0, 23)); }
+  const v = pass(t + 5, 0.6, -4, 14, 4); if (v.on) trainV(ctx, 12.5, v.x - EH, 2, 'rail', fadeAt(v.x, -3, 0.7), -1);   // the branch's train, leaving north from the junction
+  label(ctx, 'ramp (painting to come)', 3, 4.15); label(ctx, '3-way junction', 12.5, 4.25);
+}
+const SUBWAY = (() => { const m = net(); line(m, -1, 4, 1, 4, 'g'); line(m, 1, 4, 3, 4, 'p'); line(m, 3, 4, 20, 4, 's'); line(m, 14, 4, 14, -1, 's'); return [...m.values()]; })();
+function sceneSubway(ctx, t, d) {
+  const T = ctx.T, st = TRACK[d.track], P = 10, u = t % P, ug = u < 4 ? 0 : u < 5 ? E(u - 4) : u < 9 ? 1 : 1 - E(u - 9);
+  grass(ctx, 20, 8); road(ctx, 0, 2, 19, 2); road(ctx, 0, 6, 19, 6); road(ctx, 11, 0, 11, 7);
+  for (const [n, x, y] of [['res-1', 4, 0], ['res-1', 5, 0], ['res-1', 7, 0], ['com-1', 6, 3], ['com-3', 7, 4], ['com-1', 12, 3], ['res-1', 15, 3], ['res-1', 17, 4], ['res-1', 2, 7], ['res-1', 13, 7]]) lot(ctx, n, x, y);
+  drawTrack(ctx, SUBWAY.filter(x => x.lv === 'g'), st);
+  // Ground↔subway portal (code stand-in): the track dips into a dark mouth.
+  const portal = SUBWAY.filter(x => x.lv === 'p'); drawTrack(ctx, portal, st);
+  const gr = ctx.createLinearGradient(1 * T, 0, 3 * T, 0); gr.addColorStop(0, 'rgba(20,20,24,0)'); gr.addColorStop(1, 'rgba(20,20,24,0.95)');
+  ctx.fillStyle = gr; ctx.fillRect(1 * T, 3.6 * T, 2 * T, 0.8 * T); ctx.fillStyle = '#9a948a'; ctx.fillRect(2.85 * T, 3.4 * T, 0.18 * T, 1.15 * T);
+  label(ctx, 'portal (painting to come)', 2, 3.25);
+  footprint(ctx, 9, 5, 1, 1, ''); label(ctx, 'entrance', 9.5, 5.5);
+  if (ug > 0) {
+    ctx.save();
+    const tun = SUBWAY.filter(x => x.lv === 's');
+    if (d.ug === 'blueprint') {
+      ctx.fillStyle = `rgba(10,22,40,${0.82 * ug})`; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.globalAlpha = ug; ctx.strokeStyle = 'rgba(120,220,255,0.18)'; ctx.lineWidth = 0.7 * T; ctx.lineCap = 'butt';
+      for (const tt of tun) for (const pc of pieces(tt.c)) strokePiece(ctx, tt, pc, 0);
+      drawTrack(ctx, tun, { ...st, sl: 'rgba(120,220,255,0.35)', rail: '#9fe8ff', under: 'rgba(0,0,0,0)', bed: 'rgba(0,0,0,0)' }, null, false);
+      ctx.fillStyle = 'rgba(160,230,255,0.35)'; ctx.fillRect(7 * T, 4.55 * T, 4 * T, 0.3 * T); ctx.strokeStyle = '#9fe8ff'; ctx.lineWidth = 1; ctx.strokeRect(7 * T, 4.55 * T, 4 * T, 0.3 * T);
+      ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(9.5 * T, 4.85 * T); ctx.lineTo(9.5 * T, 5.5 * T); ctx.stroke(); ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = `rgba(46,38,30,${0.72 * ug})`; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.globalAlpha = ug; ctx.lineCap = 'butt';
+      ctx.strokeStyle = '#1d1712'; ctx.lineWidth = 0.78 * T; for (const tt of tun) for (const pc of pieces(tt.c)) strokePiece(ctx, tt, pc, 0);
+      ctx.strokeStyle = '#6b5440'; ctx.lineWidth = 0.66 * T; for (const tt of tun) for (const pc of pieces(tt.c)) strokePiece(ctx, tt, pc, 0);
+      drawTrack(ctx, tun, { ...st, bed: '#4a3a2c', sl: '#3a2d22', rail: '#ffe9b0' });
+      ctx.fillStyle = '#d9d2c3'; ctx.fillRect(7 * T, 4.55 * T, 4 * T, 0.3 * T); ctx.fillStyle = '#f2c94c'; ctx.fillRect(7 * T, 4.55 * T, 4 * T, 2);
+      ctx.fillStyle = '#d9d2c3'; ctx.fillRect(9.4 * T, 4.85 * T, 0.2 * T, 0.65 * T);
+    }
+    label(ctx, 'subway platform, 4 tiles', 9, 5.15);
+    ctx.restore();
+  }
+  const m = stopAndGo(t, -4, 11, 25, 20, 5, 3);
+  if (m.on) { const a = m.x < 3.2 ? 1 : ug; trainH(ctx, m.x, 4.5, 3, 'metro', a * fadeAt(m.x, 0, 24)); }
+  const v = pass(t + 4, 3.5, -3, 20, 4); if (v.on && ug > 0) trainV(ctx, 14.5, v.x, 2, 'metro', ug * fadeAt(v.x, -2, 4.5), -1);
+  label(ctx, ug > 0.5 ? 'underground view' : 'surface', 1.2, 0.35);
+}
+const JUNC = (() => { const m = net(); line(m, -1, 2, 10, 2, 'g'); line(m, 3, -1, 3, 7, 'g'); return [...m.values()]; })();
+function sceneJunction(ctx, t, d) {
+  const T = ctx.T, st = TRACK[d.track]; ctx.save(); ctx.scale(1, 1);
+  grass(ctx, 10, 7);
+  if (+d.sig) { const g = ctx.createRadialGradient(3.5 * T, 2.5 * T, 0, 3.5 * T, 2.5 * T, T * 1.3); g.addColorStop(0, 'rgba(240,180,60,0.45)'); g.addColorStop(1, 'rgba(240,180,60,0)'); ctx.fillStyle = g; ctx.fillRect(1 * T, 0, 5 * T, 5 * T); }
+  drawTrack(ctx, JUNC, st);
+  // East–west train runs; the north–south one waits at its signal until the crossing is clear.
+  const P = 12, u = t % P, hx = lerp(-3, 13, u / 6), hOn = u < 6;
+  const clear = !hOn || hx < 2 || hx > 7;
+  const vy = !+d.sig ? lerp(-2, 10, ((t + 3) % P) / 6) : u < 6 ? lerp(-2, 1.3, seg(u, 0, 2.5)) : lerp(1.3, 10, seg(u, 6, 10));
+  if (+d.sig) {
+    const lamp = (x, y, on) => { ctx.fillStyle = '#333'; ctx.fillRect(x * T - 1, y * T, 2, 0.28 * T); ctx.fillStyle = on ? '#4cd964' : '#ff3b30'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(x * T, y * T, 0.07 * T, 0, 7); ctx.fill(); ctx.shadowBlur = 0; };
+    lamp(3.95, 1.05, clear); lamp(2.05, 2.95, true); lamp(3.05, 3.95, true); lamp(4.95, 1.95, true);
+  }
+  if (hOn) trainH(ctx, hx, 2.5, 3, 'rail', fadeAt(hx, 0, 9));
+  if (vy > -1.5 && vy < 9.5) trainV(ctx, 3.5, vy, 2, 'metro', fadeAt(vy, -1, 6.5));
+  label(ctx, +d.sig ? '4-way: the train from the north waits at red' : '4-way crossing', 5.2, 4.3);
+  ctx.restore();
+}
+const SCENES = { ground: sceneGround, elevated: sceneElevated, subway: sceneSubway, junction: sceneJunction };
+
+function scene(cv, t) {
+  const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = d.scene === 'junction' ? 64 : 48;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  SCENES[d.scene](ctx, t + +(d.off || 0), d);
+}
+const scenes = [...document.querySelectorAll('canvas[data-scene]')];
+const vis = new WeakMap();
+const io = new IntersectionObserver(es => es.forEach(e => vis.set(e.target, e.isIntersecting)));
+scenes.forEach(cv => io.observe(cv));
+window.__t = null;   // set to freeze time (for screenshots)
+function loop() { const t = window.__t ?? performance.now() / 1000; for (const cv of scenes) if (vis.get(cv) !== false) scene(cv, t); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// ── Feedback ──
+const KEY = 'city-builder-rail-workshop-1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (lb, val, cls) => { const b = document.createElement('button'); b.textContent = lb; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+{ const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Rail workshop 1 feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
