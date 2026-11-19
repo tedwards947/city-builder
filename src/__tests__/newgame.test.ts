@@ -72,6 +72,7 @@ describe('Serializer preserves terrain options through save/load', () => {
         records.set(`${u}:${s}`, { version: SAVE_VERSION, userId: u, slot: s, meta, snapshot });
       },
       async load(u, s) { return records.get(`${u}:${s}`) ?? null; },
+      async copy(u, from, to) { const r = records.get(`${u}:${from}`); if (r) records.set(`${u}:${to}`, { ...r, slot: to }); },
       async list(u) {
         return [...records.values()].filter(r => r.userId === u).map(r => ({ slot: r.slot, meta: r.meta }));
       },
