@@ -64,6 +64,17 @@
   <figure><canvas width="960" height="384" data-scene="levels" data-metro="navy"></canvas><figcaption><span class="code">L1</span>A train climbs the ramp onto the E2 steel deck, now wide enough for two tracks. Every few seconds the U1 underground view shows a subway line stopping at a platform.</figcaption></figure>
 </div>
 
+<h2>R. Ramp climb</h2>
+<p>Your idea: a lower deck makes the climb a smaller jump. Each height is shown twice: with the shadow stuck under the train, as in L1, and with the shadow left on the ground, sliding out from under the cars as they climb, which is how the eye reads height on a flat map. The ramp is still the code stand-in, and the brick ramp gets drawn for whichever height you pick.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.62" data-shadow="0"></canvas><figcaption><span class="code">R1</span>Deck ⅔ of a tile up (as in L1), shadow stuck to the train.</figcaption></figure>
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.62" data-shadow="1"></canvas><figcaption><span class="code">R2</span>Deck ⅔ of a tile up, shadow left on the ground.</figcaption></figure>
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.4" data-shadow="0"></canvas><figcaption><span class="code">R3</span>Deck 0.4 of a tile up, shadow stuck to the train.</figcaption></figure>
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.4" data-shadow="1"></canvas><figcaption><span class="code">R4</span>Deck 0.4 of a tile up, shadow left on the ground.</figcaption></figure>
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.25" data-shadow="0"></canvas><figcaption><span class="code">R5</span>Deck ¼ of a tile up, shadow stuck to the train.</figcaption></figure>
+  <figure><canvas width="960" height="320" data-scene="climb" data-z="1" data-eh="0.25" data-shadow="1"></canvas><figcaption><span class="code">R6</span>Deck ¼ of a tile up, shadow left on the ground.</figcaption></figure>
+</div>
+
 <h2>Anything else?</h2>
 <textarea id="overall" placeholder="e.g. tracks closer together, trains faster…"></textarea>
 <div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
@@ -151,8 +162,8 @@ const ELEV = {
   steel: { deck: '#6f7781', face: '#4d545d', pillar: '#5f6670', pillarDark: '#40464e', every: 2, lattice: true, pair: true },
   slim: { deck: '#eeece7', face: '#c9c6bf', pillar: '#e3e0da', pillarDark: '#b8b5ae', every: 2, glass: true, tee: true },
 };
-const EH = 0.62;   // full deck height in tiles
-const height = (t, s) => t.h0 !== undefined ? lerp(t.h0, t.h1, s) * EH : t.lv === 'e' ? EH : 0;
+let EH = 0.62;   // full deck height in tiles (the R scenes set their own)
+const height = (t, s) => t.h0 !== undefined ? clamp(lerp(t.h0, t.h1, s), 0, 1) * EH : t.lv === 'e' ? EH : 0;
 function drawElevated(ctx, tiles, el, st) {
   const T = ctx.T;
   // Shadow on the ground, pushed right by the deck's height.
@@ -287,9 +298,9 @@ const LIVERY = {
   graphite: { body: '#3e4349', band: '#a6d64a', roof: '#8d939a', nose: '#a6d64a' },
   maroon: { body: '#7a2834', band: '#d9b45a', roof: '#c9bfb2', nose: '#7a2834' },
 };
-function trainCar(ctx, x, y, ang, len, wid, lv, lead, tail) {
+function trainCar(ctx, x, y, ang, len, wid, lv, lead, tail, sh = 0) {   // sh: height above the ground, in tiles, for a shadow left on the ground
   const T = ctx.T, L = len * T, Wd = wid * T, r = Wd * 0.38;
-  ctx.save(); ctx.translate(x * T + T * 0.014, y * T + T * 0.03); ctx.rotate(ang);
+  ctx.save(); ctx.translate(x * T + T * 0.014 + sh * 0.3 * T, (y + sh) * T + T * 0.03); ctx.rotate(ang);
   ctx.fillStyle = 'rgba(20,24,28,0.3)'; ctx.beginPath(); ctx.roundRect(-L / 2, -Wd / 2, L, Wd, r); ctx.fill(); ctx.restore();
   ctx.save(); ctx.translate(x * T, y * T); ctx.rotate(ang);
   ctx.fillStyle = lv.body; ctx.beginPath(); ctx.roundRect(-L / 2, -Wd / 2, L, Wd, [lead ? Wd * 0.48 : r * 0.5, lead ? Wd * 0.48 : r * 0.5, tail ? Wd * 0.48 : r * 0.5, tail ? Wd * 0.48 : r * 0.5].reverse()); ctx.fill();
@@ -306,13 +317,13 @@ function trainCar(ctx, x, y, ang, len, wid, lv, lead, tail) {
 }
 // A train of n cars along path pa with its front at distance s, on the right-hand track (offset TO); lift(x, y) raises it (elevated).
 const SIZE = { a: { len: 0.75, wid: 0.2 }, b: { len: 1.0, wid: 0.21 } };
-function train(ctx, pa, s, n, lv, a = 1, size = SIZE.a, lift) {
+function train(ctx, pa, s, n, lv, a = 1, size = SIZE.a, lift, slide = false) {
   if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; const gap = 0.05;
   for (let k = n - 1; k >= 0; k--) {
     // Both bogies sit on the right-hand track (offset TO); the body spans the chord between them, as a real car does on a curve.
     const c = s - k * (size.len + gap) - size.len / 2, bog = q => { const [x, y, tx, ty] = at(pa, q), m = Math.hypot(tx, ty) || 1; return [x - ty / m * TO, y + tx / m * TO]; };
     const [fx, fy] = bog(c + size.len * 0.32), [rx, ry] = bog(c - size.len * 0.32), px = (fx + rx) / 2, py = (fy + ry) / 2, h = lift ? lift(px, py) : 0;
-    trainCar(ctx, px, py - h, Math.atan2(fy - ry, fx - rx), size.len, size.wid, lv, k === 0, k === n - 1);
+    trainCar(ctx, px, py - h, Math.atan2(fy - ry, fx - rx), size.len, size.wid, lv, k === 0, k === n - 1, slide ? h : 0);
   }
   ctx.restore();
 }
@@ -380,7 +391,21 @@ function sceneLivery(ctx, t, d) {
   const lv = LIVERY[d.lv], r = run(P_DEMO, t, 6, { s0: 0.4, s1: P_DEMO.len - 0.5, v: 1.6 }); if (r) train(ctx, P_DEMO, r.s, 3, lv, r.a, SIZE[d.size || 'a']);
   lot(ctx, 'res-1', 5, 2); lot(ctx, 'res-1', 6, 2);
 }
-const SCENES = { together: sceneTogether, levels: sceneLevels, livery: sceneLivery };
+// R: the climb onto the deck at three deck heights, with the shadow stuck to the train or left on the ground.
+const NET4 = (() => { const m = net(); line(m, -1, 3, 2, 3, 'g'); line(m, 2, 3, 4, 3, 'r', 0, 1); line(m, 4, 3, 20, 3, 'e'); return [...m.values()]; })();
+const P_E4 = path([['L', -1, 3.5, 21, 3.5]]), P_W4 = path([['L', 21, 3.5, -1, 3.5]]);
+function sceneClimb(ctx, t, d) {
+  const T = ctx.T = 64; EH = +d.eh; const slide = d.shadow === '1';   // closer in than the other scenes, to see the climb
+  grass(ctx, 20, 8); road(ctx, 8, 0, 8, 7); road(ctx, 13, 0, 13, 5);
+  lot(ctx, 'res-1', 1, 4); lot(ctx, 'res-1', 3, 5); lot(ctx, 'com-1', 10, 4); lot(ctx, 'res-1', 15, 4); lot(ctx, 'res-1', 11, 0); lot(ctx, 'res-1', 16, 7);
+  drawTrack2(ctx, NET4.filter(x => x.lv === 'g'), 'shared');
+  drawElevated2(ctx, NET4.filter(x => x.lv !== 'g'));
+  const lift = x => EH * clamp((x - 2.5) / 2, 0, 1);
+  let r; if ((r = run(P_E4, t, 11, { s0: 0.6, s1: 20.5, v: 2.4 }))) train(ctx, P_E4, r.s, 3, LIVERY.red, r.a, SIZE.a, lift, slide);
+  if ((r = run(P_W4, t + 5.5, 11, { s0: 0.6, s1: 20.5, v: 2.4 }))) train(ctx, P_W4, r.s, 3, LIVERY.white, r.a, SIZE.a, lift, slide);
+  EH = 0.62;
+}
+const SCENES = { together: sceneTogether, levels: sceneLevels, livery: sceneLivery, climb: sceneClimb };
 const scenes = [...document.querySelectorAll('canvas[data-scene]')];
 const vis = new WeakMap(); const io = new IntersectionObserver(es => es.forEach(e => vis.set(e.target, e.isIntersecting))); scenes.forEach(cv => io.observe(cv));
 window.__t = null;
