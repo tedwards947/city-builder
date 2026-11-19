@@ -578,8 +578,9 @@ function frame(now: number): void {
     pcPreview = planPcPreview(hoverTile, plan.pc);
   }
   // Track in auto mode, a start clicked: the line the game would lay to the pointer, and its price.
-  if (roadStart && hoverTile && currentTool === 'rail') {
-    const plan = planAutoRail(state.world, autoRailPathCached(state.world, roadStart, hoverTile, performance.now()));
+  const autoLevel = trackLevelForTool(currentTool);
+  if (roadStart && hoverTile && autoLevel !== undefined) {
+    const plan = planAutoRail(state.world, autoRailPathCached(state.world, roadStart, hoverTile, performance.now(), autoLevel));
     roadPreview = plan.found
       ? { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US'), pc: pcTag(plan.pc) }
       : { tiles: [roadStart, hoverTile], ok: false, label: t('ui.rail.noRoute') };

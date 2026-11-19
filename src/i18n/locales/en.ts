@@ -468,7 +468,7 @@ export const en: TranslationSchema = {
       largeWater: "Place a water pump on 2×2 tiles beside open water (1,250 units output)",
       largeSewage: "Place a large sewage treatment plant on 2×2 tiles (1,500 units)",
       seaport: "Place a seaport: a 4×3 yard on land with docks over open water. It turns to face the water; press X to turn it yourself. Trade is not in yet: for now it only costs upkeep.",
-      track: "Lay ground track. Manual: drag in a straight line, like a road. Auto: click a start and an end, and the line finds its way round buildings, roads and other track where it can. Crossing a road makes a level crossing, which slows cars and trains. Trains need stations at both ends of a trip.",
+      track: "Lay ground track. Manual: drag in a straight line, like a road. Auto: click a start and an end, and the line finds its way round buildings, roads and other track where it can, and bridges over a line or a highway it cannot get round (two ramps and elevated track). Crossing a road makes a level crossing, which slows cars and trains. Trains need stations at both ends of a trip.",
       station: "Place a straight station (4×3), the track through its middle. It turns to meet your track; press X to turn it yourself. It needs a street or avenue beside the building.",
       stationL: "Place a corner station (3×3), where the track turns. It turns to meet your track; press X to turn it yourself. It needs a street or avenue beside the building.",
       airport: "Place an airport (one per city). Homes send passengers, who earn the city money; arrivals go shopping and look for work, and shops grow faster. It needs a street or avenue along the terminal\'s north side.",

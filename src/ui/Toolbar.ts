@@ -455,7 +455,7 @@ export class Toolbar {
 
   private itemTip(item: ToolbarItem): TipText {
     const price = item.tool !== undefined ? toolPrice(item.tool) : {};
-    const isRoad = item.tool !== undefined && (roadClassForTool(item.tool) !== undefined || item.tool === 'rail');   // track shares the roads' manual / auto setting
+    const isRoad = item.tool !== undefined && (roadClassForTool(item.tool) !== undefined || trackLevelForTool(item.tool) !== undefined);   // track shares the roads' manual / auto setting
     const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
     const radius = item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
     const kind = item.tool !== undefined ? BUILDING_KIND[item.tool] : undefined;

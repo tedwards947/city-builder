@@ -325,6 +325,40 @@ describe('InputController auto road mode', () => {
     expect(world.getRail(o.tx + 1, o.ty + 1)).not.toBe(0);
   });
 
+  it('the rail tool in auto mode bridges a line in its way: ramps and elevated track, all one undo step', () => {
+    tool = 'rail';
+    for (let y = 0; y < world.grid.height; y++) world.layTrack(o.tx + 6, y);  // a line right down the map: no way round
+    world.budget.money = 1_000_000;
+    const before = world.budget.money;
+    click(0, 5);
+    click(11, 5);
+    expect(world.buildings.length).toBe(2);                               // the two ramps
+    expect(world.getRail(o.tx + 6, o.ty + 5)).toBe(1 | 2);                // ground line below, elevated over it
+    expect(world.getRail(o.tx + 0, o.ty + 5)).toBe(1);
+    expect(world.getRail(o.tx + 11, o.ty + 5)).toBe(1);
+    expect(world.budget.money).toBeLessThan(before - 2 * BALANCE.buildings[16].cost);
+    history.undo();
+    expect(world.budget.money).toBe(before);
+    expect(world.buildings.length).toBe(0);
+    expect(world.getRail(o.tx + 6, o.ty + 5)).toBe(1);
+    expect(world.getRail(o.tx + 0, o.ty + 5)).toBe(0);
+    expect(history.canUndo).toBe(false);
+  });
+
+  it('the elevated and subway tools lay their own level in auto mode', () => {
+    tool = 'railElevated';
+    world.budget.money = 1_000_000;
+    click(1, 1); click(6, 1);
+    for (let dx = 1; dx <= 6; dx++) expect(world.getRail(o.tx + dx, o.ty + 1)).toBe(2);
+    tool = 'railSubway';
+    expect(input.autoRoadStart).toBeNull();
+    click(1, 3); click(6, 3);
+    for (let dx = 1; dx <= 6; dx++) expect(world.getRail(o.tx + dx, o.ty + 3)).toBe(4);
+    history.undo();
+    expect(world.getRail(o.tx + 3, o.ty + 3)).toBe(0);
+    expect(world.getRail(o.tx + 3, o.ty + 1)).toBe(2);
+  });
+
   it('right-click abandons the road; a right-drag pans and keeps it', () => {
     click(1, 1);
     canvas.fire('pointerdown', { ...at(4, 4), button: 2 });

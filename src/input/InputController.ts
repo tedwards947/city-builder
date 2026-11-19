@@ -338,7 +338,7 @@ export class InputController {
   // ── Auto road mode ──────────────────────────────────────────────────────────
 
   private _autoRoadTool(tool: Tool): boolean {
-    return (tool in ROAD_TOOL_CLASS || tool === 'rail') && this.getRoadMode() === 'auto';
+    return (tool in ROAD_TOOL_CLASS || tool in TRACK_TOOL_LEVEL) && this.getRoadMode() === 'auto';
   }
 
   /**
@@ -370,16 +370,26 @@ export class InputController {
       return;
     }
     // Track finds its own way (autoRail.ts); with no way there, the click does nothing and the start is kept.
-    const path = tool === 'rail' ? autoRailPath(this.getWorld(), start, tile) : autoRoadPath(start, tile);
-    if (!path) return;
+    const level = TRACK_TOOL_LEVEL[tool];
+    const rail = level !== undefined ? autoRailPath(this.getWorld(), start, tile, level) : null;
+    if (level !== undefined && !rail) return;
+    const path: TilePos[] = rail ?? autoRoadPath(start, tile);
     // Build the whole route as one undo step, or none of it: if any tile is
     // refused for money or political capital, everything is taken back and the
     // start is kept, so the player can pick a nearer end.
     const history = this.getHistory();
     history.beginBatch();
     let refused: FailReason | undefined;
-    for (const { tx, ty } of path) {
-      const cmd = commandForTool(tool, tx, ty, this.getWorld(), this.underground);
+    for (let k = 0; k < path.length; k++) {
+      const { tx, ty } = path[k];
+      // A track line says what each tile is: track of some level (a ground line bridges with
+      // elevated track), or one end of a ramp (placed whole from its low end).
+      const step = rail ? rail[k] : null;
+      const cmd = !step ? commandForTool(tool, tx, ty, this.getWorld(), this.underground)
+        : step.ramp === 'low' ? new PlaceBuildingCommand(tx, ty, BUILDING_RAMP_ELEVATED, step.rot ?? 0)
+        : step.ramp === 'high' ? null
+        : (this.getWorld().getRail(tx, ty) & step.level) !== 0 ? null     // track that is already there
+        : new BuildTrackCommand(tx, ty, step.level);
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
     }
