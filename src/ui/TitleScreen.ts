@@ -1,7 +1,7 @@
 // The title screen: the game's name and three buttons over the live city
 // (the markup and its plain placeholder look are in index.html, #title-screen).
 // It covers the map, so nothing under it can be clicked; while it is up the
-// page has the class `title-up`, which hides the HUD.
+// page has the class `title-up`, which hides the HUD (all but the sound controls).
 
 export interface TitleHooks {
   onContinue: () => void;
@@ -17,7 +17,12 @@ export class TitleScreen {
   private readonly buttons: HTMLElement;
   private readonly loading: HTMLElement;
   private readonly hooks: TitleHooks;
-  private readonly touch = (): void => { if (this.visible) this.hooks.onTouch(); };
+  // A press on the sound controls (shown over the title) is not a wish to look around: the tour carries on.
+  private readonly touch = (e: Event): void => {
+    if (!this.visible) return;
+    if (e.target instanceof Element && e.target.closest('#music-panel')) return;
+    this.hooks.onTouch();
+  };
 
   constructor(hooks: TitleHooks) {
     this.hooks = hooks;
