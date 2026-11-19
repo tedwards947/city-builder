@@ -13,6 +13,7 @@
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND } from './constants';
 import { BALANCE } from '../data/balance';
+import { railVolume } from './TrafficData';
 
 /** Directions as bits, for railLinks. */
 export const LINK_N = 1, LINK_E = 2, LINK_S = 4, LINK_W = 8;
@@ -171,6 +172,26 @@ export function trackMaintenance(world: World): number {
   }
   upkeepCache.set(world, { version: world.railVersion, upkeep });
   return upkeep;
+}
+
+/**
+ * The busiest platform tile of the station at (tx, ty): its tile index, or -1
+ * before the first traffic pass or if the building has no platform. Riders
+ * get on and off at ONE platform tile (the middle one), so the other platform
+ * tiles on the dead-end side of it carry nobody; ask this for "the riders at
+ * this station" rather than reading one platform tile. Counts riders getting
+ * on, getting off and passing through, averaged like all traffic volumes.
+ */
+export function stationBusiestTile(world: World, tx: number, ty: number): number {
+  const d = world.traffic;
+  if (!d) return -1;
+  let best = -1, most = -1;
+  for (const i of world.buildingTilesAt(tx, ty)) {
+    if (!(world.layers.rail[i] & RAIL_GROUND)) continue;
+    const v = railVolume(d, i);
+    if (v > most) { most = v; best = i; }
+  }
+  return best;
 }
 
 /** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare. */

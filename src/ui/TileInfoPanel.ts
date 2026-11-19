@@ -2,7 +2,7 @@
 // Displays terrain, zone, development level, coverage status, and a clear
 // breakdown of what's blocking the next level of growth.
 
-import { railLinks } from '../sim/rail';
+import { railLinks, stationBusiestTile } from '../sim/rail';
 import { railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
@@ -301,7 +301,10 @@ function stationRows(world: World, tx: number, ty: number, kind: number): string
     const fares = boardings * BALANCE.rail.fare;
     if (fares > 0) html += `<div class="ti-detail">${t("ui.tileInfo.stationEarns", {amount: Math.round(fares).toLocaleString("en-US")})}</div>`;
   }
-  if (world.layers.rail[i] !== 0) html += railRows(world, i);   // a platform tile: the track through it
+  // Riders on its track: the busiest platform tile, whichever tile was clicked. (Riders get on
+  // and off at one platform tile, so the others can be empty at a station that is working.)
+  const busiest = stationBusiestTile(world, tx, ty);
+  if (busiest >= 0) html += railRows(world, busiest);
   return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
 }
 

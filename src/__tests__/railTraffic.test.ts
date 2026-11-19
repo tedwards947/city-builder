@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { railVolume, railLoad, trafficVolume } from '../sim/TrafficData';
-import { railFareIncome } from '../sim/rail';
+import { railFareIncome, stationBusiestTile } from '../sim/rail';
 import { BUILDING_STATION, ROAD_STREET, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { landWorld } from './pcTestWorld';
@@ -144,6 +144,27 @@ describe('freight never rides', () => {
     expect(t.goods.field.dist[idx(10, 10)]).toBe(Infinity);
     expect(t.goods.volume[t.tiles + idx(30, 12)]).toBe(0);
     expect(t.jobs.volume[t.tiles + idx(30, 12)]).toBeGreaterThan(0);
+  });
+});
+
+describe('riders at a station', () => {
+  it('the busiest platform tile carries them, at the station they leave from and the one they arrive at', () => {
+    suburbAndTown();
+    const t = traffic();
+    const trips = t.rail.boardings;
+    expect(trips).toBeGreaterThan(0);
+    const from = stationBusiestTile(w, 4, 11), to = stationBusiestTile(w, 50, 11);
+    expect(railVolume(t, from)).toBeCloseTo(trips, 3);
+    expect(railVolume(t, to)).toBeCloseTo(trips, 3);                      // nobody boards in town, but they all arrive
+    expect(t.rail.stations.find(st => st.anchor === idx(50, 11))!.boardings).toBe(0);
+    // The platform tiles on the dead-end side of where riders get on carry nobody: reading one tile misleads.
+    expect(railVolume(t, idx(4, 12))).toBe(0);
+    expect(railVolume(t, idx(53, 12))).toBe(0);
+  });
+
+  it('is -1 before any traffic pass', () => {
+    suburbAndTown();
+    expect(stationBusiestTile(w, 4, 11)).toBe(-1);
   });
 });
 

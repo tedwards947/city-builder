@@ -2,6 +2,10 @@
 //
 //   Roads:  coloured by volume / capacity, and the scale keeps going past
 //           100% so an overloaded road reads differently from a full one.
+//   Track:  a line along the track, coloured by riders / capacity on the
+//           roads' scale. A junction is a disc (it carries less, so it fills
+//           first); an overloaded one gets a white ring and a "!".
+//   Stations: a label with the riders using the station per tick, or "no road".
 //   Zones:  tinted by commute (accessibility): short → long → cut off.
 //   Hover:  a building shows the route its trips take (homes: to shops and
 //           to work; shops: to the industry they fetch goods from); a road
@@ -13,10 +17,12 @@
 import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
-import { ROAD_NONE, ZONE_NONE } from '../sim/constants';
+import { ROAD_NONE, ZONE_NONE, RAIL_GROUND } from '../sim/constants';
+import { railLinks, stationBusiestTile } from '../sim/rail';
+import { t } from '../i18n';
 import {
   type TrafficData, type TrafficField, type MarketKey, MARKET_DEFS,
-  bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume,
+  bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, railLoad, railVolume,
 } from '../sim/TrafficData';
 
 type Ctx = CanvasRenderingContext2D;
@@ -151,6 +157,8 @@ export class TrafficOverlay {
       }
     }
 
+    this._drawRail(ctx, world, camera, data, bounds, ts);
+
     if (data && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
       this._drawTrace(ctx, world, camera, data, hoverTile.ty * width + hoverTile.tx, bounds, ts);
       // The fills above covered the renderer's hover outline; put it back.
@@ -163,6 +171,94 @@ export class TrafficOverlay {
 
     this._drawLegend(ctx, camera);
     ctx.restore();
+  }
+
+  /**
+   * Track by load, junctions as discs, and a label on every station. Before
+   * the first traffic pass (no data) the track is drawn empty.
+   */
+  private _drawRail(
+    ctx: Ctx, world: World, camera: Camera, data: TrafficData | null,
+    bounds: { x0: number; y0: number; x1: number; y1: number }, ts: number,
+  ): void {
+    if (world.railVersion === 0) return;
+    const { width } = world.grid;
+    const rail = world.layers.rail;
+    const half = ts / 2;
+    const line = Math.max(3, ts * 0.36);
+    const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];                         // N, E, S, W: the LINK_ bits in order
+    const junctions: { x: number; y: number; load: number }[] = [];
+    ctx.lineCap = 'round';
+    // Two passes, so one tile's dark edge never covers its neighbour's colour.
+    for (const pass of [0, 1]) {
+      for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
+        for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
+          const i = ty * width + tx;
+          if (!(rail[i] & RAIL_GROUND)) continue;
+          const links = railLinks(world, i);
+          const load = data ? railLoad(data, i) : 0;
+          const cx = camera.worldToScreenX(Projection.tileToWorldX(tx)) + half;
+          const cy = camera.worldToScreenY(Projection.tileToWorldY(ty)) + half;
+          ctx.strokeStyle = pass === 0 ? 'rgba(0,0,0,0.85)' : loadColor(load);
+          ctx.lineWidth = pass === 0 ? line + 3 : line;
+          ctx.beginPath();
+          if (links === 0) { ctx.moveTo(cx - 0.01, cy); ctx.lineTo(cx + 0.01, cy); }
+          for (let d = 0; d < 4; d++) {
+            if (!(links & (1 << d))) continue;
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + DX[d] * half, cy + DY[d] * half);
+          }
+          ctx.stroke();
+          const count = (links & 1) + ((links >> 1) & 1) + ((links >> 2) & 1) + ((links >> 3) & 1);
+          if (pass === 1 && count >= 3) junctions.push({ x: cx, y: cy, load });
+        }
+      }
+    }
+    // Junctions on top: the weak points, so the ones to look at.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const j of junctions) {
+      const over = j.load > 1;
+      const r = Math.max(5, ts * (over ? 0.42 : 0.3));
+      ctx.beginPath(); ctx.arc(j.x, j.y, r + 2, 0, Math.PI * 2);
+      ctx.fillStyle = over ? '#fff' : 'rgba(0,0,0,0.85)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(j.x, j.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = loadColor(j.load); ctx.fill();
+      if (over) {
+        ctx.font = `bold ${Math.max(10, Math.round(r * 1.5))}px sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.fillText('!', j.x, j.y + 1);
+      }
+    }
+    // Stations: riders boarding, at the middle of the building.
+    const stations = data?.rail.stations ?? [];
+    if (stations.length > 0) {
+      ctx.font = `bold ${Math.max(11, Math.min(15, Math.round(ts * 0.34)))}px sans-serif`;
+      for (const s of stations) {
+        const ax = s.anchor % width, ay = (s.anchor - ax) / width;
+        const tiles = world.buildingTilesAt(ax, ay);
+        if (tiles.length === 0) continue;
+        let sx = 0, sy = 0;
+        for (const k of tiles) { sx += k % width; sy += (k - (k % width)) / width; }
+        const mx = sx / tiles.length, my = sy / tiles.length;
+        if (mx < bounds.x0 - 2 || mx > bounds.x1 + 2 || my < bounds.y0 - 2 || my > bounds.y1 + 2) continue;
+        const x = camera.worldToScreenX(Projection.tileToWorldX(mx)) + half;
+        const y = camera.worldToScreenY(Projection.tileToWorldY(my)) + half;
+        const cut = s.roads.length === 0;
+        // Riders getting on, off or passing through (a station people only arrive at boards nobody).
+        const busiest = stationBusiestTile(world, ax, ay);
+        const riders = busiest >= 0 && data ? railVolume(data, busiest) : 0;
+        const text = cut ? t('ui.trafficOverlay.stationNoRoad')
+          : t('ui.trafficOverlay.stationRiders', { n: Math.round(riders).toLocaleString('en-US') });
+        const w = ctx.measureText(text).width + 14, h = 20;
+        ctx.fillStyle = cut ? 'rgba(150,25,25,0.95)' : riders >= 0.5 ? 'rgba(15,60,120,0.95)' : 'rgba(40,44,52,0.95)';
+        ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 10); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(text, x, y + 1);
+      }
+    }
+    ctx.textAlign = 'start';
   }
 
   private _drawTrace(
@@ -302,6 +398,9 @@ export class TrafficOverlay {
       ['Roads', [
         [EMPTY_ROAD, 'Empty'], [loadColor(0.05), 'Free'], [loadColor(0.5), 'Busy'],
         [loadColor(1), 'Full'], [loadColor(2), '2× over'], [loadColor(4), '4× over'],
+      ]],
+      ['Track', [
+        [loadColor(0.05), 'A line, on the roads\' scale'], ['#fff', 'Disc: a junction; white ring and ! when over capacity'],
       ]],
       ['Commute', [
         [scale(COMMUTE_STOPS, 1), 'Short'], [scale(COMMUTE_STOPS, 0.5), 'Long'], [scale(COMMUTE_STOPS, 0), 'Cut off'],

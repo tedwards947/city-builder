@@ -92,6 +92,7 @@ export interface TranslationSchema {
     /** Labels on the trip drawn when a lot is inspected. */
     route: { jobs: string; shops: string; customers: string; workers: string; none: string; noCustomers: string; noWorkers: string };
     airport: { noRoad: string; roadHere: string };
+    trafficOverlay: { stationRiders: string; stationNoRoad: string };
     rail: { offMap: string; blocked: string; hasTrack: string; crossing: string; noRoute: string };
     econ: {
       title: string;
