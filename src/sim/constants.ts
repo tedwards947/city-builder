@@ -44,6 +44,9 @@ export const BUILDING_LARGE_SEWAGE_PLANT = 11;  // 2×2
 export const BUILDING_SEAPORT            = 12;  // a 4×3 yard on land with a row of docks over open water
 export const BUILDING_STATION            = 14;  // train station, straight: 4×3 with a platform row (sim/buildingShapes.ts)
 export const BUILDING_STATION_L          = 15;  // train station, elbow: 3×3 with the platform round two sides
+export const BUILDING_RAMP_ELEVATED      = 16;  // 2×1 ramp: ground track at the anchor end, elevated at the other
+export const BUILDING_RAMP_SUBWAY        = 17;  // 2×1 ramp: ground track at the anchor end, subway at the other
+export const BUILDING_SUBWAY_STATION     = 18;  // 1×1 entrance over a 4-tile subway platform (sim/buildingShapes.ts subwayPlatform)
 export const BUILDING_AIRPORT            = 13;  // 12×5, one per city, never turned (shape and rules in sim/buildingShapes.ts)
 
 

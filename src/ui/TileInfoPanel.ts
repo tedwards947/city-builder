@@ -7,7 +7,7 @@ import { railLinks, stationBusiestTile } from '../sim/rail';
 import { railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
 import { buildingTripsAt } from '../sim/buildingTraffic';
 import type {World} from "../sim/World";
 import {
@@ -130,6 +130,9 @@ const BUILDING_NAME: Record<number, string> = {
   [BUILDING_AIRPORT]: "buildings.airport",
   [BUILDING_STATION]: "buildings.station",
   [BUILDING_STATION_L]: "buildings.station",
+  [BUILDING_RAMP_ELEVATED]: "buildings.rampElevated",
+  [BUILDING_RAMP_SUBWAY]: "buildings.rampSubway",
+  [BUILDING_SUBWAY_STATION]: "buildings.subwayStation",
   [BUILDING_LARGE_POWER_PLANT]: "buildings.largePowerPlant",
   [BUILDING_LARGE_WATER_PLANT]: "buildings.largeWaterPlant",
   [BUILDING_LARGE_SEWAGE_PLANT]: "buildings.largeSewagePlant",

@@ -71,6 +71,10 @@ export const BALANCE = {
     // cost, so a starter line (two stations and 60 tiles, about 84k) is a mid-game buy.
     14: { cost: 30000, maintenance: 25 }, // BUILDING_STATION (straight, 4×3)
     15: { cost: 30000, maintenance: 25 }, // BUILDING_STATION_L (elbow, 3×3)
+    // Rail phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's starting numbers).
+    16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1)
+    17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1)
+    18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost)
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.

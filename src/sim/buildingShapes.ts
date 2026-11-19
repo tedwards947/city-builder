@@ -25,13 +25,16 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, TERRAIN_WATER } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
 
-/** What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road, 'platform' on land with rail track through it. */
-export type PartRole = 'body' | 'dock' | 'frontage' | 'platform';
+/**
+ * What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road,
+ * 'platform' on land with rail track through it, 'rampLow' the ground-track end of a ramp and 'rampHigh' its elevated or subway end.
+ */
+export type PartRole = 'body' | 'dock' | 'frontage' | 'platform' | 'rampLow' | 'rampHigh';
 
 const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
 const ONE_BODY: readonly PartRole[] = ['body'];
@@ -123,7 +126,8 @@ export function setBuildingShape(kind: number, shape: readonly ShapeOffset[], ro
   if (!seen.has('0,0')) throw new Error(`building shape for kind ${kind}: must include (0, 0), the anchor`);
   if (roles) {
     if (roles.length !== shape.length) throw new Error(`building shape for kind ${kind}: one role per tile`);
-    if (roles[shape.findIndex(([dx, dy]) => dx === 0 && dy === 0)] !== 'body') throw new Error(`building shape for kind ${kind}: the anchor must be a body tile`);
+    const anchorRole = roles[shape.findIndex(([dx, dy]) => dx === 0 && dy === 0)];
+    if (anchorRole !== 'body' && anchorRole !== 'rampLow') throw new Error(`building shape for kind ${kind}: the anchor must be a body tile (or a ramp's low end)`);
   }
   SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
   if (roles && roles.some((r) => r !== 'body')) ROLES.set(kind, [...roles]); else ROLES.delete(kind);
@@ -182,6 +186,37 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
   setBuildingShape(BUILDING_STATION_L, elbow, elbow.map(([dx, dy]) => ((dy === 1 && dx <= 1) || (dx === 1 && dy === 0) ? 'platform' : 'body')));
 }
 
+// The ramps (RAIL_DESIGN.md): 2×1, the anchor is the GROUND end and (1, 0) at
+// rotation 0 the high (elevated) or deep (subway) end. Ground track joins the
+// low end straight on from outside, and the other level joins the high end
+// straight on from outside; the ramp itself joins the two (sim/rail.ts).
+for (const kind of [BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY]) {
+  setBuildingShape(kind, [[0, 0], [1, 0]], ['rampLow', 'rampHigh']);
+}
+// The subway station: its shape is the one-tile entrance. Its platform is underground (subwayPlatform).
+setPlacementRules(BUILDING_SUBWAY_STATION, { twoWay: true });
+
+/** The level a ramp of `kind` climbs or dives to from the ground (RAIL_ELEVATED or RAIL_SUBWAY); 0 if `kind` is no ramp. */
+export function rampLevel(kind: number): number {
+  return kind === BUILDING_RAMP_ELEVATED ? RAIL_ELEVATED : kind === BUILDING_RAMP_SUBWAY ? RAIL_SUBWAY : 0;
+}
+
+const SUBWAY_PLATFORM: readonly (readonly ShapeOffset[])[] = [
+  [[-1, 0], [0, 0], [1, 0], [2, 0]],
+  [[0, -1], [0, 0], [0, 1], [0, 2]],
+];
+const NO_TILES: readonly ShapeOffset[] = [];
+
+/**
+ * The underground platform of a subway station, as offsets from its entrance
+ * (the anchor): four tiles in a row through the entrance, west–east at
+ * rotation 0 and north–south at rotation 1. They carry subway track. Empty
+ * for any other kind.
+ */
+export function subwayPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
+  return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : NO_TILES;
+}
+
 // ── Where a kind may stand ───────────────────────────────────────────────────
 
 /** Extra conditions a kind puts on where it can be placed. A kind with none can go on any free land. */
@@ -196,6 +231,8 @@ export interface PlacementRules {
   noRotation?: boolean;
   /** A city may have only one: it cannot be placed while another stands. */
   onePerCity?: boolean;
+  /** The kind has two facings only: its rotation is 0 or 1 (the subway station's platform). */
+  twoWay?: boolean;
 }
 
 const NO_RULES: PlacementRules = {};

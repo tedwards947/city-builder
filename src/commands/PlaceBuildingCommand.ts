@@ -1,7 +1,8 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
 import { snapshotTiles, restoreTiles, tileDisruption } from './Command';
-import { footprintTiles } from '../sim/buildingShapes';
+import { footprintTiles, subwayPlatform } from '../sim/buildingShapes';
+import { RAIL_SUBWAY } from '../sim/constants';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
@@ -18,6 +19,8 @@ export class PlaceBuildingCommand extends Command {
   private readonly rot: number;
   // Every tile of the building's shape, as it was before.
   private snaps: { i: number; snap: TileSnapshot }[] | null = null;
+  // Tiles outside the footprint where placing dug new subway track (a subway station's platform).
+  private dug: number[] = [];
   private cost = 0;
   // Political capital changes applied at execute.
   private pcCharges: PcCharges = NO_PC_CHARGES;
@@ -55,6 +58,13 @@ export class PlaceBuildingCommand extends Command {
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
     this.snaps = snapshotTiles(world, footprint);
+    // The platform of a subway station lies under other tiles: note which of them have no tunnel yet,
+    // so undo fills in only what this dug (and never touches what stands on those tiles).
+    this.dug = [];
+    for (const [dx, dy] of subwayPlatform(this.kind, this.rot)) {
+      const i = world.grid.idx(this.tx + dx, this.ty + dy);
+      if (!footprint.includes(i) && !(world.layers.rail[i] & RAIL_SUBWAY)) this.dug.push(i);
+    }
     this.cost = cost;
     world.budget.money -= this.cost;
     this.pcCharges = chargeQuote(world, quote, this.tx, this.ty);
@@ -68,6 +78,12 @@ export class PlaceBuildingCommand extends Command {
 
   undo(world: World): void {
     if (this.snaps) restoreTiles(world, this.snaps);
+    for (const i of this.dug) {
+      world.layers.rail[i] &= ~RAIL_SUBWAY;
+      world.railVersion++;
+      world.grid.markDirty(i % world.grid.width, (i - (i % world.grid.width)) / world.grid.width);
+    }
+    this.dug = [];
     world.budget.money += this.cost;
     refundCharges(world, this.pcCharges, this.tx, this.ty);
   }

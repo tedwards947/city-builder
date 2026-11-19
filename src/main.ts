@@ -389,8 +389,8 @@ function setUnderground(on: boolean): void {
 
 function setTool(tool: Tool): void {
   if (tool !== currentTool) resetPlacementTurn();
-  // The subway tool works underground: show it. (The player turns the view off again with U.)
-  if (tool === 'railSubway') setUnderground(true);
+  // The subway tools work underground: show it. (The player turns the view off again with U.)
+  if (tool === 'railSubway' || tool === 'rampSubway' || tool === 'subwayStation') setUnderground(true);
   currentTool = tool;
   sfx.toolPicked(tool);
   tileInfoPanel.setVisible(tool === 'inspect');

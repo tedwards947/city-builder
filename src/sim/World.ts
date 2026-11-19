@@ -16,7 +16,7 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
-import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole } from './buildingShapes';
+import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole, rampLevel, subwayPlatform } from './buildingShapes';
 import { openWater } from './openWater';
 import { trackBlocker, trackBlocksRoad } from './rail';
 
@@ -164,6 +164,22 @@ const VEG_PARAMS: Record<VegAmount, { probMult: number }> = {
   medium: { probMult: 1.0 },
   high:   { probMult: 2.0 },
 };
+
+/** The rail level a shape tile of this role carries (a RAIL_ bit), or 0: a platform and a ramp's low end are ground track, a ramp's high end its own level. */
+function partRail(role: string, kind: number): number {
+  return role === 'platform' || role === 'rampLow' ? RAIL_GROUND : role === 'rampHigh' ? rampLevel(kind) : 0;
+}
+
+/**
+ * Whether a shape tile of this role may stand on a tile whose ground and
+ * elevated track is `surface`. A platform or a ramp's low end may stand on
+ * ground track that is already there; an elevated ramp's high end on elevated
+ * track; nothing else on either. (Anything may stand over a subway.)
+ */
+function railFits(role: string, kind: number, surface: number): boolean {
+  const own = partRail(role, kind) & RAIL_SURFACE;
+  return (surface & ~own) === 0;
+}
 
 export class World {
   readonly grid: Grid;
@@ -523,7 +539,24 @@ export class World {
   }
 
   /**
-   * Take the subway track out from under (tx, ty); false if there is none.
+   * Whether the subway track under tile `i` belongs to a building that still
+   * stands: the deep end of a subway ramp, or a subway station's platform.
+   * Clear the building first.
+   */
+  subwayHeldBy(i: number): boolean {
+    const kind = this.layers.building[i];
+    if (rampLevel(kind) === RAIL_SUBWAY && this.buildingAnchorAt(i) !== i) return true;
+    const { width } = this.grid;
+    const x = i % width, y = (i - x) / width;
+    for (const b of this.buildings) {
+      for (const [dx, dy] of subwayPlatform(b.kind, b.rot ?? 0)) if (b.tx + dx === x && b.ty + dy === y) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Take the subway track out from under (tx, ty); false if there is none,
+   * or if a ramp or a subway station that still stands uses it.
    * (Ground and elevated track go with clearTile, like everything else on
    * the surface.)
    */
@@ -531,6 +564,7 @@ export class World {
     if (!this.grid.inBounds(tx, ty)) return false;
     const i = this.grid.idx(tx, ty);
     if (!(this.layers.rail[i] & RAIL_SUBWAY)) return false;
+    if (this.subwayHeldBy(i)) return false;
     this.layers.rail[i] &= ~RAIL_SUBWAY;
     this.railVersion++;
     this.grid.markDirty(tx, ty);
@@ -551,6 +585,10 @@ export class World {
     const { width, height } = this.grid;
     const tiles = footprintTiles(width, height, tx, ty, kind, rot);
     if (!tiles) return { ok: false, offMap: true, blocked: [], noWater: false, notOpenWater: [] };
+    // A subway station's platform is underground, but it must be under the map.
+    for (const [dx, dy] of subwayPlatform(kind, rot)) {
+      if (!this.grid.inBounds(tx + dx, ty + dy)) return { ok: false, offMap: true, blocked: [], noWater: false, notOpenWater: [] };
+    }
     const blocked: number[] = [];
     const notOpenWater: number[] = [];
     if (hasDocks(kind)) {
@@ -575,7 +613,7 @@ export class World {
       // A platform may stand on ground track that is already there; nothing else may stand on
       // ground or elevated track. Anything may stand over a subway.
       const surface = this.layers.rail[i] & RAIL_SURFACE;
-      const railFree = roles[k] === 'platform' ? (surface & ~RAIL_GROUND) === 0 : surface === 0;
+      const railFree = railFits(roles[k], kind, surface);
       if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
     }
     let noWater = false;
@@ -612,7 +650,7 @@ export class World {
 
   /** Place a `b` building with its anchor at (tx, ty), turned `rot` quarter turns, on every tile of its shape. */
   placeBuilding(tx: number, ty: number, b: number, rot = 0): boolean {
-    rot = placementRules(b).noRotation ? 0 : rot & 3;
+    rot = placementRules(b).noRotation ? 0 : placementRules(b).twoWay ? rot & 1 : rot & 3;
     if (!this.canPlaceBuilding(tx, ty, b, rot)) return false;
     const { width } = this.grid;
     const anchor = this.grid.idx(tx, ty);
@@ -622,8 +660,10 @@ export class World {
     for (let k = 0; k < placed.length; k++) {
       const i = placed[k];
       if (this.layers.roadClass[i] !== ROAD_NONE) this.roadNetDirty = true;
-      // A platform carries track. (It stays as plain track if the building is cleared.)
-      if (roles[k] === 'platform') { this.layers.rail[i] |= RAIL_GROUND; this.railVersion++; }
+      // A platform carries track, and so does each end of a ramp, on its own level.
+      // (It stays as plain track if the building is cleared.)
+      const bit = partRail(roles[k], b);
+      if (bit) { this.layers.rail[i] |= bit; this.railVersion++; }
       this.layers.building[i] = b;
       this.layers.zone[i] = ZONE_NONE;
       this.layers.roadClass[i] = ROAD_NONE;
@@ -634,6 +674,12 @@ export class World {
       this.layers.visualVariant[i] = Math.floor(this.rng() * 256);
       this.buildingId[i] = anchor + 1;
       this.grid.markDirty(i % width, (i - (i % width)) / width);
+    }
+    // A subway station's platform: subway track under four tiles, whatever stands on them.
+    for (const [dx, dy] of subwayPlatform(b, rot)) {
+      this.layers.rail[this.grid.idx(tx + dx, ty + dy)] |= RAIL_SUBWAY;
+      this.railVersion++;
+      this.grid.markDirty(tx + dx, ty + dy);
     }
     this.buildings.push(rot ? { tx, ty, kind: b, rot } : { tx, ty, kind: b });
     return true;
@@ -764,7 +810,7 @@ export class World {
           missing.push(i);
           const water = L.terrain[i] === TERRAIN_WATER;
           const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE
-            && (roles[k] === 'platform' ? (L.rail[i] & RAIL_SURFACE & ~RAIL_GROUND) === 0 : (L.rail[i] & RAIL_SURFACE) === 0)
+            && railFits(roles[k], b.kind, L.rail[i] & RAIL_SURFACE)
             && (roles[k] === 'dock' ? water : !water);
           if (!free) fits = false;
         }
@@ -772,7 +818,8 @@ export class World {
       }
       if (fits) {
         for (const i of missing) {
-          if (roles[tiles!.indexOf(i)] === 'platform') { L.rail[i] |= RAIL_GROUND; this.railVersion++; }
+          const bit = partRail(roles[tiles!.indexOf(i)], b.kind);
+          if (bit) { L.rail[i] |= bit; this.railVersion++; }
           L.building[i] = b.kind;
           L.vegetation[i] = VEG_NONE;
           L.devLevel[i] = 0;

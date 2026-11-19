@@ -434,6 +434,9 @@ export interface TranslationSchema {
     seaport: string;
     airport: string;
     station: string;
+    rampElevated: string;
+    rampSubway: string;
+    subwayStation: string;
     policeStation: string;
     fireStation: string;
     school: string;
