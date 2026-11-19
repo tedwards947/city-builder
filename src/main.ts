@@ -77,6 +77,7 @@ import { Tutorial, tutorialDone, tutorialOf } from './ui/TutorialCard';
 import { TUTORIAL_PATH, beginTutorial } from './tutorial/rules';
 import { ShowcaseKeeper } from './title/showcaseKeeper';
 import { BALANCE } from './data/balance';
+import { blankWorld } from './gen/tutorialMap';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
   ZONE_R, ZONE_C, ZONE_I,
@@ -311,7 +312,9 @@ async function startTutorial(): Promise<void> {
 }
 
 const newGameDialog = new NewGameDialog((opts) => {
-  startGame(new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
+  startGame(opts.blank
+    ? blankWorld(opts.width, opts.height, opts.seed)
+    : new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
 });
 
 // Start with the default world so everything below has a world to point at.

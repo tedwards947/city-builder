@@ -3,6 +3,7 @@
 // Adding a new simulation concern = adding a new layer, not restructuring.
 
 import type { Marker } from './markers';
+import type { TutorialState } from '../tutorial/types';
 import { Grid } from './Grid';
 import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
@@ -220,6 +221,8 @@ export class World {
   developedSince: Uint16Array;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
+  /** Set while this is the tutorial city (tutorial/rules.ts): the tutorial-only rules apply. Saved. */
+  tutorial?: TutorialState;
   /** What upgrading an old save changed that the player should be told once (persistence/SaveFormat.ts upgradeNotes). Not saved. */
   loadNotes: { stationsRebuilt?: number } = {};
   /**

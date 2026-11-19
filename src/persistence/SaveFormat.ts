@@ -80,6 +80,8 @@ export interface WorldSnapshot {
   buildings: { tx: number; ty: number; kind: number; rot?: number }[];
   /** Added without a version bump: written only when the city has markers (sim/markers.ts). */
   markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
+  /** Added without a version bump: written only while the city is the tutorial city (tutorial/rules.ts). */
+  tutorial?: { step: number; request?: number };
   /**
    * Never saved: set by an upgrade step (migrate) that changed something the
    * player should be told about, and shown once after the load (World.loadNotes).
