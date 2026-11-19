@@ -26,6 +26,12 @@ const ICONS = {
   // Rail: two rails on sleepers; a station hall with its platform track; the corner station's bend.
   track: p('M8 2v20M16 2v20M5 5h14M5 9.5h14M5 14h14M5 18.5h14'),
   station: p('M3 10l9-6 9 6M5 10v6h14v-6M10 16v-4h4v4M2 20h20'),
+  trackElevated: p('M3 7h18M3 11h18M6 11v9M18 11v9M5 20h3M16 20h3'),
+  trackSubway: p('M3 20v-8a9 9 0 0 1 18 0v8M8 20v-7M16 20v-7M8 15h8M8 18h8'),
+  rampUp: p('M2 19h5l10-8h5M2 19v2h20v-10M7 19l10-8'),
+  portal: p('M2 20V9h20v11M6 20v-6a6 6 0 0 1 12 0v6M2 13h4M18 13h4'),
+  subway: p('M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18zM8 16V8l4 5 4-5v8'),
+  underground: p('M2 9h20M2 9l3-4h14l3 4M4 13h16M6 17h12M9 21h6'),
   stationL: p('M4 21V13a9 9 0 0 1 9-9h8M8 21v-8a5 5 0 0 1 5-5h8'),
   plane: p('M12 2.5c1 0 1.6 1 1.6 2.4V9l7.4 4.4v2.2l-7.4-2.3v4.4l2.2 1.7v1.9L12 20.4l-3.8.9v-1.9l2.2-1.7v-4.4L3 15.6v-2.2L10.4 9V4.9c0-1.4.6-2.4 1.6-2.4z'),
   // A conifer, and drops with a plus or a minus (the Landscape tools).

@@ -12,7 +12,8 @@
 import type { World } from '../../sim/World';
 import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
 import { railLoad } from '../../sim/TrafficData';
-import { RAIL_GROUND } from '../../sim/constants';
+import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../../sim/constants';
+import { subwayPlatform } from '../../sim/buildingShapes';
 import { TRACK_OFFSET } from './rail';
 
 type Ctx = CanvasRenderingContext2D;
@@ -48,11 +49,20 @@ function across(tx: number, ty: number, a: number, b: number, out: [number, numb
   for (let k = 0; k <= 8; k++) { const A = A1 + (A2 - A1) * k / 8; out.push([cx + 0.5 * Math.cos(A), cy + 0.5 * Math.sin(A)]); }
 }
 
-/** Cuts the ground track into runs. Pure apart from reading the world. */
-export function buildRuns(world: World): Run[] {
+/** The subway platform tiles of every subway station (they are plain subway track otherwise). */
+function subwayPlatformTiles(world: World): Set<number> {
+  const out = new Set<number>(), w = world.grid.width;
+  for (const b of world.buildings) if (b.kind === BUILDING_SUBWAY_STATION) for (const [dx, dy] of subwayPlatform(b.kind, b.rot ?? 0)) out.add((b.ty + dy) * w + b.tx + dx);
+  return out;
+}
+
+/** Cuts one level's track (RAIL_GROUND, RAIL_ELEVATED or RAIL_SUBWAY) into runs. Pure apart from reading the world. */
+export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
   const { width, height } = world.grid, rail = world.layers.rail, n = width * height;
   const links = new Uint8Array(n);
-  for (let i = 0; i < n; i++) if (rail[i] & RAIL_GROUND) links[i] = railLinks(world, i);
+  for (let i = 0; i < n; i++) if (rail[i] & level) links[i] = railLinks(world, i, level);
+  const subwayStops = level === RAIL_SUBWAY ? subwayPlatformTiles(world) : null;
+  const isPlatform = (t: number): boolean => subwayStops ? subwayStops.has(t) : level === RAIL_GROUND && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform';
   const count = (m: number): number => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
   const used = new Uint8Array(n * 4);   // each (tile, side) walked once
   const sideIdx = (s: number): number => SIDES.indexOf(s);
@@ -80,7 +90,7 @@ export function buildRuns(world: World): Run[] {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const [x, y] of P) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
     let stop: number | null = null, first = -1, last = -1;
-    tiles.forEach((t, k) => { if (world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform') { if (first < 0) first = k; last = k; } });
+    tiles.forEach((t, k) => { if (isPlatform(t)) { if (first < 0) first = k; last = k; } });
     if (first >= 0) {   // tile k's centre is about k tiles along (the first tile counts a half)
       stop = Math.min(D[D.length - 1], (first + last) / 2 + 0.0);
     }
@@ -93,16 +103,16 @@ export function buildRuns(world: World): Run[] {
   return runs;
 }
 
-let cache: { world: World; edits: number; sig: number; runs: Run[] } | null = null;
-function runsFor(world: World): Run[] {
-  const edits = world.grid.edits;
+const caches = new Map<number, { world: World; edits: number; sig: number; runs: Run[] }>();
+function runsFor(world: World, level: number): Run[] {
+  const edits = world.grid.edits, cache = caches.get(level);
   if (cache && cache.world === world && cache.edits === edits) return cache.runs;
   // Grid edits count every redrawn tile; rebuild only when the track itself (or a station on it) changed.
   const rail = world.layers.rail, b = world.layers.building, road = world.layers.roadClass;
   let sig = 0;
   for (let i = 0; i < rail.length; i++) if (rail[i]) sig = (Math.imul(sig ^ (i * 8 + rail[i]), 0x9e3779b1) ^ b[i] ^ (road[i] << 12)) | 0;
-  if (!cache || cache.world !== world || cache.sig !== sig) cache = { world, edits, sig, runs: buildRuns(world) };
-  else cache.edits = edits;
+  if (!cache || cache.world !== world || cache.sig !== sig) { const c = { world, edits, sig, runs: buildRuns(world, level) }; caches.set(level, c); return c.runs; }
+  cache.edits = edits;
   return cache.runs;
 }
 
@@ -115,11 +125,18 @@ function at(r: Run, s: number): [number, number, number, number] {
 }
 
 interface Livery { body: string; band: string; roof: string; nose: string; panto?: boolean }
-/** H1–H3 (heavy rail); the subway's M1–M4 come with the subway. */
+/** H1–H3 (heavy rail), on ground and elevated track. */
 export const HEAVY_LIVERIES: Livery[] = [
   { body: '#c9473a', band: '#f1e3c4', roof: '#ddd6ca', nose: '#c9473a', panto: true },
   { body: '#2f5d43', band: '#e8b730', roof: '#9aa39d', nose: '#e8b730', panto: true },
   { body: '#eef0f2', band: '#2f4f9b', roof: '#c7ccd2', nose: '#eef0f2', panto: true },
+];
+/** M1–M4, the subway's (no pantograph). */
+export const METRO_LIVERIES: Livery[] = [
+  { body: '#24324f', band: '#d6453b', roof: '#b9bec6', nose: '#24324f' },
+  { body: '#2c8c8a', band: '#f2f2ee', roof: '#c8d4d3', nose: '#2c8c8a' },
+  { body: '#3e4349', band: '#a6d64a', roof: '#8d939a', nose: '#a6d64a' },
+  { body: '#7a2834', band: '#d9b45a', roof: '#c9bfb2', nose: '#7a2834' },
 ];
 export const CAR_LEN = 0.75, CAR_WID = 0.2, CARS = 3, CAR_GAP = 0.05;
 const SPEED = 2.4, DWELL = 3, FADE = 0.8;
@@ -184,16 +201,18 @@ const hash = (a: number, b: number, c: number): number => {
  * train slows in, waits and pulls out. (sx, sy) is the screen position of tile (0, 0); T the
  * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1].
  */
-export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number): void {
+export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND, lift = 0): void {
   if (T < 6) return;
-  const runs = runsFor(world), d = world.traffic, t = now * 0.001;
+  const runs = runsFor(world, level), d = world.traffic, t = now * 0.001;
+  const liveries = level === RAIL_SUBWAY ? METRO_LIVERIES : HEAVY_LIVERIES;
+  sy -= lift;   // elevated trains ride on the deck
   for (const r of runs) {
     if (r.x1 < bx0 - 1 || r.x0 > bx1 + 1 || r.y1 < by0 - 1 || r.y0 > by1 + 1) continue;
-    let load = 0; for (const i of r.tiles) load = Math.max(load, d ? railLoad(d, i) : 0);
+    let load = 0; for (const i of r.tiles) load = Math.max(load, d ? railLoad(d, i, level) : 0);
     load = Math.min(1, Math.max(0, load));
     for (const dir of [1, -1]) {
       const draw = (front: number, a: number, k: number): void => {
-        const lv = HEAVY_LIVERIES[Math.floor(hash(r.seed, k, dir) * HEAVY_LIVERIES.length)];
+        const lv = liveries[Math.floor(hash(r.seed, k, dir) * liveries.length)];
         drawTrain(ctx, r, dir, front, a, lv, sx, sy, T);
       };
       // Station trains: appear APPROACH tiles out, slow in, wait, pull out, fade APPROACH tiles on.

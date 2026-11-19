@@ -8,8 +8,8 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
-import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
-import { drawRailTile, drawStation, railArtReady } from './clay/rail';
+import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
+import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, DECK_HEIGHT } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
@@ -215,7 +215,7 @@ export class CanvasRenderer {
   /** Draws one frame. The passes run back to front. */
   render(world: World, camera: Camera, options: RenderOptions = {}): void {
     if (camera.zoom < 0.1) return;
-    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null, landscape = null } = options;
+    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null, landscape = null, underground = false } = options;
 
     const ctx = this.ctx;
     const { width: cw, height: ch } = this.canvas;
@@ -234,8 +234,18 @@ export class CanvasRenderer {
 
     // 2. Trees, sprites, overlay tints, cars, then smoke and fire above them.
     this._drawLots(ctx, world, camera, bounds, ts, overlay, now);
-    // Trains (clay/trains.ts), over the track and the stations.
-    drawTrains(ctx, world, camera.worldToScreenX(Projection.tileToWorldX(0)), camera.worldToScreenY(Projection.tileToWorldY(0)), ts, now, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
+    // Trains (clay/trains.ts), over the track and the stations; then elevated track (cars pass under
+    // it) and its trains; then, in the underground view, the dimmed surface, subway track and its trains.
+    {
+      const ox = camera.worldToScreenX(Projection.tileToWorldX(0)), oy = camera.worldToScreenY(Projection.tileToWorldY(0)), b = bounds;
+      drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1);
+      drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
+      drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED, DECK_HEIGHT * ts);
+      if (underground) {
+        drawSubwayLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
+        drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_SUBWAY);
+      }
+    }
 
     // 3. Problem badges and district pins.
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
@@ -352,7 +362,9 @@ export class CanvasRenderer {
           const anchor = world.buildingAnchorAt(i), box = shapeBox(building, world.buildingRotAt(anchor));
           if (i === anchor + box.drawDx + box.drawDy * world.grid.width) this._drawBigBuilding(ctx, world, camera, anchor, building, now);
         }
-        const clay = big ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
+        if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
+        const clay = big || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
@@ -568,6 +580,13 @@ export class CanvasRenderer {
     }
     const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
     const box = shapeBox(kind, rot), n = box.maxX - box.minX + 1;
+    // A ramp (clay/rail.ts): its picture, and the game's track up (or down) its strip.
+    if (kind === BUILDING_RAMP_ELEVATED || kind === BUILDING_RAMP_SUBWAY) {
+      const tile = Math.ceil(camera.zoom * TILE_SIZE), subway = kind === BUILDING_RAMP_SUBWAY;
+      if (railArtReady()) { drawRamp(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); drawRampTrack(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); }
+      else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
+      return;
+    }
     // A station (clay/rail.ts): its picture, then the game's own track over the empty strip down its platform.
     if (kind === BUILDING_STATION || kind === BUILDING_STATION_L) {
       const tile = Math.ceil(camera.zoom * TILE_SIZE), w = box.maxX - box.minX + 1, h = box.maxY - box.minY + 1;
