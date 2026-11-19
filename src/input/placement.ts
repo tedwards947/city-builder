@@ -5,12 +5,12 @@
 // itself to the first way it fits, starting from the player's own turn (the
 // turn key adds a quarter turn), so its docks swing toward open water as the
 // pointer nears a shore. If it fits no way, the way with the fewest problem
-// tiles shows, so the preview can say what is wrong. A train station turns
-// the same way, preferring a way that lines its platform up with track.
+// tiles shows, so the preview can say what is wrong. A train station, a ramp
+// and a subway station turn the same way, preferring a way that joins track.
 
 import type { World, PlacementCheck } from '../sim/World';
-import { buildingShape, hasDocks, hasPlatforms, platformEnds, shapeRoles } from '../sim/buildingShapes';
-import { RAIL_GROUND } from '../sim/constants';
+import { buildingShape, hasDocks, hasPlatforms, placementRules, platformEnds, rampLevel, shapeRoles, subwayPlatform } from '../sim/buildingShapes';
+import { RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
 
 /** The anchor that puts the middle of a `kind` building (turned `rot`) on (tx, ty). Odd sizes centre; even sizes take the top-left of the middle four. */
 export function placementAnchor(kind: number, tx: number, ty: number, rot = 0): { tx: number; ty: number } {
@@ -38,10 +38,28 @@ export function placementScore(c: PlacementCheck): number {
   return c.offMap ? 1e9 : c.blocked.length + c.notOpenWater.length + (c.noWater ? 1 : 0) + (c.alreadyBuilt ? 1 : 0);
 }
 
-/** Whether a `kind` station anchored at (tx, ty) and turned `rot` would have track straight on from an end of its platform. */
+/**
+ * Whether a `kind` building anchored at (tx, ty) and turned `rot` would join
+ * track that is already there:
+ *   a train station: ground track straight on from an end of its platform;
+ *   a ramp: ground track straight out of its low end, or track of its own
+ *     level straight out of (or already on) its high end;
+ *   a subway station: subway track along its platform (two tiles or more) or straight on from an end.
+ */
 export function meetsTrack(world: World, kind: number, tx: number, ty: number, rot: number): boolean {
   const rail = world.layers.rail;
-  const has = (dx: number, dy: number) => world.grid.inBounds(tx + dx, ty + dy) && (rail[world.grid.idx(tx + dx, ty + dy)] & RAIL_GROUND) !== 0;
+  const has = (dx: number, dy: number, level = RAIL_GROUND) => world.grid.inBounds(tx + dx, ty + dy) && (rail[world.grid.idx(tx + dx, ty + dy)] & level) !== 0;
+  const level = rampLevel(kind);
+  if (level !== 0) {
+    const [dx, dy] = buildingShape(kind, rot)[1];
+    return has(-dx, -dy) || has(2 * dx, 2 * dy, level) || has(dx, dy, level);
+  }
+  const under = subwayPlatform(kind, rot);
+  if (under.length > 0) {
+    const [ax, ay] = under[0], [bx, by] = under[under.length - 1], sx = Math.sign(bx - ax), sy = Math.sign(by - ay);
+    // Along a tunnel (two or more of its tiles), not merely across one.
+    return under.filter(([dx, dy]) => has(dx, dy, RAIL_SUBWAY)).length >= 2 || has(ax - sx, ay - sy, RAIL_SUBWAY) || has(bx + sx, by + sy, RAIL_SUBWAY);
+  }
   return platformEnds(kind, rot).some(([dx, dy]) => has(dx, dy));
 }
 
@@ -52,10 +70,13 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
   const key = kind + ':' + tx + ':' + ty + ':' + turn;
   if (memo && memo.world === world && memo.edits === world.grid.edits && memo.key === key) return memo.value;
   let best: Placement | null = null, bestScore = Infinity;
+  // A station, a ramp and a subway station turn to meet track.
+  const twoWay = placementRules(kind).twoWay === true;
   const station = hasPlatforms(kind);
-  const turns = hasDocks(kind) || station ? 4 : 1;
+  const joins = station || rampLevel(kind) !== 0 || twoWay;
+  const turns = twoWay ? 2 : hasDocks(kind) || joins ? 4 : 1;
   for (let k = 0; k < turns; k++) {
-    const rot = turns === 1 ? 0 : (turn + k) & 3;
+    const rot = turns === 1 ? 0 : twoWay ? (turn + k) & 1 : (turn + k) & 3;
     // The pointer holds the middle of the footprint. A station is also tried with each
     // platform tile under the pointer, so pointing at a line puts the platform on it.
     const anchors = [placementAnchor(kind, tx, ty, rot)];
@@ -66,7 +87,7 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
     for (const a of anchors) {
       const check = world.checkPlacement(a.tx, a.ty, kind, rot);
       // A station prefers the first way that fits AND meets track; failing that, the first way that fits.
-      const score = placementScore(check) + (station && !meetsTrack(world, kind, a.tx, a.ty, rot) ? 0.5 : 0);
+      const score = placementScore(check) + (joins && !meetsTrack(world, kind, a.tx, a.ty, rot) ? 0.5 : 0);
       if (score < bestScore) { bestScore = score; best = { tx: a.tx, ty: a.ty, rot, check }; }
       if (score === 0) break;
     }

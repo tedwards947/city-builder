@@ -13,6 +13,7 @@
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
+import { buildingShape, rampLevel } from './buildingShapes';
 import { railVolume } from './TrafficData';
 
 /** Directions as bits, for railLinks. */
@@ -52,6 +53,8 @@ export function isLevelCrossing(world: World, i: number): boolean {
 export function trackSides(world: World, i: number): number {
   const L = world.layers;
   if (L.building[i] !== BUILDING_NONE) {
+    // A ramp's low end: only straight out, away from its high end.
+    if (rampLevel(L.building[i]) !== 0) return world.buildingAnchorAt(i) === i ? rampOutward(world, i) : 0;
     // A platform: its own building's platform tiles, and straight on from an end.
     const anchor = world.buildingAnchorAt(i);
     const own = sides(world, i, (j) => L.building[j] !== BUILDING_NONE && (L.rail[j] & RAIL_GROUND) !== 0 && world.buildingAnchorAt(j) === anchor);
@@ -72,7 +75,36 @@ export function trackSides(world: World, i: number): number {
  * trackSides. Elevated and subway track joins on all four sides.
  */
 export function levelSides(world: World, i: number, level: number): number {
-  return level === RAIL_GROUND ? trackSides(world, i) : VERTICAL | HORIZONTAL;
+  if (level === RAIL_GROUND) return trackSides(world, i);
+  // A ramp's high (or deep) end: only straight out, away from its low end.
+  const kind = world.layers.building[i];
+  if (kind !== BUILDING_NONE && rampLevel(kind) === level && world.buildingAnchorAt(i) !== i) return rampOutward(world, i);
+  return VERTICAL | HORIZONTAL;
+}
+
+/** The one side a ramp tile joins on: straight out, away from the ramp's other tile. `i` must be a ramp tile. */
+function rampOutward(world: World, i: number): number {
+  const anchor = world.buildingAnchorAt(i);
+  const [dx, dy] = buildingShape(world.layers.building[i], world.buildingRotAt(anchor))[1];
+  // From the low end (the anchor) the other tile is at (dx, dy); from the high end, at (−dx, −dy).
+  const sx = i === anchor ? dx : -dx, sy = i === anchor ? dy : -dy;
+  return sx > 0 ? LINK_W : sx < 0 ? LINK_E : sy > 0 ? LINK_N : LINK_S;
+}
+
+/**
+ * The other end of the ramp that tile `i` is part of, and the level of the
+ * track there: from the low end (ground track) the high end and its level,
+ * from the high end the low end and RAIL_GROUND. Null if `i` is no ramp tile.
+ * The ramp joins the two; railLinks never does (it is same-level only).
+ */
+export function rampOther(world: World, i: number): { tile: number; level: number } | null {
+  const kind = world.layers.building[i];
+  const level = rampLevel(kind);
+  if (level === 0) return null;
+  const anchor = world.buildingAnchorAt(i);
+  if (i !== anchor) return { tile: anchor, level: RAIL_GROUND };
+  const [dx, dy] = buildingShape(kind, world.buildingRotAt(anchor))[1];
+  return { tile: anchor + dx + dy * world.grid.width, level };
 }
 
 /**
