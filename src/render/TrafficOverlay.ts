@@ -2,7 +2,8 @@
 //
 //   Roads:  coloured by volume / capacity, and the scale keeps going past
 //           100% so an overloaded road reads differently from a full one.
-//   Track:  a line along the track, coloured by riders / capacity on the
+//   Track:  (every level: elevated with a white edge, subway dashed)
+//           a line along the track, coloured by riders / capacity on the
 //           roads' scale. A junction is a disc (it carries less, so it fills
 //           first); an overloaded one gets a white ring and a "!".
 //   Stations: a label with the riders using the station per tick, or "no road".
@@ -17,12 +18,13 @@
 import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
-import { ROAD_NONE, ZONE_NONE, RAIL_GROUND } from '../sim/constants';
-import { railLinks, stationBusiestTile } from '../sim/rail';
+import { ROAD_NONE, ZONE_NONE, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
+import { railLinks, rampOther, stationPeak } from '../sim/rail';
+import { rampLevel } from '../sim/buildingShapes';
 import { t } from '../i18n';
 import {
   type TrafficData, type TrafficField, type MarketKey, MARKET_DEFS,
-  bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, railLoad, railVolume,
+  bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, railLoad, NODES_PER_TILE,
 } from '../sim/TrafficData';
 
 type Ctx = CanvasRenderingContext2D;
@@ -97,14 +99,14 @@ export function markUpstream(field: TrafficField, target: number, out: Uint8Arra
 }
 
 /**
- * The map tile a route node is on. A field has two nodes per tile: the road
- * (the tile's own index) and the track (tile index + tile count), so a route
- * that rides a train holds numbers past the end of the map. Use this before
+ * The map tile a route node is on. A field has four nodes per tile: the road
+ * (the tile's own index) and the track on each rail level (tile index + 1, 2
+ * or 3 × the tile count), so a route that rides a train holds numbers past
+ * the end of the map. Use this before
  * turning a node of `routeFrom` into x and y.
  */
 export function routeTile(field: TrafficField, node: number): number {
-  const tiles = field.dist.length >> 1;
-  return node >= tiles ? node - tiles : node;
+  return node % (field.dist.length / NODES_PER_TILE);
 }
 
 /**
@@ -189,31 +191,53 @@ export class TrafficOverlay {
     const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];                         // N, E, S, W: the LINK_ bits in order
     const junctions: { x: number; y: number; load: number }[] = [];
     ctx.lineCap = 'round';
-    // Two passes, so one tile's dark edge never covers its neighbour's colour.
-    for (const pass of [0, 1]) {
-      for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
-        for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
-          const i = ty * width + tx;
-          if (!(rail[i] & RAIL_GROUND)) continue;
-          const links = railLinks(world, i);
-          const load = data ? railLoad(data, i) : 0;
-          const cx = camera.worldToScreenX(Projection.tileToWorldX(tx)) + half;
-          const cy = camera.worldToScreenY(Projection.tileToWorldY(ty)) + half;
-          ctx.strokeStyle = pass === 0 ? 'rgba(0,0,0,0.85)' : loadColor(load);
-          ctx.lineWidth = pass === 0 ? line + 3 : line;
-          ctx.beginPath();
-          if (links === 0) { ctx.moveTo(cx - 0.01, cy); ctx.lineTo(cx + 0.01, cy); }
-          for (let d = 0; d < 4; d++) {
-            if (!(links & (1 << d))) continue;
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(cx + DX[d] * half, cy + DY[d] * half);
+    // Lowest level first: subway (a thinner, dashed line with a dark edge), ground, then elevated
+    // (with a white edge, so it reads as passing over). Two passes per level, so one tile's edge
+    // never covers its neighbour's colour.
+    for (const level of [RAIL_SUBWAY, RAIL_GROUND, RAIL_ELEVATED]) {
+      const wide = level === RAIL_SUBWAY ? line * 0.7 : line;
+      ctx.setLineDash(level === RAIL_SUBWAY ? [Math.max(3, ts * 0.3), Math.max(2, ts * 0.2)] : []);
+      ctx.lineCap = level === RAIL_SUBWAY ? 'butt' : 'round';
+      for (const pass of [0, 1]) {
+        if (pass === 0 && level === RAIL_SUBWAY) ctx.setLineDash([]);
+        if (pass === 1 && level === RAIL_SUBWAY) ctx.setLineDash([Math.max(3, ts * 0.3), Math.max(2, ts * 0.2)]);
+        for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
+          for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
+            const i = ty * width + tx;
+            if (!(rail[i] & level)) continue;
+            const links = railLinks(world, i, level);
+            const load = data ? railLoad(data, i, level) : 0;
+            const cx = camera.worldToScreenX(Projection.tileToWorldX(tx)) + half;
+            const cy = camera.worldToScreenY(Projection.tileToWorldY(ty)) + half;
+            ctx.strokeStyle = pass === 1 ? loadColor(load) : level === RAIL_ELEVATED ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
+            ctx.lineWidth = pass === 0 ? wide + 3 : wide;
+            ctx.beginPath();
+            if (links === 0) { ctx.moveTo(cx - 0.01, cy); ctx.lineTo(cx + 0.01, cy); }
+            for (let d = 0; d < 4; d++) {
+              if (!(links & (1 << d))) continue;
+              ctx.moveTo(cx, cy);
+              ctx.lineTo(cx + DX[d] * half, cy + DY[d] * half);
+            }
+            // A ramp joins its two ends across the levels: draw each end up to the middle of the ramp.
+            const kind = world.layers.building[i];
+            if (kind !== 0 && rampLevel(kind) !== 0) {
+              const other = rampOther(world, i);
+              const mine = other && other.level === RAIL_GROUND ? rampLevel(kind) : RAIL_GROUND;   // the level of this end
+              if (other && mine === level) {
+                const ox = other.tile % width - tx, oy = (other.tile - other.tile % width) / width - ty;
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + ox * half, cy + oy * half);
+              }
+            }
+            ctx.stroke();
+            const count = (links & 1) + ((links >> 1) & 1) + ((links >> 2) & 1) + ((links >> 3) & 1);
+            if (pass === 1 && count >= 3) junctions.push({ x: cx, y: cy, load });
           }
-          ctx.stroke();
-          const count = (links & 1) + ((links >> 1) & 1) + ((links >> 2) & 1) + ((links >> 3) & 1);
-          if (pass === 1 && count >= 3) junctions.push({ x: cx, y: cy, load });
         }
       }
     }
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
     // Junctions on top: the weak points, so the ones to look at.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -246,8 +270,7 @@ export class TrafficOverlay {
         const y = camera.worldToScreenY(Projection.tileToWorldY(my)) + half;
         const cut = s.roads.length === 0;
         // Riders getting on, off or passing through (a station people only arrive at boards nobody).
-        const busiest = stationBusiestTile(world, ax, ay);
-        const riders = busiest >= 0 && data ? railVolume(data, busiest) : 0;
+        const riders = stationPeak(world, ax, ay)?.riders ?? 0;
         const text = cut ? t('ui.trafficOverlay.stationNoRoad')
           : t('ui.trafficOverlay.stationRiders', { n: Math.round(riders).toLocaleString('en-US') });
         const w = ctx.measureText(text).width + 14, h = 20;
@@ -400,7 +423,7 @@ export class TrafficOverlay {
         [loadColor(1), 'Full'], [loadColor(2), '2× over'], [loadColor(4), '4× over'],
       ]],
       ['Track', [
-        [loadColor(0.05), 'A line, on the roads\' scale'], ['#fff', 'Disc: a junction; white ring and ! when over capacity'],
+        [loadColor(0.05), 'A line, on the roads\' scale (white edge: elevated; dashed: subway)'], ['#fff', 'Disc: a junction; white ring and ! when over capacity'],
       ]],
       ['Commute', [
         [scale(COMMUTE_STOPS, 1), 'Short'], [scale(COMMUTE_STOPS, 0.5), 'Long'], [scale(COMMUTE_STOPS, 0), 'Cut off'],

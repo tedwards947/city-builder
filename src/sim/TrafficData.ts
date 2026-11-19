@@ -2,6 +2,7 @@
 // the tile inspector and the tuning panel. Read-only outside TransitSystem,
 // never saved: it is rebuilt from the layers on the first pass after a load.
 
+import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from './constants';
 import { BALANCE, type TrafficMarketKey } from '../data/balance';
@@ -195,7 +196,10 @@ export interface StationTraffic {
 
 /** Rail traffic: what the trains carry. */
 export interface RailTraffic {
-  /** Per tile: riders the track there carries before it counts as full; 0 where there is no track. */
+  /**
+   * Per track node (node − tiles; so plain tile index for ground track): riders the track
+   * there carries before it counts as full; 0 where there is no track. Read it with railCapacity.
+   */
   capacity: Float32Array;
   /** Every station, in world.buildings order. */
   stations: StationTraffic[];
@@ -206,9 +210,13 @@ export interface RailTraffic {
 export interface TrafficData {
   /** Bumped every time the pass is recomputed. */
   version: number;
-  /** Tiles on the map. A node below this is a road tile; `tiles + i` is the track on tile i. */
+  /**
+   * Tiles on the map. A node below this is a road tile; `tiles + i` is the ground track on
+   * tile i, `2 × tiles + i` its elevated track and `3 × tiles + i` its subway (railNode).
+   * The tile of any node is `node % tiles`.
+   */
   tiles: number;
-  /** Rail traffic. Track volumes are in each market's `volume`, at `tiles + i`; see railVolume. */
+  /** Rail traffic. Track volumes are in each market's `volume`, at railNode(d, i, level); see railVolume. */
   rail: RailTraffic;
   /** Every market, in MARKET_DEFS order. */
   markets: TrafficMarket[];
@@ -233,13 +241,27 @@ export interface TrafficData {
   settled: boolean;
 }
 
+/** Nodes per tile of the traffic network: the road, then the track on each rail level (ground, elevated, subway). */
+export const NODES_PER_TILE = 4;
+
+/** Which of a tile's nodes the track of `level` is: 1 ground, 2 elevated, 3 subway (0 is the road). */
+export function railSlot(level: number): number {
+  return level === RAIL_ELEVATED ? 2 : level === RAIL_SUBWAY ? 3 : 1;
+}
+
+/** The node of the `level` track on tile `i` (ground by default): `railSlot(level) × tiles + i`. */
+export function railNode(d: TrafficData, i: number, level: number = RAIL_GROUND): number {
+  return railSlot(level) * d.tiles + i;
+}
+
 export function makeTrafficData(n: number): TrafficData {
-  // Two nodes per tile: the road and the track.
-  const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(2 * n), volume: new Float32Array(2 * n) }));
+  // Four nodes per tile: the road and the track on each of the three rail levels.
+  const nn = NODES_PER_TILE * n;
+  const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(nn), volume: new Float32Array(nn) }));
   const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
-  const toR = makeTrafficField(2 * n);
+  const toR = makeTrafficField(nn);
   return {
-    version: 0, markets, tiles: n, rail: { capacity: new Float32Array(n), stations: [], boardings: 0 },
+    version: 0, markets, tiles: n, rail: { capacity: new Float32Array(nn - n), stations: [], boardings: 0 },
     shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'),
     toR, toShops: byKey('shopping').field, toJobs: byKey('jobs').field, toCustomers: toR, toWorkers: toR, settled: false,
   };
@@ -264,15 +286,20 @@ export function trafficVolume(d: TrafficData, i: number): number {
   return v;
 }
 
-/** Riders on the track of tile `i`, all markets. */
-export function railVolume(d: TrafficData, i: number): number {
-  return trafficVolume(d, d.tiles + i);
+/** Riders on the `level` track (ground by default) of tile `i`, all markets. */
+export function railVolume(d: TrafficData, i: number, level: number = RAIL_GROUND): number {
+  return trafficVolume(d, railNode(d, i, level));
 }
 
-/** How full the track on tile `i` is: riders ÷ capacity (1 = full; more is overloaded). 0 where there is no track. */
-export function railLoad(d: TrafficData, i: number): number {
-  const cap = d.rail.capacity[i];
-  return cap > 0 ? railVolume(d, i) / cap : 0;
+/** Riders the `level` track on tile `i` carries before it counts as full; 0 where there is none. */
+export function railCapacity(d: TrafficData, i: number, level: number = RAIL_GROUND): number {
+  return d.rail.capacity[railNode(d, i, level) - d.tiles];
+}
+
+/** How full the `level` track on tile `i` is: riders ÷ capacity (1 = full; more is overloaded). 0 where there is no track. */
+export function railLoad(d: TrafficData, i: number, level: number = RAIL_GROUND): number {
+  const cap = railCapacity(d, i, level);
+  return cap > 0 ? railVolume(d, i, level) / cap : 0;
 }
 
 /** Trips a road tile of this class can carry before it counts as full. */
