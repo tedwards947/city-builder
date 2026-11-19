@@ -519,7 +519,7 @@ export interface StationGrowth {
  * station bonus reaches (stationGrowthMask: the suburb's station and the city's)
  * is emptied, and only the growth system runs from there,
  * `days` days, once per seed with the station bonus off and once as shipped.
- * Growth alone is cheap, so enough seeds can be run for a ×1.25 to show above
+ * Growth alone is cheap, so enough seeds can be run for the bonus to show above
  * the noise of a handful of homes; everything else stays as it was settled.
  * Every home the growth system touches shares one random stream, so the two
  * runs of a seed soon draw different rolls: the seeds, not the pairing, beat
