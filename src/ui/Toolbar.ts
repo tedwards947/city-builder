@@ -50,6 +50,8 @@ export interface ToolbarItem {
   count?: () => number;
   /** Extra class for the icon (the zone colours). */
   cls?: string;
+  /** In a fly-out, draw a thin line above this item (it starts a new group). */
+  sepBefore?: boolean;
 }
 export interface ToolbarFamily {
   /** Names the family: ui.toolbar.<family>. */
@@ -67,6 +69,24 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'street', icon: 'street', tool: 'road', hotkey: '2' },
     { key: 'avenue', icon: 'avenue', tool: 'avenue', hotkey: 'a' },
     { key: 'highway', icon: 'highway', tool: 'highway', hotkey: 'h' },
+  ] },
+  // Rail (RAIL_DESIGN.md), by level: ground track and its two stations, then
+  // elevated, then subway. Each level after the first starts a new group.
+  { family: 'rail', icon: 'track', items: [
+    { key: 'track', icon: 'track', tool: 'rail' },
+    { key: 'station', icon: 'station', tool: 'station' },
+    { key: 'stationL', icon: 'stationL', tool: 'stationL' },
+    { key: 'trackElevated', icon: 'trackElevated', tool: 'railElevated', sepBefore: true },
+    { key: 'rampElevated', icon: 'rampUp', tool: 'rampElevated' },
+    { key: 'trackSubway', icon: 'trackSubway', tool: 'railSubway', sepBefore: true },
+    { key: 'rampSubway', icon: 'portal', tool: 'rampSubway' },
+    { key: 'subwayStation', icon: 'subway', tool: 'subwayStation' },
+  ] },
+  // Trade (SEAPORT_DESIGN.md): a yard on land with docks over open water;
+  // the airport (art/clay-set/airport3.html): one per city, 12×5, never turned.
+  { family: 'ports', icon: 'port', items: [
+    { key: 'seaport', icon: 'port', tool: 'seaport' },
+    { key: 'airport', icon: 'plane', tool: 'airport' },
   ] },
   { family: 'zones', icon: 'res', items: [
     { key: 'res', icon: 'res', tool: 'zoneR', cls: 'tb-r', hotkey: '3' },
@@ -87,8 +107,6 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'fireStation', icon: 'fire', tool: 'fire', hotkey: 'q' },
     { key: 'school', icon: 'school', tool: 'school', hotkey: 'w' },
     { key: 'hospital', icon: 'hospital', tool: 'hospital', hotkey: 'e' },
-  ] },
-  { family: 'parks', icon: 'park', items: [
     { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
   ] },
   // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
@@ -97,31 +115,17 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'addWater', icon: 'addWater', tool: 'addWater' },
     { key: 'removeWater', icon: 'removeWater', tool: 'removeWater' },
   ] },
-  // Trade (SEAPORT_DESIGN.md): a yard on land with docks over open water.
-  { key: 'seaport', icon: 'port', tool: 'seaport' },
-  // Airport (art/clay-set/airport3.html): one per city, 12×5, never turned.
-  { key: 'airport', icon: 'plane', tool: 'airport' },
-  // Rail (RAIL_DESIGN.md): ground track, dragged straight like a road, and the two stations.
-  { family: 'rail', icon: 'track', items: [
-    { key: 'track', icon: 'track', tool: 'rail' },
-    { key: 'station', icon: 'station', tool: 'station' },
-    { key: 'stationL', icon: 'stationL', tool: 'stationL' },
-    { key: 'trackElevated', icon: 'trackElevated', tool: 'railElevated' },
-    { key: 'rampElevated', icon: 'rampUp', tool: 'rampElevated' },
-    { key: 'trackSubway', icon: 'trackSubway', tool: 'railSubway' },
-    { key: 'rampSubway', icon: 'portal', tool: 'rampSubway' },
-    { key: 'subwayStation', icon: 'subway', tool: 'subwayStation' },
-    // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
-    { key: 'undergroundView', icon: 'underground', action: 'underground' },
-  ] },
   'sep',
-  { family: 'overlays', icon: 'layers', items: [
+  // Ways of looking at the city: the data maps, then the underground view.
+  { family: 'views', icon: 'layers', items: [
     { key: 'traffic', icon: 'traffic', overlay: 'traffic', hotkey: 't' },
     { key: 'crime', icon: 'crime', overlay: 'crime', hotkey: 'c' },
     { key: 'fire', icon: 'fire', overlay: 'fire', hotkey: 'f' },
     { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
     { key: 'schoolMap', icon: 'school', overlay: 'school', hotkey: 'g' },
     { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
+    // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
+    { key: 'undergroundView', icon: 'underground', action: 'underground', sepBefore: true },
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
   { key: 'ordinances', icon: 'ordinances', action: 'ordinances', hotkey: 'o', shown: ordinancesShown },
@@ -350,6 +354,7 @@ export class Toolbar {
     fly.appendChild(node('div', 'tb-head', '')).textContent = t('ui.toolbar.' + f.family);
     for (const item of f.items) {
       if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
+      if (item.sepBefore) fly.append(node('div', 'tb-fly-sep'));
       const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';

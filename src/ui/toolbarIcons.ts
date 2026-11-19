@@ -38,7 +38,8 @@ const ICONS = {
   tree: p('M12 3l5 7h-3l4 6H6l4-6H7zM12 16v5'),
   addWater: p('M10 4c3 4 5 6.5 5 9.5a5 5 0 01-10 0c0-3 2-5.5 5-9.5zM19 13v6M16 16h6'),
   removeWater: p('M10 4c3 4 5 6.5 5 9.5a5 5 0 01-10 0c0-3 2-5.5 5-9.5zM16 16h6'),
-  park: p('M12 22v-7M12 15c-5 0-7-3-5-6-1-4 3-6 5-6s6 2 5 6c2 3 0 6-5 6z'),
+  // A park bench: two back slats, the seat, legs.
+  park: p('M4 5h16M4 9h16M6 5v8M18 5v8M2 13h20v3H2zM5 16v5M19 16v5'),
   layers: p('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'),
   traffic: p('M5 16v-3l2-5h10l2 5v3zM6 13h12M7 16v2M17 16v2'),
   crime: p('M3 9c6-3 12-3 18 0 0 5-3 7-6 7-1.5 0-2-2-3-2s-1.5 2-3 2c-3 0-6-2-6-7zM7.5 11.5h2M14.5 11.5h2'),
