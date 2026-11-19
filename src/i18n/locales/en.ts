@@ -444,7 +444,7 @@ export const en: TranslationSchema = {
     },
     title: {
       name: "Concretta",
-      tagline: "Build a town. Keep it moving.",
+      tagline: "Build With Love",
       continue: "Continue",
       newCity: "New city",
       load: "Load",
