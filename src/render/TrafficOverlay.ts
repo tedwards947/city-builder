@@ -19,6 +19,7 @@ import type { World } from '../sim/World';
 import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
 import { ROAD_NONE, ZONE_NONE, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
+import { buildingTrace } from './buildingTrace';
 import { railLinks, rampOther, stationPeak } from '../sim/rail';
 import { rampLevel } from '../sim/buildingShapes';
 import { t } from '../i18n';
@@ -317,6 +318,15 @@ export class TrafficOverlay {
             if (ri >= 0 && m.field.doorCap[ri] > 0) targets[k].push(ri);
           }
         }
+      });
+    } else {
+      // A building (station, airport, …): its riders or visitors, and where its trips go.
+      const trace = buildingTrace(world, data, hover);
+      if (trace) markets.forEach((m, k) => {
+        for (const start of trace.routes[k]) {
+          this._drawRoute(ctx, camera, width, routeFrom(m.field, start).map(v => routeTile(m.field, v)), MARKET_COLOR[m.def.key], ts);
+        }
+        targets[k].push(...trace.targets[k]);
       });
     }
     if (targets.every(t => t.length === 0)) return;
