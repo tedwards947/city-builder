@@ -55,6 +55,8 @@ export interface RenderOptions {
   /** The selected tool's name (decides the hover outline's colour and the inspect routes). */
   tool?: string;
   overlay?: MapOverlay;
+  /** The underground view is on: fade the surface and show subway track (world.layers.rail & RAIL_SUBWAY). */
+  underground?: boolean;
   /** Tile indices to highlight as the reach of the service building about to be placed. */
   coveragePreview?: Set<number> | null;
   /**

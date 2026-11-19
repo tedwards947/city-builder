@@ -11,7 +11,7 @@
 // the platform, and nothing beside them.
 
 import type { World } from './World';
-import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND } from './constants';
+import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
 import { railVolume } from './TrafficData';
 
@@ -68,19 +68,28 @@ export function trackSides(world: World, i: number): number {
 }
 
 /**
- * The neighbours the ground track on tile `i` is joined to, as LINK_ bits; 0
- * if the tile has no ground track. Two bits: plain track or a bend; three or
- * four: a junction.
+ * The directions the track of `level` on tile `i` may join in. Ground: see
+ * trackSides. Elevated and subway track joins on all four sides.
  */
-export function railLinks(world: World, i: number): number {
+export function levelSides(world: World, i: number, level: number): number {
+  return level === RAIL_GROUND ? trackSides(world, i) : VERTICAL | HORIZONTAL;
+}
+
+/**
+ * The neighbours the track of `level` (RAIL_GROUND by default, or
+ * RAIL_ELEVATED or RAIL_SUBWAY) on tile `i` is joined to, as LINK_ bits; 0 if
+ * the tile has no track on that level. Track only joins track of its own
+ * level. Two bits: plain track or a bend; three or four: a junction.
+ */
+export function railLinks(world: World, i: number, level: number = RAIL_GROUND): number {
   const rail = world.layers.rail;
-  if (!(rail[i] & RAIL_GROUND)) return 0;
-  const mine = trackSides(world, i);
+  if (!(rail[i] & level)) return 0;
+  const mine = levelSides(world, i, level);
   let m = 0;
   for (const d of DIRS) {
     if (!(mine & d)) continue;
     const j = towards(world, i, d);
-    if (j >= 0 && (rail[j] & RAIL_GROUND) && (trackSides(world, j) & opposite(d))) m |= d;
+    if (j >= 0 && (rail[j] & level) && (levelSides(world, j, level) & opposite(d))) m |= d;
   }
   return m;
 }
@@ -89,16 +98,21 @@ export function railLinks(world: World, i: number): number {
 export type TrackBlocker = 'offMap' | 'blocked' | 'hasTrack' | 'crossing';
 
 /**
- * Whether ground track can be laid on (tx, ty), and if not, why: 'offMap';
- * 'blocked' (a building or a zone); 'hasTrack' (already there); 'crossing'
- * (a road it cannot cross: a highway, or a road tile that is a bend or a
- * junction).
+ * Whether track of `level` can be laid on (tx, ty), and if not, why.
+ *   Ground: 'offMap'; 'blocked' (a building or a zone); 'hasTrack' (already
+ *     there); 'crossing' (a road it cannot cross: a highway, or a road tile
+ *     that is a bend or a junction).
+ *   Elevated: goes over land, water, any road (no crossing is made) and
+ *     ground track; 'blocked' by a building or a zone.
+ *   Subway: goes under anything; only 'offMap' and 'hasTrack'.
  */
-export function trackBlocker(world: World, tx: number, ty: number): TrackBlocker | null {
+export function trackBlocker(world: World, tx: number, ty: number, level: number = RAIL_GROUND): TrackBlocker | null {
   if (!world.grid.inBounds(tx, ty)) return 'offMap';
   const L = world.layers;
   const i = world.grid.idx(tx, ty);
+  if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : null;
   if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE) return 'blocked';
+  if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : null;
   if (L.rail[i] & RAIL_GROUND) return 'hasTrack';
   const rc = L.roadClass[i];
   if (rc !== ROAD_NONE) {
@@ -147,13 +161,15 @@ export function trackBlocksRoad(world: World, i: number, roadClass: number): boo
 }
 
 /**
- * Money to lay ground track on (tx, ty): the price per tile, times the bridge
- * multiplier on water. Null if track cannot go there.
+ * Money to lay track of `level` on (tx, ty): the level's price per tile;
+ * ground track on water is a bridge and costs that times the bridge
+ * multiplier (elevated track is a bridge already, and subway goes under).
+ * Null if track cannot go there.
  */
-export function trackBuildCost(world: World, tx: number, ty: number): number | null {
-  if (trackBlocker(world, tx, ty) !== null) return null;
-  const mult = world.getTerrain(tx, ty) === TERRAIN_WATER ? BALANCE.costs.bridgeMultiplier : 1;
-  return BALANCE.rail.track[RAIL_GROUND].cost * mult;
+export function trackBuildCost(world: World, tx: number, ty: number, level: number = RAIL_GROUND): number | null {
+  if (trackBlocker(world, tx, ty, level) !== null) return null;
+  const mult = level === RAIL_GROUND && world.getTerrain(tx, ty) === TERRAIN_WATER ? BALANCE.costs.bridgeMultiplier : 1;
+  return (BALANCE.rail.track[level]?.cost ?? 0) * mult;
 }
 
 const upkeepCache = new WeakMap<World, { version: number; upkeep: number }>();

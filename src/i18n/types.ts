@@ -67,6 +67,9 @@ export interface TranslationSchema {
       stationBoardings: string;
       stationEarns: string;
       railTrack: string;
+      railElevated: string;
+      railElevatedOver: string;
+      railSubwayUnder: string;
       railRiders: string;
       railJunction3: string;
       railJunction4: string;

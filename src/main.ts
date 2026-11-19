@@ -17,7 +17,7 @@ import { createSystems } from './sim/createSystems';
 import { computeServiceCoverage } from './sim/systems/ServiceSystem';
 import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
-import { InputController, roadClassForTool, zoneForTool, isLandscapeTool } from './input/InputController';
+import { InputController, roadClassForTool, zoneForTool, isLandscapeTool, trackLevelForTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
 import { autoRailPathCached, planAutoRail } from './input/autoRail';
@@ -379,8 +379,18 @@ function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
   sfx.menuClicked();
 }
 
+// The underground view: the surface fades and subway tunnels show (drawn by the renderer).
+// While it is on, the bulldozer takes out subway track instead of clearing the surface.
+let underground = false;
+function setUnderground(on: boolean): void {
+  underground = on;
+  input.underground = on;
+}
+
 function setTool(tool: Tool): void {
   if (tool !== currentTool) resetPlacementTurn();
+  // The subway tool works underground: show it. (The player turns the view off again with U.)
+  if (tool === 'railSubway') setUnderground(true);
   currentTool = tool;
   sfx.toolPicked(tool);
   tileInfoPanel.setVisible(tool === 'inspect');
@@ -463,6 +473,7 @@ window.addEventListener('keydown', (e) => {
     setSpeed(state.scheduler.speed === 0 ? 1 : 0);
     return;
   }
+  if (key === 'u') { setUnderground(!underground); return; }
   // Tool and overlay keys come from the toolbar list, so the tooltips cannot lie.
   const item = toolbarItems().find(i => i.hotkey === key);
   if (item?.action === 'ordinances') { if (ordinancesShown()) togglePanel('ordinances'); }
@@ -574,8 +585,9 @@ function frame(now: number): void {
       : { tiles: [roadStart, hoverTile], ok: false, label: t('ui.rail.noRoute') };
   }
   // Track (clay/rail.ts): the tile under the pointer, with its price or why track can't go there.
-  if (!roadPreview && hoverTile && currentTool === 'rail') {
-    const why = trackBlocker(state.world, hoverTile.tx, hoverTile.ty), cost = trackBuildCost(state.world, hoverTile.tx, hoverTile.ty);
+  const trackLevel = trackLevelForTool(currentTool);
+  if (!roadPreview && hoverTile && trackLevel !== undefined) {
+    const why = trackBlocker(state.world, hoverTile.tx, hoverTile.ty, trackLevel), cost = trackBuildCost(state.world, hoverTile.tx, hoverTile.ty, trackLevel);
     roadPreview = why || cost === null
       ? { tiles: [hoverTile], ok: false, label: t(`ui.rail.${why ?? 'blocked'}`) }
       : { tiles: [hoverTile], ok: state.world.budget.money >= cost, label: '$' + cost.toLocaleString('en-US') };
@@ -631,6 +643,7 @@ function frame(now: number): void {
     areaHighlights: areaHighlights(performance.now()),
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview, landscape,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
+    underground,
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   trafficTuning?.update();

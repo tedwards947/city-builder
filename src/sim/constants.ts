@@ -22,6 +22,8 @@ export const RAIL_NONE     = 0;
 export const RAIL_GROUND   = 1;
 export const RAIL_ELEVATED = 2;
 export const RAIL_SUBWAY   = 4;
+/** The levels that take up the surface of a tile (elevated stands on pillars); subway does not. */
+export const RAIL_SURFACE  = RAIL_GROUND | RAIL_ELEVATED;
 
 // Building layer
 export const BUILDING_NONE         = 0;

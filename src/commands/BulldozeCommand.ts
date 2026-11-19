@@ -3,7 +3,7 @@ import type { TileSnapshot } from './Command';
 import { snapshotTiles, restoreTiles, tilesClearedWith, tileDisruption } from './Command';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
-import { ZONE_NONE, ROAD_NONE, RAIL_NONE, BUILDING_NONE } from '../sim/constants';
+import { ZONE_NONE, ROAD_NONE, RAIL_SURFACE, BUILDING_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
@@ -27,7 +27,7 @@ export class BulldozeCommand extends Command {
     const i = world.grid.idx(this.tx, this.ty);
     if (world.layers.zone[i] === ZONE_NONE &&
         world.layers.roadClass[i] === ROAD_NONE &&
-        world.layers.rail[i] === RAIL_NONE &&
+        (world.layers.rail[i] & RAIL_SURFACE) === 0 &&      // a subway underneath is not the bulldozer's (RemoveSubwayCommand)
         world.layers.building[i] === BUILDING_NONE) return false;
     // No funds check: demolition is allowed in debt (it is how a broke city
     // cuts upkeep). It still charges BALANCE.costs.bulldoze.

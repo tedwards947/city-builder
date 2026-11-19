@@ -18,13 +18,13 @@
 //
 // Produces Commands via CommandHistory. Never mutates world directly.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_SURFACE } from '../sim/constants';
 import type { Camera } from '../render/Camera';
 import type { World } from '../sim/World';
 import type { Command, FailReason } from '../commands/Command';
 import type { CommandHistory } from '../commands/CommandHistory';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
-import { BuildTrackCommand } from '../commands/BuildTrackCommand';
+import { BuildTrackCommand, RemoveSubwayCommand } from '../commands/BuildTrackCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { placementAnchor, placementFor } from './placement';
@@ -44,7 +44,7 @@ import type { ZoneMode } from './zoneFill';
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'rail' | 'station' | 'stationL' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'rail' | 'railElevated' | 'railSubway' | 'station' | 'stationL' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater';
 
 const ROAD_TOOL_CLASS: Partial<Record<Tool, number>> = {
   road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
@@ -82,16 +82,28 @@ export function isLandscapeTool(tool: Tool): boolean {
   return tool === 'trees' || tool === 'addWater' || tool === 'removeWater';
 }
 
-/** Tools that paint along a drag instead of panning. */
-export function isPaintTool(tool: Tool): boolean {
-  return tool in ROAD_TOOL_CLASS || tool === 'rail' || tool in ZONE_TOOL_ZONE || tool === 'bulldoze' || isLandscapeTool(tool);
+const TRACK_TOOL_LEVEL: Partial<Record<Tool, number>> = { rail: RAIL_GROUND, railElevated: RAIL_ELEVATED, railSubway: RAIL_SUBWAY };
+
+/** The rail level a track tool lays (a RAIL_ bit), or undefined for any other tool. */
+export function trackLevelForTool(tool: Tool): number | undefined {
+  return TRACK_TOOL_LEVEL[tool];
 }
 
-/** Build the Command a tool issues for one tile, or null if the tool issues none. */
-export function commandForTool(tool: Tool, tx: number, ty: number, world?: World): Command | null {
+/** Tools that paint along a drag instead of panning. */
+export function isPaintTool(tool: Tool): boolean {
+  return tool in ROAD_TOOL_CLASS || tool in TRACK_TOOL_LEVEL || tool in ZONE_TOOL_ZONE || tool === 'bulldoze' || isLandscapeTool(tool);
+}
+
+/**
+ * Build the Command a tool issues for one tile, or null if the tool issues
+ * none. In the underground view (`underground`) the bulldozer takes out
+ * subway track and leaves the surface alone.
+ */
+export function commandForTool(tool: Tool, tx: number, ty: number, world?: World, underground = false): Command | null {
   const roadClass = ROAD_TOOL_CLASS[tool];
   if (roadClass !== undefined) return new BuildRoadCommand(tx, ty, roadClass);
-  if (tool === 'rail') return new BuildTrackCommand(tx, ty);
+  const level = TRACK_TOOL_LEVEL[tool];
+  if (level !== undefined) return new BuildTrackCommand(tx, ty, level);
   const zone = ZONE_TOOL_ZONE[tool];
   if (zone !== undefined) return new PaintZoneCommand(tx, ty, zone);
   const kind = BUILDING_TOOL_KIND[tool];
@@ -101,10 +113,11 @@ export function commandForTool(tool: Tool, tx: number, ty: number, world?: World
     const a = placementAnchor(kind, tx, ty); return new PlaceBuildingCommand(a.tx, a.ty, kind);
   }
   if (tool === 'bulldoze') {
+    if (underground) return new RemoveSubwayCommand(tx, ty);
     // The bulldozer also clears trees (owner, landscaping mocks: no separate eraser).
     if (world && world.grid.inBounds(tx, ty)) {
       const i = world.grid.idx(tx, ty), L = world.layers;
-      if (L.vegetation[i] !== VEG_NONE && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.rail[i] === 0) return new ClearTreesCommand([i]);
+      if (L.vegetation[i] !== VEG_NONE && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && (L.rail[i] & RAIL_SURFACE) === 0) return new ClearTreesCommand([i]);
     }
     return new BulldozeCommand(tx, ty);
   }
@@ -149,6 +162,8 @@ export class InputController {
   private gesture: Gesture = 'tap';
   private stroke: Stroke | null = null;
   private downButton = 0;
+  /** The underground view is on (set by main): the bulldozer then works on subway track. */
+  underground = false;
   // Auto road mode: the start tile, once clicked, until the road is built or abandoned.
   private autoStart: { tool: Tool; world: World; tile: TilePos } | null = null;
 
@@ -363,7 +378,7 @@ export class InputController {
     history.beginBatch();
     let refused: FailReason | undefined;
     for (const { tx, ty } of path) {
-      const cmd = commandForTool(tool, tx, ty, this.getWorld());
+      const cmd = commandForTool(tool, tx, ty, this.getWorld(), this.underground);
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
     }
@@ -393,7 +408,7 @@ export class InputController {
     history.beginBatch();
     let refused: FailReason | undefined;
     for (const { tx, ty } of plan.tiles) {
-      const cmd = commandForTool(tool, tx, ty, this.getWorld());
+      const cmd = commandForTool(tool, tx, ty, this.getWorld(), this.underground);
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
     }
@@ -457,7 +472,7 @@ export class InputController {
     const s = this.stroke;
     if (!s) return;
     if (tile.tx === s.last.tx && tile.ty === s.last.ty) return;
-    if (s.tool in ROAD_TOOL_CLASS || s.tool === 'rail') {
+    if (s.tool in ROAD_TOOL_CLASS || s.tool in TRACK_TOOL_LEVEL) {
       // Roads: a straight line from the drag start, locked to the axis the
       // pointer first moved along.
       if (s.axis === null) s.axis = dominantAxis(s.start, tile);
@@ -489,7 +504,7 @@ export class InputController {
         if (world.layers.roadClass[i] !== ROAD_NONE) continue;
         if (world.layers.zone[i] === zone) continue;
       }
-      const cmd = commandForTool(tool, tx, ty, this.getWorld());
+      const cmd = commandForTool(tool, tx, ty, this.getWorld(), this.underground);
       if (cmd) this._run(history, cmd);
     }
   }
@@ -510,7 +525,7 @@ export class InputController {
   }
 
   private _applyTool(tx: number, ty: number): void {
-    const cmd = commandForTool(this.getTool(), tx, ty, this.getWorld());
+    const cmd = commandForTool(this.getTool(), tx, ty, this.getWorld(), this.underground);
     if (cmd) this._run(this.getHistory(), cmd);
   }
 

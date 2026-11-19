@@ -11,7 +11,7 @@ import { BRUSH_RADII, landscapeBrush, setLandscapeBrush, treeChoice, setTreeChoi
 import { TREE_SPECIES_MAX } from '../sim/landscaping';
 import { WILD_SPECIES, drawTreeIcon, loadWildTrees } from '../render/clay/wildTrees';
 import type { Tool, RoadMode } from '../input/InputController';
-import { roadClassForTool, zoneForTool } from '../input/InputController';
+import { roadClassForTool, zoneForTool, trackLevelForTool } from '../input/InputController';
 import type { ZoneMode } from '../input/zoneFill';
 import { BALANCE } from '../data/balance';
 import { buildingUpkeep } from '../sim/serviceValue';
@@ -138,7 +138,7 @@ const BUILDING_KIND: Partial<Record<Tool, number>> = {
 function flatCost(tool: Tool): number | undefined {
   const c = BALANCE.costs;
   return tool === 'zoneR' ? c.zoneR : tool === 'zoneC' ? c.zoneC : tool === 'zoneI' ? c.zoneI : tool === 'bulldoze' ? c.bulldoze
-    : tool === 'trees' ? c.tree : tool === 'addWater' || tool === 'removeWater' ? c.water : tool === 'rail' ? BALANCE.rail.track[1].cost : undefined;
+    : tool === 'trees' ? c.tree : tool === 'addWater' || tool === 'removeWater' ? c.water : trackLevelForTool(tool) !== undefined ? BALANCE.rail.track[trackLevelForTool(tool)!]?.cost : undefined;
 }
 
 /** The building a tool places, if it places one. */
