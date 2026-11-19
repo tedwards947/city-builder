@@ -9,7 +9,9 @@
 // costs more, as when laid by hand) PLUS these penalties, in tiles of track:
 //
 //   - joining existing track so that a tile becomes a 3-way junction, or
-//     running right beside existing track (every tile of that would join it);
+//     running right beside existing track (every tile of that would join it).
+//     Meeting the free END of a line, a platform or a ramp makes no junction
+//     and costs nothing: the line runs straight into it;
 //   - much more for making a 4-way junction, which crossing a line does;
 //   - a little for each new level crossing (ground only), and for each bend.
 //
@@ -123,18 +125,28 @@ export function autoRailPath(world: World, start: TilePos, end: TilePos, level: 
     }
     return (kind[i] = NEW);
   };
-  /** Existing track beside new tile `i` that would join it, other than towards `a` and `b`: each makes a junction. */
+  const junction = (count: number): number => (count >= 4 ? j4 : count >= 3 ? j3 : 0);
+  /**
+   * Existing track beside new tile `i` that would join it, other than towards `a` and `b`
+   * (the line's own two directions; -1 for none, at an end of the line). A join costs what
+   * the junction it makes costs, on this tile or on the one joined. It costs NOTHING where it
+   * makes none: the line ending beside the free end of a line, a platform or a ramp simply
+   * carries on into it.
+   */
   const beside = (i: number, a: number, b: number): number => {
-    let count = 0;
+    let count = 0, worst = 0;
     for (let d = 0; d < 4; d++) {
       if (d === a || d === b || !(open[i] & (1 << d))) continue;
       const j = step(i, d);
-      if (j >= 0 && look(j) === EXISTING && (open[j] & (1 << opposite(d)))) count++;
+      if (j >= 0 && look(j) === EXISTING && (open[j] & (1 << opposite(d)))) {
+        count++;
+        worst = Math.max(worst, bits(links[j]) + 1);
+      }
     }
-    return count * j3;
+    if (count === 0) return 0;
+    const here = junction((a >= 0 ? 1 : 0) + (b >= 0 ? 1 : 0) + count);
+    return count * Math.max(here, junction(worst));
   };
-  const junction = (count: number): number => (count >= 4 ? j4 : count >= 3 ? j3 : 0);
-
   // ── The bridge layer (ground lines only) ───────────────────────────────────
   // A tile the bridge's elevated track may pass over: nothing there to block elevated track,
   // and no elevated track on it or beside it (the bridge would join that).
