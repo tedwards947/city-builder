@@ -135,6 +135,7 @@ export const en: TranslationSchema = {
       lots: "{count} lots",
     },
     route: { jobs: "work: {time} of {limit}", shops: "shops: {time} of {limit}", customers: "customers: {time} of {limit}", workers: "workers: {time} of {limit}", none: "no shops or jobs in reach", noCustomers: "no customers in reach", noWorkers: "no workers in reach" },
+    trafficOverlay: { stationRiders: "{n} riders", stationNoRoad: "No road" },
     rail: { offMap: "Off the map", blocked: "Something is in the way", hasTrack: "Track is already here", crossing: "Track can only cross a straight street or avenue", noRoute: "No way for track from the start to here" },
     airport: { noRoad: "⚠ No road to the terminal: build a street along its north side", roadHere: "Road here" },
     econ: {
