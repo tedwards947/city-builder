@@ -6,7 +6,9 @@
 // It may share a tile with a street or avenue: a LEVEL CROSSING. A crossing is
 // always straight: the road runs along one axis and the track along the other.
 // Track tiles that touch are joined, as roads are, except at a crossing, which
-// only joins along its track axis.
+// only joins along its track axis. A station's platform tiles carry ground
+// track too: they join each other, and the tile straight on from each end of
+// the platform, and nothing beside them.
 
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND } from './constants';
@@ -42,12 +44,18 @@ export function isLevelCrossing(world: World, i: number): boolean {
 
 /**
  * The directions ground track on tile `i` may join in. All four for plain
- * track. A level crossing joins only across its road: the road's axis is the
+ * track. A platform tile: see the top of the file. A level crossing joins only across its road: the road's axis is the
  * one it has road neighbours on; with no road neighbour, the track's axis is
  * the one it has track neighbours on (north–south if both).
  */
 function trackSides(world: World, i: number): number {
   const L = world.layers;
+  if (L.building[i] !== BUILDING_NONE) {
+    // A platform: its own building's platform tiles, and straight on from an end.
+    const anchor = world.buildingAnchorAt(i);
+    const own = sides(world, i, (j) => L.building[j] !== BUILDING_NONE && (L.rail[j] & RAIL_GROUND) !== 0 && world.buildingAnchorAt(j) === anchor);
+    return own === LINK_N || own === LINK_S ? VERTICAL : own === LINK_E || own === LINK_W ? HORIZONTAL : own;
+  }
   if (L.roadClass[i] === ROAD_NONE) return VERTICAL | HORIZONTAL;
   const roads = sides(world, i, (j) => L.roadClass[j] !== ROAD_NONE);
   if (roads & HORIZONTAL) return VERTICAL;
