@@ -301,10 +301,18 @@ export function drawSubwayRampShade(ctx: Ctx, rot: number, L: number, Tp: number
   const g = deep === 0 ? ctx.createLinearGradient(x0, 0, x1, 0) : deep === 2 ? ctx.createLinearGradient(x1, 0, x0, 0) : deep === 1 ? ctx.createLinearGradient(0, y0, 0, y1) : ctx.createLinearGradient(0, y1, 0, y0);
   g.addColorStop(0, 'rgba(18,17,16,0)'); g.addColorStop(1, 'rgba(18,17,16,0.88)');
   ctx.save(); ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-  const r = 0.12 * T, k = 0.025 * T;   // corners rounded at the deep end: [top-left, top-right, bottom-right, bottom-left]
-  const radii = deep === 0 ? [0, r, r, 0] : deep === 1 ? [0, 0, r, r] : deep === 2 ? [r, 0, 0, r] : [r, r, 0, 0];
-  ctx.strokeStyle = KERB; ctx.lineWidth = Math.max(1, 0.05 * T);
-  ctx.beginPath(); ctx.roundRect(L + k, Tp + k, w * T - 2 * k, h * T - 2 * k, radii); ctx.stroke();
+  // The kerb: along both sides and round the deep end, open at the ground end so the track runs on unbroken.
+  // In ramp terms u runs from the ground end (0) to the deep end (2T) and v across it (0 to T).
+  const r = 0.12 * T, k = 0.025 * T, len = 2 * T;
+  const M = (u: number, v: number): [number, number] =>
+    deep === 0 ? [L + u, Tp + v] : deep === 2 ? [L + len - u, Tp + v] : deep === 1 ? [L + v, Tp + u] : [L + v, Tp + len - u];
+  ctx.strokeStyle = KERB; ctx.lineWidth = Math.max(1, 0.05 * T); ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(...M(0, k));
+  ctx.arcTo(...M(len - k, k), ...M(len - k, T - k), r);
+  ctx.arcTo(...M(len - k, T - k), ...M(0, T - k), r);
+  ctx.lineTo(...M(0, T - k));
+  ctx.stroke();
   ctx.restore();
 }
 
