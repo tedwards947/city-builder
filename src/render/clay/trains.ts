@@ -5,9 +5,9 @@
  * the rail load (sim/TrafficData.ts `railLoad`), so it costs nothing off screen.
  *
  * The track is cut into runs: chains of tiles with exactly two joins, ended by junctions and
- * dead ends (a loop is one run). Trains go both ways along each run, more often the busier it
- * is. A train fades in near one end and fades out near the other, and where the run passes
- * through a station's platform it slows in, waits and pulls out again.
+ * dead ends (a loop is one run). Trains are ephemeral, like the road cars (owner): passing
+ * trains appear, run a short leg and fade, more of them the busier the run; at a station a
+ * train appears a few tiles out, slows in, waits and pulls out, then fades.
  */
 import type { World } from '../../sim/World';
 import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
@@ -159,9 +159,30 @@ export function headway(load: number): number {
   return 60 / (1 + 4 * Math.min(1, Math.max(0, load)));
 }
 
+/** A short leg of a passing train: how far it runs before fading, in tiles. */
+export const LEG = 5;
+/** Platform approach and departure: a station train appears this far before the platform's middle and fades this far after. */
+export const APPROACH = 4;
+/** Passing trains a run shows each way, per 10 tiles, when its line is full (like the road cars: none on an empty line). */
+const PASSING_PER_10 = 1.5;
+
+/** Where a passing train is `u` seconds into its leg: distance along the leg and opacity, or null once gone. */
+export function legAt(u: number): { s: number; a: number } | null {
+  const dur = LEG / SPEED; if (u < 0 || u > dur) return null;
+  return { s: SPEED * u, a: Math.min(1, u / FADE, (dur - u) / FADE) };
+}
+
+const hash = (a: number, b: number, c: number): number => {
+  let h = Math.imul(a ^ 0x9e3779b1, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35) ^ Math.imul(c + 0x27d4eb2f, 0x165667b1);
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
+};
+
 /**
- * Draws the trains. (sx, sy) is the screen position of tile (0, 0); T the tile size in pixels;
- * the view covers tiles [bx0, bx1] × [by0, by1].
+ * Draws the trains, which come and go like the road cars (owner): passing trains appear, run a
+ * short leg and fade, as many as the line's load asks for; the care goes into stations, where a
+ * train slows in, waits and pulls out. (sx, sy) is the screen position of tile (0, 0); T the
+ * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1].
  */
 export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number): void {
   if (T < 6) return;
@@ -169,27 +190,49 @@ export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: nu
   for (const r of runs) {
     if (r.x1 < bx0 - 1 || r.x0 > bx1 + 1 || r.y1 < by0 - 1 || r.y0 > by1 + 1) continue;
     let load = 0; for (const i of r.tiles) load = Math.max(load, d ? railLoad(d, i) : 0);
-    const P = headway(load);
-    const dur = r.len / SPEED * 2 + DWELL + 2;
+    load = Math.min(1, Math.max(0, load));
     for (const dir of [1, -1]) {
-      const phase = ((r.seed >>> (dir > 0 ? 3 : 11)) % 1000) / 1000 * P;
+      const draw = (front: number, a: number, k: number): void => {
+        const lv = HEAVY_LIVERIES[Math.floor(hash(r.seed, k, dir) * HEAVY_LIVERIES.length)];
+        drawTrain(ctx, r, dir, front, a, lv, sx, sy, T);
+      };
+      // Station trains: appear APPROACH tiles out, slow in, wait, pull out, fade APPROACH tiles on.
       const stop = r.stop === null ? null : dir > 0 ? r.stop : r.len - r.stop;
-      for (let k = Math.floor((t - dur - phase) / P); k <= Math.floor((t - phase) / P); k++) {
-        const pos = trainAt(t - (k * P + phase), r.len, stop); if (!pos) continue;
-        const lv = HEAVY_LIVERIES[(((k * 7919) ^ r.seed ^ (dir > 0 ? 0 : 0x5bd1)) >>> 0) % HEAVY_LIVERIES.length];
-        ctx.save(); ctx.globalAlpha *= pos.a;
-        for (let c = CARS - 1; c >= 0; c--) {
-          const mid = pos.s - c * (CAR_LEN + CAR_GAP) - CAR_LEN / 2;
-          // Both bogies on the right-hand track; the body spans the chord between them, as a real car does round a bend.
-          const bog = (q: number): [number, number] => {
-            const s = dir > 0 ? q : r.len - q, [x, y, tx0, ty0] = at(r, s), m = Math.hypot(tx0, ty0) || 1, tx = tx0 / m * dir, ty = ty0 / m * dir;
-            return [x - ty * TRACK_OFFSET, y + tx * TRACK_OFFSET];
-          };
-          const [fx, fy] = bog(mid + CAR_LEN * 0.32), [rx, ry] = bog(mid - CAR_LEN * 0.32);
-          car(ctx, sx + (fx + rx) / 2 * T, sy + (fy + ry) / 2 * T, Math.atan2(fy - ry, fx - rx), T, lv, c === 0, c === CARS - 1);
+      let zone0 = Infinity, zone1 = -Infinity;
+      if (stop !== null) {
+        const a0 = Math.max(0, stop - APPROACH), a1 = Math.min(r.len, stop + APPROACH);
+        zone0 = a0; zone1 = a1;
+        const P = headway(load), dur = 2 * APPROACH / SPEED * 2 + DWELL + 2, phase = hash(r.seed, 1, dir) * P;
+        for (let k = Math.floor((t - dur - phase) / P); k <= Math.floor((t - phase) / P); k++) {
+          const pos = trainAt(t - (k * P + phase), a1 - a0, stop - a0); if (pos) draw(a0 + pos.s, pos.a, k);
         }
-        ctx.restore();
+      }
+      // Passing trains: short legs at random places along the run, as many as the load asks for, kept clear of the station.
+      if (r.len < LEG + 1) continue;
+      const want = r.len / 10 * PASSING_PER_10 * load, slots = Math.ceil(want), cycle = LEG / SPEED + 1;
+      for (let j = 0; j < slots; j++) {
+        const phase = hash(r.seed, j + 7, dir) * cycle, c = Math.floor((t + phase) / cycle), u = t + phase - c * cycle;
+        if (j === slots - 1 && hash(r.seed, j, c * 2 + (dir > 0 ? 0 : 1)) > want - j) continue;   // the last slot runs only part of the time
+        const s0 = hash(r.seed ^ c, j, dir) * (r.len - LEG);
+        if (s0 < zone1 && s0 + LEG > zone0) continue;
+        const pos = legAt(u); if (pos) draw(s0 + pos.s, pos.a, c * 31 + j);
       }
     }
   }
+}
+
+/** One train of CARS cars with its front `front` tiles along run r (taken in direction dir). */
+function drawTrain(ctx: Ctx, r: Run, dir: number, front: number, a: number, lv: Livery, sx: number, sy: number, T: number): void {
+  ctx.save(); ctx.globalAlpha *= a;
+  for (let c = CARS - 1; c >= 0; c--) {
+    const mid = front - c * (CAR_LEN + CAR_GAP) - CAR_LEN / 2;
+    // Both bogies on the right-hand track; the body spans the chord between them, as a real car does round a bend.
+    const bog = (q: number): [number, number] => {
+      const s = dir > 0 ? q : r.len - q, [x, y, tx0, ty0] = at(r, s), m = Math.hypot(tx0, ty0) || 1, tx = tx0 / m * dir, ty = ty0 / m * dir;
+      return [x - ty * TRACK_OFFSET, y + tx * TRACK_OFFSET];
+    };
+    const [fx, fy] = bog(mid + CAR_LEN * 0.32), [rx, ry] = bog(mid - CAR_LEN * 0.32);
+    car(ctx, sx + (fx + rx) / 2 * T, sy + (fy + ry) / 2 * T, Math.atan2(fy - ry, fx - rx), T, lv, c === 0, c === CARS - 1);
+  }
+  ctx.restore();
 }
