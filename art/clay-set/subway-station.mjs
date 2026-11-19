@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SCALE = 0.476;                        // the house's size against the sheet's lot (owner: 0.68, then 30% smaller)
+const SCALE = 0.38;                         // the house's size against the sheet's lot (owner: 0.68, then 30% smaller, then a bit smaller still)
 const HOUSE = [136, 34, 418, 290];          // the house and its shadow on the sheet: x0, y0, x1, y1
 const STRIP = [126, 292, 416, 328];         // a band of plain paving below it
 const T = 300, HEAD = 60, OUT_T = 128;      // work at 300 px a tile with headroom above, then shrink to the game's 128
-const AT = [56, 228];                       // where the house's crop sits on the tile: left, and its bottom (from the tile's top)
+const AT = [70, 228];                       // where the house's crop sits on the tile: left, and its bottom (from the tile's top)
 
 const tmp = join(tmpdir(), `subway-${process.pid}.bmp`);
 execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-rail/subway-stations.png'), '--out', tmp], { stdio: 'ignore' });
