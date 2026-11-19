@@ -42,7 +42,7 @@ import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcHudRate } from './ui/pcFormat';
 import { DOCK_CHANGED } from './ui/debugDock';
-import { pcCap, overCapFadePerDay } from './sim/politics';
+import { pcCap, overCapFadePerDay, pcQuote } from './sim/politics';
 import { landscapePreview } from './ui/landscapePreview';
 import { brushTiles, landscapeBrush, stepLandscapeBrush } from './input/landscape';
 import { hoverPcPreview, nuisanceTints, pcLabel, pcNote, isQuietNuisance } from './ui/pcPreview';
@@ -581,8 +581,9 @@ function frame(now: number): void {
   if (roadStart && hoverTile && currentTool === 'rail') {
     const plan = planAutoRail(state.world, autoRailPathCached(state.world, roadStart, hoverTile, performance.now()));
     roadPreview = plan.found
-      ? { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US') }
+      ? { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US'), pc: pcTag(plan.pc) }
       : { tiles: [roadStart, hoverTile], ok: false, label: t('ui.rail.noRoute') };
+    if (plan.found) pcPreview = planPcPreview(hoverTile, plan.pc);
   }
   // Track (clay/rail.ts): the tile under the pointer, with its price or why track can't go there.
   const trackLevel = trackLevelForTool(currentTool);
@@ -591,6 +592,12 @@ function frame(now: number): void {
     roadPreview = why || cost === null
       ? { tiles: [hoverTile], ok: false, label: t(`ui.rail.${why ?? 'blocked'}`) }
       : { tiles: [hoverTile], ok: state.world.budget.money >= cost, label: '$' + cost.toLocaleString('en-US') };
+    // Homes near ground or elevated track object: tint them, and show the price only if the city is short.
+    if (!why && cost !== null) {
+      const q = pcQuote(state.world, { type: 'track', tx: hoverTile.tx, ty: hoverTile.ty, level: trackLevel });
+      roadPreview.pc = pcTag(q);
+      pcPreview = planPcPreview(hoverTile, q);
+    }
   }
   if (!zonePreview && !roadPreview && hoverTile) {
     pcPreview = hoverPcPreview(state.world, currentTool, hoverTile);

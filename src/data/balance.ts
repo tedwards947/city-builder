@@ -327,6 +327,10 @@ export const BALANCE = {
     jam: { from: 1, delay: 4, power: 1 },
     boardTime: 2,          // getting on at a station, and again getting off
     rampTime: 1,           // passing a ramp between ground and elevated or subway track (placeholder)
+    // Homes and shops (not industry) within `radius` tiles (manhattan) of a station that has a
+    // road and riders grow `mult` times as fast (owner-approved, RAIL_DESIGN.md 2026-11-19).
+    // Kept small: rail already gives a suburb its job access. mult 1 = off.
+    stationGrowth: { radius: 4, mult: 1.25 },
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
     junction4: { delay: 4, capacityMult: 0.35 },
@@ -608,6 +612,11 @@ export const BALANCE = {
       // seaport). A large building is felt from its nearest tile (a seaport
       // from its yard, not its docks). 9, 11 and 12 have no tuned number yet.
       buildingPerResident: { 1: 0.267, 3: 0.178, 9: 0, 11: 0, 12: 0 } as Record<number, number>,
+      // PC per resident at weight 1, for each tile of rail track laid, by level (the RAIL_ bits:
+      // 1 ground, 2 elevated, 4 subway). Owner-approved (RAIL_DESIGN.md, 2026-11-19): a tile of
+      // ground track is about a seventh of an industrial tile; elevated is worse (pillars and
+      // noise over the street); a subway upsets nobody. Stations and ramps cost nothing.
+      trackPerResident: { 1: 0.01, 2: 0.015, 4: 0 } as Record<number, number>,
     },
     // One-off PC rewards the first time the city's population reaches each
     // threshold, e.g. { population: 1000, reward: 20 }. They may go over the

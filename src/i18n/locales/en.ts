@@ -109,6 +109,7 @@ export const en: TranslationSchema = {
       stationBoardings: "Riders boarding: {n} a tick",
       stationEarns: "Earns ${amount}/tick in fares",
       railTrack: "Rail track",
+      nearStation: "Near a busy station: grows {pct}% faster",
       railElevated: "Elevated rail track",
       railElevatedOver: "Elevated track passes overhead",
       railSubwayUnder: "A subway runs underneath",

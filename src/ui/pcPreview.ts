@@ -5,7 +5,7 @@
 
 import type { World } from '../sim/World';
 import type { Tool } from '../input/InputController';
-import { roadClassForTool, zoneForTool, placementAnchor } from '../input/InputController';
+import { roadClassForTool, zoneForTool, placementAnchor, trackLevelForTool } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { pcQuote, nuisanceRings } from '../sim/politics';
 import type { PcQuote, PcQuoteAction, NuisanceConfig, NuisanceSource } from '../sim/politics';
@@ -44,6 +44,8 @@ export function pcActionForTool(tool: Tool, tx: number, ty: number, world?: Worl
   if (zone !== undefined) return { type: 'zone', tx, ty, zone };
   const roadClass = roadClassForTool(tool);
   if (roadClass !== undefined) return { type: 'road', tx, ty, roadClass };
+  const level = trackLevelForTool(tool);
+  if (level !== undefined) return { type: 'track', tx, ty, level };
   const kind = buildingKindForTool(tool);
   // A building on several tiles is held by its middle; the engine wants its anchor.
   if (kind !== undefined) {

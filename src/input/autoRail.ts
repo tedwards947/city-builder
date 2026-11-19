@@ -27,6 +27,8 @@ import { BALANCE } from '../data/balance';
 import { RAIL_GROUND, ROAD_NONE } from '../sim/constants';
 import { railLinks, trackBlocker, trackBuildCost, trackSides } from '../sim/rail';
 import type { TilePos } from './dragPath';
+import { pcQuoteMany } from '../sim/politics';
+import type { PcQuote } from '../sim/politics';
 
 // Penalties, in tiles of plain ground track.
 const JUNCTION3 = 12;     // a tile ends up with three links
@@ -213,17 +215,20 @@ export interface AutoRailPlan {
   buildCount: number;
   /** Whether the city has the money for it right now. */
   affordable: boolean;
+  /** The political capital the new track would cost (homes near it object); `pc.affordable` false if the click would be refused for it. */
+  pc: PcQuote;
 }
 
 /** What laying `tiles` (from `autoRailPath`, or null) would cost. Reads the world, changes nothing. */
 export function planAutoRail(world: World, tiles: TilePos[] | null): AutoRailPlan {
-  if (!tiles) return { tiles: [], found: false, cost: 0, buildCount: 0, affordable: false };
+  if (!tiles) return { tiles: [], found: false, cost: 0, buildCount: 0, affordable: false, pc: pcQuoteMany(world, []) };
   let cost = 0, buildCount = 0;
   for (const { tx, ty } of tiles) {
     const c = trackBuildCost(world, tx, ty);
     if (c !== null) { cost += c; buildCount++; }
   }
-  return { tiles, found: true, cost, buildCount, affordable: world.budget.money >= cost };
+  const pc = pcQuoteMany(world, tiles.map(({ tx, ty }) => ({ type: 'track' as const, tx, ty, level: RAIL_GROUND })));
+  return { tiles, found: true, cost, buildCount, affordable: world.budget.money >= cost, pc };
 }
 
 // The preview asks for the same line on every frame while the pointer rests: keep the last answer briefly.
