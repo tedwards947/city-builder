@@ -372,7 +372,7 @@ export interface TranslationSchema {
     title: { name: string; tagline: string; continue: string; newCity: string; load: string; loading: string; tutorial: string };
     tutorial: {
       label: string; count: string; skip: string; leave: string; leaveAsk: string; leaveYes: string; leaveNo: string; close: string; askTitle: string; askBody: string; askCancel: string; askStart: string;
-      step: { camera: string; street: string; homes: string; power: string; water: string; grow: string; jobs: string; inspect: string; park: string; budget: string; views: string; done: string };
+      step: { camera: string; street: string; homes: string; roads: string; power: string; water: string; grow: string; jobs: string; inspect: string; park: string; budget: string; views: string; done: string };
     };
     roadMode: {
       manual: string;

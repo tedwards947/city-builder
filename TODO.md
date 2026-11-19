@@ -80,7 +80,7 @@ Nothing else is unblocked: the next engine work comes from the on-hold list, at 
 Standing rules (see AGENT.md): systems never loop over the whole map (`world.index`, `FieldBounds`); when `paintChunk` reads a new layer, `chunkSignature` must read it too (a test checks this); anything that feeds back into traffic routing gets a stability check.
 
 ### Done and merged
-- **Tutorial logic (TUTORIAL_DESIGN.md, 2026-11-19):** the 12 real step checks (`tutorial/steps.ts`), the tutorial-only rules (`tutorial/rules.ts`, `TutorialSystem`: money floor, PC full, no fires, no requests but the scripted park one), the saved `world.tutorial` field, and a PLACEHOLDER 48×48 map (`npm run gen-tutorial`). The owner hand-builds the real map: `?debug=true`, Menu → New city → Tutorial 48×48, build, save to file, replace `public/tutorial/tutorial.citysave.json`.
+- **Tutorial logic (TUTORIAL_DESIGN.md, 2026-11-19):** the 13 real step checks (`tutorial/steps.ts`), the tutorial-only rules (`tutorial/rules.ts`, `TutorialSystem`: money floor, PC full, no fires, no requests but the scripted park one), the saved `world.tutorial` field, and a PLACEHOLDER 48×48 map (`npm run gen-tutorial`). The owner hand-builds the real map: `?debug=true`, Menu → New city → Tutorial 48×48, build, save to file, replace `public/tutorial/tutorial.citysave.json`.
 
 - Seaport phases 1–5 and trade numbers (#202, #209, #211, #212, #219, #220).
 - Services by capacity: schools and hospitals seat homes nearest-first; police and fire are road-based (#195, #206).

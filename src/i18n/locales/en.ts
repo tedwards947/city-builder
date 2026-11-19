@@ -469,6 +469,7 @@ export const en: TranslationSchema = {
         camera: "Welcome to Concretta! Drag to look around, scroll to zoom.",
         street: "Every city starts with a road. Draw a street from the highway.",
         homes: "People need homes. Paint homes along your street.",
+        roads: "Homes only grow beside roads. Draw more streets to give your town room.",
         power: "Homes need power. Build a power plant a little way off.",
         water: "And water, and somewhere for it to go.",
         grow: "Speed things up and watch your town move in.",

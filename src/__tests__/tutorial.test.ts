@@ -50,9 +50,9 @@ function zone(w: World, z: number, x0: number, x1: number, y: number): void {
 }
 
 describe('the tutorial step list', () => {
-  it('has the twelve steps of the design, in order', () => {
+  it('has the thirteen steps of the design, in order', () => {
     expect(TUTORIAL_STEPS.map((s) => s.id)).toEqual(
-      ['camera', 'street', 'homes', 'power', 'water', 'grow', 'jobs', 'inspect', 'park', 'budget', 'views', 'done']);
+      ['camera', 'street', 'homes', 'roads', 'power', 'water', 'grow', 'jobs', 'inspect', 'park', 'budget', 'views', 'done']);
   });
 
   it('camera: the view has been both panned and zoomed', () => {
@@ -101,6 +101,19 @@ describe('the tutorial step list', () => {
     expect(homesBesideRoad(w)).toBe(11);
     zone(w, ZONE_R, 5, 5, 11);
     expect(step('homes').done(w, ui())).toBe(true);
+  });
+
+  it('roads: ten more street tiles, twenty joined to the highway in all', () => {
+    const w = stubWorld();
+    street(w, 5, 14, 10);                                   // the first ten
+    expect(step('roads').done(w, ui())).toBe(false);
+    for (let y = 11; y <= 19; y++) w.setRoad(9, y, ROAD_STREET);   // nine more, off the first street
+    expect(step('roads').done(w, ui())).toBe(false);
+    street(w, 20, 30, 25);                                  // not joined: does not count
+    expect(step('roads').done(w, ui())).toBe(false);
+    w.setRoad(9, 20, ROAD_STREET);
+    expect(step('roads').done(w, ui())).toBe(true);
+    expect(step('roads').point).toEqual(['street']);
   });
 
   it('power, then water and sewage: twelve of those homes are covered', () => {
@@ -218,6 +231,8 @@ describe('the tutorial step list', () => {
     expect(nextStep(w, all, 0)).toBe(indexOf('street'));
     street(w, 5, 16, 10);
     zone(w, ZONE_R, 5, 16, 9);
+    expect(nextStep(w, all, 0)).toBe(indexOf('roads'));
+    street(w, 17, 24, 10);
     expect(nextStep(w, all, 0)).toBe(indexOf('power'));
     expect(nextStep(w, all, indexOf('budget'))).toBe(indexOf('done'));
     expect(nextStep(w, { ...all, cardClosed: true }, indexOf('budget'))).toBe(TUTORIAL_STEPS.length);
@@ -343,7 +358,7 @@ describe('the tutorial map', () => {
     expect(w.markers).toEqual(made.markers);
   });
 
-  it('can be played from step 1 to step 12 with the ordinary commands', () => {
+  it('can be played from the first step to the last with the ordinary commands', () => {
     const t0 = performance.now();
     const w = loadMap();
     beginTutorial(w);
@@ -371,6 +386,10 @@ describe('the tutorial map', () => {
     expect(advance()).toBe('homes');
 
     for (let x = x0; x < x0 + 6; x++) { run(new PaintZoneCommand(x, y - 1, ZONE_R)); run(new PaintZoneCommand(x, y + 1, ZONE_R)); }
+    expect(advance()).toBe('roads');
+
+    // More road: a second street, south off the first (shops and industry go along it later).
+    for (let s = 1; s <= 12; s++) run(new BuildRoadCommand(x0 + 7, y + s, ROAD_STREET));
     expect(advance()).toBe('power');
 
     const spot = step('power').target!(w)!.area!;
@@ -386,8 +405,7 @@ describe('the tutorial map', () => {
     tickUntil('grow', 2000);
     expect(advance()).toBe('jobs');
 
-    // A second street, south off the first, for shops and industry.
-    for (let s = 1; s <= 12; s++) run(new BuildRoadCommand(x0 + 7, y + s, ROAD_STREET));
+    // Shops and industry along the second street.
     for (let s = 2; s <= 9; s++) { run(new PaintZoneCommand(x0 + 6, y + s, ZONE_C)); }
     for (let s = 5; s <= 12; s++) { run(new PaintZoneCommand(x0 + 8, y + s, ZONE_I)); }
     expect(advance()).toBe('inspect');
