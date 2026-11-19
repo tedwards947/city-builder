@@ -4,6 +4,19 @@ One section per area, each a ranked list (1 = do first). Each session owns its o
 
 DESIGN is the owner's list: things that need a design decision before anyone builds them. Sessions add to it only when the owner asks, and move an item into their own section once it is decided.
 
+## UP NEXT (owner, cross-team)
+
+- **Train stations are too big** (owner, 2026-11-19; replaces the "retouch station scale" item). Shrink the straight station to a 3×2 shape:
+  ```
+  [ free , entrance, free  ]
+  [ track, track   , track ]
+  ```
+  A 3-tile platform on the track row and a 1-tile entrance building beside its middle. The two "free" tiles are not part of the station: the player can put roads, zones, trees or anything else there. Same idea as the subway (a 1-tile entrance plus a platform).
+  - **To decide:** whether track may go on the free tiles (a track parallel to the platform may look odd; PM pick: no track there at first, everything else allowed); the L station's equivalent (e.g. the entrance on the corner's inside); the platform length (3, so the subway platform shortens from 4 to 3 to match?).
+  - **ENGINE:** non-rectangular footprint (entrance = body, platform = platform tiles), road access from the entrance's sides only, and refitting stations in old saves (refund and remove if they don't fit, as with the airport in #275).
+  - **GRAPHICS:** a 1-tile entrance building [paid, owner's OK] and the platform drawn on the game's track.
+  - **ENGINEER 3:** re-check the rail suite (station cost may want to drop with the size).
+
 ## GRAPHICS
 
 Items marked [paid] need new nanobanana images (billed to the owner; ask before generating).
@@ -26,7 +39,6 @@ Seaport G2 and the seaport art are in (picks A1, B3, D3 → E1 on `art/clay-set/
 
 ### Waiting on something else
 
-- **Retouch the train station art** (owner, 2026-11-19): the scale doesn't look quite right. Do it after the main rail work (phase 2) is in. Deferred by the owner (2026-11-19); ask what looks off before changing anything.
 - **Subway station entrance too big** (owner, 2026-11-19, not urgent): its above-ground picture is way too big for its tile. Likely a smaller draw inside the 1×1 tile (`drawSubwayEntrance` in clay/rail.ts); no new art needed.
 - **Tower scaling too small** (owner, 2026-11-19, not urgent): confirm which tower (the airport's control tower, or the level 3 apartment and office towers) before changing it.
 - **Terrain in the clay style** (grass, sand, water, rounded shorelines): deferred by the owner.
