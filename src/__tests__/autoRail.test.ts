@@ -192,6 +192,27 @@ describe('track that is already there', () => {
     expect(layAndCountJunctions(path)).toBeLessThanOrEqual(2);
   });
 
+  it('runs straight into the end of a platform two tiles away (the tile beside the platform is a fine place to end)', () => {
+    // Owner's case: a station whose platform (row 11) ends at x 13; a line whose free end is at (16,11).
+    expect(w.placeBuilding(10, 10, BUILDING_STATION, 0)).toBe(true);
+    for (let x = 16; x <= 20; x++) track(x, 11);
+    for (const [from, to] of [[P(16, 11), P(14, 11)], [P(14, 11), P(16, 11)], [P(16, 11), P(13, 11)], [P(15, 11), P(14, 11)]] as const) {
+      const path = autoRailPath(w, from, to)!;
+      expect(path.every(s => s.ty === 11)).toBe(true);
+      expect(path.length).toBe(Math.abs(from.tx - to.tx) + 1);
+    }
+    const plan = planAutoRail(w, autoRailPath(w, P(16, 11), P(14, 11)));
+    expect(plan.cost).toBe(2 * TRACK);
+    expect(layAndCountJunctions(plan.tiles)).toBe(0);
+  });
+
+  it('ends beside the free end of a line or the low end of a ramp without going round', () => {
+    for (let x = 16; x <= 20; x++) track(x, 11);
+    expect(xy(autoRailPath(w, P(12, 11), P(15, 11))!)).toEqual([P(12, 11), P(13, 11), P(14, 11), P(15, 11)]);
+    expect(w.placeBuilding(10, 20, BUILDING_RAMP_ELEVATED, 2)).toBe(true);   // low end (10,20), high end west of it
+    expect(xy(autoRailPath(w, P(14, 20), P(11, 20))!)).toEqual([P(14, 20), P(13, 20), P(12, 20), P(11, 20)]);
+  });
+
   it('joins a station at the end of its platform, never through its side', () => {
     expect(w.placeBuilding(10, 10, BUILDING_STATION)).toBe(true);         // platform y 11, x 10–13
     const path = autoRailPath(w, P(5, 5), P(11, 11))!;                    // the end is a platform tile
