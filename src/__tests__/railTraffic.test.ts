@@ -2,6 +2,7 @@
 // portals, a trip rides when that is faster, freight never rides, track has a
 // capacity, junctions and level crossings cost time, and riders pay a fare.
 
+import { routeFrom, routeTile } from '../render/TrafficOverlay';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
@@ -143,6 +144,25 @@ describe('freight never rides', () => {
     expect(t.goods.field.dist[idx(10, 10)]).toBe(Infinity);
     expect(t.goods.volume[t.tiles + idx(30, 12)]).toBe(0);
     expect(t.jobs.volume[t.tiles + idx(30, 12)]).toBeGreaterThan(0);
+  });
+});
+
+describe('the route of a trip that rides', () => {
+  it('holds track nodes; routeTile puts every one on the map, each next to the one before', () => {
+    suburbAndTown();
+    const t = traffic();
+    const path = routeFrom(t.jobs.field, HOME_ROAD());
+    expect(path.some(v => v >= t.tiles)).toBe(true);
+    const tiles = path.map(v => routeTile(t.jobs.field, v));
+    expect(tiles.filter(i => i === idx(30, 12)).length).toBe(1);          // along the line
+    for (let k = 0; k < tiles.length; k++) {
+      expect(tiles[k]).toBeGreaterThanOrEqual(0);
+      expect(tiles[k]).toBeLessThan(t.tiles);
+      if (k === 0) continue;
+      const step = Math.abs(tiles[k] % 64 - tiles[k - 1] % 64) + Math.abs(Math.floor(tiles[k] / 64) - Math.floor(tiles[k - 1] / 64));
+      // One tile at a time, but for getting on or off: from the road to the middle of the platform.
+      expect(step).toBeLessThanOrEqual(path[k] >= t.tiles === path[k - 1] >= t.tiles ? 1 : 5);
+    }
   });
 });
 

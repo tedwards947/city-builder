@@ -10,7 +10,7 @@ import { ZONE_NONE, ZONE_R, ZONE_C } from '../../sim/constants';
 import { BALANCE } from '../../data/balance';
 import { type TrafficField, bestAccessRoad, travelTime } from '../../sim/TrafficData';
 import { t } from '../../i18n';
-import { routeFrom } from '../TrafficOverlay';
+import { routeFrom, routeTile } from '../TrafficOverlay';
 
 export type TripKey = 'jobs' | 'shops' | 'customers' | 'workers';
 
@@ -62,9 +62,9 @@ export function drawCommuteRoutes(ctx: CanvasRenderingContext2D, world: World, i
   if (!trips.length) return;
   const { width } = world.grid;
   const limit = BALANCE.transit.commuteMax;
-  const X = (k: number): number => ox + (k % width + 0.5) * ts;
-  const Y = (k: number): number => oy + (Math.floor(k / width) + 0.5) * ts;
-  const lx = X(i), ly = Y(i);
+  const tileX = (k: number): number => ox + (k % width + 0.5) * ts;
+  const tileY = (k: number): number => oy + (Math.floor(k / width) + 0.5) * ts;
+  const lx = tileX(i), ly = tileY(i);
   const text = Math.max(11, Math.min(15, ts * 0.32));
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   let reached = 0;
@@ -72,6 +72,9 @@ export function drawCommuteRoutes(ctx: CanvasRenderingContext2D, world: World, i
     if (!(trip.time < Infinity)) continue;
     const path = routeFrom(trip.field, trip.road), n = path.length;
     if (!n) continue;
+    // A stretch ridden by train is a track node, numbered past the end of the map: draw it on its tile.
+    const X = (k: number): number => tileX(routeTile(trip.field, k));
+    const Y = (k: number): number => tileY(routeTile(trip.field, k));
     reached++;
     ctx.strokeStyle = 'rgba(15,17,22,0.75)'; ctx.lineWidth = Math.max(4, ts * 0.2);
     ctx.beginPath(); ctx.moveTo(lx, ly);
