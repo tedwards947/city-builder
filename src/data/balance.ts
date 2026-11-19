@@ -67,8 +67,10 @@ export const BALANCE = {
     // years (transit.buildings[13]).
     13: { cost: 2000000, maintenance: 150 }, // BUILDING_AIRPORT
     // Train stations (RAIL_DESIGN.md). Placeholders until the balance lab proposes them.
-    14: { cost: 8000, maintenance: 20 }, // BUILDING_STATION (straight, 4×3)
-    15: { cost: 8000, maintenance: 20 }, // BUILDING_STATION_L (elbow, 3×3)
+    // Stations: 30,000 / 25 (Balance Lab rail suite, owner 2026-11-18): rail is gated by
+    // cost, so a starter line (two stations and 60 tiles, about 84k) is a mid-game buy.
+    14: { cost: 30000, maintenance: 25 }, // BUILDING_STATION (straight, 4×3)
+    15: { cost: 30000, maintenance: 25 }, // BUILDING_STATION_L (elbow, 3×3)
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -294,19 +296,21 @@ export const BALANCE = {
     // Per tile of track, by level (the RAIL_ bits in sim/constants.ts): 1 = ground.
     // On water the cost is times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
     track: {
-      1: { cost: 100, maintenance: 0.25 },
+      1: { cost: 400, maintenance: 0.5 },   // ground (owner 2026-11-18; a highway is 150 / 0.35)
     } as Record<number, { cost: number; maintenance: number }>,
     // Rail traffic (TransitSystem). Times are in street tiles, like road travel times.
-    speedMult: 6,          // a tile of track takes 1 / speedMult (a highway's is 2)
+    // Speed 10 and boarding 2 (owner 2026-11-18): a suburb 50–90 tiles out gets a third to a
+    // half of the city's job access by rail; at 6 and 4 it was a fifth to a third.
+    speedMult: 10,         // a tile of track takes 1 / speedMult (a highway's is 2)
     capacity: 300,         // riders a tile of track carries before it counts as full (a highway: 200)
     congestionDelay: 1,    // past transit.freeFlow × capacity: time × (1 + congestionDelay × (load − freeFlow))
-    boardTime: 4,          // getting on at a station, and again getting off
+    boardTime: 2,          // getting on at a station, and again getting off
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
-    junction4: { delay: 3, capacityMult: 0.35 },
+    junction4: { delay: 4, capacityMult: 0.35 },
     // A level crossing slows cars by up to `delay` as the track fills, and trains as the road fills.
     crossing: { delay: 2 },
-    fare: 0.2,             // income per rider boarding, per economy tick (like transit.buildings incomePerTrip)
+    fare: 0.5,             // income per rider boarding, per economy tick (like transit.buildings incomePerTrip)
   },
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
