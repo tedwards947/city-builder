@@ -322,12 +322,12 @@ describe('TransitSystem — accessibility', () => {
     // No commerce or industry anywhere → accessibility stays 0.
     run(w, new TransitSystem(), 0);
     expect(access(w, 2, 2)).toBe(0);
-    // A roll of 0.05 is under the base growth probability (0.08) but over
-    // base × accessFloor, so the zone does not grow.
+    // A roll of 0.03 is under the base chance for a level-1 home (0.04) but
+    // over base × accessFloor, so the zone does not grow.
     w.stats.rDemand = 1; w.stats.powerSupply = 9999; w.stats.powerDemand = 0;
     w.stats.waterSupply = 9999; w.stats.waterDemand = 0;
     w.tick = 0;
-    w.rng = () => 0.05;
+    w.rng = () => 0.03;
     new ZoneGrowthSystem().update(w);
     expect(w.layers.devLevel[w.grid.idx(2, 2)]).toBe(1);
   });

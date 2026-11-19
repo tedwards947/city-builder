@@ -95,7 +95,9 @@ export const BALANCE = {
     // exodusPerPoint chance per growth pass (growth.tickInterval ticks) of
     // losing one level, down to an empty lot. 0 = off. 1e-4 (Balance Lab, owner
     // 2026-11-18): about 3.5% fewer residents after 150 days at 20 on a mature city.
-    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1, exodusPerPoint: 0.0001 },
+    // 7e-5 since homes level up slower (owner 2026-11-19): a home that drops a
+    // level takes longer to climb back, so the same exodus emptied more homes.
+    level: { min: 0, max: 20, neutral: 10, step: 1, satisfactionPerPoint: 0.01, demandStrength: 1, exodusPerPoint: 0.00007 },
   },
   maintenance: {
     road: 0.04,
@@ -281,6 +283,10 @@ export const BALANCE = {
   growth: {
     tickInterval: 4,
     probability: 0.08,
+    // Homes (R) roll their own chance by the level they are at (owner 2026-11-19,
+    // docs/GROWTH_OPTIONS.md option B): empty → 1 at 8%, 1 → 2 at 4%, 2 → 3 at 2%,
+    // so level 3 takes about twice as long. Shops and industry use `probability`.
+    homeProbabilityByLevel: { 0: 0.08, 1: 0.04, 2: 0.02 } as Record<number, number>,
     maxLevel: 3,
     popPerLevel: { 1: 4, 2: 10, 3: 20 } as Record<number, number>,
   },
