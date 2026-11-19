@@ -4,6 +4,12 @@
 import type { World } from '../sim/World';
 
 export const AUTOSAVE_SLOT = 0;
+/**
+ * Where the autosave is copied, as it was, when it is loaded from an older
+ * save version (or cannot be read), before the next autosave overwrites it.
+ * Shown in the Load panel.
+ */
+export const AUTOSAVE_BACKUP_SLOT = -1;
 export const AUTOSAVE_NAME = 'Autosave';
 export const AUTOSAVE_INTERVAL_MS = 60_000;
 // Longest gap between frames that counts as play time. Frames stop while the

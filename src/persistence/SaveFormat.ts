@@ -147,6 +147,12 @@ export interface SlotInfo {
 // both — without changing SaveManager.
 
 export interface IStore {
+  /**
+   * Copy the record in slot `from` to slot `to` exactly as stored (its save
+   * version included, so an old save stays an old save), replacing what is
+   * there. Does nothing if `from` is empty.
+   */
+  copy(userId: string, from: number, to: number): Promise<void>;
   save(userId: string, slot: number, meta: SaveMeta, snapshot: WorldSnapshot): Promise<void>;
   load(userId: string, slot: number): Promise<SaveRecord | null>;
   list(userId: string): Promise<SlotInfo[]>;
@@ -155,6 +161,17 @@ export interface IStore {
 
 // ── Migration ─────────────────────────────────────────────────────────────────
 
+/** A save written by a newer build than this one: it cannot be read here, and must not be half-loaded. */
+export class NewerSaveError extends Error {
+  readonly saveVersion: number;
+  constructor(saveVersion: number) {
+    super(`This city was saved by a newer version of the game (save version ${saveVersion}; this one reads up to ${SAVE_VERSION}). Reload the page to get the latest version.`);
+    this.name = 'NewerSaveError';
+    this.saveVersion = saveVersion;
+  }
+}
+
+/** The record upgraded, step by step, to the current save version. Throws NewerSaveError for a save newer than this build. */
 export function migrate(raw: unknown): SaveRecord {
   const r = raw as { version?: number };
   let rec = raw as SaveRecord;
@@ -168,6 +185,7 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 8) rec = upgradeV8toV9(rec);
   if ((rec as { version: number }).version === 9) rec = { ...rec, version: 10, snapshot: shrinkStations(rec.snapshot) };
   if ((rec as { version: number }).version === 10) return rec;
+  if ((rec as { version: number }).version > SAVE_VERSION) throw new NewerSaveError((rec as { version: number }).version);
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }
 

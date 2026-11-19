@@ -28,7 +28,8 @@ import { loadRoadMode, saveRoadMode } from './ui/RoadModeMenu';
 import { Toolbar, toolbarItems } from './ui/Toolbar';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
-import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
+import { Autosave, AUTOSAVE_SLOT, AUTOSAVE_BACKUP_SLOT } from './persistence/Autosave';
+import { NewerSaveError } from './persistence/SaveFormat';
 import { MusicManager } from './audio/MusicManager';
 import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
@@ -187,6 +188,12 @@ function syncSpeedButtons(): void {
 const titleStore = ((): Storage | null => { try { return window.localStorage; } catch { return null; } })();
 /** The zoom a game opens at (the camera's own default). */
 const PLAY_ZOOM = camera.zoom;
+/**
+ * The stored autosave is from a NEWER build than this one and could not be
+ * opened: nothing autosaves (it would replace that city with the empty one on
+ * screen) until the player starts or loads a city themselves.
+ */
+let autosaveHeld = false;
 /** Whether the title screen is up. */
 let titleUp = wantTitle({
   param: new URLSearchParams(location.search).get('title'),
@@ -223,6 +230,7 @@ function closeTitle(): void {
 /** Start playing `world`. `behindTitle`: it is only the backdrop of the title screen, which stays up. */
 function startGame(world: World, behindTitle = false): void {
   if (titleUp && !behindTitle) closeTitle();
+  if (!behindTitle) autosaveHeld = false;       // the player started or loaded a city: it is theirs to save
   if (tourPreview) { tourPreview = false; tour.stop(); }
   state.world     = world;
   state.history   = new CommandHistory(world);
@@ -632,7 +640,7 @@ function frame(now: number): void {
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
   if (titleUp || tourPreview) tour.update(now);
-  if (!titleUp) autosave.tick(now, state.scheduler.speed === 0);
+  if (!titleUp && !autosaveHeld) autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
@@ -809,9 +817,9 @@ function frame(now: number): void {
 // whenever the tab is hidden or closed.
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && !titleUp) void autosave.saveNow();
+  if (document.visibilityState === 'hidden' && !titleUp && !autosaveHeld) void autosave.saveNow();
 });
-window.addEventListener('pagehide', () => { if (!titleUp) void autosave.saveNow(); });
+window.addEventListener('pagehide', () => { if (!titleUp && !autosaveHeld) void autosave.saveNow(); });
 
 /** The showcase city for the title screen, or null if the site has none (or it will not load). */
 async function loadShowcase(): Promise<World | null> {
@@ -831,9 +839,13 @@ async function loadShowcase(): Promise<World | null> {
 async function boot(): Promise<void> {
   let saved: World | null = null;
   try {
-    saved = await manager.loadGame(AUTOSAVE_SLOT);
+    saved = await manager.loadGame(AUTOSAVE_SLOT, AUTOSAVE_BACKUP_SLOT);
   } catch (err) {
+    // The save stays where it is until the next autosave, and a copy is already in the backup slot.
     console.warn('Could not load autosave:', err);
+    if (err instanceof NewerSaveError) autosaveHeld = true;
+    if (err instanceof NewerSaveError) toastPanel.showToast(t('ui.toast.newerSaveTitle'), t('ui.toast.newerSave'), 'alert');
+    else toastPanel.showToast(t('ui.toast.savedCityUnreadableTitle'), t('ui.toast.savedCityUnreadable'), 'alert');
   }
   if (!titleUp) {
     if (saved) startGame(saved);

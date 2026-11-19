@@ -1,3 +1,4 @@
+import { AUTOSAVE_BACKUP_SLOT } from '../persistence/Autosave';
 import type { SaveManager } from '../persistence/SaveManager';
 import type { World } from '../sim/World';
 import type { SlotInfo } from '../persistence/SaveFormat';
@@ -132,6 +133,11 @@ export class SaveLoadPanel {
       const info = bySlot.get(i);
       this.slotsEl.appendChild(this._makeSlot(i, info ?? null));
     }
+    // The autosave as it was before an update rebuilt it (SaveManager.loadGame): to load, never to save over.
+    const backup = bySlot.get(AUTOSAVE_BACKUP_SLOT);
+    if (backup && this.mode === 'load') {
+      this.slotsEl.appendChild(this._makeSlot(AUTOSAVE_BACKUP_SLOT, { ...backup, meta: { ...backup.meta, name: t('ui.saveLoad.backupName') } }));
+    }
   }
 
   private _makeSlot(slot: number, info: SlotInfo | null): HTMLElement {
@@ -170,6 +176,8 @@ export class SaveLoadPanel {
       if (!info) return;
       this.manager.loadGame(slot).then(world => {
         if (world) { this.hide(); this.onLoad(world); }
+      }).catch((err) => {
+        alert(t('ui.saveLoad.loadFailed', { reason: err instanceof Error ? err.message : String(err) }));
       });
     } else {
       // Save mode: prompt for name (pre-fill existing name or default).
