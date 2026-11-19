@@ -48,7 +48,7 @@ export function isLevelCrossing(world: World, i: number): boolean {
  * one it has road neighbours on; with no road neighbour, the track's axis is
  * the one it has track neighbours on (north–south if both).
  */
-function trackSides(world: World, i: number): number {
+export function trackSides(world: World, i: number): number {
   const L = world.layers;
   if (L.building[i] !== BUILDING_NONE) {
     // A platform: its own building's platform tiles, and straight on from an end.

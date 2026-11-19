@@ -5,6 +5,8 @@
 //                            per stroke); right/middle drag or two fingers → pan
 //   Road tools, auto mode    tap → start; tap again → build an L-shaped road to
 //                            that tile (one undo step, all or nothing);
+//                            the rail tool the same, on a line that finds its
+//                            own way (autoRail.ts);
 //                            right-click or cancelAutoRoad() → abandon; drag → pan
 //   Zone tools, fill mode    tap → zone the lots along that side of the road
 //                            (one undo step, all or nothing); drag → pan
@@ -35,6 +37,7 @@ import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
 import { wheelZoomFactor } from './wheelZoom';
 import { autoRoadPath } from './autoRoad';
+import { autoRailPath } from './autoRail';
 import { planZoneFill } from './zoneFill';
 import type { ZoneMode } from './zoneFill';
 
@@ -319,7 +322,7 @@ export class InputController {
   // ── Auto road mode ──────────────────────────────────────────────────────────
 
   private _autoRoadTool(tool: Tool): boolean {
-    return tool in ROAD_TOOL_CLASS && this.getRoadMode() === 'auto';
+    return (tool in ROAD_TOOL_CLASS || tool === 'rail') && this.getRoadMode() === 'auto';
   }
 
   /**
@@ -350,13 +353,16 @@ export class InputController {
       this.autoStart = { tool, world: this.getWorld(), tile };
       return;
     }
+    // Track finds its own way (autoRail.ts); with no way there, the click does nothing and the start is kept.
+    const path = tool === 'rail' ? autoRailPath(this.getWorld(), start, tile) : autoRoadPath(start, tile);
+    if (!path) return;
     // Build the whole route as one undo step, or none of it: if any tile is
     // refused for money or political capital, everything is taken back and the
     // start is kept, so the player can pick a nearer end.
     const history = this.getHistory();
     history.beginBatch();
     let refused: FailReason | undefined;
-    for (const { tx, ty } of autoRoadPath(start, tile)) {
+    for (const { tx, ty } of path) {
       const cmd = commandForTool(tool, tx, ty, this.getWorld());
       if (!cmd) continue;
       if (!history.run(cmd) && cmd.failReason) { refused = cmd.failReason; break; }
