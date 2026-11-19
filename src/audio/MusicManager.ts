@@ -1,4 +1,5 @@
 import type { Track } from './types';
+import { makeRoom, playInstrument } from './instruments';
 
 const SEMITONES: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -42,6 +43,7 @@ export function shufflePlaylist(tracks: Track[], random: () => number = Math.ran
 
 /** Master gain at full volume; the volume slider scales this. */
 const BASE_GAIN = 0.12;
+
 
 export class MusicManager {
   private ctx: AudioContext | null = null;
@@ -195,9 +197,11 @@ export class MusicManager {
     
     pattern.forEach((voice, i) => {
       const note = voice[this.noteIndex % voice.length];
-      if (note.pitch !== 'rest') {
-        this.playNote(note.pitch, this.nextNoteTime, (note.hold ?? note.length) * secondsPerBeat, track.genre, i, note.vel ?? 1);
-      }
+      if (note.pitch === 'rest') return;
+      const seconds = (note.hold ?? note.length) * secondsPerBeat;
+      const inst = track.instruments?.[i];
+      if (inst) playInstrument(this.ctx!, this.lane(track.pans?.[i] ?? 0), inst, noteFrequency(note.pitch), this.nextNoteTime, seconds, note.vel ?? 1);
+      else this.playNote(note.pitch, this.nextNoteTime, seconds, track.genre, i, note.vel ?? 1);
     });
 
     const stepLength = pattern[0][this.noteIndex % pattern[0].length].length * secondsPerBeat;
@@ -230,10 +234,30 @@ export class MusicManager {
     // 50 ms fade-in, shortened for fast notes so 16ths start on time
     const attack = Math.min(0.05, duration * 0.2);
     const release = duration * 0.8;
+    gain.gain.value = 0; // silent before the note: see env() in sfx/synth.ts
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime((genre === 'ambient' ? 0.6 : 0.8) * vel, time + attack);
     gain.gain.exponentialRampToValueAtTime(0.001, time + duration + release);
     osc.start(time); osc.stop(time + duration + release);
+  }
+
+  /**
+   * Where an instrument voice plays: the room, through one panner per stereo position (built on first use
+   * and shared by every note there, rather than a panner per note).
+   */
+  private room: GainNode | null = null;
+  private panners = new Map<number, AudioNode>();
+  private lane(pan: number): AudioNode {
+    const room = (this.room ??= makeRoom(this.ctx!, this.masterGain!));
+    if (!pan || typeof this.ctx!.createStereoPanner !== 'function') return room;
+    let p = this.panners.get(pan);
+    if (!p) {
+      const node = this.ctx!.createStereoPanner();
+      node.pan.value = Math.max(-1, Math.min(1, pan));
+      node.connect(room);
+      this.panners.set(pan, (p = node));
+    }
+    return p;
   }
 
   public getTrackName(): string { 

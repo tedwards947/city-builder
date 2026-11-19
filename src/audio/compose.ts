@@ -66,6 +66,26 @@ export function line(src: string, start = 0, vel?: number): Voice {
   return out;
 }
 
+/**
+ * Decode a transcribed lane: space-separated "gap/length/midi" tokens in ticks (`perBeat` ticks per beat),
+ * each gap counted from the previous note's start. Every onset comes straight from integer ticks, so
+ * lanes share one exact grid however fine the rhythms (decimal lengths added up would drift apart).
+ */
+export function ticks(src: string, perBeat: number, vel?: number): Voice {
+  const out: Voice = [];
+  let t = 0;
+  for (const tok of src.trim().split(/\s+/)) {
+    if (!tok) continue;
+    const [gap, len, midi] = tok.split('/').map(Number);
+    if (![gap, len, midi].every(Number.isInteger) || gap < 0 || len <= 0) throw new Error(`Bad tick token "${tok}"`);
+    t += gap;
+    const e: Ev = { t: round(t / perBeat), pitch: fromMidi(midi), len: round(len / perBeat) };
+    if (vel !== undefined) e.vel = vel;
+    out.push(e);
+  }
+  return out;
+}
+
 /** Total length in beats of a mini-notation string (rests included). */
 export function lineBeats(src: string): number {
   return src.trim().split(/\s+/).filter(t => t && t !== '|')

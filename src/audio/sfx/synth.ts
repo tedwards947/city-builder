@@ -44,6 +44,9 @@ function buffers(ac: Ctx): { white: AudioBuffer; brown: AudioBuffer } {
 /** Gain envelope: attack to `peak`, an optional hold (sagging to 75%), then an exponential decay. */
 function env(ac: Ctx, out: Out, t: number, a: number, peak: number, d: number, hold = 0): GainNode {
   const g = ac.createGain();
+  // Silent until the envelope starts: a gain is 1 before its first event, and a source started between
+  // two samples can leak one full-level sample ahead of it (a click, loudest through bright filters).
+  g.gain.value = 0;
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(peak, t + a);
   if (hold > 0) g.gain.linearRampToValueAtTime(peak * 0.75, t + a + hold);
