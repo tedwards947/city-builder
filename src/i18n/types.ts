@@ -360,6 +360,7 @@ export interface TranslationSchema {
       portReconnected: string;
       pumpDry: string;
     };
+    title: { name: string; tagline: string; continue: string; newCity: string; load: string; loading: string };
     roadMode: {
       manual: string;
       auto: string;
