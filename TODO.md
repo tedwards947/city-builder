@@ -27,7 +27,6 @@ Seaport G2 and the seaport art are in (picks A1, B3, D3 → E1 on `art/clay-set/
 ### Waiting on something else
 
 - **Retouch the train station art** (owner, 2026-11-19): the scale doesn't look quite right. Do it after the main rail work (phase 2) is in. Deferred by the owner (2026-11-19); ask what looks off before changing anything.
-- **Subway station entrance too big** (owner, 2026-11-19, not urgent): its above-ground picture is way too big for its tile. Likely a smaller draw inside the 1×1 tile (`drawSubwayEntrance` in clay/rail.ts); no new art needed.
 - **Tower scaling too small** (owner, 2026-11-19, not urgent): confirm which tower (the airport's control tower, or the level 3 apartment and office towers) before changing it.
 - **Terrain in the clay style** (grass, sand, water, rounded shorelines): deferred by the owner.
 - **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.

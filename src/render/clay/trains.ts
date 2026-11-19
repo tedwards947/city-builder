@@ -12,9 +12,9 @@
 import type { World } from '../../sim/World';
 import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
 import { railLoad } from '../../sim/TrafficData';
-import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../../sim/constants';
+import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION } from '../../sim/constants';
 import { subwayPlatform } from '../../sim/buildingShapes';
-import { TRACK_OFFSET } from './rail';
+import { TRACK_OFFSET, islandOffset } from './rail';
 
 type Ctx = CanvasRenderingContext2D;
 const SIDES = [LINK_N, LINK_E, LINK_S, LINK_W];
@@ -30,6 +30,8 @@ export interface Run {
   tiles: number[];
   /** Distance along the run of the middle of a station platform on it, if any. */
   stop: number | null;
+  /** Stretches of the run (from, to) through straight stations, where the tracks spread round the island (clay/rail.ts). */
+  wide: [number, number][];
   /** Bounding box in tiles, for culling. */
   x0: number; y0: number; x1: number; y1: number;
   seed: number;
@@ -94,7 +96,22 @@ export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
     if (first >= 0) {   // tile k's centre is about k tiles along (the first tile counts a half)
       stop = Math.min(D[D.length - 1], (first + last) / 2 + 0.0);
     }
-    if (D[D.length - 1] >= 1) runs.push({ P, D, len: D[D.length - 1], tiles, stop, x0, y0, x1, y1, seed: (start * 2654435761 + sideIdx(side) * 40503) >>> 0 });
+    // Straight stations along the run: each group of their tiles, from half a tile before the first to half after the last.
+    const wide: [number, number][] = [];
+    const along = (t: number): number => {   // distance along the run nearest tile t's centre
+      const cx = t % width + 0.5, cy = (t - (t % width)) / width + 0.5; let best = 0, bd = Infinity;
+      P.forEach(([x, y], k) => { const d = (x - cx) ** 2 + (y - cy) ** 2; if (d < bd) { bd = d; best = D[k]; } });
+      return best;
+    };
+    if (level === RAIL_GROUND) {
+      let g0 = -1;
+      for (let k = 0; k <= tiles.length; k++) {
+        const on = k < tiles.length && world.layers.building[tiles[k]] === BUILDING_STATION;
+        if (on && g0 < 0) g0 = k;
+        if (!on && g0 >= 0) { const a = along(tiles[g0]), b = along(tiles[k - 1]); wide.push([Math.min(a, b) - 0.5, Math.max(a, b) + 0.5]); g0 = -1; }
+      }
+    }
+    if (D[D.length - 1] >= 1) runs.push({ P, D, len: D[D.length - 1], tiles, stop, wide, x0, y0, x1, y1, seed: (start * 2654435761 + sideIdx(side) * 40503) >>> 0 });
   };
   // Runs start at junctions and dead ends…
   for (let i = 0; i < n; i++) { const m = links[i]; if (!m || count(m) === 2) continue; for (const s of SIDES) if (m & s && !used[i * 4 + sideIdx(s)]) walk(i, s); }
@@ -275,7 +292,9 @@ function drawTrain(ctx: Ctx, r: Run, dir: number, front: number, a: number, lv: 
     // Both bogies on the right-hand track; the body spans the chord between them, as a real car does round a bend.
     const bog = (q: number): [number, number] => {
       const s = dir > 0 ? q : r.len - q, [x, y, tx0, ty0] = at(r, s), m = Math.hypot(tx0, ty0) || 1, tx = tx0 / m * dir, ty = ty0 / m * dir;
-      return [x - ty * TRACK_OFFSET, y + tx * TRACK_OFFSET];
+      let o = TRACK_OFFSET;
+      for (const [a, b] of r.wide) if (s > a && s < b) o = islandOffset((s - a) * 3 / (b - a));
+      return [x - ty * o, y + tx * o];
     };
     const [fx, fy] = bog(mid + CAR_LEN * 0.32), [rx, ry] = bog(mid - CAR_LEN * 0.32);
     car(ctx, sx + (fx + rx) / 2 * T, sy + (fy + ry) / 2 * T, Math.atan2(fy - ry, fx - rx), T, lv, c === 0, c === CARS - 1);

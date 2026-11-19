@@ -587,14 +587,15 @@ export class CanvasRenderer {
       else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
       return;
     }
-    // A station (clay/rail.ts): its picture, then the game's own track over the empty strip down its platform.
+    // A station (clay/rail.ts): a straight one draws its own track, spread round its island; a curved one gets the
+    // game's own track over its platform after the house.
     if (kind === BUILDING_STATION || kind === BUILDING_STATION_L) {
       const tile = Math.ceil(camera.zoom * TILE_SIZE), w = box.maxX - box.minX + 1, h = box.maxY - box.minY + 1;
       if (railArtReady()) drawStation(ctx, kind, rot, X(ax + box.minX), Y(ay + box.minY), w, h, tile);
       else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
       const roles = shapeRoles(kind);
       buildingShape(kind, rot).forEach(([dx, dy], k) => {
-        if (roles[k] !== 'platform') return;
+        if (roles[k] !== 'platform' || (kind === BUILDING_STATION && railArtReady())) return;   // a straight station draws its own spread track
         const i = anchor + dx + dy * width;
         drawRailTile(ctx, railLinks(world, i), X(ax + dx), Y(ay + dy), tile);
       });
