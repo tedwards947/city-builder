@@ -105,7 +105,7 @@ export const en: TranslationSchema = {
       airportDemand: "Shops in demand: +{pct}% while it has a road",
       airportNoRoad: "✗ NO ROAD TO THE TERMINAL: build a street or avenue along its north side",
       stationAbout: "People drive here, ride the train and drive on from the station at the other end, when that is faster than driving all the way. Freight does not ride.",
-      stationNoRoad: "✗ NO ROAD TO THE STATION: build a street or avenue beside the building (not along the platform)",
+      stationNoRoad: "✗ NO ROAD TO THE STATION: build a street or avenue beside the building (not at the end of the platform)",
       stationBoardings: "Riders boarding: {n} a tick",
       stationEarns: "Earns ${amount}/tick in fares",
       railTrack: "Rail track",

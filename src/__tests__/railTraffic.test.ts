@@ -35,9 +35,9 @@ const traffic = () => {
 };
 
 // A SUBURB in the west: a street along y = 10 (x 2–12) with homes on its north side, and a
-// station south of it (building y 11–12, platform y 13, x 4–7).
+// station south of it (y 11–13, x 4–7; the platform is its middle row, y 12).
 // A TOWN in the east: a street along y = 10 (x 48–60) with industry on its north side, and a
-// station (platform y 13, x 50–53). The line runs along y = 13 between the platforms.
+// station (platform y 12, x 50–53). The line runs along y = 12 between the platforms.
 // No road joins the two.
 const HOME_ROAD = () => idx(5, 10);
 function suburbAndTown(line = true): void {
@@ -48,7 +48,7 @@ function suburbAndTown(line = true): void {
   if (!line) return;
   expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
   expect(w.placeBuilding(50, 11, BUILDING_STATION)).toBe(true);
-  track(13, 8, 49);
+  track(12, 8, 49);
 }
 
 beforeEach(() => {
@@ -75,8 +75,8 @@ describe('a suburb joined to town only by rail', () => {
     const trips = 6 * 2 * BALANCE.transit.tripsRtoI;                     // six level-2 homes
     expect(t.jobs.field.stranded).toBe(0);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThan(BALANCE.transit.commuteMax);
-    for (const x of [10, 30, 49]) expect(railVolume(t, idx(x, 13))).toBeCloseTo(trips, 3);
-    expect(railVolume(t, idx(30, 12))).toBe(0);
+    for (const x of [10, 30, 49]) expect(railVolume(t, idx(x, 12))).toBeCloseTo(trips, 3);
+    expect(railVolume(t, idx(30, 11))).toBe(0);
     expect(w.layers.accessibility[idx(5, 9)]).toBeGreaterThan(0);          // homes reach jobs
     expect(w.layers.accessibility[idx(56, 9)]).toBeGreaterThan(0);         // industry reaches workers
     // The riders are on the streets at both ends, not in between.
@@ -104,7 +104,7 @@ describe('a suburb joined to town only by rail', () => {
     let t = traffic();
     expect(t.rail.stations[0].roads).toEqual([]);
     expect(t.jobs.field.stranded).toBeGreaterThan(0);
-    expect(railVolume(t, idx(30, 13))).toBe(0);
+    expect(railVolume(t, idx(30, 12))).toBe(0);
     for (let x = 2; x <= 12; x++) w.clearTile(x, 8);
     street(10, 2, 12);
     t = traffic();
@@ -113,7 +113,7 @@ describe('a suburb joined to town only by rail', () => {
     t = traffic();
     expect(t.rail.stations.length).toBe(1);
     expect(t.jobs.field.stranded).toBeGreaterThan(0);
-    expect(railVolume(t, idx(30, 13))).toBe(0);
+    expect(railVolume(t, idx(30, 12))).toBe(0);
     expect(railFareIncome(w)).toBe(0);
   });
 });
@@ -124,11 +124,11 @@ describe('the faster of driving or rail', () => {
     street(10, 13, 47);
     let t = traffic();
     const trips = 6 * 2 * BALANCE.transit.tripsRtoI;
-    expect(railVolume(t, idx(30, 13))).toBeGreaterThan(trips * 0.9);
+    expect(railVolume(t, idx(30, 12))).toBeGreaterThan(trips * 0.9);
     expect(trafficVolume(t, idx(30, 10))).toBeLessThan(trips * 0.1);
     RL.speedMult = 0.5;                                                   // a tile of track now takes twice a street tile
     t = traffic();
-    expect(railVolume(t, idx(30, 13))).toBeLessThan(trips * 0.1);
+    expect(railVolume(t, idx(30, 12))).toBeLessThan(trips * 0.1);
     expect(trafficVolume(t, idx(30, 10))).toBeGreaterThan(trips * 0.9);
   });
 });
@@ -140,30 +140,30 @@ describe('freight never rides', () => {
     const t = traffic();
     expect(t.goods.field.stranded).toBeGreaterThan(0);
     expect(t.goods.field.dist[idx(10, 10)]).toBe(Infinity);
-    expect(t.goods.volume[t.tiles + idx(30, 13)]).toBe(0);
-    expect(t.jobs.volume[t.tiles + idx(30, 13)]).toBeGreaterThan(0);
+    expect(t.goods.volume[t.tiles + idx(30, 12)]).toBe(0);
+    expect(t.jobs.volume[t.tiles + idx(30, 12)]).toBeGreaterThan(0);
   });
 });
 
 describe('track capacity and junctions', () => {
   it('a junction carries less than plain track, a 4-way much less', () => {
     suburbAndTown();
-    for (let y = 14; y <= 17; y++) expect(w.layTrack(20, y)).toBe(true);  // a 3-way at (20, 13)
-    for (let y = 9; y <= 17; y++) if (y !== 13) expect(w.layTrack(35, y)).toBe(true);   // a 4-way at (35, 13)
+    for (let y = 13; y <= 16; y++) expect(w.layTrack(20, y)).toBe(true);  // a 3-way at (20, 12)
+    for (let y = 8; y <= 16; y++) if (y !== 12) expect(w.layTrack(35, y)).toBe(true);   // a 4-way at (35, 12)
     const t = traffic();
-    expect(t.rail.capacity[idx(30, 13)]).toBe(RL.capacity);
-    expect(t.rail.capacity[idx(20, 13)]).toBeCloseTo(RL.capacity * RL.junction3.capacityMult, 3);
-    expect(t.rail.capacity[idx(35, 13)]).toBeCloseTo(RL.capacity * RL.junction4.capacityMult, 3);
-    expect(t.rail.capacity[idx(30, 12)]).toBe(0);
-    expect(railLoad(t, idx(35, 13))).toBeGreaterThan(railLoad(t, idx(30, 13)));
+    expect(t.rail.capacity[idx(30, 12)]).toBe(RL.capacity);
+    expect(t.rail.capacity[idx(20, 12)]).toBeCloseTo(RL.capacity * RL.junction3.capacityMult, 3);
+    expect(t.rail.capacity[idx(35, 12)]).toBeCloseTo(RL.capacity * RL.junction4.capacityMult, 3);
+    expect(t.rail.capacity[idx(30, 11)]).toBe(0);
+    expect(railLoad(t, idx(35, 12))).toBeGreaterThan(railLoad(t, idx(30, 12)));
   });
 
   it('passing a junction takes extra time, a 4-way more than a 3-way', () => {
     suburbAndTown();
     const plain = traffic().jobs.field.dist[HOME_ROAD()];
-    for (let y = 14; y <= 17; y++) w.layTrack(20, y);
+    for (let y = 13; y <= 16; y++) w.layTrack(20, y);
     const with3 = traffic().jobs.field.dist[HOME_ROAD()];
-    for (let y = 9; y <= 12; y++) w.layTrack(20, y);
+    for (let y = 8; y <= 11; y++) w.layTrack(20, y);
     const with4 = traffic().jobs.field.dist[HOME_ROAD()];
     expect(with3 - plain).toBeCloseTo(RL.junction3.delay, 1);
     expect(with4 - plain).toBeCloseTo(RL.junction4.delay, 1);
@@ -174,7 +174,7 @@ describe('track capacity and junctions', () => {
     const free = traffic().jobs.field.dist[HOME_ROAD()];
     RL.capacity = 2;                                                      // about four trips ride it
     const t = traffic();
-    expect(railLoad(t, idx(30, 13))).toBeGreaterThan(1);
+    expect(railLoad(t, idx(30, 12))).toBeGreaterThan(1);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(free + 1);
   });
 });
@@ -196,7 +196,7 @@ describe('level crossings', () => {
     const quiet = traffic().jobs.field.dist[HOME_ROAD()];
     localTraffic();
     const t = traffic();
-    expect(trafficVolume(t, idx(30, 13))).toBeGreaterThan(0);
+    expect(trafficVolume(t, idx(30, 12))).toBeGreaterThan(0);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(quiet + 0.2);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThanOrEqual(quiet + RL.crossing.delay + 1e-3);
   });
@@ -205,7 +205,7 @@ describe('level crossings', () => {
     suburbAndTown(false);
     w.placeBuilding(4, 11, BUILDING_STATION); w.placeBuilding(50, 11, BUILDING_STATION);
     localStreet();
-    track(13, 8, 49);
+    track(12, 8, 49);
     localTraffic();
     RL.capacity = 4;                                                      // the commuters fill the line
     const withTrains = traffic().shopping.field.dist[idx(30, 6)];
