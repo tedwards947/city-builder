@@ -475,6 +475,15 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'rail.elevatedCost', metric: 'Elevated track\'s build cost ÷ ground track\'s, for the same line', target: '2.5–4×', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-19): elevated at 3× ground buys no level crossings and passing over roads.',
     evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const t = BALANCE.rail.track; return range(t[RAIL_ELEVATED].cost / t[RAIL_GROUND].cost, 2.5, 4); } },
+  { id: 'rail.nuisance', metric: '20 tiles of ground track on the free straight run with the most homes within 2 tiles: PC ÷ the PC cap; elevated ÷ ground on the same run; subway, and ground track far from homes', target: '0.05–0.4 bars where the run touches 40+ homes; elevated 1.3–1.7×; subway and empty land 0', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): track beside homes is a nuisance, a seventh of an industrial tile a tile; elevated is worse, a subway upsets nobody. Graded only where a run beside homes exists (on a built-out city all land near homes is zoned). Homes count once per track tile they are within 2 of.',
+    evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const n = c.rail?.nuisance; if (!n) return NA('no 20-tile run of free land');
+      if (n.homes < 40) return NA(`the best run touches ${n.homes} homes (under 40)`);
+      return all({ bars: range(n.groundBars, 0.05, 0.4), elevated: range(n.elevatedRatio, 1.3, 1.7), subway: range(n.subwayPc, 0, 0), empty: n.emptyPc === null ? NA('no run far from homes') : range(n.emptyPc, 0, 0) }); } },
+  { id: 'rail.stationGrowth', metric: 'Suburb homes within 4 tiles of a served station: median days to level 3 with the station bonus against without (growth alone after 30 days of the line, 20 seeds, 360 days); and rail.suburb with the bonus on', target: '15–30% sooner; rail.suburb still passes', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): homes and shops near a station grow faster, kept small because rail already brings a suburb its job access.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const g = o.r.stationGrowth; if (!g) return NA('no suburb site');
+      return { ...all({ sooner: range(g.sooner, 0.15, 0.3), suburb: range(o.r.streetLevels ? o.r.railLevels! / o.r.streetLevels : null, 1.25) }), note: `${g.homes} homes: ${g.daysOff} → ${g.daysOn} days` }; } },
 ];
 
 // Landscaping (approved by the owner 2026-11-19, LANDSCAPING_DESIGN.md). Probes on each saved city

@@ -8,18 +8,23 @@
 // same street and no line, so the line is the only difference. On the end of
 // the rail run, static probes: freight on the track, junction loads, the full
 // suburb's taxes and fares against the line's upkeep, and a big suburb on one
-// line and then two. On a fresh map: a real-money Planner's bank at day 180 and
+// line and then two. Then track nuisance on the city as it stands, and the
+// suburb's homes near its station with the station growth bonus off and on
+// (growth alone, 20 seeds, 360 days, after the line has run 30 days). On a fresh map: a real-money Planner's bank at day 180 and
 // 360 against a starter line's price.
 
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   BUILDING_NONE, BUILDING_STATION, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
-  RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R,
+  RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R,
 } from '../sim/constants';
 import { MARKET_DEFS, railLoad } from '../sim/TrafficData';
 import { platformEnds } from '../sim/buildingShapes';
-import { railLinks } from '../sim/rail';
+import { railLinks, trackBlocker } from '../sim/rail';
+import { pcQuote, pcCap } from '../sim/politics';
+import { mulberry32 } from '../sim/rng';
+import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import { taxIncomeMult } from '../sim/tax';
 import { cloneWorld, freshWorld, startSim } from './world';
 import { playPersona, PERSONAS } from './personas';
@@ -65,6 +70,10 @@ export interface RailResult {
   /** The twin's surplus per day, and a starter line's price in days of it (null if the city runs at a loss). */
   surplusPerDay: number | null;
   lineCostDays: number | null;
+  /** Track nuisance on the city as it stands (null: no 20-tile run of free land). */
+  nuisance?: RailNuisance | null;
+  /** The suburb's homes near its station: days to level 3 with the station bonus off and on (null: no site). */
+  stationGrowth?: StationGrowth | null;
 }
 
 export interface RailFresh {
@@ -430,7 +439,115 @@ export function railResult(world: World, days = 180): RailResult {
     }
   }
   if (res.oneLine !== null && res.twoLines === null) res.note = (res.note ? res.note + ' ' : '') + 'no room for a second line';
+  res.nuisance = railNuisance(world);
+  res.stationGrowth = stationGrowthResult(world);
   return res;
+}
+
+// ── Track nuisance (rail.nuisance) ───────────────────────────────────────────
+
+export interface RailNuisance {
+  /** Home tiles within 2 tiles of the run, counted once per track tile (a home beside three tiles counts three times). */
+  homes: number;
+  /** PC for 20 tiles of ground track on the run, quoted tile by tile, and that ÷ the PC cap. */
+  groundPc: number;
+  groundBars: number;
+  /** Elevated ÷ ground on the same run; subway's PC; ground track on a run with no home within 6 tiles (null: no such run). */
+  elevatedRatio: number | null;
+  subwayPc: number;
+  emptyPc: number | null;
+}
+
+function homesNear(w: World, i: number, r: number): number {
+  const { width, height } = w.grid, x = i % width, y = (i - x) / width;
+  let n = 0;
+  for (let yy = Math.max(0, y - r); yy <= Math.min(height - 1, y + r); yy++) for (let xx = Math.max(0, x - r); xx <= Math.min(width - 1, x + r); xx++) {
+    const j = yy * width + xx; if (w.layers.zone[j] === ZONE_R && w.layers.devLevel[j]) n++;
+  }
+  return n;
+}
+const trackPc = (w: World, tiles: number[], level: number) => tiles.reduce((s, i) => s + pcQuote(w, { type: 'track', tx: i % w.grid.width, ty: Math.floor(i / w.grid.width), level }).cost, 0);
+
+/** Track nuisance on the city as it stands: the 20-tile straight run of free land with the most homes within 2 tiles. */
+export function railNuisance(w: World): RailNuisance | null {
+  const { width, height } = w.grid;
+  let busy: number[] | null = null, most = 0, empty: number[] | null = null;
+  const consider = (run: number[]) => {
+    const n = run.reduce((s, i) => s + homesNear(w, i, 2), 0);
+    if (n > most) { most = n; busy = run; }
+    if (!empty && run.every(i => homesNear(w, i, 6) === 0)) empty = run;
+  };
+  const scan = (outer: number, inner: number, at: (a: number, b: number) => number) => {
+    for (let a = 0; a < outer; a++) {
+      let run: number[] = [];
+      for (let b = 0; b < inner; b++) {
+        const i = at(a, b);
+        if (free(w, i) && trackBlocker(w, i % width, Math.floor(i / width), RAIL_GROUND) === null) { run.push(i); if (run.length >= 20) consider(run.slice(-20)); } else run = [];
+      }
+    }
+  };
+  scan(height, width, (y, x) => y * width + x);
+  scan(width, height, (x, y) => y * width + x);
+  if (!busy) return null;
+  const run: number[] = busy, g = trackPc(w, run, RAIL_GROUND);
+  return { homes: most, groundPc: r2(g), groundBars: Math.round(g / pcCap(w) * 1000) / 1000, elevatedRatio: g > 0 ? r2(trackPc(w, run, RAIL_ELEVATED) / g) : null, subwayPc: r2(trackPc(w, run, RAIL_SUBWAY)), emptyPc: empty ? r2(trackPc(w, empty, RAIL_GROUND)) : null };
+}
+
+// ── Growth near stations (rail.stationGrowth) ────────────────────────────────
+
+export interface StationGrowth {
+  /** Suburb homes within BALANCE.rail.stationGrowth.radius of the suburb's station. */
+  homes: number;
+  /** Mean over the seeds of the median days to level 3 for those homes (one that never gets there counts as `days`): bonus off, and on. */
+  daysOff: number;
+  daysOn: number;
+  /** 1 − on ÷ off: how much sooner they get there. */
+  sooner: number | null;
+}
+
+/**
+ * The suburb and its line, as railResult builds them, run `settle` days in the
+ * full sim so services, education and riders are in place. Then the homes near
+ * the suburb's station are emptied and only the growth system runs from there,
+ * `days` days, once per seed with the station bonus off and once as shipped.
+ * Growth alone is cheap, so enough seeds can be run for a ×1.25 to show above
+ * the noise of a handful of homes; everything else stays as it was settled.
+ */
+export function stationGrowthResult(world: World, days = 360, seeds = 20, settle = 30): StationGrowth | null {
+  const cfg = BALANCE.rail.stationGrowth as { radius: number; mult: number };
+  const site = findSite(world, 16, 1, MIN_STREET);
+  if (!site) return null;
+  const w = cloneWorld(site.world);
+  if (!layPath(w, site.path)) return null;
+  const { width } = w.grid, r = Math.floor(cfg.radius);
+  const station = w.buildingTilesAt(site.sub.east.x, site.sub.east.y);
+  const near = site.sub.homes.filter(h => station.some(t => Math.abs(h % width - t % width) + Math.abs(Math.floor(h / width) - Math.floor(t / width)) <= r));
+  if (!near.length) return null;
+  const sim = startSim(w);
+  for (let d = 0; d < settle; d++) sim.tick(BALANCE.ticksPerDay);
+  for (const h of near) w.layers.devLevel[h] = 0;
+  const L = w.layers, saved = { dev: L.devLevel.slice(), abandoned: L.abandoned.slice(), distress: L.distress.slice() }, tick0 = w.tick;
+  const ti = BALANCE.growth.tickInterval, passes = Math.round(days * BALANCE.ticksPerDay / ti), perDay = BALANCE.ticksPerDay / ti;
+  const median = (v: number[]) => { const s = v.slice().sort((a, b) => a - b); return s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+  const run = (mult: number, seed: number): number => {
+    L.devLevel.set(saved.dev); L.abandoned.set(saved.abandoned); L.distress.set(saved.distress);
+    w.tick = Math.ceil(tick0 / ti) * ti;
+    w.rng = mulberry32(seed);
+    const growth = new ZoneGrowthSystem(), first = new Map<number, number>(), was = cfg.mult;
+    cfg.mult = mult;
+    try {
+      for (let p = 1; p <= passes && first.size < near.length; p++) {
+        growth.update(w);
+        w.tick += ti;
+        for (const h of near) if (!first.has(h) && L.devLevel[h] >= 3) first.set(h, p / perDay);
+      }
+    } finally { cfg.mult = was; }
+    return median(near.map(h => first.get(h) ?? days));
+  };
+  let off = 0, on = 0;
+  for (let k = 1; k <= seeds; k++) { off += run(1, k); on += run(cfg.mult, k); }
+  off /= seeds; on /= seeds;
+  return { homes: near.length, daysOff: r2(off), daysOn: r2(on), sooner: off > 0 ? r2(1 - on / off) : null };
 }
 
 /** On a fresh map: a real-money Planner's bank at day 180 and 360, against a starter line. */

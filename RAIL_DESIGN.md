@@ -70,7 +70,7 @@ Stations have a road door (car traffic in and out) and track at the platform end
 - **rail.subwayCost:** 60 tiles of subway cost 60–120 days of a 10–25k city's surplus, and ≤ 30 days at 40k or more. Today: 105 days on gen-s1, 70 on gen-suburban. testcity1 is n/a (it runs at a loss), and there is no 40k save yet.
 - **rail.elevatedCost:** elevated costs 2.5–4× ground. Today: 3×.
 
-**Proposed, waiting on the owner** (all of these are today's placeholders, kept as they are):
+**Also owner-approved 2026-11-19** (today's placeholders, shipped as they are):
 | Number | Proposed | Why |
 |---|---|---|
 | Elevated upkeep | **1.5 a tile a tick** (3× ground) | Same multiple as its build cost. A 60-tile elevated line costs about 720 a day to keep, under a subway's 960. |
@@ -88,7 +88,7 @@ The proposal as approved. ENGINE builds track nuisance and station growth in pha
 - Worked by hand:
   - A track tile one tile from a row of level-3 homes (20 residents each) weighs about 130 residents; with homes on both sides, about 300–400.
   - So 20 tiles of ground track through a neighbourhood cost about 25–80 PC. That's 0.1–0.35 of a PC bar at 10k residents (cap about 230).
-- **Target rail.nuisance:**
+- **Target rail.nuisance** (owner-approved 2026-11-19, graded by the rail suite: 0.05–0.4 bars on the free 20-tile run with the most homes within 2 tiles, where it touches 40+ homes; elevated 1.3–1.7×; subway and empty land 0). As first proposed:
   - 20 tiles of ground track past a full row of homes costs 0.1–0.4 of a bar on a 10k city;
   - the same line through empty land, or as subway, costs nothing;
   - elevated costs 1.3–1.7× ground.
@@ -96,7 +96,7 @@ The proposal as approved. ENGINE builds track nuisance and station growth in pha
 ### Growth near stations
 - **Proposed:** homes and shops (not industry) within **4 tiles** (manhattan) of a station that has a road and riders grow **× 1.25** faster.
 - Kept small on purpose: rail already gives a suburb its job access, which multiplies growth. The rail suite's suburb already grows 1.5–1.8× faster than the same suburb on a long street.
-- **Target rail.stationGrowth:** homes beside a served station reach level 3 15–30% sooner than the same homes without the bonus. rail.suburb must still pass.
+- **Target rail.stationGrowth** (owner-approved 2026-11-19, graded by the rail suite: the suburb's homes within 4 tiles of its station, median days to level 3, bonus on against off, 15–30% sooner; rail.suburb still passes). The probe settles the suburb and its line for 30 days in the full sim, empties those homes, then runs the growth system alone for 360 days over 20 seeds: with only 4 homes in reach, the full sim's noise (−69% to +73% between seeds) swamped a ×1.25. As first proposed: homes beside a served station reach level 3 15–30% sooner than the same homes without the bonus. rail.suburb must still pass.
 - This multiplies whatever growth model the owner picks for "homes level up too fast", so it should be tuned after that decision.
 
 ### Phase 2 placeholders: sanity check
