@@ -18,9 +18,10 @@ import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
 import type { TradeResult } from './trade';
 import type { TaxDebtResult, LevelRun } from './taxdebt';
 import type { AirportResult } from './airport';
+import type { RailResult, RailFresh } from './rail';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail';
 
 export interface Outcome {
   value: unknown;
@@ -47,6 +48,9 @@ export interface EvalCtx {
   taxdebt?: TaxDebtResult | null;
   /** Airport suite: the airport built on the saved city, against a twin without it. */
   airport?: AirportResult | null;
+  /** Rail suite: the suburb probes on a saved city, or the real-money Planner's bank on a fresh map. */
+  rail?: RailResult | null;
+  railFresh?: RailFresh | null;
 }
 
 export interface Target {
@@ -412,6 +416,49 @@ const AIRPORT_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const a = c.airport; if (!a) return NA('no airport probe'); return { ...range(a.requestBars, 0.8, 1.2), note: `${a.population} residents` }; } },
 ];
 
+// Rail (approved by the owner 2026-11-18, RAIL_DESIGN.md). Probe on each saved city: a suburb
+// 50–90 tiles out joined to the city by a long street (power, water and services come along
+// roads only) and by one line, against a twin with the street only (src/balance/rail.ts).
+// On a fresh map: a real-money Planner's bank against a starter line's price.
+const railOf = (c: EvalCtx): { r: RailResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  const r = c.rail; if (!r) return NA('no rail probe');
+  if (r.lineTiles === null) return NA(r.note ?? 'no suburb site');
+  return { r };
+};
+const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'rail.suburb', metric: 'A suburb joined to the city by a long street and one line: its homes\' job access ÷ the city\'s median, and its home levels ÷ the street-only twin\'s after 180 days', target: 'access ≥ 30% of the city\'s; levels ≥ 1.25×', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): make suburbs truly possible. A suburb only rail reaches in time grows.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const r = o.r;
+      return all({ access: range(r.cityAccess ? r.suburbAccess! / r.cityAccess : null, 0.3), levels: range(r.streetLevels ? r.railLevels! / r.streetLevels : null, 1.25) }); } },
+  { id: 'rail.beatsRoad', metric: 'The suburb\'s job access with the line ÷ with the long street only', target: '≥ 5×', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): rail is a very powerful highway; a long street brings services, not commuters.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.suburbAccess! / Math.max(1, o.r.streetAccess ?? 0), 5); } },
+  { id: 'rail.freight', metric: 'Freight (goods, seaport cargo: every market that never rides) on any tile of track', target: '0', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'RAIL_DESIGN.md: freight never rides.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.freightOnTrack, 0, 0); } },
+  { id: 'rail.junctions', metric: 'Load at a 3-way and a 4-way junction laid on the suburb line, scaled to plain track at 0.5', target: '3-way ≤ 0.9; 4-way ≥ 1.2 (it jams first)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): 4-way junctions much worse than 3-way; jams should be fun to resolve.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; if (o.r.junction3 === null) return NA('no room for the junction spurs');
+      return all({ three: range(o.r.junction3, 0, 0.9), four: range(o.r.junction4, 1.2) }); } },
+  { id: 'rail.parallel', metric: 'A big suburb (3,000+ residents, full) on one line: the worst load; then with a second line to another city station: the worst load on either', target: 'one line > 1.0; two lines ≤ 0.7', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): an overloaded line slows down; the fix is a parallel line.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; if (o.r.oneLine === null) return NA('no site for the big suburb');
+      return all({ one: range(o.r.oneLine, 1.0001), two: o.r.twoLines === null ? NA('no room for a second line') : range(o.r.twoLines, 0, 0.7) }); } },
+  { id: 'rail.early', metric: 'A starter line (two stations and 60 tiles of track) ÷ a fresh real-money Planner\'s bank at day 180', target: '≥ 2', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-18): rail is gated by cost, not by an unlock: not an early-game buy.',
+    evaluate: c => { if (c.cityKind !== 'fresh') return NA('fresh map only'); const f = c.railFresh; if (!f) return NA('not run');
+      return { ...range(f.starterCost / Math.max(1, f.bank180), 2), note: `${f.starterCost} vs ${f.bank180}` }; } },
+  { id: 'rail.midgame', metric: 'The starter line ÷ the fresh Planner\'s bank at day 360; on saved cities, in days of the city\'s surplus', target: '≤ 40% of the bank; 7–30 days of surplus', persona: 'planner (own money) / probe', cities: 'all', status: 'graded',
+    why: 'Owner (2026-11-18): rail is affordable mid-game.',
+    evaluate: c => {
+      if (c.cityKind === 'fresh') { const f = c.railFresh; if (!f) return NA('not run'); return { ...range(f.starterCost / Math.max(1, f.bank360), 0, 0.4), note: `${f.starterCost} vs ${f.bank360}` }; }
+      const o = railOf(c); if (!('r' in o)) return o; return o.r.lineCostDays === null ? NA('the city runs at a loss') : range(o.r.lineCostDays, 7, 30); } },
+  { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ (the line\'s track and station upkeep)', target: '0.8–1.5', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line.',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 1.5); } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
@@ -419,4 +466,5 @@ export const TARGETS: Target[] = [
   ...TRADE_TARGETS.map(t => ({ ...t, suite: 'trade' as const })),
   ...TAXDEBT_TARGETS.map(t => ({ ...t, suite: 'taxdebt' as const })),
   ...AIRPORT_TARGETS.map(t => ({ ...t, suite: 'airport' as const })),
+  ...RAIL_TARGETS.map(t => ({ ...t, suite: 'rail' as const })),
 ];
