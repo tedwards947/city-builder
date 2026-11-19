@@ -43,6 +43,8 @@ const flood = () => { while (stack.length) { const i = stack.pop(), x = i % w; i
 flood();
 for (let i = 0; i < n; i++) if (!bg[i] && mag(i) >= 170) { bg[i] = 1; stack.push(i); }
 flood();
+// 'split' (4th argument): cut the sheet across the middle, for sheets whose two rows touch through a dark shadow (raw-rail).
+if (process.argv[4] === 'split') for (let y = (h >> 1) - 3; y <= (h >> 1) + 3; y++) for (let x = 0; x < w; x++) bg[y * w + x] = 1;
 
 const rgba = new Uint8Array(n * 4);
 for (let i = 0; i < n; i++) {
