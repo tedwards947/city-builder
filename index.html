@@ -157,6 +157,7 @@
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal.hidden { display: none; }
     .modal-box { background: #14202e; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 28px; min-width: 320px; max-width: 460px; width: 90%; }
+    .modal-text { font-size: 13px; line-height: 1.5; color: #b8c6d4; margin: 0; }
     .modal-box h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #cde; }
     .field { margin-bottom: 18px; }
     .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8aa; margin-bottom: 8px; }
@@ -515,6 +516,17 @@
     <div class="modal-actions">
       <button id="ng-cancel" class="btn" data-i18n="ui.newGame.cancel">Cancel</button>
       <button id="ng-start" class="btn primary" data-i18n="ui.newGame.startGame">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<div id="tutorial-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2 data-i18n="ui.tutorial.askTitle">Start the tutorial?</h2>
+    <p class="modal-text" data-i18n="ui.tutorial.askBody">The tutorial starts a new city. This one will be replaced unless you've saved it.</p>
+    <div class="modal-actions">
+      <button id="tutorial-cancel" class="btn" data-i18n="ui.tutorial.askCancel">Keep this city</button>
+      <button id="tutorial-start" class="btn primary" data-i18n="ui.tutorial.askStart">Start tutorial</button>
     </div>
   </div>
 </div>

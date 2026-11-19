@@ -73,14 +73,14 @@ import { TitleScreen } from './ui/TitleScreen';
 import { CameraTour } from './title/CameraTour';
 import { findTourSpots } from './title/tourSpots';
 import { SHOWCASE_PATH, markTitleSeen, titleDue, wantTitle } from './title/launch';
-import { Tutorial, tutorialDone, tutorialOf } from './ui/TutorialCard';
+import { Tutorial, tutorialDone } from './ui/TutorialCard';
 import { TUTORIAL_PATH, beginTutorial } from './tutorial/rules';
 import { ShowcaseKeeper } from './title/showcaseKeeper';
 import { BALANCE } from './data/balance';
 import { blankWorld } from './gen/tutorialMap';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
-  ZONE_R, ZONE_C, ZONE_I,
+  ZONE_R, ZONE_C, ZONE_I, ROAD_HIGHWAY,
 } from './sim/constants';
 
 // Initialize the sprite registry
@@ -302,14 +302,34 @@ async function startTutorial(): Promise<void> {
     if (!res.ok) throw new Error(String(res.status));
     world = manager.importGame(await res.text());
   } catch {
-    // PLACEHOLDER until the tutorial map lands (public/tutorial/tutorial.citysave.json).
+    // The map would not load (offline?): a small plain map still teaches the basics.
     world = new World(64, 64, 7, { vegAmount: 'low' });
-    world.budget.money = 100_000;
   }
-  if (!tutorialOf(world)) beginTutorial(world);
+  if (!world.tutorial) beginTutorial(world);
   startGame(world);
   setSpeed(1);
 }
+
+/** Whether the player has built anything in `world` (a highway the map came with does not count). */
+function hasBuilt(world: World): boolean {
+  if (world.index.zonedCount > 0) return true;
+  const { roadClass, building, rail } = world.layers;
+  for (let i = 0; i < building.length; i++) {
+    if (building[i] !== 0 || rail[i] !== 0 || (roadClass[i] !== 0 && roadClass[i] !== ROAD_HIGHWAY)) return true;
+  }
+  return false;
+}
+// From the Menu, the tutorial replaces the city in play (and the autosave then
+// saves over it), so ask first if the player has built anything.
+const tutorialModal = document.getElementById('tutorial-modal')!;
+function askTutorial(): void {
+  if (!hasBuilt(state.world)) { void startTutorial(); return; }
+  tutorialModal.classList.remove('hidden');
+  (document.getElementById('tutorial-cancel') as HTMLButtonElement).focus();
+}
+document.getElementById('tutorial-cancel')!.addEventListener('click', () => tutorialModal.classList.add('hidden'));
+document.getElementById('tutorial-start')!.addEventListener('click', () => { tutorialModal.classList.add('hidden'); void startTutorial(); });
+tutorialModal.addEventListener('click', (e) => { if (e.target === tutorialModal) tutorialModal.classList.add('hidden'); });
 
 const newGameDialog = new NewGameDialog((opts) => {
   startGame(opts.blank
@@ -466,7 +486,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'new':    newGameDialog.show(); break;
       case 'save':   saveLoadPanel.showSave(); break;
       case 'load':   saveLoadPanel.showLoad(); break;
-      case 'tutorial': void startTutorial(); break;
+      case 'tutorial': askTutorial(); break;
       case 'undo':   sfx.undo(state.history.canUndo); state.history.undo(); break;
       case 'redo':   sfx.redo(state.history.canRedo); state.history.redo(); break;
       case 'budget':     togglePanel('budget'); break;

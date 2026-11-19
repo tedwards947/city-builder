@@ -461,7 +461,10 @@ export const en: TranslationSchema = {
       leaveYes: "Keep playing",
       leaveNo: "Back",
       close: "Close",
-      noMap: "The tutorial map didn't load.",
+      askTitle: "Start the tutorial?",
+      askBody: "The tutorial starts a new city. This one will be replaced unless you've saved it.",
+      askCancel: "Keep this city",
+      askStart: "Start tutorial",
       step: {
         camera: "Welcome to Concretta! Drag to look around, scroll to zoom.",
         street: "Every city starts with a road. Draw a street from the highway.",
