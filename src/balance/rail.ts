@@ -19,6 +19,7 @@ import {
 } from '../sim/constants';
 import { MARKET_DEFS, railLoad } from '../sim/TrafficData';
 import { platformEnds } from '../sim/buildingShapes';
+import { railLinks } from '../sim/rail';
 import { taxIncomeMult } from '../sim/tax';
 import { cloneWorld, freshWorld, startSim } from './world';
 import { playPersona, PERSONAS } from './personas';
@@ -115,7 +116,7 @@ function cityStations(w: World): Pt[] {
 // ── The suburb ───────────────────────────────────────────────────────────────
 
 // Layout, from its corner (x, y), with `rows` streets and `homes` home tiles a side:
-//   streets along y+2, y+5, … from x−5 to x+homes+5, joined at the east end;
+//   streets along y+2, y+5, … from x−5 to x+homes+5, joined at both ends;
 //   homes on both sides of each street, x … x+homes−1;
 //   police, fire and school north of the first street at x+homes+1 … +3;
 //   the east station south of the last street at x+homes+1 (its platform's west end at x+homes);
@@ -144,16 +145,18 @@ function buildSuburb(w: World, x: number, y: number, homes: number, rows: number
     for (let xx = x - 5; xx <= x + homes + 5; xx++) { if (!w.setRoad(xx, sy, ROAD_STREET)) return null; streets.add(g.idx(xx, sy)); }
     for (let xx = x; xx < x + homes; xx++) for (const yy of [sy - 1, sy + 1]) { const i = g.idx(xx, yy); w.layers.zone[i] = ZONE_R; list.push(i); }
   }
-  for (let yy = y + 2; yy <= last; yy++) if (!streets.has(g.idx(x + homes + 5, yy))) { if (!w.setRoad(x + homes + 5, yy, ROAD_STREET)) return null; streets.add(g.idx(x + homes + 5, yy)); }
+  // The streets are joined at both ends, so every home reaches both stations.
+  for (const cx of [x - 5, x + homes + 5]) for (let yy = y + 2; yy <= last; yy++) if (!streets.has(g.idx(cx, yy))) { if (!w.setRoad(cx, yy, ROAD_STREET)) return null; streets.add(g.idx(cx, yy)); }
   const svc: [number, number][] = [[BUILDING_POLICE, 1], [BUILDING_FIRE, 2], [BUILDING_SCHOOL, 3]];
   for (const [b, dx] of svc) if (!w.placeBuilding(x + homes + dx, y + 1, b)) return null;
   const east = { x: x + homes + 1, y: last + 1 };
   if (!w.placeBuilding(east.x, east.y, BUILDING_STATION, 0)) return null;
   if (!w.placeBuilding(x + homes, last + 1, BUILDING_HOSPITAL)) return null;
   const west = { x: x - 5, y: last + 1 };
-  // Kept free for the west station and its platform end.
+  // Kept free for the west station, its platform ends and a tile beyond each: track
+  // laid there first would join the second line or the platform and make a junction.
   const reserved = new Set<number>();
-  for (let dy = 0; dy < 3; dy++) for (let dx = -1; dx < 4; dx++) reserved.add(g.idx(west.x + dx, west.y + dy));
+  for (let dy = 0; dy < 3; dy++) for (let dx = -2; dx <= 5; dx++) reserved.add(g.idx(west.x + dx, west.y + dy));
   w.grid.markAllDirty();
   return { x, y, homes: list, streets, reserved, east, west, eastEnd: stationEnds(w, east).west, westEnd: stationEnds(w, west).west };
 }
@@ -294,6 +297,16 @@ function freightOn(w: World, track: number[]): number {
   }
   return sum;
 }
+/** Whether any plain track tile joins three or four ways (a platform end's own links aside). */
+function hasJunction(w: World): boolean {
+  for (let i = 0; i < w.layers.rail.length; i++) {
+    if (!(w.layers.rail[i] & RAIL_GROUND) || w.layers.building[i] !== BUILDING_NONE) continue;
+    let m = railLinks(w, i), n = 0;
+    while (m) { n += m & 1; m >>= 1; }
+    if (n > 2) return true;
+  }
+  return false;
+}
 const maxLoad = (w: World, tiles: number[]) => tiles.reduce((m, i) => Math.max(m, railLoad(w.traffic!, i)), 0);
 /** Plain track tiles of a path (two links in a straight line), away from its ends. */
 function straightTiles(w: World, path: number[]): number[] {
@@ -389,7 +402,7 @@ export function railResult(world: World, days = 180): RailResult {
   }
 
   // A big suburb at full size on one line, then two.
-  const big = findSite(world, 40, 2);
+  const big = findSite(world, 40, 2, MIN_STREET);
   if (big) {
     const bw = big.world, bhomes = big.sub.homes;
     for (const i of bhomes) bw.layers.devLevel[i] = BALANCE.growth.maxLevel;
@@ -399,17 +412,24 @@ export function railResult(world: World, days = 180): RailResult {
       startSim(bw);
       const line1 = straightTiles(bw, big.path);
       res.oneLine = r2(maxLoad(bw, line1));
-      const city2 = cityStations(bw).find(c => Math.abs(c.x - big.city.x) + Math.abs(c.y - big.city.y) > 8);
-      if (city2 && bw.placeBuilding(city2.x, city2.y, BUILDING_STATION, 0) && bw.placeBuilding(big.sub.west.x, big.sub.west.y, BUILDING_STATION, 0)) {
-        const p2 = trackPath(bw, stationEnds(bw, city2).east, big.sub.westEnd);
-        if (p2 && layPath(bw, p2)) {
-          startSim(bw);
-          res.twoLines = r2(Math.max(maxLoad(bw, line1), maxLoad(bw, straightTiles(bw, p2))));
-        }
+      // The second line: from another city station to the suburb's west station, on its own
+      // track (no tile beside the first line, so they never cross or join). The first city
+      // station that gives such a line, of the six nearest the jobs.
+      const firstEnd = stationEnds(bw, big.city).east;
+      for (const city2 of cityStations(bw).filter(c => Math.abs(c.x - big.city.x) + Math.abs(c.y - big.city.y) > 8).slice(0, 6)) {
+        const tw = cloneWorld(bw);
+        if (!tw.placeBuilding(city2.x, city2.y, BUILDING_STATION, 0) || !tw.placeBuilding(big.sub.west.x, big.sub.west.y, BUILDING_STATION, 0)) continue;
+        const p2 = trackPath(tw, stationEnds(tw, city2).east, big.sub.westEnd);
+        if (!p2 || !layPath(tw, p2)) continue;
+        if (hasJunction(tw)) continue;
+        if (stationEnds(tw, city2).east === firstEnd) continue;
+        startSim(tw);
+        res.twoLines = r2(Math.max(maxLoad(tw, line1), maxLoad(tw, straightTiles(tw, p2))));
+        break;
       }
     }
   }
-  if (res.oneLine !== null && res.twoLines === null) res.note = 'no room for a second line';
+  if (res.oneLine !== null && res.twoLines === null) res.note = (res.note ? res.note + ' ' : '') + 'no room for a second line';
   return res;
 }
 

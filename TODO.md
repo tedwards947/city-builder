@@ -109,7 +109,7 @@ Done and merged:
 - Rail numbers and rail suite (owner-approved 2026-11-18): speed 10, boarding 2, track 400 / 0.5, stations 30,000 / 25, fare 0.5, 4-way delay 4; targets rail.suburb, .beatsRoad, .freight, .junctions, .parallel, .early, .midgame, .pays (#291). rail.pays graded on a fixed 60-tile starter line (owner, #293), band 0.8–2.0 (owner, this PR).
 
 Next:
-1. Re-grade rail.parallel once ENGINE's steeper rail slowdown past capacity merges (owner's option b); retune capacity only with the owner's OK.
+1. rail.parallel after ENGINE's jam (#297): probe layout fixed (this PR); with capacity 300 the second line passes but one line never jams (0.62–0.92). Capacity 250 proposed to the owner, with the target's second half at ≤ 0.8.
 2. Landscaping numbers (trees, water editing; GAME ENGINE item 1): propose targets first, tune after the owner's OK.
 
 ## DESIGN
