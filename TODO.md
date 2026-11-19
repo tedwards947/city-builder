@@ -106,7 +106,7 @@ Done and merged:
 - Service jobs: police, fire, school and hospital take 1 job trip each (owner-approved), after ENGINE's overflow fix (#272); golden test city +1.4% residents at 400 ticks (#273).
 
 - Airport suite (owner-approved targets 2026-11-18): airport.seats, .payback, .demand, .cost, .traffic, .request; 17/17 on the saved cities (1 n/a). The airport request's reward is 250 PC (#282).
-- Rail numbers and rail suite (owner-approved 2026-11-18): speed 10, boarding 2, track 400 / 0.5, stations 30,000 / 25, fare 0.5, 4-way delay 4; targets rail.suburb, .beatsRoad, .freight, .junctions, .parallel, .early, .midgame, .pays (#291). rail.pays graded on a fixed 60-tile starter line (owner, this PR).
+- Rail numbers and rail suite (owner-approved 2026-11-18): speed 10, boarding 2, track 400 / 0.5, stations 30,000 / 25, fare 0.5, 4-way delay 4; targets rail.suburb, .beatsRoad, .freight, .junctions, .parallel, .early, .midgame, .pays (#291). rail.pays graded on a fixed 60-tile starter line (owner, #293), band 0.8–2.0 (owner, this PR).
 
 Next:
 1. Re-grade rail.parallel once ENGINE's steeper rail slowdown past capacity merges (owner's option b); retune capacity only with the owner's OK.
