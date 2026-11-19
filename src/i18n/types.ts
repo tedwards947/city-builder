@@ -282,6 +282,7 @@ export interface TranslationSchema {
       new: string;
       save: string;
       load: string;
+      tutorial: string;
       econ: string;
       traffic: string;
       crime: string;
@@ -368,7 +369,11 @@ export interface TranslationSchema {
       portReconnected: string;
       pumpDry: string;
     };
-    title: { name: string; tagline: string; continue: string; newCity: string; load: string; loading: string };
+    title: { name: string; tagline: string; continue: string; newCity: string; load: string; loading: string; tutorial: string };
+    tutorial: {
+      label: string; count: string; skip: string; leave: string; leaveAsk: string; leaveYes: string; leaveNo: string; close: string; noMap: string;
+      step: { camera: string; street: string; homes: string; power: string; water: string; grow: string; jobs: string; inspect: string; park: string; budget: string; views: string; done: string };
+    };
     roadMode: {
       manual: string;
       auto: string;
@@ -387,6 +392,7 @@ export interface TranslationSchema {
       new: string;
       save: string;
       load: string;
+      tutorial: string;
       econ: string;
       traffic: string;
       crime: string;

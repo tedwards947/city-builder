@@ -29,7 +29,7 @@ import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
 export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
-export type ToolbarAction = 'new' | 'save' | 'load' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground';
+export type ToolbarAction = 'new' | 'save' | 'load' | 'tutorial' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
 export interface ToolbarItem {
@@ -136,6 +136,7 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'new', icon: 'newCity', action: 'new' },
     { key: 'save', icon: 'save', action: 'save' },
     { key: 'load', icon: 'load', action: 'load' },
+    { key: 'tutorial', icon: 'tutorial', action: 'tutorial' },
   ] },
 ];
 
@@ -238,6 +239,8 @@ export class Toolbar {
   /** The member each family last had picked (its tile shows that one). */
   private readonly last = new Map<string, string>();
   private shownSig = '';
+  /** Items the tutorial points at (its current step): they pulse softly. */
+  private pulse = new Set<string>();
 
   constructor(root: HTMLElement, roadMode: RoadMode, zoneMode: ZoneMode, hooks: ToolbarHooks) {
     this.root = root;
@@ -275,6 +278,18 @@ export class Toolbar {
       const member = e.items.find(i => i.tool === tool);
       if (member) this.last.set(e.family, member.key);
     }
+    this.render();
+  }
+
+  /**
+   * Softly pulse these items (the tutorial's current step), and open the
+   * fly-out of the first family that holds one, so the item is in view.
+   */
+  setPulse(keys: readonly string[]): void {
+    this.pulse = new Set(keys);
+    const fam = TOOLBAR.find((e): e is ToolbarFamily => isFamily(e) && e.items.some(i => this.pulse.has(i.key)));
+    if (fam) this.open = fam.family;
+    else if (keys.length > 0) this.open = null;   // the last step's fly-out would hide this one's tile
     this.render();
   }
 
@@ -319,6 +334,7 @@ export class Toolbar {
       if (!isFamily(e)) {
         if (e.shown && !e.shown()) continue;
         const b = this.tile(e.icon, e.cls, this.isOn(e), false, t('ui.toolbar.' + e.key));
+        if (this.pulse.has(e.key)) b.classList.add('tb-pulse');
         const n = e.count ? e.count() : 0;
         if (n > 0) b.append(node('span', 'tb-count', String(n)));
         b.addEventListener('click', () => { this.open = null; this.pick(e); this.render(); });
@@ -330,6 +346,7 @@ export class Toolbar {
       const b = this.tile(face?.icon ?? e.icon, face?.cls, face !== null && this.isOn(face), true,
         t('ui.toolbar.' + (face?.key ?? e.family)));
       b.setAttribute('aria-expanded', String(this.open === e.family));
+      if (e.items.some(i => this.pulse.has(i.key))) b.classList.add('tb-pulse');
       b.addEventListener('click', () => {
         const opening = this.open !== e.family;
         this.open = opening ? e.family : null;
@@ -355,7 +372,7 @@ export class Toolbar {
     for (const item of f.items) {
       if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
       if (item.sepBefore) fly.append(node('div', 'tb-fly-sep'));
-      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : ''),
+      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulse.has(item.key) ? ' tb-pulse' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);

@@ -7,6 +7,7 @@ export interface TitleHooks {
   onContinue: () => void;
   onNew: () => void;
   onLoad: () => void;
+  onTutorial: () => void;
   /** The player pressed, scrolled or typed anywhere: the camera tour should stop. */
   onTouch: () => void;
 }
@@ -33,6 +34,7 @@ export class TitleScreen {
     this.continueBtn.addEventListener('click', () => hooks.onContinue());
     document.getElementById('title-new')!.addEventListener('click', () => hooks.onNew());
     document.getElementById('title-load')!.addEventListener('click', () => hooks.onLoad());
+    document.getElementById('title-tutorial')!.addEventListener('click', () => hooks.onTutorial());
     // Capture phase, on the window: a press on a button or in a dialog over the title counts too.
     window.addEventListener('pointerdown', this.touch, true);
     window.addEventListener('wheel', this.touch, { capture: true, passive: true });
@@ -49,12 +51,19 @@ export class TitleScreen {
     this.loading.hidden = false;
   }
 
-  /** The city behind is loaded: show the buttons. Continue is offered only when there is a city to go back to. */
-  ready(hasSave: boolean): void {
+  /**
+   * The city behind is loaded: show the buttons. Continue is offered only when
+   * there is a city to go back to. `firstLaunch` (no saves, tutorial never
+   * finished): the Tutorial button is the one lit up.
+   */
+  ready(hasSave: boolean, firstLaunch = false): void {
     this.continueBtn.hidden = !hasSave;
+    const tut = document.getElementById('title-tutorial') as HTMLButtonElement;
+    tut.classList.toggle('primary', firstLaunch);
+    tut.classList.toggle('tut-pulse', firstLaunch);
     this.buttons.hidden = false;
     this.loading.hidden = true;
-    (hasSave ? this.continueBtn : document.getElementById('title-new') as HTMLButtonElement).focus({ preventScroll: true });
+    (hasSave ? this.continueBtn : firstLaunch ? tut : document.getElementById('title-new') as HTMLButtonElement).focus({ preventScroll: true });
   }
 
   hide(): void {
