@@ -18,12 +18,16 @@
 // A strip of lots with a road on both sides (a "sandwich") is filled as just
 // that strip: the fill stops where either road ends or turns away.
 //
+// Rail that occupies the surface (ground or elevated track, stations and ramps
+// on it) is a barrier like a road: a fill stops at it and does not take it. A
+// subway runs underground, so it is walked over and the lot above can be zoned.
+//
 // Only empty, unzoned land is zoned, never anything else: a fill does not
 // overwrite. Anything already zoned, built on or under water is walked past
 // and left alone.
 
 import type { World } from '../sim/World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C } from '../sim/constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, RAIL_SURFACE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import type { TilePos } from './dragPath';
 import { pcQuoteMany } from '../sim/politics';
@@ -64,16 +68,22 @@ function sandwichedY(world: World, tx: number, ty: number): boolean {
   return accessAt(world, tx, ty - 1) && accessAt(world, tx, ty + 1);
 }
 
+/** Whether surface rail (ground or elevated track) stands on the tile. */
+function railAt(world: World, tx: number, ty: number): boolean {
+  return (world.layers.rail[world.grid.idx(tx, ty)] & RAIL_SURFACE) !== 0;
+}
+
 /** Where a fill from `hover` starts: the frontage under or nearest the pointer. None when pointing at a road. */
 function seed(world: World, hover: TilePos): TilePos | null {
   const { grid } = world;
   if (!grid.inBounds(hover.tx, hover.ty)) return null;
   if (world.layers.roadClass[grid.idx(hover.tx, hover.ty)] !== ROAD_NONE) return null;
+  if (railAt(world, hover.tx, hover.ty)) return null;
   let best: TilePos | null = null, bestD = Infinity;
   for (let dy = -SNAP; dy <= SNAP; dy++) {
     for (let dx = -SNAP; dx <= SNAP; dx++) {
       const d = dx * dx + dy * dy;
-      if (d < bestD && isFrontage(world, hover.tx + dx, hover.ty + dy)) {
+      if (d < bestD && isFrontage(world, hover.tx + dx, hover.ty + dy) && !railAt(world, hover.tx + dx, hover.ty + dy)) {
         best = { tx: hover.tx + dx, ty: hover.ty + dy };
         bestD = d;
       }
@@ -118,6 +128,7 @@ export function zoneFillReach(world: World, hover: TilePos, reach = ZONE_FILL_RE
       const lx = rx + sx, ly = ry + sy;
       if (!grid.inBounds(lx, ly)) return;
       if (world.layers.roadClass[grid.idx(lx, ly)] !== ROAD_NONE) return;   // a highway: not ours to follow
+      if (railAt(world, lx, ly)) return;                                    // surface rail: the end of the paint
       if ((keepX && !sandwichedX(world, lx, ly)) || (keepY && !sandwichedY(world, lx, ly))) return;
       const li = grid.idx(lx, ly);
       if (!taken.has(li)) {

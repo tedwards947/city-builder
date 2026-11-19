@@ -8,7 +8,7 @@ import { InputController } from '../input/InputController';
 import type { Tool } from '../input/InputController';
 import { planZoneFill, zoneFillReach, ZONE_FILL_REACH } from '../input/zoneFill';
 import {
-  ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, BUILDING_PARK, TERRAIN_WATER,
+  ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_C, BUILDING_PARK, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 
@@ -46,6 +46,31 @@ describe('zone fill', () => {
     expect(got.size).toBe(2 * ZONE_FILL_REACH + 1);
     for (let dx = 12; dx <= 28; dx++) expect(got.has(`${dx},9`)).toBe(true);
     expect([...got].every(k => k.endsWith(',9'))).toBe(true);     // nothing on the far side
+  });
+
+  it('surface rail (ground or elevated track) ends the paint; a subway does not', () => {
+    for (let dx = 0; dx < 40; dx++) road(dx, 10);
+    expect(world.layTrack(o.tx + 24, o.ty + 9, RAIL_GROUND)).toBe(true);
+    const got = filled(20, 9);
+    expect(got.has('23,9')).toBe(true);
+    expect(got.has('24,9')).toBe(false);                           // the track itself
+    expect(got.has('25,9')).toBe(false);                           // nor anything past it
+    expect(got.has('12,9')).toBe(true);                            // the other way is unaffected
+    expect(filled(24, 9).size).toBe(0);                            // pointing at track fills nothing
+
+    world = new World(96, 96, 1);
+    o = dryBlock(world, 40, 24);
+    for (let dx = 0; dx < 40; dx++) road(dx, 10);
+    expect(world.layTrack(o.tx + 24, o.ty + 9, RAIL_ELEVATED)).toBe(true);
+    expect(filled(20, 9).has('25,9')).toBe(false);                 // elevated track occupies the tile too
+
+    world = new World(96, 96, 1);
+    o = dryBlock(world, 40, 24);
+    for (let dx = 0; dx < 40; dx++) road(dx, 10);
+    expect(world.layTrack(o.tx + 24, o.ty + 9, RAIL_SUBWAY)).toBe(true);
+    const under = filled(20, 9);
+    expect(under.has('24,9')).toBe(true);                          // a lot above a subway is fine
+    expect(under.has('25,9')).toBe(true);
   });
 
   it('pointing at the road fills nothing; pointing a tile or two away still finds the near side', () => {
