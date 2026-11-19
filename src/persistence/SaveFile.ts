@@ -5,7 +5,7 @@
 // The file is JSON. Typed-array layers are stored as base64, tagged with their
 // element type so they come back as the same kind of array.
 
-import { SAVE_VERSION, migrate, type SaveMeta, type SaveRecord, type WorldSnapshot } from './SaveFormat';
+import { SAVE_VERSION, NewerSaveError, migrate, type SaveMeta, type SaveRecord, type WorldSnapshot } from './SaveFormat';
 
 export const SAVE_FILE_FORMAT = 'city-builder-save';
 export const SAVE_FILE_EXTENSION = '.citysave.json';
@@ -80,9 +80,7 @@ export function decodeSaveFile(text: string): SaveRecord {
   if (typeof file.version !== 'number' || !file.meta || !file.snapshot || !file.snapshot.layers) {
     throw new Error('Save file is incomplete.');
   }
-  if (file.version > SAVE_VERSION) {
-    throw new Error(`Save file is from a newer version of the game (save version ${file.version}).`);
-  }
+  if (file.version > SAVE_VERSION) throw new NewerSaveError(file.version);
 
   const { width, height } = file.snapshot;
   if (!Number.isInteger(width) || !Number.isInteger(height) || width! <= 0 || height! <= 0) {

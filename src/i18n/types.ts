@@ -137,12 +137,18 @@ export interface TranslationSchema {
       exportNamePrompt: string;
       importFile: string;
       importFailed: string;
+      loadFailed: string;
+      backupName: string;
       pop: string;
       water: string;
     };
     toast: {
       stationsRebuiltTitle: string;
       stationsRebuilt: string;
+      newerSaveTitle: string;
+      newerSave: string;
+      savedCityUnreadableTitle: string;
+      savedCityUnreadable: string;
       autosaveFailedTitle: string;
       autosaveFailed: string;
       resourceShortage: string;

@@ -175,6 +175,11 @@ The game is live, and players keep cities in their browsers. A change must never
 - **Backup:** before an upgraded save overwrites the player's autosave, keep the old one so a bad upgrade can be recovered.
 - **Newer saves** than the running build get a clear message, never a half-loaded city.
 - **PRs say so:** "Save format: vN → vN+1, upgrade tested". Upgrade or rebuild the showcase save (`public/showcase/`) with it.
+- **Where each of these lives** (ENGINE, 2026-11-19):
+  - Fixtures: `src/__tests__/fixtures/saves/vN.citysave.json`, one per version, loaded by `saveFixtures.test.ts`, which FAILS until a file exists for the current `SAVE_VERSION`. Never edit or regenerate one; the README there says how to add the next. v1 to v8 are reconstructed (no saves from those builds were kept).
+  - Backup: `SaveManager.loadGame(slot, backupSlot)`. `main.ts` loads the autosave with `AUTOSAVE_BACKUP_SLOT` (−1): when the stored autosave is not of the current version, or cannot be read, the record is copied there as it is (`IStore.copy`, version kept) before any autosave can overwrite it. The Load panel shows it as "Autosave from before the last update". One backup: a later upgrade replaces it.
+  - Newer saves: `migrate` and `decodeSaveFile` throw `NewerSaveError`. At launch the player gets a toast (and the save is in the backup slot); a slot or a file that will not load gives an alert with the reason.
+  - Telling the player what an upgrade changed: an upgrade step puts a count in the snapshot's `upgradeNotes` (never saved); `deserialize` copies it to `world.loadNotes`, and `showLoadNotes` in `main.ts` turns it into one toast. Add a field and a string for the next one.
 
 ## Lessons from Previous Sessions
 

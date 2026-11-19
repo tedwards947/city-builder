@@ -51,6 +51,24 @@ export class LocalStore implements IStore {
     }
   }
 
+  async copy(userId: string, from: number, to: number): Promise<void> {
+    const db = await openDB();
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const done = new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+        tx.onabort    = () => reject(tx.error ?? new Error('Copy was aborted.'));
+      });
+      const store = tx.objectStore(STORE_NAME);
+      const get = store.get([userId, from]);
+      get.onsuccess = () => { if (get.result) store.put({ ...(get.result as SaveRecord), userId, slot: to }); };
+      await done;
+    } finally {
+      db.close();
+    }
+  }
+
   async load(userId: string, slot: number): Promise<SaveRecord | null> {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readonly');

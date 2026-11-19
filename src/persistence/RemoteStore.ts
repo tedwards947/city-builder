@@ -9,6 +9,10 @@ import type { IStore, SaveMeta, SaveRecord, SlotInfo, WorldSnapshot } from './Sa
 
 export class RemoteStore implements IStore {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  copy(_userId: string, _from: number, _to: number): Promise<void> {
+    return Promise.reject(new Error('RemoteStore not implemented yet (Phase 8)'));
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   save(_userId: string, _slot: number, _meta: SaveMeta, _snapshot: WorldSnapshot): Promise<void> {
     return Promise.reject(new Error('RemoteStore not implemented yet (Phase 8)'));
   }

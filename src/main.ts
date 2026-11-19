@@ -28,7 +28,8 @@ import { loadRoadMode, saveRoadMode } from './ui/RoadModeMenu';
 import { Toolbar, toolbarItems } from './ui/Toolbar';
 import { LocalStore } from './persistence/LocalStore';
 import { SaveManager } from './persistence/SaveManager';
-import { Autosave, AUTOSAVE_SLOT } from './persistence/Autosave';
+import { Autosave, AUTOSAVE_SLOT, AUTOSAVE_BACKUP_SLOT } from './persistence/Autosave';
+import { NewerSaveError } from './persistence/SaveFormat';
 import { MusicManager } from './audio/MusicManager';
 import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
@@ -831,9 +832,12 @@ async function loadShowcase(): Promise<World | null> {
 async function boot(): Promise<void> {
   let saved: World | null = null;
   try {
-    saved = await manager.loadGame(AUTOSAVE_SLOT);
+    saved = await manager.loadGame(AUTOSAVE_SLOT, AUTOSAVE_BACKUP_SLOT);
   } catch (err) {
+    // The save stays where it is until the next autosave, and a copy is already in the backup slot.
     console.warn('Could not load autosave:', err);
+    if (err instanceof NewerSaveError) toastPanel.showToast(t('ui.toast.newerSaveTitle'), t('ui.toast.newerSave'), 'alert');
+    else toastPanel.showToast(t('ui.toast.savedCityUnreadableTitle'), t('ui.toast.savedCityUnreadable'), 'alert');
   }
   if (!titleUp) {
     if (saved) startGame(saved);
