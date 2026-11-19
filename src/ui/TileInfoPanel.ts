@@ -2,6 +2,7 @@
 // Displays terrain, zone, development level, coverage status, and a clear
 // breakdown of what's blocking the next level of growth.
 
+import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_SURFACE } from '../sim/constants';
 import { railLinks, stationBusiestTile } from '../sim/rail';
 import { railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
@@ -272,6 +273,15 @@ function airportRows(world: World, tx: number, ty: number): string {
   return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[BUILDING_AIRPORT]?.maintenance ?? 0})}</div>`;
 }
 
+/** Notes for the track on other levels of a tile: elevated overhead (unless it is the heading already) and a subway underneath. */
+function otherLevelRows(world: World, i: number, elevatedShown = false): string {
+  const r = world.layers.rail[i];
+  let html = "";
+  if (!elevatedShown && (r & RAIL_ELEVATED) !== 0) html += `<div class="ti-detail">${t("ui.tileInfo.railElevatedOver")}</div>`;
+  if ((r & RAIL_SUBWAY) !== 0) html += `<div class="ti-detail">${t("ui.tileInfo.railSubwayUnder")}</div>`;
+  return html;
+}
+
 /** A track tile: riders against capacity (red when over), and a note on a junction. */
 function railRows(world: World, i: number): string {
   const d = world.traffic;
@@ -445,18 +455,21 @@ export class TileInfoPanel {
         );
         html += `<div class="ti-detail" style="color:#999">${t("ui.tileInfo.growthPenalty", {penalty})}</div>`;
       }
-      if (world.layers.rail[i] !== 0) {
+      if ((world.layers.rail[i] & RAIL_GROUND) !== 0) {
         html += `<div class="ti-detail">${t("ui.tileInfo.railCrossing")}</div>`;
         html += railRows(world, i);
       }
+      html += otherLevelRows(world, i);
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")}</div>`;
       }
 
       // ── Rail track (also over water: a bridge) ─────────────────────────────────
-    } else if (world.layers.rail[i] !== 0) {
-      html += `<div class="ti-type">${t("ui.tileInfo.railTrack")}</div>`;
-      html += railRows(world, i);
+    } else if ((world.layers.rail[i] & RAIL_SURFACE) !== 0) {
+      const ground = (world.layers.rail[i] & RAIL_GROUND) !== 0;
+      html += `<div class="ti-type">${t(ground ? "ui.tileInfo.railTrack" : "ui.tileInfo.railElevated")}</div>`;
+      if (ground) html += railRows(world, i);
+      html += otherLevelRows(world, i, !ground);
 
       // ── Water terrain ──────────────────────────────────────────────────────────
     } else if (terrain === TERRAIN_WATER) {

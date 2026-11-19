@@ -7,7 +7,7 @@ import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
 import { mulberry32 } from './rng';
 import {
-  TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND, RAIL_NONE, RAIL_GROUND,
+  TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND, RAIL_GROUND, RAIL_SUBWAY, RAIL_SURFACE,
   ZONE_NONE,
   ROAD_NONE, ROAD_HIGHWAY,
   BUILDING_NONE,
@@ -471,7 +471,7 @@ export class World {
     if (this.getTerrain(tx, ty) === TERRAIN_WATER) return false;
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
-    if (z !== ZONE_NONE && this.layers.rail[i] !== RAIL_NONE) return false;
+    if (z !== ZONE_NONE && (this.layers.rail[i] & RAIL_SURFACE) !== 0) return false;   // a zone may stand over a subway
     if (this.layers.zone[i] !== z) {
       this.layers.devLevel[i] = 0;
       this.layers.abandoned[i] = 0;
@@ -507,15 +507,31 @@ export class World {
   }
 
   /**
-   * Lay ground rail track on (tx, ty); false if it cannot go there
-   * (sim/rail.ts trackBlocker). Clears any trees. A road on the tile stays:
-   * the tile becomes a level crossing.
+   * Lay rail track of `level` (ground by default) on (tx, ty); false if it
+   * cannot go there (sim/rail.ts trackBlocker). Ground and elevated track
+   * clear any trees; a subway leaves the surface alone. A road on the tile
+   * stays: under ground track the tile becomes a level crossing.
    */
-  layTrack(tx: number, ty: number): boolean {
-    if (trackBlocker(this, tx, ty) !== null) return false;
+  layTrack(tx: number, ty: number, level: number = RAIL_GROUND): boolean {
+    if (trackBlocker(this, tx, ty, level) !== null) return false;
     const i = this.grid.idx(tx, ty);
-    this.layers.rail[i] |= RAIL_GROUND;
-    this.layers.vegetation[i] = VEG_NONE;
+    this.layers.rail[i] |= level;
+    if (level !== RAIL_SUBWAY) this.layers.vegetation[i] = VEG_NONE;
+    this.railVersion++;
+    this.grid.markDirty(tx, ty);
+    return true;
+  }
+
+  /**
+   * Take the subway track out from under (tx, ty); false if there is none.
+   * (Ground and elevated track go with clearTile, like everything else on
+   * the surface.)
+   */
+  removeSubway(tx: number, ty: number): boolean {
+    if (!this.grid.inBounds(tx, ty)) return false;
+    const i = this.grid.idx(tx, ty);
+    if (!(this.layers.rail[i] & RAIL_SUBWAY)) return false;
+    this.layers.rail[i] &= ~RAIL_SUBWAY;
     this.railVersion++;
     this.grid.markDirty(tx, ty);
     return true;
@@ -544,9 +560,9 @@ export class World {
         const i = tiles[k];
         const x = i % width, y = (i - x) / width;
         if (roles[k] === 'dock') {
-          if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE || this.layers.rail[i] !== RAIL_NONE) blocked.push(i);
+          if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE || (this.layers.rail[i] & RAIL_SURFACE) !== 0) blocked.push(i);
           else if (!open[i]) notOpenWater.push(i);
-        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE || this.layers.rail[i] !== RAIL_NONE) {
+        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE || (this.layers.rail[i] & RAIL_SURFACE) !== 0) {
           blocked.push(i);
         }
       }
@@ -556,8 +572,10 @@ export class World {
     for (let k = 0; k < tiles.length; k++) {
       const i = tiles[k];
       const x = i % width, y = (i - x) / width;
-      // A platform may stand on ground track that is already there; nothing else may stand on track.
-      const railFree = roles[k] === 'platform' ? (this.layers.rail[i] & ~RAIL_GROUND) === 0 : this.layers.rail[i] === RAIL_NONE;
+      // A platform may stand on ground track that is already there; nothing else may stand on
+      // ground or elevated track. Anything may stand over a subway.
+      const surface = this.layers.rail[i] & RAIL_SURFACE;
+      const railFree = roles[k] === 'platform' ? (surface & ~RAIL_GROUND) === 0 : surface === 0;
       if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
     }
     let noWater = false;
@@ -746,7 +764,7 @@ export class World {
           missing.push(i);
           const water = L.terrain[i] === TERRAIN_WATER;
           const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE
-            && (roles[k] === 'platform' ? (L.rail[i] & ~RAIL_GROUND) === 0 : L.rail[i] === RAIL_NONE)
+            && (roles[k] === 'platform' ? (L.rail[i] & RAIL_SURFACE & ~RAIL_GROUND) === 0 : (L.rail[i] & RAIL_SURFACE) === 0)
             && (roles[k] === 'dock' ? water : !water);
           if (!free) fits = false;
         }
@@ -833,7 +851,8 @@ export class World {
     const i = this.grid.idx(tx, ty);
     const hadRoad = this.layers.roadClass[i] !== ROAD_NONE;
     const hadBuilding = this.layers.building[i];
-    if (this.layers.rail[i] !== RAIL_NONE) { this.layers.rail[i] = RAIL_NONE; this.railVersion++; }
+    // Ground and elevated track go with the tile; a subway underneath stays (removeSubway).
+    if ((this.layers.rail[i] & RAIL_SURFACE) !== 0) { this.layers.rail[i] &= ~RAIL_SURFACE; this.railVersion++; }
     this.buildingId[i] = 0;
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;

@@ -293,10 +293,14 @@ export const BALANCE = {
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
   // Rail (RAIL_DESIGN.md). Placeholder numbers until the balance lab proposes them.
   rail: {
-    // Per tile of track, by level (the RAIL_ bits in sim/constants.ts): 1 = ground.
-    // On water the cost is times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
+    // Per tile of track, by level (the RAIL_ bits in sim/constants.ts): 1 = ground, 2 = elevated, 4 = subway.
+    // Ground track on water costs times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
     track: {
       1: { cost: 400, maintenance: 0.5 },   // ground (owner 2026-11-18; a highway is 150 / 0.35)
+      // Phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's sanity check): elevated 3× ground;
+      // subway 25× to build but only 4× to keep up.
+      2: { cost: 1200, maintenance: 1.5 },    // elevated
+      4: { cost: 10000, maintenance: 2 },     // subway
     } as Record<number, { cost: number; maintenance: number }>,
     // Rail traffic (TransitSystem). Times are in street tiles, like road travel times.
     // Speed 10 and boarding 2 (owner 2026-11-18): a suburb 50–90 tiles out gets a third to a
