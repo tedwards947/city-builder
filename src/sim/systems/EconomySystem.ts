@@ -1,3 +1,4 @@
+import { trackMaintenance } from '../rail';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -75,6 +76,7 @@ export class EconomySystem {
         roadMaintenance += BALANCE.roadClasses[roadClass[i]]?.maintenance ?? 0;
       }
     }
+    roadMaintenance += trackMaintenance(world);   // rail track is kept up with the roads
     // Service buildings (police, fire, school, hospital, park) scale by maintenance.serviceMult.
     const buildingMaintenance = world.buildings.reduce(
       (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0) * (isServiceKind(b.kind) ? serviceMult : 1), 0);

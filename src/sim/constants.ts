@@ -17,6 +17,12 @@ export const ROAD_STREET  = 1;
 export const ROAD_AVENUE  = 2;
 export const ROAD_HIGHWAY = 3;
 
+// Rail track levels: bits of world.layers.rail, so a tile can hold more than one (sim/rail.ts).
+export const RAIL_NONE     = 0;
+export const RAIL_GROUND   = 1;
+export const RAIL_ELEVATED = 2;
+export const RAIL_SUBWAY   = 4;
+
 // Building layer
 export const BUILDING_NONE         = 0;
 export const BUILDING_POWER_PLANT  = 1;

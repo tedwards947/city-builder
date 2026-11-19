@@ -38,6 +38,7 @@ export function serialize(world: World): WorldSnapshot {
       terrain:   new Uint8Array(l.terrain),
       zone:      new Uint8Array(l.zone),
       roadClass: new Uint8Array(l.roadClass),
+      rail:      new Uint8Array(l.rail),
       building:  new Uint8Array(l.building),
       vegetation: new Uint8Array(l.vegetation),
       devLevel:  new Uint8Array(l.devLevel),
@@ -99,6 +100,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   l.terrain.set(snapshot.layers.terrain);
   l.zone.set(snapshot.layers.zone);
   l.roadClass.set(snapshot.layers.roadClass);
+  if (snapshot.layers.rail) l.rail.set(snapshot.layers.rail);
+  world.railVersion++;
   l.building.set(snapshot.layers.building);
   world.rebuildBuildingIds();
   l.vegetation.set(snapshot.layers.vegetation);

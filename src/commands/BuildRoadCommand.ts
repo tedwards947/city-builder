@@ -5,6 +5,7 @@ import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { trackBlocksRoad } from '../sim/rail';
 import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges, zonesCutOffByHighway } from '../sim/politics';
 
 // Builds a new road OR upgrades an existing road to a higher class.
@@ -13,6 +14,7 @@ import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges, zonesCutOffByHighwa
 //   - Cannot build on building tiles. Building on water makes a bridge (cost × bridgeMultiplier).
 //   - Paving over populated residential displaces residents and costs political
 //     capital, exactly like bulldozing it would.
+//   - Over rail track only as a straight level crossing (street or avenue; sim/rail.ts).
 //   - Cannot downgrade (current >= target → no-op).
 //   - New road: costs roadClasses[target].cost in full.
 //   - Upgrade: costs roadClasses[target].cost − roadClasses[current].cost (delta only).
@@ -31,6 +33,7 @@ export function roadBuildCost(world: World, tx: number, ty: number, targetClass:
   if (!world.isBuildable(tx, ty, true)) return null;
   const current = world.layers.roadClass[world.grid.idx(tx, ty)];
   if (current >= targetClass) return 0;
+  if (trackBlocksRoad(world, world.grid.idx(tx, ty), targetClass)) return null;
   const mult = world.getTerrain(tx, ty) === TERRAIN_WATER ? BALANCE.costs.bridgeMultiplier : 1;
   const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost : 0;
   return (BALANCE.roadClasses[targetClass].cost - currentCost) * mult;
@@ -60,7 +63,8 @@ export class BuildRoadCommand extends Command {
     const current = world.layers.roadClass[i];
     if (current >= this.targetClass) return false; // already same or better class
 
-    const cost = roadBuildCost(world, this.tx, this.ty, this.targetClass)!;
+    const cost = roadBuildCost(world, this.tx, this.ty, this.targetClass);
+    if (cost === null) return false;                // rail track in the way (sim/rail.ts)
 
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
 

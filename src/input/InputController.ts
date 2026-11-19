@@ -22,6 +22,7 @@ import type { World } from '../sim/World';
 import type { Command, FailReason } from '../commands/Command';
 import type { CommandHistory } from '../commands/CommandHistory';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
+import { BuildTrackCommand } from '../commands/BuildTrackCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { placementAnchor, placementFor } from './placement';
@@ -40,7 +41,7 @@ import type { ZoneMode } from './zoneFill';
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'rail' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater';
 
 const ROAD_TOOL_CLASS: Partial<Record<Tool, number>> = {
   road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
@@ -79,13 +80,14 @@ export function isLandscapeTool(tool: Tool): boolean {
 
 /** Tools that paint along a drag instead of panning. */
 export function isPaintTool(tool: Tool): boolean {
-  return tool in ROAD_TOOL_CLASS || tool in ZONE_TOOL_ZONE || tool === 'bulldoze' || isLandscapeTool(tool);
+  return tool in ROAD_TOOL_CLASS || tool === 'rail' || tool in ZONE_TOOL_ZONE || tool === 'bulldoze' || isLandscapeTool(tool);
 }
 
 /** Build the Command a tool issues for one tile, or null if the tool issues none. */
 export function commandForTool(tool: Tool, tx: number, ty: number, world?: World): Command | null {
   const roadClass = ROAD_TOOL_CLASS[tool];
   if (roadClass !== undefined) return new BuildRoadCommand(tx, ty, roadClass);
+  if (tool === 'rail') return new BuildTrackCommand(tx, ty);
   const zone = ZONE_TOOL_ZONE[tool];
   if (zone !== undefined) return new PaintZoneCommand(tx, ty, zone);
   const kind = BUILDING_TOOL_KIND[tool];
@@ -98,7 +100,7 @@ export function commandForTool(tool: Tool, tx: number, ty: number, world?: World
     // The bulldozer also clears trees (owner, landscaping mocks: no separate eraser).
     if (world && world.grid.inBounds(tx, ty)) {
       const i = world.grid.idx(tx, ty), L = world.layers;
-      if (L.vegetation[i] !== VEG_NONE && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE) return new ClearTreesCommand([i]);
+      if (L.vegetation[i] !== VEG_NONE && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.rail[i] === 0) return new ClearTreesCommand([i]);
     }
     return new BulldozeCommand(tx, ty);
   }
@@ -448,7 +450,7 @@ export class InputController {
     const s = this.stroke;
     if (!s) return;
     if (tile.tx === s.last.tx && tile.ty === s.last.ty) return;
-    if (s.tool in ROAD_TOOL_CLASS) {
+    if (s.tool in ROAD_TOOL_CLASS || s.tool === 'rail') {
       // Roads: a straight line from the drag start, locked to the axis the
       // pointer first moved along.
       if (s.axis === null) s.axis = dominantAxis(s.start, tile);

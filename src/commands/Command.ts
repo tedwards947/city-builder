@@ -23,6 +23,8 @@ export abstract class Command {
 export interface TileSnapshot {
   zone: number;
   road: number;
+  /** Rail track on the tile (world.layers.rail). Missing = none. */
+  rail?: number;
   building: number;
   dev: number;
   // Optional so hand-built snapshots can omit them; restoreTile treats a
@@ -45,6 +47,7 @@ export function snapshotTile(world: World, tx: number, ty: number): TileSnapshot
   return {
     zone:     world.layers.zone[i],
     road:     world.layers.roadClass[i],
+    rail:     world.layers.rail[i],
     building: world.layers.building[i],
     dev:      world.layers.devLevel[i],
     abandoned:     world.layers.abandoned[i],
@@ -89,6 +92,7 @@ export function restoreTile(world: World, tx: number, ty: number, snap: TileSnap
   const prevBuilding = world.buildingAnchorAt(i) === i ? world.layers.building[i] : BUILDING_NONE;
   world.layers.zone[i]      = snap.zone;
   world.layers.roadClass[i] = snap.road;
+  if (world.layers.rail[i] !== (snap.rail ?? 0)) { world.layers.rail[i] = snap.rail ?? 0; world.railVersion++; }
   world.layers.building[i]  = snap.building;
   world.layers.devLevel[i]  = snap.dev;
   world.layers.abandoned[i]     = snap.abandoned ?? 0;
