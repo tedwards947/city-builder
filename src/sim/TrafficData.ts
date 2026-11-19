@@ -6,7 +6,14 @@ import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from './constants';
 import { BALANCE, type TrafficMarketKey } from '../data/balance';
 
-/** One travel-time map: time to the nearest destination, and the way there. */
+/**
+ * One travel-time map: time to the nearest destination, and the way there.
+ *
+ * Its arrays are indexed by NODE. A road tile's node is its tile index. A tile
+ * of rail track is a second node, tile index + `TrafficData.tiles` (so a level
+ * crossing is two nodes). `parent` and `order` hold nodes: one that is
+ * `>= tiles` is track, on tile `node - tiles`.
+ */
 export interface TrafficField {
   // Travel time per road tile to the nearest door, in street tiles
   // (congestion included). Infinity = unreachable.
@@ -48,11 +55,13 @@ export interface MarketDef {
   weight?: () => number;
   /** Origins further than this from the nearest door (travel time, in street tiles) send nothing. No limit if left out. */
   reach?: () => number;
+  /** The trips are people, who take a train when that is faster. Freight never rides. */
+  rides?: boolean;
 }
 
 export const MARKET_DEFS: readonly MarketDef[] = [
-  { key: 'shopping', origin: ZONE_R, dest: ZONE_C, rate: () => BALANCE.transit.tripsRtoC, capacity: () => BALANCE.transit.shopCapacity },
-  { key: 'jobs',     origin: ZONE_R, dest: ZONE_I, rate: () => BALANCE.transit.tripsRtoI, capacity: () => BALANCE.transit.jobCapacity },
+  { key: 'shopping', origin: ZONE_R, dest: ZONE_C, rate: () => BALANCE.transit.tripsRtoC, capacity: () => BALANCE.transit.shopCapacity, rides: true },
+  { key: 'jobs',     origin: ZONE_R, dest: ZONE_I, rate: () => BALANCE.transit.tripsRtoI, capacity: () => BALANCE.transit.jobCapacity, rides: true },
   // Shops fetch their goods: every shop draws from the nearest industry with output to spare
   // (or from a seaport's imports, sim/seaport.ts).
   { key: 'goods',    origin: ZONE_C, dest: ZONE_I, rate: () => BALANCE.transit.tripsCtoI, capacity: () => BALANCE.transit.goodsCapacity },
@@ -63,7 +72,7 @@ export const MARKET_DEFS: readonly MarketDef[] = [
     weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach },
   // Homes send visitors to buildings that draw them (an airport, a landmark: BALANCE.transit.buildings).
   // No zone receives visitors, so with no such building (or the trips at 0) this market does not run.
-  { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0 },
+  { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0, rides: true },
 ];
 
 // ── Doors that are not zones ────────────────────────────────────────────────
@@ -168,14 +177,39 @@ export function marketReach(def: MarketDef): number { const r = def.reach ? def.
 export interface TrafficMarket {
   def: MarketDef;
   field: TrafficField;     // the way to this market's destinations, with doors and prices
-  // Trips passing through each road tile. Averaged over recent iterations,
-  // so where routes alternate the traffic shows as split.
+  // Trips passing through each node (road tile, or track tile + `tiles`).
+  // Averaged over recent iterations, so where routes alternate the traffic
+  // shows as split.
   volume: Float32Array;
+}
+
+/** A train station as traffic sees it. */
+export interface StationTraffic {
+  /** Tile index of the station building's anchor. */
+  anchor: number;
+  /** The streets and avenues it is entered from. Empty: no road, so nobody boards here. */
+  roads: number[];
+  /** Riders boarding here on the last iteration (trips, all markets). */
+  boardings: number;
+}
+
+/** Rail traffic: what the trains carry. */
+export interface RailTraffic {
+  /** Per tile: riders the track there carries before it counts as full; 0 where there is no track. */
+  capacity: Float32Array;
+  /** Every station, in world.buildings order. */
+  stations: StationTraffic[];
+  /** Riders boarding at all stations on the last iteration. */
+  boardings: number;
 }
 
 export interface TrafficData {
   /** Bumped every time the pass is recomputed. */
   version: number;
+  /** Tiles on the map. A node below this is a road tile; `tiles + i` is the track on tile i. */
+  tiles: number;
+  /** Rail traffic. Track volumes are in each market's `volume`, at `tiles + i`; see railVolume. */
+  rail: RailTraffic;
   /** Every market, in MARKET_DEFS order. */
   markets: TrafficMarket[];
   // The same markets by name.
@@ -200,11 +234,12 @@ export interface TrafficData {
 }
 
 export function makeTrafficData(n: number): TrafficData {
-  const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(n), volume: new Float32Array(n) }));
+  // Two nodes per tile: the road and the track.
+  const markets = MARKET_DEFS.map((def): TrafficMarket => ({ def, field: makeTrafficField(2 * n), volume: new Float32Array(2 * n) }));
   const byKey = (key: MarketKey) => markets.find(m => m.def.key === key)!;
-  const toR = makeTrafficField(n);
+  const toR = makeTrafficField(2 * n);
   return {
-    version: 0, markets,
+    version: 0, markets, tiles: n, rail: { capacity: new Float32Array(n), stations: [], boardings: 0 },
     shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'),
     toR, toShops: byKey('shopping').field, toJobs: byKey('jobs').field, toCustomers: toR, toWorkers: toR, settled: false,
   };
@@ -227,6 +262,17 @@ export function trafficVolume(d: TrafficData, i: number): number {
   let v = 0;
   for (const m of d.markets) v += m.volume[i];
   return v;
+}
+
+/** Riders on the track of tile `i`, all markets. */
+export function railVolume(d: TrafficData, i: number): number {
+  return trafficVolume(d, d.tiles + i);
+}
+
+/** How full the track on tile `i` is: riders ÷ capacity (1 = full; more is overloaded). 0 where there is no track. */
+export function railLoad(d: TrafficData, i: number): number {
+  const cap = d.rail.capacity[i];
+  return cap > 0 ? railVolume(d, i) / cap : 0;
 }
 
 /** Trips a road tile of this class can carry before it counts as full. */

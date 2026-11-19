@@ -296,6 +296,17 @@ export const BALANCE = {
     track: {
       1: { cost: 100, maintenance: 0.25 },
     } as Record<number, { cost: number; maintenance: number }>,
+    // Rail traffic (TransitSystem). Times are in street tiles, like road travel times.
+    speedMult: 6,          // a tile of track takes 1 / speedMult (a highway's is 2)
+    capacity: 300,         // riders a tile of track carries before it counts as full (a highway: 200)
+    congestionDelay: 1,    // past transit.freeFlow × capacity: time × (1 + congestionDelay × (load − freeFlow))
+    boardTime: 4,          // getting on at a station, and again getting off
+    // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
+    junction3: { delay: 1, capacityMult: 0.6 },
+    junction4: { delay: 3, capacityMult: 0.35 },
+    // A level crossing slows cars by up to `delay` as the track fills, and trains as the road fills.
+    crossing: { delay: 2 },
+    fare: 0.2,             // income per rider boarding, per economy tick (like transit.buildings incomePerTrip)
   },
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)

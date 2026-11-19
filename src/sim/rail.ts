@@ -172,3 +172,9 @@ export function trackMaintenance(world: World): number {
   upkeepCache.set(world, { version: world.railVersion, upkeep });
   return upkeep;
 }
+
+/** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare. */
+export function railFareIncome(world: World): number {
+  const boardings = world.traffic?.rail.boardings ?? 0;
+  return boardings > 0 ? boardings * BALANCE.rail.fare : 0;
+}
