@@ -279,24 +279,53 @@ export function drawElevatedTile(ctx: Ctx, links: number, px: number, py: number
   drawRailTile(ctx, links, px, top, T);
 }
 
-// Ramps and portals: drawn from colour-blocked templates (art/clay-set/raw-rail/tpl-*-r5.png, 160 px a tile).
+// ── The subway ramp (owner's P3 in art/clay-set/ramps.html): drawn in code, no walls. A darker floor under the
+// game's own track, a thin concrete kerb round the opening, rounded at the deep end, and a dark wash over the
+// track (and any train on it) that deepens toward the tunnel. ──
+const KERB = '#d6d2c9';
+/** The footprint (w × h tiles) and which way the deep end lies, for a subway ramp at a rotation. */
+function subwayRampBox(rot: number): { w: number; h: number; deep: 0 | 1 | 2 | 3 } {
+  const r = (rot & 3) as 0 | 1 | 2 | 3;   // deep end: 0 east, 1 south, 2 west, 3 north (sim/buildingShapes.ts)
+  return r % 2 === 0 ? { w: 2, h: 1, deep: r } : { w: 1, h: 2, deep: r };
+}
+function drawSubwayRamp(ctx: Ctx, rot: number, L: number, Tp: number, T: number): void {
+  const { w } = subwayRampBox(rot), e = 0.06;
+  ctx.save(); ctx.fillStyle = '#776c60';
+  if (w === 2) ctx.fillRect(L, Tp + e * T, 2 * T, (1 - 2 * e) * T); else ctx.fillRect(L + e * T, Tp, (1 - 2 * e) * T, 2 * T);
+  ctx.restore();
+}
+/** Over the trains: the dark wash down a subway ramp toward its tunnel, and the kerb round it. (L, Tp): the footprint's top-left. */
+export function drawSubwayRampShade(ctx: Ctx, rot: number, L: number, Tp: number, T: number): void {
+  const { w, h, deep } = subwayRampBox(rot), e = 0.06;
+  const x0 = L + (w === 1 ? e * T : 0), y0 = Tp + (h === 1 ? e * T : 0), x1 = L + w * T - (w === 1 ? e * T : 0), y1 = Tp + h * T - (h === 1 ? e * T : 0);
+  const g = deep === 0 ? ctx.createLinearGradient(x0, 0, x1, 0) : deep === 2 ? ctx.createLinearGradient(x1, 0, x0, 0) : deep === 1 ? ctx.createLinearGradient(0, y0, 0, y1) : ctx.createLinearGradient(0, y1, 0, y0);
+  g.addColorStop(0, 'rgba(18,17,16,0)'); g.addColorStop(1, 'rgba(18,17,16,0.88)');
+  ctx.save(); ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  const r = 0.12 * T, k = 0.025 * T;   // corners rounded at the deep end: [top-left, top-right, bottom-right, bottom-left]
+  const radii = deep === 0 ? [0, r, r, 0] : deep === 1 ? [0, 0, r, r] : deep === 2 ? [r, 0, 0, r] : [r, r, 0, 0];
+  ctx.strokeStyle = KERB; ctx.lineWidth = Math.max(1, 0.05 * T);
+  ctx.beginPath(); ctx.roundRect(L + k, Tp + k, w * T - 2 * k, h * T - 2 * k, radii); ctx.stroke();
+  ctx.restore();
+}
+
+// Elevated ramps: drawn from colour-blocked templates (art/clay-set/raw-rail/tpl-*-r5.png, 160 px a tile).
 // Each picture's footprint (its ground rectangle) on the raw sheet, top-left, in raw px.
 const RAMP_FOOT: Record<string, [number, number]> = {
   'ramp-ew': [70, 180], 'ramp-ns-away': [560, 90], 'ramp-ns-toward': [980, 90],
-  'portal-ew': [70, 200], 'portal-ns-away': [560, 90], 'portal-ns-toward': [980, 90],
 };
 /**
- * The picture for a ramp at a rotation: at rot 0 the ground end is west and the high (or deep) end east;
+ * The picture for an elevated ramp at a rotation: at rot 0 the ground end is west and the high (or deep) end east;
  * each turn is a quarter clockwise (sim/buildingShapes.ts), so rot 1 runs north → south (toward us),
  * rot 2 east → west (the east–west picture mirrored), rot 3 south → north (away from us).
  */
-export function rampArt(subway: boolean, rot: number): { name: string; flip: boolean } {
-  const p = subway ? 'portal' : 'ramp', r = rot & 3;
+export function rampArt(rot: number): { name: string; flip: boolean } {
+  const p = 'ramp', r = rot & 3;
   return r === 0 ? { name: `${p}-ew`, flip: false } : r === 1 ? { name: `${p}-ns-toward`, flip: false } : r === 2 ? { name: `${p}-ew`, flip: true } : { name: `${p}-ns-away`, flip: false };
 }
-/** A ramp or portal whose footprint's top-left corner is at screen (L, Tp), T pixels a tile. */
+/** A ramp whose footprint's top-left corner is at screen (L, Tp), T pixels a tile (a subway ramp: drawSubwayRamp). */
 export function drawRamp(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
-  const art = rampArt(subway, rot), s = load()[art.name], m = RAIL_SPRITES[art.name], foot = RAMP_FOOT[art.name];
+  if (subway) { drawSubwayRamp(ctx, rot, L, Tp, T); return; }
+  const art = rampArt(rot), s = load()[art.name], m = RAIL_SPRITES[art.name], foot = RAMP_FOOT[art.name];
   if (!s || !m || !foot || !s.img.complete || !s.img.naturalWidth) return;
   const q = T / 128, fx = foot[0] * m.k - (m.sheetX ?? 0), fy = foot[1] * m.k - (m.sheetY ?? 0);   // the footprint's corner in the image
   const ew = art.name.endsWith('-ew'), w = ew ? 2 : 1;
@@ -377,14 +406,14 @@ export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number):
 
 /**
  * The game's track over a ramp's empty strip: straight along it, from the ground end to the high end
- * (lifted DECK_HEIGHT) for a ramp up, or to the tunnel mouth for a ramp down. (L, Tp): the footprint's top-left.
+ * (lifted DECK_HEIGHT) for a ramp up, or to the deep end for a ramp down (drawSubwayRampShade darkens it). (L, Tp): the footprint's top-left.
  */
 export function drawRampTrack(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
-  const r = rot & 3, ew = r % 2 === 0;
+  const r = rot & 3;
   // In tile units from the footprint's corner: the ground end's centre and the far end's, and how high the far end draws.
   // `mouth`: how far short of the far end the bed meets the tunnel mouth, measured on each portal picture (the art sits a
   // little off its template; the owner saw the rails run on into the arch).
-  const len = 2, mouth = subway ? (ew ? 0.25 : r === 3 ? 0.63 : 0.65) : 0, rise = subway ? 0 : DECK_HEIGHT;
+  const len = 2, mouth = 0, rise = subway ? 0 : DECK_HEIGHT;
   const a: [number, number] = r === 0 ? [0, 0.5] : r === 1 ? [0.5, 0] : r === 2 ? [len, 0.5] : [0.5, len];
   const b: [number, number] = r === 0 ? [len - mouth, 0.5 - rise] : r === 1 ? [0.5, len - mouth - rise] : r === 2 ? [mouth, 0.5 - rise] : [0.5, mouth - rise];
   const dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m, nx = -uy, ny = ux;
@@ -403,11 +432,5 @@ export function drawRampTrack(ctx: Ctx, subway: boolean, rot: number, L: number,
     ctx.moveTo(L + (a[0] + nx * (o + g)) * T, Tp + (a[1] + ny * (o + g)) * T); ctx.lineTo(L + (b[0] + nx * (o + g)) * T, Tp + (b[1] + ny * (o + g)) * T);
   }
   ctx.stroke();
-  if (subway) {   // the track darkens into the tunnel
-    const g = ctx.createLinearGradient(L + a[0] * T, Tp + a[1] * T, L + b[0] * T, Tp + b[1] * T);
-    // Dark over the last stretch, so the track fades into the tunnel rather than stopping at a line.
-    g.addColorStop(0, 'rgba(20,18,18,0)'); g.addColorStop(Math.max(0, 1 - 0.7 / m), 'rgba(20,18,18,0.08)'); g.addColorStop(1, 'rgba(20,18,18,0.85)');
-    ctx.strokeStyle = g; ctx.lineWidth = T * 0.86; ctx.beginPath(); ctx.moveTo(L + a[0] * T, Tp + a[1] * T); ctx.lineTo(L + b[0] * T, Tp + b[1] * T); ctx.stroke();
-  }
   ctx.restore();
 }
