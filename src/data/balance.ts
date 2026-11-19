@@ -339,8 +339,10 @@ export const BALANCE = {
     rampTime: 1,           // passing a ramp between ground and elevated or subway track: two ramps ≈ one busy level crossing (owner 2026-11-19)
     // Homes and shops (not industry) within `radius` tiles (manhattan) of a station that has a
     // road and riders grow `mult` times as fast (owner-approved, RAIL_DESIGN.md 2026-11-19).
-    // Kept small: rail already gives a suburb its job access. mult 1 = off.
-    stationGrowth: { radius: 4, mult: 1.25 },
+    // Kept small: rail already gives a suburb its job access. mult 1 = off. Raised from 1.25
+    // to 1.4 after the station resize (owner 2026-11-19): ×1.25 made homes only ~15% sooner
+    // to level 3 (rail.stationGrowth); ×1.4 gives 17–26% on the saved cities.
+    stationGrowth: { radius: 4, mult: 1.4 },
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
     junction4: { delay: 4, capacityMult: 0.35 },
