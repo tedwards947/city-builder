@@ -639,7 +639,9 @@ export class TileInfoPanel {
         const allMet = reqs.every((r) => r.met);
         if (allMet) {
           const effectivePct = Math.round(
-            BALANCE.growth.probability * demand * 100,
+            (zone === ZONE_R
+              ? (BALANCE.growth.homeProbabilityByLevel[dev] ?? BALANCE.growth.probability)
+              : BALANCE.growth.probability) * demand * 100,
           );
           html += `<div class="ti-growth-ok">${t("ui.tileInfo.allMetGrowing", {pct: effectivePct})}</div>`;
         }

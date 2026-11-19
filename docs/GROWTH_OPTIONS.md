@@ -1,6 +1,6 @@
 # Homes level up too fast: options measured
 
-*ENGINEER 3, 2026-11-19. A report for the owner's decision; nothing here is shipped.*
+*ENGINEER 3, 2026-11-19. A report for the owner's decision.* **Shipped (owner, 2026-11-19): option B for homes, with `exodusPerPoint` 7e-5 (`growth.homeProbabilityByLevel`). Shops stay as they are for now.**
 
 **Today:** `growth.probability` 0.08, rolled every 4 ticks (2 rolls a day), the same at every level and for every zone. At full demand that's about 6 days a level, so level 3 in about 19 days.
 
