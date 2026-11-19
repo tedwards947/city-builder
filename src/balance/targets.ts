@@ -454,8 +454,8 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => {
       if (c.cityKind === 'fresh') { const f = c.railFresh; if (!f) return NA('not run'); return { ...range(f.starterCost / Math.max(1, f.bank360), 0, 0.4), note: `${f.starterCost} vs ${f.bank360}` }; }
       const o = railOf(c); if (!('r' in o)) return o; return o.r.lineCostDays === null ? NA('the city runs at a loss') : range(o.r.lineCostDays, 7, 30); } },
-  { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ (the line\'s track and station upkeep)', target: '0.8–1.5', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line.',
+  { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ the upkeep of a starter line (two stations and 60 tiles of track)', target: '0.8–1.5', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line. Owner (2026-11-18): graded on a fixed 60-tile line, as the probe\'s own line length depends on the map.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 1.5); } },
 ];
 
