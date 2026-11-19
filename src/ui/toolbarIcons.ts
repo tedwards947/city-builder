@@ -23,6 +23,10 @@ const ICONS = {
   // An anchor.
   port: p('M12 8v13M12 21c-4 0-7-3-7-7h3M12 21c4 0 7-3 7-7h-3M9 12h6') + '<circle cx="12" cy="5.5" r="2.5"/>',
   // A plane seen from above.
+  // Rail: two rails on sleepers; a station hall with its platform track; the corner station's bend.
+  track: p('M8 2v20M16 2v20M5 5h14M5 9.5h14M5 14h14M5 18.5h14'),
+  station: p('M3 10l9-6 9 6M5 10v6h14v-6M10 16v-4h4v4M2 20h20'),
+  stationL: p('M4 21V13a9 9 0 0 1 9-9h8M8 21v-8a5 5 0 0 1 5-5h8'),
   plane: p('M12 2.5c1 0 1.6 1 1.6 2.4V9l7.4 4.4v2.2l-7.4-2.3v4.4l2.2 1.7v1.9L12 20.4l-3.8.9v-1.9l2.2-1.7v-4.4L3 15.6v-2.2L10.4 9V4.9c0-1.4.6-2.4 1.6-2.4z'),
   // A conifer, and drops with a plus or a minus (the Landscape tools).
   tree: p('M12 3l5 7h-3l4 6H6l4-6H7zM12 16v5'),
