@@ -162,6 +162,37 @@ describe('the tutorial step list', () => {
     expect(step('jobs').done(w, ui())).toBe(true);
   });
 
+  it('jobs: shops or industry alone are not enough, and it does not matter where they are or whether they have grown', () => {
+    const w = stubWorld();
+    const jobs = step('jobs');
+    for (let x = 5; x <= 12; x++) expect(w.setZone(x, 20, ZONE_C)).toBe(true);   // no road anywhere near, nothing built
+    expect(jobs.progress?.(w)).toEqual([{ key: 'shops', n: 8, of: 8 }, { key: 'industry', n: 0, of: 8 }]);
+    expect(jobs.done(w, ui())).toBe(false);
+    for (let x = 5; x <= 11; x++) w.setZone(x, 25, ZONE_I);
+    expect(jobs.progress?.(w)?.[1]).toEqual({ key: 'industry', n: 7, of: 8 });
+    expect(jobs.done(w, ui())).toBe(false);
+    w.setZone(12, 25, ZONE_I);
+    expect(jobs.done(w, ui())).toBe(true);
+    for (let x = 13; x <= 30; x++) w.setZone(x, 25, ZONE_I);
+    expect(jobs.progress?.(w)?.[1]).toEqual({ key: 'industry', n: 8, of: 8 });   // capped at the target
+  });
+
+  it('every counted step says how far along it is, and is done exactly when every count is reached', () => {
+    const counted = TUTORIAL_STEPS.filter((s) => s.progress).map((s) => s.id);
+    expect(counted).toEqual(['street', 'homes', 'roads', 'power', 'water', 'grow', 'jobs']);
+    const w = stubWorld();
+    for (const id of counted) {
+      const goals = step(id).progress!(w);
+      expect(goals.length).toBeGreaterThan(0);
+      expect(step(id).done(w, ui())).toBe(goals.every((g) => g.n >= g.of));
+    }
+    street(w, 5, 11, 10);
+    expect(step('street').progress?.(w)).toEqual([{ key: 'streets', n: 7, of: 10 }]);
+    expect(step('roads').progress?.(w)).toEqual([{ key: 'streets', n: 7, of: 20 }]);
+    w.stats.population = 12;
+    expect(step('grow').progress?.(w)).toEqual([{ key: 'residents', n: 12, of: 40 }]);
+  });
+
   it('inspect, budget, views and the last card are met in the UI', () => {
     const w = stubWorld();
     for (const [id, flag] of [['inspect', 'inspectedHome'], ['budget', 'budgetOpened'], ['views', 'overlayOn'], ['done', 'cardClosed']] as const) {

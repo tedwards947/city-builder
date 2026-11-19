@@ -47,6 +47,8 @@ export class Tutorial {
   private readonly card: HTMLElement;
   private readonly count: HTMLElement;
   private readonly text: HTMLElement;
+  /** The step's counted goals, e.g. "Shops 3 / 8 · Industry 0 / 8" (empty for a step with none). */
+  private readonly progress: HTMLElement;
   private readonly actions: HTMLElement;
   /** The step the card shows (-1: none). */
   private shown = -1;
@@ -69,6 +71,7 @@ export class Tutorial {
     top.appendChild(node('span', 'tut-label', t('ui.tutorial.label')));
     this.count = top.appendChild(node('span', 'tut-count'));
     this.text = this.card.appendChild(node('div', 'tut-text'));
+    this.progress = this.card.appendChild(node('div', 'tut-progress'));
     this.actions = this.card.appendChild(node('div', 'tut-actions'));
     document.body.append(this.card);
   }
@@ -102,7 +105,19 @@ export class Tutorial {
     let step = state.step;
     while (step < this.steps.length && this.steps[step].done(world, this.ui)) step++;
     if (step !== state.step) this.go(step);
-    else this.target = this.steps[step]?.target?.(world) ?? null;
+    else {
+      this.target = this.steps[step]?.target?.(world) ?? null;
+      this.showProgress();
+    }
+  }
+
+  /** The current step's counts, kept up to date between checks. A goal that is reached is ticked. */
+  private showProgress(): void {
+    const world = this.world;
+    const goals = world && !this.confirming ? this.steps[world.tutorial?.step ?? -1]?.progress?.(world) ?? [] : [];
+    const line = goals.map(g => `${t('ui.tutorial.progress.' + g.key)} ${g.n} / ${g.of}${g.n >= g.of ? ' ✓' : ''}`).join(' · ');
+    if (this.progress.textContent !== line) this.progress.textContent = line;
+    this.progress.hidden = line === '';
   }
 
   /** The current step's ghost on the map, softly pulsing. */
@@ -158,6 +173,7 @@ export class Tutorial {
     this.count.textContent = t('ui.tutorial.count', { n: step + 1, total: this.steps.length });
     this.actions.textContent = '';
     const last = step === this.steps.length - 1;
+    this.showProgress();
     if (this.confirming) {
       this.text.textContent = t('ui.tutorial.leaveAsk');
       this.button(t('ui.tutorial.leaveYes'), true, () => this.finish());
