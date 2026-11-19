@@ -149,10 +149,10 @@
     .field input::placeholder { color: #666; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
     /* Title screen (src/ui/TitleScreen.ts). A plain placeholder look: graphics owns the real one and the logo. */
-    #title-screen { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 9vh 16px 10vh; background: linear-gradient(180deg, rgba(8,14,22,0.74) 0%, rgba(8,14,22,0) 36%, rgba(8,14,22,0) 60%, rgba(8,14,22,0.8) 100%); }
+    #title-screen { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 26px; padding: 9vh 16px 9vh; background: linear-gradient(180deg, rgba(8,14,22,0.45) 0%, rgba(8,14,22,0) 16%, rgba(8,14,22,0) 42%, rgba(8,14,22,0.88) 100%); }
     #title-screen.hidden { display: none; }
     #title-head { text-align: center; }
-    #title-name { font-size: clamp(40px, 9vw, 96px); font-weight: 800; letter-spacing: 0.02em; line-height: 1.05; color: #fff; text-shadow: 0 4px 24px rgba(0,0,0,0.6); }
+    #title-name { font-size: clamp(36px, 7.5vw, 84px); font-weight: 800; letter-spacing: 0.02em; line-height: 1.05; color: #fff; text-shadow: 0 4px 24px rgba(0,0,0,0.6); }
     #title-tagline { margin-top: 10px; font-size: clamp(14px, 2.2vw, 19px); color: #cfdbe8; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
     #title-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
     #title-buttons[hidden], .title-btn[hidden], #title-loading[hidden] { display: none; }
@@ -164,8 +164,10 @@
     /* While the title is up, everything but the map, the title and the dialogs it opens is out of sight. */
     /* The children too: one with its own `visibility: visible` would show through a hidden parent. */
     body.title-up #game > :not(canvas), body.title-up #game > :not(canvas) *,
-    body.title-up > :not(#game):not(#title-screen):not(.modal):not(script):not(style),
-    body.title-up > :not(#game):not(#title-screen):not(.modal):not(script):not(style) * { visibility: hidden !important; }
+    body.title-up > :not(#game):not(#title-screen):not(#music-panel):not(.modal):not(script):not(style),
+    body.title-up > :not(#game):not(#title-screen):not(#music-panel):not(.modal):not(script):not(style) * { visibility: hidden !important; }
+    /* The sound controls stay, top-left, over the title (the same panel as in play: src/ui/MusicPanel.ts). */
+    body.title-up #music-panel { z-index: 95; top: 12px; left: 12px; transform: none; max-width: calc(100vw - 24px); min-width: 0; }
     .btn { background: rgba(255,255,255,0.08); color: #ccc; border: 1px solid rgba(255,255,255,0.15); padding: 9px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; }
     .btn.primary { background: #2a6a4a; border-color: #4a9a6a; color: #fff; font-weight: 600; }
     .btn.primary:hover { background: #357a58; }

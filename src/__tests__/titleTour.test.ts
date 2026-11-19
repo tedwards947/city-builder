@@ -6,7 +6,7 @@ import { Camera } from '../render/Camera';
 import { TILE_SIZE } from '../render/Projection';
 import { BUILDING_AIRPORT, BUILDING_STATION, ROAD_STREET, ZONE_R } from '../sim/constants';
 import { TransitSystem } from '../sim/systems/TransitSystem';
-import { CameraTour, TOUR, easeInOut, flightPose, flightSeconds, type Pose } from '../title/CameraTour';
+import { CameraTour, TOUR, driftAngle, easeInOut, flightPose, flightSeconds, restProgress, type Pose } from '../title/CameraTour';
 import { dayStamp, markTitleSeen, titleDue, wantTitle } from '../title/launch';
 import { SPOT_ZOOM, findTourSpots, nextTourSpot, type TourSpot } from '../title/tourSpots';
 import { landWorld } from './pcTestWorld';
@@ -140,21 +140,24 @@ describe('the tour', () => {
     expect([10.5, 100.5]).toContain(Number(first.x.toFixed(3)));
     const z0 = camera.zoom;
     tour.update(TOUR.dwell * 500);
-    expect(centre(camera).x).toBeCloseTo(first.x);                 // resting: only a slow push in
+    // Resting, never still: a slow push in and a drift of a few per cent of the view, no more.
+    const drifted = Math.hypot(centre(camera).x - first.x, centre(camera).y - first.y) * TILE_SIZE * camera.zoom;
+    expect(drifted).toBeGreaterThan(0);
+    expect(drifted).toBeLessThan(TOUR.drift * 800);
     expect(camera.zoom).toBeGreaterThan(z0);
     expect(camera.zoom).toBeLessThan(z0 * (1 + TOUR.push));
     // Past the rest: under way to the other spot, never jumping.
     let last = centre(camera).x, t = TOUR.dwell * 1000;
     tour.update(t);
-    for (let k = 0; k < 600; k++) {
+    for (let k = 0; k < 180; k++) {      // the flight, and into the rest
       t += 16;
       tour.update(t);
       const x = centre(camera).x;
-      expect(Math.abs(x - last)).toBeLessThan(2);                  // tiles per frame
+      expect(Math.abs(x - last)).toBeLessThan(4);                  // tiles per frame
       last = x;
     }
     const other = first.x < 50 ? 100.5 : 10.5;
-    expect(centre(camera).x).toBeCloseTo(other, 1);
+    expect(Math.abs(centre(camera).x - other)).toBeLessThan(1.5);    // there, give or take the rest's drift
     // Stop mid-flight: the camera stays put.
     t += TOUR.dwell * 1000;
     tour.update(t); tour.update(t + 800);
@@ -163,6 +166,27 @@ describe('the tour', () => {
     expect(tour.active).toBe(false);
     tour.update(t + 3000);
     expect({ ...centre(camera), zoom: camera.zoom }).toEqual(held);
+  });
+});
+
+describe('the pacing', () => {
+  it('a rest is 3 to 4 seconds and a flight 1.5 to about 2', () => {
+    expect(TOUR.dwell).toBeGreaterThanOrEqual(3);
+    expect(TOUR.dwell).toBeLessThanOrEqual(4);
+    expect(TOUR.flight).toBeGreaterThanOrEqual(1.5);
+    expect(TOUR.maxFlight).toBeLessThanOrEqual(2.25);
+  });
+
+  it('the rest eases in from still, then moves steadily to its end; each rest drifts another way', () => {
+    expect(restProgress(0)).toBe(0);
+    expect(restProgress(1)).toBeCloseTo(1);
+    expect(restProgress(0.01)).toBeLessThan(0.001);                              // no jolt as the flight lands
+    const step = (t: number) => restProgress(t + 0.01) - restProgress(t);
+    for (const t of [0.3, 0.5, 0.7, 0.98]) expect(step(t)).toBeCloseTo(step(0.25), 6);   // steady, right to the end
+    for (let n = 0; n < 12; n++) {
+      const turn = Math.abs(Math.cos(driftAngle(n)) * Math.cos(driftAngle(n + 1)) + Math.sin(driftAngle(n)) * Math.sin(driftAngle(n + 1)));
+      expect(turn).toBeLessThan(0.8);
+    }
   });
 });
 
