@@ -123,7 +123,7 @@ const AIR_GAME = {
 // The rail props (art/clay-set/rail.html, the owner's picks): the Victorian stations, scaled so the base spans its footprint's width.
 // The straight ones and the subway entrance come from the template sheet (raw-rail/tpl-stations.png → victorian-straight.png).
 const RAIL_GAME = {
-  'victorian-straight-3': ['subway-entrance', 128 / 223],
+  // (The subway entrance, victorian-straight-3, was replaced by the station house baked by subway-station.mjs.)
   // The resized stations (owner's S2 and C1, art/clay-set/station.html), from raw-rail/tpl-stations2.png at 300 px a tile:
   // the island platform both ways, and the corner house with the curve round its south and east, or its north and east.
   'stations2-1': ['island-v', 0.43], 'stations2-2': ['island-h', 0.43], 'stations2-3': ['corner-se', 0.43], 'stations2-4': ['corner-ne', 0.43],

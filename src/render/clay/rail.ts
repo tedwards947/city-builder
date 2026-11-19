@@ -134,9 +134,6 @@ export function railArtReady(): boolean {
   return Object.values(s).every(l => l.img.complete && l.img.naturalWidth > 0);
 }
 
-// The soil band's height at the front of the subway entrance's baked picture (measured: public/sprites/clay/rail, image px).
-const SOIL: Record<string, number> = { 'subway-entrance': 13 };
-
 // ── Stations (owner's picks S2 and C1 in art/clay-set/station.html) ──
 // A straight station is three tiles in a row, all platform: the two tracks spread apart inside it round an island
 // platform with the station house in the middle (painted: island-h, island-v). A curved one is 2×2: the house fills
@@ -426,15 +423,47 @@ export function drawSubwayLayer(ctx: Ctx, world: World, sx: number, sy: number, 
   }
 }
 
-/** The N2 globe-lamp subway entrance on its tile at screen (px, py). */
+/**
+ * The subway station on its tile at screen (px, py) (owner's A1, art/clay-set/subway-station.mjs): a small brick
+ * station house at the back of a paved lot (painted), and in front of it, drawn in code in the lot props' two-tone
+ * clay, a globe lamp, two planters by the door, a bench and the "M" sign that says it is the subway.
+ */
 export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number): void {
-  const s = load()['subway-entrance'], m = RAIL_SPRITES['subway-entrance'];
+  const s = load()['subway-station'], m = RAIL_SPRITES['subway-station'];
   if (!s || !m || !s.img.complete || !s.img.naturalWidth) return;
-  // Drawn at 0.6 of the tile on paving that fills it (owner: the full-tile entrance was far too big).
-  const S = 0.6, q = S * T / (m.right - m.left), front = m.footY - (SOIL['subway-entrance'] ?? 0);
-  ctx.save(); ctx.fillStyle = '#d9d6cf'; ctx.fillRect(px, py, T, T);
-  ctx.beginPath(); ctx.rect(px, py - T, T, 2 * T); ctx.clip();   // flush with the ground, as the stations
-  ctx.drawImage(s.img, px + (1 - S) / 2 * T - m.left * q, py + (1 - (1 - S) / 2) * T - front * q, m.w * q, m.h * q);
+  const q = T / (m.right - m.left);
+  ctx.drawImage(s.img, px - m.left * q, py + T - m.footY * q, m.w * q, m.h * q);
+  if (T < 10) return;
+  const X = (u: number): number => px + u * T, Y = (v: number): number => py + v * T;
+  const ell = (u: number, v: number, rx: number, ry: number): void => { ctx.beginPath(); ctx.ellipse(X(u), Y(v), rx * T, ry * T, 0, 0, Math.PI * 2); ctx.fill(); };
+  const box = (u: number, v: number, w: number, h: number, r: number): void => { ctx.beginPath(); ctx.roundRect(X(u), Y(v), w * T, h * T, r * T); ctx.fill(); };
+  ctx.save();
+  // A bench beside the house, along its east wall.
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; box(0.84, 0.2, 0.08, 0.22, 0.02);
+  ctx.fillStyle = '#6d4630'; box(0.82, 0.18, 0.08, 0.22, 0.02);
+  ctx.fillStyle = '#a5714c'; box(0.83, 0.19, 0.05, 0.2, 0.015);
+  // Two planters either side of the door.
+  for (const u of [0.2, 0.62]) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ell(u + 0.02, 0.9, 0.06, 0.03);
+    ctx.fillStyle = '#8a4f33'; ell(u, 0.875, 0.055, 0.04);
+    ctx.fillStyle = '#b86d45'; ell(u, 0.86, 0.055, 0.036);
+    ctx.fillStyle = '#2f7d3a'; ell(u, 0.83, 0.045, 0.045);
+    ctx.fillStyle = '#4b9d47'; ell(u - 0.01, 0.82, 0.03, 0.03);
+  }
+  // A globe lamp at the front left, and the M sign on its post at the front right.
+  const post = (u: number, base: number, top: number): void => {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(u + 0.03, base + 0.01, 0.04, 0.015);
+    ctx.fillStyle = '#353b43'; ctx.fillRect(X(u) - Math.max(1, 0.03 * T) / 2, Y(top), Math.max(1, 0.03 * T), (base - top) * T);
+  };
+  post(0.07, 0.95, 0.68);
+  ctx.fillStyle = '#d8d2c2'; ell(0.07, 0.66, 0.04, 0.04);
+  ctx.fillStyle = '#fbf6e6'; ell(0.062, 0.652, 0.025, 0.025);
+  post(0.88, 0.96, 0.62);
+  ctx.fillStyle = '#183f73'; box(0.795, 0.52, 0.17, 0.16, 0.035);
+  ctx.fillStyle = '#2366b8'; box(0.795, 0.51, 0.17, 0.15, 0.035);
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `800 ${Math.round(0.13 * T)}px Archivo, "Helvetica Neue", Arial, sans-serif`;
+  ctx.fillText('M', X(0.88), Y(0.59));
   ctx.restore();
 }
 
