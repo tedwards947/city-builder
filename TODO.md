@@ -113,10 +113,11 @@ Done and merged:
 
 Approved by the owner (2026-11-19, proposals in #305):
 - Rail leftovers: ENGINE builds track nuisance and the station growth bonus with the RAIL_DESIGN.md numbers in rail phase 2.
-- Rail phase 2 prices: elevated 1,200 a tile (3×), subway 10,000 (25×), subway upkeep 2 (4×). Targets rail.subwayCost and rail.elevatedCost added; rail suite 26/26 after ENGINE's #310 (this PR).
+- Rail phase 2 prices: elevated 1,200 a tile (3×), subway 10,000 (25×), subway upkeep 2 (4×). Targets rail.subwayCost and rail.elevatedCost added; rail suite 26/26 after ENGINE's #310 (#314).
+- Rail phase 2 placeholders shipped as numbers (owner, 2026-11-19): elevated upkeep 1.5, subway station 60,000 / 40, ramps 5,000 / 5 and 15,000 / 10, `rampTime` 1. Targets rail.nuisance (testcity1 0.11 bars, elevated 1.5×; the gens are n/a, with no free run beside homes) and rail.stationGrowth (18–22% sooner) (this PR).
 
 Next:
-1. Owner: elevated upkeep 1.5, subway station 60,000 / 40, ramps 5,000 / 5 and 15,000 / 10, `rail.rampTime` 1 (RAIL_DESIGN.md, "Phase 2 numbers").
+1. Nothing queued.
 
 ## DESIGN
 

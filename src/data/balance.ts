@@ -76,9 +76,9 @@ export const BALANCE = {
     14: { cost: 30000, maintenance: 25 }, // BUILDING_STATION (straight, 4×3)
     15: { cost: 30000, maintenance: 25 }, // BUILDING_STATION_L (elbow, 3×3)
     // Rail phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's starting numbers).
-    16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1)
-    17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1)
-    18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost)
+    16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
+    17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
+    18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost) Owner-approved 2026-11-19.
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.
@@ -314,9 +314,9 @@ export const BALANCE = {
     // Ground track on water costs times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
     track: {
       1: { cost: 400, maintenance: 0.5 },   // ground (owner 2026-11-18; a highway is 150 / 0.35)
-      // Owner-approved 2026-11-19 (RAIL_DESIGN.md): elevated 3× ground to build; subway 25× to
-      // build but only 4× to keep up (at 25× a 60-tile line would eat a 10k city's whole surplus).
-      // Elevated upkeep 1.5 (3×) is still a placeholder, proposed to the owner.
+      // Owner-approved 2026-11-19 (RAIL_DESIGN.md): elevated 3× ground to build and to keep up;
+      // subway 25× to build but only 4× to keep up (at 25× a 60-tile line would eat a 10k city's
+      // whole surplus).
       2: { cost: 1200, maintenance: 1.5 },    // elevated
       4: { cost: 10000, maintenance: 2 },     // subway
     } as Record<number, { cost: number; maintenance: number }>,
@@ -334,7 +334,7 @@ export const BALANCE = {
     // can lose to a slower second line or to the road. delay 0 = no jam.
     jam: { from: 1, delay: 4, power: 1 },
     boardTime: 2,          // getting on at a station, and again getting off
-    rampTime: 1,           // passing a ramp between ground and elevated or subway track (placeholder)
+    rampTime: 1,           // passing a ramp between ground and elevated or subway track: two ramps ≈ one busy level crossing (owner 2026-11-19)
     // Homes and shops (not industry) within `radius` tiles (manhattan) of a station that has a
     // road and riders grow `mult` times as fast (owner-approved, RAIL_DESIGN.md 2026-11-19).
     // Kept small: rail already gives a suburb its job access. mult 1 = off.

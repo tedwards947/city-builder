@@ -433,7 +433,7 @@ export function runLab(o: LabOptions): Report {
         } else {
           const r = railResult(loadCity(city));
           report.railRuns[id][city.id] = r;
-          log(`rail ${id} ${city.id}: access ${r.suburbAccess ?? '-'}/${r.cityAccess ?? '-'} (street ${r.streetAccess ?? '-'}), levels ${r.railLevels ?? '-'} vs ${r.streetLevels ?? '-'}, lines ${r.oneLine ?? '-'}→${r.twoLines ?? '-'}, pays ${r.pays ?? '-'}${r.note ? ` (${r.note})` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          log(`rail ${id} ${city.id}: access ${r.suburbAccess ?? '-'}/${r.cityAccess ?? '-'} (street ${r.streetAccess ?? '-'}), levels ${r.railLevels ?? '-'} vs ${r.streetLevels ?? '-'}, lines ${r.oneLine ?? '-'}→${r.twoLines ?? '-'}, pays ${r.pays ?? '-'}, nuisance ${r.nuisance?.groundBars ?? '-'} bars (${r.nuisance?.homes ?? 0} homes), station growth ${r.stationGrowth?.sooner ?? '-'}${r.note ? ` (${r.note})` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
           grade('rail', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, rail: r });
         }
       }
