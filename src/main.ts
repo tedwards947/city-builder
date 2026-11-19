@@ -66,6 +66,10 @@ import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
 import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
+import { TitleScreen } from './ui/TitleScreen';
+import { CameraTour } from './title/CameraTour';
+import { findTourSpots } from './title/tourSpots';
+import { SHOWCASE_PATH, markTitleSeen, titleDue, wantTitle } from './title/launch';
 import { BALANCE } from './data/balance';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
@@ -172,7 +176,49 @@ function syncSpeedButtons(): void {
     b.classList.toggle('active', parseInt(b.dataset.speed ?? '0', 10) === speed));
 }
 
-function startGame(world: World): void {
+// ── Title screen ──────────────────────────────────────────────────────────────
+// Shown on the first launch of each day (title/launch.ts): the game's name and
+// Continue / New city / Load over a live showcase city, the camera touring its
+// busy spots (title/tourSpots.ts, title/CameraTour.ts). The city behind is NOT
+// the player's: nothing autosaves while the title is up.
+
+const titleStore = ((): Storage | null => { try { return window.localStorage; } catch { return null; } })();
+/** The zoom a game opens at (the camera's own default). */
+const PLAY_ZOOM = camera.zoom;
+/** Whether the title screen is up. */
+let titleUp = wantTitle({
+  param: new URLSearchParams(location.search).get('title'),
+  tooling: DEBUG || navigator.webdriver === true,
+  due: titleDue(titleStore, new Date()),
+});
+/** The player's own city, loaded and held while the title shows (null: there is none). */
+let savedWorld: World | null = null;
+const tour = new CameraTour(camera, () => findTourSpots(state.world));
+const titleScreen = new TitleScreen({
+  onContinue: () => {
+    if (!savedWorld) return;
+    // With no showcase the title sits over the player's own city, paused: just carry on in it.
+    if (state.world === savedWorld) { closeTitle(); setSpeed(1); }
+    else startGame(savedWorld);
+  },
+  onNew: () => newGameDialog.show(),
+  onLoad: () => saveLoadPanel.showLoad(),
+  onTouch: () => tour.stop(),
+});
+if (titleUp) {
+  titleScreen.show();           // at once: the city loads behind it
+  markTitleSeen(titleStore, new Date());
+}
+function closeTitle(): void {
+  titleUp = false;
+  tour.stop();
+  titleScreen.hide();
+  camera.zoom = PLAY_ZOOM;      // the tour leaves the zoom wherever it was
+}
+
+/** Start playing `world`. `behindTitle`: it is only the backdrop of the title screen, which stays up. */
+function startGame(world: World, behindTitle = false): void {
+  if (titleUp && !behindTitle) closeTitle();
   state.world     = world;
   state.history   = new CommandHistory(world);
   // Systems carry per-game state, so every new or loaded world gets a fresh set.
@@ -207,7 +253,8 @@ const newGameDialog = new NewGameDialog((opts) => {
 // Start with the default world so everything below has a world to point at.
 // If an autosave exists it replaces this as soon as it has loaded (see the
 // bottom of this file); the frame loop does not start until then.
-startGame(new World(256, 256, 42, { vegAmount: 'low' }));
+// (`true`: if the title screen is up, it stays up.)
+startGame(new World(256, 256, 42, { vegAmount: 'low' }), true);
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -425,6 +472,8 @@ window.addEventListener('keydown', (e) => {
   if (isTypingTarget(e.target)) return;
   // Game over: the card takes the pointer; hotkeys do nothing either.
   if (debtUi.blocking) return;
+  // The title screen is up: the city behind it is not for playing.
+  if (titleUp) return;
 
   const key = e.key.toLowerCase();
 
@@ -548,7 +597,8 @@ function frame(now: number): void {
   state.scheduler.update(now);
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
-  autosave.tick(now, state.scheduler.speed === 0);
+  if (titleUp) tour.update(now);
+  else autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
@@ -723,15 +773,50 @@ function frame(now: number): void {
 // whenever the tab is hidden or closed.
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') void autosave.saveNow();
+  if (document.visibilityState === 'hidden' && !titleUp) void autosave.saveNow();
 });
-window.addEventListener('pagehide', () => { void autosave.saveNow(); });
+window.addEventListener('pagehide', () => { if (!titleUp) void autosave.saveNow(); });
 
-// Resume the autosaved city if there is one, then start the frame loop.
-manager.loadGame(AUTOSAVE_SLOT)
-  .then(world => { if (world) startGame(world); })
-  .catch(err => console.warn('Could not load autosave:', err))
-  .finally(() => requestAnimationFrame(frame));
+/** The showcase city for the title screen, or null if the site has none (or it will not load). */
+async function loadShowcase(): Promise<World | null> {
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + SHOWCASE_PATH);
+    if (!res.ok) return null;
+    return manager.importGame(await res.text());
+  } catch (err) {
+    console.warn('No showcase city for the title screen:', err);
+    return null;
+  }
+}
+
+// Resume the autosaved city if there is one; or, on the first launch of the
+// day, put the showcase city behind the title screen and hold the player's
+// city for Continue. Then start the frame loop.
+async function boot(): Promise<void> {
+  let saved: World | null = null;
+  try {
+    saved = await manager.loadGame(AUTOSAVE_SLOT);
+  } catch (err) {
+    console.warn('Could not load autosave:', err);
+  }
+  if (!titleUp) {
+    if (saved) startGame(saved);
+    return;
+  }
+  savedWorld = saved;
+  const showcase = await loadShowcase();
+  if (showcase) {
+    startGame(showcase, true);
+  } else {
+    // No showcase: tour the player's own city instead (or the empty default map), PAUSED,
+    // so that nothing happens to it while nobody is playing.
+    if (saved) startGame(saved, true);
+    setSpeed(0);
+  }
+  tour.start(performance.now());
+  titleScreen.ready(saved !== null);
+}
+void boot().finally(() => requestAnimationFrame(frame));
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 

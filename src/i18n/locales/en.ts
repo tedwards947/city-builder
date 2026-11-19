@@ -434,6 +434,14 @@ export const en: TranslationSchema = {
       portReconnected: "✓ Reconnects the seaport: trade starts again",
       pumpDry: "⚠ Leaves a water pump dry: it stops working",
     },
+    title: {
+      name: "City Builder",
+      tagline: "Build a town. Keep it moving.",
+      continue: "Continue",
+      newCity: "New city",
+      load: "Load",
+      loading: "Loading…",
+    },
     roadMode: {
       manual: "Manual",
       auto: "Auto",
