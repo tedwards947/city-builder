@@ -55,8 +55,12 @@ Stations have a road door (car traffic in and out) and track at the platform end
 - **ENGINEER 3:** propose numbers (track cost per level, station cost and upkeep, fare, rail speed, boarding time, track capacity, junction penalties, nuisance radius and PC, station growth bonus) and lab targets, including "a suburb that's only reachable by rail grows".
 - **Sound:** once a rail network runs in the game, a few ambient rail options for the owner to review.
 
-## Open questions (for the reviewers)
-1. Can elevated track pass over buildings, or only over roads and empty land?
-2. Can a subway tunnel run under water? Can ground track cross water on a bridge?
-3. Do transfers between lines cost time, and do heavy-rail and subway trains differ in speed or capacity?
-4. Where does the door go on an L-shaped station?
+## Decisions after engine's review (owner, 2026-11-18)
+- **Elevated track** runs over roads, empty land, water and ground track, never over buildings.
+- **Water:** subway may run under water; ground track crosses water on bridges.
+- **Transfers:** none. A rider boards once; junction penalties do the job. Heavy rail and subway have the same speed and capacity at first.
+- **Station doors:** any street or avenue touching a non-track side connects the station (no single door tile).
+- **No walking:** both ends of a rail trip need a road; a station without one warns.
+- **Level crossings** are allowed on streets and avenues; the slowdown grows with the other side's traffic.
+- **Later than phase 1:** PC nuisance for track and the station growth bonus.
+- **Phase 1 = four engine PRs:** track layer and tool → stations → rail traffic → tests and lab hooks. Numbers live in `BALANCE.rail`.
