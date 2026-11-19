@@ -21,6 +21,7 @@ import { VibeSystem } from './systems/VibeSystem';
 import { PoliticsSystem } from './systems/PoliticsSystem';
 import { OrdinanceSystem } from './systems/OrdinanceSystem';
 import { RequestSystem } from './systems/RequestSystem';
+import { TutorialSystem } from '../tutorial/TutorialSystem';
 
 export interface SimSystems {
   /** Every system, in tick order. */
@@ -57,6 +58,7 @@ export function createSystems(): SimSystems {
       new PoliticsSystem(),
       new OrdinanceSystem(),
       new RequestSystem(),
+      new TutorialSystem(),
     ],
   };
 }

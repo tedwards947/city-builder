@@ -36,6 +36,7 @@ export function serialize(world: World): WorldSnapshot {
     },
     buildings: world.buildings.map(b => ({ ...b })),
     ...(world.markers.length > 0 ? { markers: world.markers.map(m => ({ ...m })) } : {}),
+    ...(world.tutorial ? { tutorial: { ...world.tutorial } } : {}),
     layers: {
       terrain:   new Uint8Array(l.terrain),
       zone:      new Uint8Array(l.zone),
@@ -97,6 +98,10 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
   world.markers = cleanMarkers(snapshot.markers, snapshot.width, snapshot.height);
+  const tut = snapshot.tutorial;
+  if (tut && Number.isInteger(tut.step) && tut.step >= 0) {
+    world.tutorial = { step: tut.step, ...(Number.isInteger(tut.request) ? { request: tut.request } : {}) };
+  }
   world.loadNotes = { ...snapshot.upgradeNotes };
 
   // Overwrite every layer in-place so array references inside world stay valid.

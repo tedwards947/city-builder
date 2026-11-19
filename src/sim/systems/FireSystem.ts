@@ -128,8 +128,8 @@ export class FireSystem {
         continue;
       }
 
-      // 4. Ignition
-      if (z !== ZONE_NONE && level > 0) {
+      // 4. Ignition (never in the tutorial city: tutorial/rules.ts)
+      if (z !== ZONE_NONE && level > 0 && !world.tutorial) {
         const ignitionProb = b.baseProbability * (fireRisk[i] / 20);
         if (world.rng() < ignitionProb) {
           const itx = i % width;

@@ -13,6 +13,7 @@
     "bench": "node scripts/bench.mjs",
     "gen-city": "node scripts/gen-city.mjs",
     "gen-showcase": "node scripts/gen-showcase.mjs",
+    "gen-tutorial": "node scripts/gen-tutorial.mjs",
     "balance": "node scripts/balance.mjs",
     "balance:tune": "node scripts/balance-tune.mjs",
     "balance:svc": "node scripts/balance-svc.mjs",

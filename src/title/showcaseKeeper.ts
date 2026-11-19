@@ -18,6 +18,14 @@ export const KEEP = {
   restartBelow: 0.9,
 };
 
+/** Political capital at least full, and no trace of debt. Shared with the tutorial city (tutorial/rules.ts). */
+export function keepSolvent(world: World): void {
+  const b = world.budget;
+  b.politicalCapital = Math.max(b.politicalCapital, pcCap(world));
+  b.debtOverTicks = 0;
+  b.gameOver = false;
+}
+
 export class ShowcaseKeeper {
   private readonly money: number;
   private readonly population: number;
@@ -30,11 +38,8 @@ export class ShowcaseKeeper {
 
   /** Freeze the funds and clear every trace of debt. Call every frame while the title is up. */
   hold(world: World): void {
-    const b = world.budget;
-    b.money = this.money;
-    b.politicalCapital = Math.max(b.politicalCapital, pcCap(world));
-    b.debtOverTicks = 0;
-    b.gameOver = false;
+    world.budget.money = this.money;
+    keepSolvent(world);
   }
 
   /** The city has shrunk too far: time to start it again from its save. */
