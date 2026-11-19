@@ -19,9 +19,9 @@ beforeEach(() => { w = landWorld(); w.budget.money = 1000; });
 afterEach(() => { C.tree = 0; C.treeClear = 0; });
 
 describe('planting trees', () => {
-  it('ships free', () => {
-    expect(BALANCE.costs.tree).toBe(0);
-    expect(BALANCE.costs.treeClear).toBe(0);
+  it('ships at the lab-tuned prices (owner 2026-11-19): 200 a tree, 5 to clear one', () => {
+    expect(BALANCE.costs.tree).toBe(200);
+    expect(BALANCE.costs.treeClear).toBe(5);
   });
 
   it('plants on open land and sand; skips water, roads, buildings, zones and the same species', () => {

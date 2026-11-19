@@ -10,6 +10,7 @@ import { SVC_PRESETS, applySvcPreset, svcResult, addSvcPcProbes, type SvcPreset,
 import { TRADE_PRESETS, applyTradeValues, tradeResult, type TradePreset, type TradeResult } from './trade';
 import { airportResult, type AirportResult } from './airport';
 import { railResult, railFresh, type RailResult, type RailFresh } from './rail';
+import { landscapeResult, treeBufferResult, type LandscapeResult } from './landscape';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
@@ -145,6 +146,10 @@ export interface Report {
   railSummary: Record<string, Summary>;
   railBest: Best | null;
   railRuns: Record<string, Record<string, RailResult | RailFresh>>;
+  /** Landscape suite: the shipped numbers only (key 'shipped'); fresh maps hold the tree-belt probe. */
+  landscapeSummary: Record<string, Summary>;
+  landscapeBest: Best | null;
+  landscapeRuns: Record<string, Record<string, LandscapeResult | { treeBuffer: number | null }>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -224,7 +229,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -238,6 +243,7 @@ export function runLab(o: LabOptions): Report {
   const taxDebtIds = suites.includes('taxdebt') ? (o.taxDebtPresets ?? TAXDEBT_PRESETS.map(p => p.id)) : [];
   const airportIds = suites.includes('airport') ? ['shipped'] : [];
   const railIds = suites.includes('rail') ? ['shipped'] : [];
+  const landscapeIds = suites.includes('landscape') ? ['shipped'] : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -247,7 +253,7 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands; "taxdebt" targets per debt-drain / tax-level preset (results[preset][city]), the real-money Planner at several tax levels plus debt probes under the tuned PC numbers; "airport" targets under the shipped numbers (results.shipped[city]), the airport built on each saved city against a twin without it; "rail" targets under the shipped numbers (results.shipped[city]), a suburb joined to each saved city by a long street and one line against a street-only twin, and a real-money Planner\'s bank on fresh maps. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands; "taxdebt" targets per debt-drain / tax-level preset (results[preset][city]), the real-money Planner at several tax levels plus debt probes under the tuned PC numbers; "airport" targets under the shipped numbers (results.shipped[city]), the airport built on each saved city against a twin without it; "rail" targets under the shipped numbers (results.shipped[city]), a suburb joined to each saved city by a long street and one line against a street-only twin, and a real-money Planner\'s bank on fresh maps; "landscape" targets under the shipped numbers (results.shipped[city]), tree, green-vibe and water probes on each saved city, and a tree-belt probe on a made-up map graded on fresh maps. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
     options: { suites, variants, econPresets: presets, svcPresets: svcIds, tradePresets: tradeIds, taxDebtPresets: taxDebtIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
@@ -278,6 +284,9 @@ export function runLab(o: LabOptions): Report {
     railSummary: {},
     railBest: null,
     railRuns: {},
+    landscapeSummary: {},
+    landscapeBest: null,
+    landscapeRuns: {},
     taxDebtRuns: {},
     runs: {},
     probes: {},
@@ -429,6 +438,27 @@ export function runLab(o: LabOptions): Report {
         }
       }
     }
+    // ── Landscape suite: tree, vibe and water probes on each saved city; the tree belt on fresh maps ──
+    for (const id of landscapeIds) {
+      applyValues(BALANCE.politicalCapital as never, shippedPc);
+      report.landscapeRuns[id] = {};
+      let buffer: number | null | undefined;
+      for (const city of o.cities) {
+        if (city.kind !== 'fresh' && popOf(city) > pcMaxPop) continue;
+        const t0 = Date.now();
+        if (city.kind === 'fresh') {
+          if (buffer === undefined) buffer = treeBufferResult();
+          report.landscapeRuns[id][city.id] = { treeBuffer: buffer };
+          log(`landscape ${id} ${city.id}: tree belt ${buffer ?? '-'} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          grade('landscape', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, treeBuffer: buffer });
+        } else {
+          const l = landscapeResult(loadCity(city));
+          report.landscapeRuns[id][city.id] = l;
+          log(`landscape ${id} ${city.id}: tree home +${l.treeHome ?? '-'}, payback ${l.payback.days ?? '-'} days (${l.payback.homes} homes), shock ${l.shock ?? '-'}, spam ${l.spam.gain ?? '-'} / ${l.spam.priceDays ?? '-'} days, green ${l.green.parks ?? '-'} parks, canal ${l.canalDays ?? '-'} days, reclaim ${l.reclaimShare ?? '-'}${l.note ? ` (${l.note})` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          grade('landscape', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, landscape: l });
+        }
+      }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -461,6 +491,7 @@ export function runLab(o: LabOptions): Report {
   report.taxDebtBest = summarize('taxdebt', taxDebtIds, report.taxDebtSummary);
   report.airportBest = summarize('airport', airportIds, report.airportSummary);
   report.railBest = summarize('rail', railIds, report.railSummary);
+  report.landscapeBest = summarize('landscape', landscapeIds, report.landscapeSummary);
   return report;
 }
 

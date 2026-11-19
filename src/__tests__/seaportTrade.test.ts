@@ -356,6 +356,7 @@ describe('a port cut off from the sea', () => {
     const fill: number[] = [];
     for (let y = 0; y <= 9; y++) for (let x = 0; x < 32; x++) if (!(y >= 8 && x >= 9 && x <= 15)) fill.push(idx(x, y));
     expect(waterQuote(w, fill, false)).toMatchObject({ portsCutOff: [anchor], portsReconnected: [] });
+    w.budget.money = 1e9;                                   // the fill is big; its price isn't what this tests
     const cut = new EditWaterCommand(fill, false);
     expect(cut.execute(w)).toBe(true);
     const t = traffic();
@@ -385,6 +386,7 @@ describe('a port cut off from the sea', () => {
     const fill: number[] = [];
     for (let y = 0; y <= 7; y++) for (let x = 0; x < 32; x++) fill.push(idx(x, y));
     for (const y of [8, 9]) { fill.push(idx(0, y)); fill.push(idx(31, y)); }
+    w.budget.money = 1e9;                                   // the fill is big; its price isn't what this tests
     const cut = new EditWaterCommand(fill, false);
     expect(cut.execute(w)).toBe(true);
     traffic();
