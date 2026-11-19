@@ -308,30 +308,44 @@ export function drawSubwayRampShade(ctx: Ctx, rot: number, L: number, Tp: number
   ctx.restore();
 }
 
-// Elevated ramps: drawn from colour-blocked templates (art/clay-set/raw-rail/tpl-*-r5.png, 160 px a tile).
-// Each picture's footprint (its ground rectangle) on the raw sheet, top-left, in raw px.
-const RAMP_FOOT: Record<string, [number, number]> = {
-  'ramp-ew': [70, 180], 'ramp-ns-away': [560, 90], 'ramp-ns-toward': [980, 90],
-};
+// ── The elevated ramp (owner's E3 in art/clay-set/ramps.html): a solid pale-concrete ramp drawn in code, rising
+// DECK_HEIGHT under the game's own track to the steel deck, with its side face showing on east–west ramps and thin
+// kerbs along both edges, as the subway ramp's. ──
+const RAMP_C = { top: '#c9c4ba', face: '#9e9990', joint: 'rgba(60,56,50,0.35)', bed: '#9d998f' };
 /**
- * The picture for an elevated ramp at a rotation: at rot 0 the ground end is west and the high (or deep) end east;
- * each turn is a quarter clockwise (sim/buildingShapes.ts), so rot 1 runs north → south (toward us),
- * rot 2 east → west (the east–west picture mirrored), rot 3 south → north (away from us).
+ * An elevated ramp (or, `subway`, a subway ramp: drawSubwayRamp) whose footprint's top-left corner is at screen
+ * (L, Tp), T pixels a tile. At rot 0 the ground end is west and the high end east; each turn is a quarter clockwise
+ * (sim/buildingShapes.ts), so rot 1 rises to the south, rot 2 to the west, rot 3 to the north. The caller then draws
+ * the track (drawRampTrack).
  */
-export function rampArt(rot: number): { name: string; flip: boolean } {
-  const p = 'ramp', r = rot & 3;
-  return r === 0 ? { name: `${p}-ew`, flip: false } : r === 1 ? { name: `${p}-ns-toward`, flip: false } : r === 2 ? { name: `${p}-ew`, flip: true } : { name: `${p}-ns-away`, flip: false };
-}
-/** A ramp whose footprint's top-left corner is at screen (L, Tp), T pixels a tile (a subway ramp: drawSubwayRamp). */
 export function drawRamp(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
   if (subway) { drawSubwayRamp(ctx, rot, L, Tp, T); return; }
-  const art = rampArt(rot), s = load()[art.name], m = RAIL_SPRITES[art.name], foot = RAMP_FOOT[art.name];
-  if (!s || !m || !foot || !s.img.complete || !s.img.naturalWidth) return;
-  const q = T / 128, fx = foot[0] * m.k - (m.sheetX ?? 0), fy = foot[1] * m.k - (m.sheetY ?? 0);   // the footprint's corner in the image
-  const ew = art.name.endsWith('-ew'), w = ew ? 2 : 1;
-  ctx.save();
-  if (art.flip) { ctx.translate(2 * (L + w * T / 2), 0); ctx.scale(-1, 1); }
-  ctx.drawImage(s.img, L - fx * q, Tp - fy * q, m.w * q, m.h * q);
+  const r = rot & 3, H = DECK_HEIGHT, X = (x: number): number => L + x * T, Y = (y: number): number => Tp + y * T;
+  const poly = (pts: [number, number][]): void => { ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.closePath(); ctx.fill(); };
+  ctx.save(); ctx.lineCap = 'butt';
+  if (r % 2 === 0) {
+    // East–west: g is the ground end's x, h the high end's.
+    const g = r === 0 ? 0 : 2, h = 2 - g;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; poly([[g, 0.95], [h, 0.95], [h + (h > g ? 1 : -1) * H * 0.3, 0.95 + H * 0.2]]);
+    ctx.fillStyle = RAMP_C.face; poly([[g, 0.95], [h, 0.95 - H], [h, 0.95]]);
+    ctx.strokeStyle = RAMP_C.joint; ctx.lineWidth = 1; ctx.beginPath();
+    for (const f of [0.25, 0.5, 0.75]) { const x = g + (h - g) * f; ctx.moveTo(X(x), Y(0.95)); ctx.lineTo(X(x), Y(0.95 - H * f)); }
+    ctx.stroke();
+    ctx.fillStyle = RAMP_C.top; poly([[g, 0.05], [h, 0.05 - H], [h, 0.95 - H], [g, 0.95]]);
+    ctx.strokeStyle = RAMP_C.bed; ctx.lineWidth = T * 0.8; ctx.beginPath(); ctx.moveTo(X(g), Y(0.5)); ctx.lineTo(X(h), Y(0.5 - H)); ctx.stroke();
+    ctx.strokeStyle = KERB; ctx.lineWidth = Math.max(1, 0.05 * T); ctx.beginPath();
+    for (const e of [0.05, 0.95]) { ctx.moveTo(X(g), Y(e)); ctx.lineTo(X(h), Y(e - H)); }
+    ctx.stroke();
+  } else {
+    // North–south: only the top shows (the sides face east and west), stretched by the rise at the high end.
+    const y0 = r === 1 ? 0 : -H, y1 = r === 1 ? 2 - H : 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(X(0.95), Y(r === 1 ? 1 : 0), H * 0.3 * T, T);
+    ctx.fillStyle = RAMP_C.top; ctx.fillRect(X(0.05), Y(y0), 0.9 * T, (y1 - y0) * T);
+    ctx.fillStyle = RAMP_C.bed; ctx.fillRect(X(0.1), Y(y0), 0.8 * T, (y1 - y0) * T);
+    ctx.strokeStyle = KERB; ctx.lineWidth = Math.max(1, 0.05 * T); ctx.beginPath();
+    for (const e of [0.05, 0.95]) { ctx.moveTo(X(e), Y(y0)); ctx.lineTo(X(e), Y(y1)); }
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
