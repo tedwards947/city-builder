@@ -13,7 +13,10 @@
 // open water (see World.checkPlacement), 'frontage' stands on land and is
 // where the building meets the road: a kind with frontage tiles is entered
 // only from roads beside those (World.buildingAccessRoads). Every tile is
-// 'body' unless the shape says otherwise.
+// 'body' unless the shape says otherwise. 'platform' stands on land and
+// carries rail track (a train station's platform): it may be placed over
+// ground track already there, track joins it at its two ends (sim/rail.ts),
+// and roads beside it do not reach the building.
 //
 // A building can be ROTATED in quarter turns clockwise about its anchor
 // (0–3), so a seaport can face water on any side. The rotation is saved on
@@ -22,13 +25,13 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, TERRAIN_WATER } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
 
-/** What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road. */
-export type PartRole = 'body' | 'dock' | 'frontage';
+/** What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road, 'platform' on land with rail track through it. */
+export type PartRole = 'body' | 'dock' | 'frontage' | 'platform';
 
 const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
 const ONE_BODY: readonly PartRole[] = ['body'];
@@ -37,6 +40,7 @@ const RULES = new Map<number, PlacementRules>();
 const SHAPES = new Map<number, readonly ShapeOffset[]>();
 const ROLES = new Map<number, readonly PartRole[]>();
 const DOCKED = new Set<number>();
+const PLATFORMED = new Set<number>();
 // Each kind's shape at rotations 1–3, worked out when first asked for.
 const ROTATED = new Map<number, (readonly ShapeOffset[])[]>();
 
@@ -75,6 +79,28 @@ export function hasDocks(kind: number): boolean {
   return DOCKED.has(kind);
 }
 
+/** Whether any tile of `kind` is a platform (carries rail track): a train station. */
+export function hasPlatforms(kind: number): boolean {
+  return PLATFORMED.has(kind);
+}
+
+/**
+ * Where track joins a `kind` building turned `rot`: for each end of its
+ * platform (a platform tile with one platform neighbour), the offset of the
+ * tile just outside it, straight on. Empty for a kind with no platform.
+ */
+export function platformEnds(kind: number, rot = 0): ShapeOffset[] {
+  if (!PLATFORMED.has(kind)) return [];
+  const shape = buildingShape(kind, rot), roles = shapeRoles(kind);
+  const platform = shape.filter((_, k) => roles[k] === 'platform');
+  const out: ShapeOffset[] = [];
+  for (const [x, y] of platform) {
+    const beside = platform.filter(([px, py]) => Math.abs(px - x) + Math.abs(py - y) === 1);
+    if (beside.length === 1) out.push([2 * x - beside[0][0], 2 * y - beside[0][1]]);
+  }
+  return out;
+}
+
 /** Whether `kind` stands on more than one tile. */
 export function isLargeBuilding(kind: number): boolean {
   return buildingShape(kind).length > 1;
@@ -102,6 +128,7 @@ export function setBuildingShape(kind: number, shape: readonly ShapeOffset[], ro
   SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
   if (roles && roles.some((r) => r !== 'body')) ROLES.set(kind, [...roles]); else ROLES.delete(kind);
   if (roles && roles.includes('dock')) DOCKED.add(kind); else DOCKED.delete(kind);
+  if (roles && roles.includes('platform')) PLATFORMED.add(kind); else PLATFORMED.delete(kind);
   ROTATED.delete(kind);
 }
 
@@ -110,6 +137,7 @@ export function clearBuildingShape(kind: number): void {
   SHAPES.delete(kind);
   ROLES.delete(kind);
   DOCKED.delete(kind);
+  PLATFORMED.delete(kind);
   ROTATED.delete(kind);
 }
 
@@ -139,6 +167,18 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
 {
   const shape: ShapeOffset[] = [...block(12, 4), ...Array.from({ length: 18 }, (_, k): ShapeOffset => [k - 3, 4])];
   setBuildingShape(BUILDING_AIRPORT, shape, shape.map(([dx, dy]) => (dy === 0 && dx >= 2 && dx <= 9 ? 'frontage' : 'body')));
+}
+// The train stations (RAIL_DESIGN.md). Straight: a 4×3 block, anchor at its
+// top-left; at rotation 0 the building is the two north rows and the platform
+// the south row, with track joining at its west and east ends. Elbow: a 3×3
+// block with a 2×2 building in the north-west corner and the platform round
+// its south and east sides (five tiles), track joining from the west at the
+// south row and from the north at the east column. Both turn four ways.
+{
+  const straight = block(4, 3);
+  setBuildingShape(BUILDING_STATION, straight, straight.map(([, dy]) => (dy === 2 ? 'platform' : 'body')));
+  const elbow = block(3, 3);
+  setBuildingShape(BUILDING_STATION_L, elbow, elbow.map(([dx, dy]) => (dx === 2 || dy === 2 ? 'platform' : 'body')));
 }
 
 // ── Where a kind may stand ───────────────────────────────────────────────────

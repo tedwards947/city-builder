@@ -486,6 +486,7 @@ export const en: TranslationSchema = {
     largeSewagePlant: "Large Sewage Plant",
     seaport: "Seaport",
     airport: "Airport",
+    station: "Train Station",
     policeStation: "Police Station",
     fireStation: "Fire Station",
     school: "School",

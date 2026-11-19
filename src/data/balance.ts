@@ -66,6 +66,9 @@ export const BALANCE = {
     // surplus; upkeep 1,200 a day. Its passengers pay it back in about 2 game
     // years (transit.buildings[13]).
     13: { cost: 2000000, maintenance: 150 }, // BUILDING_AIRPORT
+    // Train stations (RAIL_DESIGN.md). Placeholders until the balance lab proposes them.
+    14: { cost: 8000, maintenance: 20 }, // BUILDING_STATION (straight, 4×3)
+    15: { cost: 8000, maintenance: 20 }, // BUILDING_STATION_L (elbow, 3×3)
   } as Record<number, { cost: number; maintenance: number }>,
   tax: {
     // Per developed level per sim tick.

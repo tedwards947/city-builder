@@ -552,9 +552,13 @@ export class World {
       }
       return { ok: blocked.length === 0 && notOpenWater.length === 0, offMap: false, blocked, noWater: false, notOpenWater };
     }
-    for (const i of tiles) {
+    const roles = shapeRoles(kind);
+    for (let k = 0; k < tiles.length; k++) {
+      const i = tiles[k];
       const x = i % width, y = (i - x) / width;
-      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || this.layers.rail[i] !== RAIL_NONE) blocked.push(i);
+      // A platform may stand on ground track that is already there; nothing else may stand on track.
+      const railFree = roles[k] === 'platform' ? (this.layers.rail[i] & ~RAIL_GROUND) === 0 : this.layers.rail[i] === RAIL_NONE;
+      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
     }
     let noWater = false;
     if (placementRules(kind).needsWaterEdge) {
@@ -595,8 +599,13 @@ export class World {
     const { width } = this.grid;
     const anchor = this.grid.idx(tx, ty);
     this.buildingRot[anchor] = rot;
-    for (const i of footprintTiles(width, this.grid.height, tx, ty, b, rot)!) {
+    const placed = footprintTiles(width, this.grid.height, tx, ty, b, rot)!;
+    const roles = shapeRoles(b);
+    for (let k = 0; k < placed.length; k++) {
+      const i = placed[k];
       if (this.layers.roadClass[i] !== ROAD_NONE) this.roadNetDirty = true;
+      // A platform carries track. (It stays as plain track if the building is cleared.)
+      if (roles[k] === 'platform') { this.layers.rail[i] |= RAIL_GROUND; this.railVersion++; }
       this.layers.building[i] = b;
       this.layers.zone[i] = ZONE_NONE;
       this.layers.roadClass[i] = ROAD_NONE;
@@ -670,15 +679,15 @@ export class World {
 
   /**
    * The streets and avenues the building at (tx, ty) is entered from: every
-   * such road tile along the edge of its BODY tiles (docks do not count; a
-   * highway gives no access). Empty = not connected, or no building there.
+   * such road tile along the edge of its BODY tiles (docks and platforms do
+   * not count; a highway gives no access). Empty = not connected, or no building there.
    */
   buildingAccessRoads(tx: number, ty: number): number[] {
     const tiles = this.buildingTilesAt(tx, ty);
     if (tiles.length === 0) return [];
     const { width, height } = this.grid;
     const roles = shapeRoles(this.layers.building[tiles[0]]);
-    const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock') : tiles;
+    const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock' && roles[k] !== 'platform') : tiles;
     // A kind with a frontage is entered only from roads beside its frontage tiles.
     const frontage = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] === 'frontage') : [];
     const out: number[] = [];
@@ -736,7 +745,8 @@ export class World {
           if (L.building[i] === b.kind) continue;
           missing.push(i);
           const water = L.terrain[i] === TERRAIN_WATER;
-          const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.rail[i] === RAIL_NONE && L.zone[i] === ZONE_NONE
+          const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE
+            && (roles[k] === 'platform' ? (L.rail[i] & ~RAIL_GROUND) === 0 : L.rail[i] === RAIL_NONE)
             && (roles[k] === 'dock' ? water : !water);
           if (!free) fits = false;
         }
@@ -744,6 +754,7 @@ export class World {
       }
       if (fits) {
         for (const i of missing) {
+          if (roles[tiles!.indexOf(i)] === 'platform') { L.rail[i] |= RAIL_GROUND; this.railVersion++; }
           L.building[i] = b.kind;
           L.vegetation[i] = VEG_NONE;
           L.devLevel[i] = 0;
