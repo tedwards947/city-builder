@@ -2,6 +2,8 @@
 // Displays terrain, zone, development level, coverage status, and a clear
 // breakdown of what's blocking the next level of growth.
 
+import { railLinks } from '../sim/rail';
+import { railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
@@ -270,6 +272,39 @@ function airportRows(world: World, tx: number, ty: number): string {
   return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[BUILDING_AIRPORT]?.maintenance ?? 0})}</div>`;
 }
 
+/** A track tile: riders against capacity (red when over), and a note on a junction. */
+function railRows(world: World, i: number): string {
+  const d = world.traffic;
+  let html = "";
+  if (d && d.rail.capacity[i] > 0) {
+    const load = railLoad(d, i);
+    const color = load < 0.5 ? "#5c5" : load < 1 ? "#cc5" : "#e55";
+    html += `<div class="ti-detail" style="color:${color}">${t("ui.tileInfo.railRiders", {n: Math.round(railVolume(d, i)).toLocaleString("en-US"), cap: Math.round(d.rail.capacity[i]).toLocaleString("en-US")})}</div>`;
+  }
+  const links = railLinks(world, i);
+  const joined = (links & 1) + ((links >> 1) & 1) + ((links >> 2) & 1) + ((links >> 3) & 1);
+  if (joined === 3) html += `<div class="ti-detail">${t("ui.tileInfo.railJunction3")}</div>`;
+  if (joined === 4) html += `<div class="ti-detail">${t("ui.tileInfo.railJunction4")}</div>`;
+  return html;
+}
+
+/** A train station: what it does, then riders boarding and fares, or the warning that it has no road. Upkeep either way. */
+function stationRows(world: World, tx: number, ty: number, kind: number): string {
+  const i = world.grid.idx(tx, ty);
+  let html = `<div class="ti-detail">${t("ui.tileInfo.stationAbout")}</div>`;
+  if (world.buildingAccessRoads(tx, ty).length === 0) {
+    html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.stationNoRoad")}</div>`;
+  } else {
+    const anchor = world.buildingAnchorAt(i);
+    const boardings = world.traffic?.rail.stations.find((s) => s.anchor === anchor)?.boardings ?? 0;
+    html += `<div class="ti-detail">${t("ui.tileInfo.stationBoardings", {n: Math.round(boardings).toLocaleString("en-US")})}</div>`;
+    const fares = boardings * BALANCE.rail.fare;
+    if (fares > 0) html += `<div class="ti-detail">${t("ui.tileInfo.stationEarns", {amount: Math.round(fares).toLocaleString("en-US")})}</div>`;
+  }
+  if (world.layers.rail[i] !== 0) html += railRows(world, i);   // a platform tile: the track through it
+  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
+}
+
 /** A street or avenue beside any tile of the building at (tx, ty). */
 function isBuildingConnected(world: World, tx: number, ty: number): boolean {
   // A street or avenue along the building's body; a seaport's docks do not count.
@@ -351,6 +386,7 @@ export class TileInfoPanel {
       if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
       if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
+      if (building === BUILDING_STATION || building === BUILDING_STATION_L) html += stationRows(world, tx, ty, building);
 
       // Connectivity warning for utilities
       if (
@@ -406,9 +442,18 @@ export class TileInfoPanel {
         );
         html += `<div class="ti-detail" style="color:#999">${t("ui.tileInfo.growthPenalty", {penalty})}</div>`;
       }
+      if (world.layers.rail[i] !== 0) {
+        html += `<div class="ti-detail">${t("ui.tileInfo.railCrossing")}</div>`;
+        html += railRows(world, i);
+      }
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")}</div>`;
       }
+
+      // ── Rail track (also over water: a bridge) ─────────────────────────────────
+    } else if (world.layers.rail[i] !== 0) {
+      html += `<div class="ti-type">${t("ui.tileInfo.railTrack")}</div>`;
+      html += railRows(world, i);
 
       // ── Water terrain ──────────────────────────────────────────────────────────
     } else if (terrain === TERRAIN_WATER) {

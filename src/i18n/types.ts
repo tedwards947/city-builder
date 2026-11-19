@@ -62,6 +62,15 @@ export interface TranslationSchema {
       tripCustomers: string;
       tripWorkers: string;
       airportAbout: string;
+      stationAbout: string;
+      stationNoRoad: string;
+      stationBoardings: string;
+      stationEarns: string;
+      railTrack: string;
+      railRiders: string;
+      railJunction3: string;
+      railJunction4: string;
+      railCrossing: string;
       airportPassengers: string;
       airportPerTick: string;
       airportEarns: string;
