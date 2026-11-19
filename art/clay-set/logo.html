@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Concretta logo workshop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 640px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 640px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+
+  /* A title screen at 640×360 (half of a 1280×720 window), as index.html draws it today. */
+  .screen { position: relative; width: 640px; height: 360px; max-width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); background: #1d3a24 url(raw-logo/title-bg.jpg) center / cover; }
+  .screen .city { position: absolute; inset: 0; background: inherit; }
+  .screen .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 30px 12px 34px;
+    background: linear-gradient(180deg, rgba(8,14,22,0.74) 0%, rgba(8,14,22,0) 36%, rgba(8,14,22,0) 60%, rgba(8,14,22,0.8) 100%); }
+  .head { text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .logo { display: block; width: 62%; min-width: 0; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.45)); }
+  .head .logo { width: 380px; max-width: 100%; }
+  .head .logo.tall { width: auto; height: 150px; }
+  .tag { margin-top: 6px; font-size: 11px; color: #cfdbe8; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
+  .btns { display: flex; gap: 8px; }
+  .btn { font-size: 10px; font-weight: 600; padding: 7px 16px; min-width: 80px; text-align: center; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(20,32,46,0.88); color: #dfe9f3; }
+  .btn.primary { background: #2f9c86; border-color: #2f9c86; color: #fff; }
+
+  /* T2: the name on a poured slab across the top. */
+  .t2 .ui { background: linear-gradient(180deg, rgba(8,14,22,0) 60%, rgba(8,14,22,0.75) 100%); padding-top: 0; }
+  .t2 .head { background: linear-gradient(#e4e1da, #cfcbc2); padding: 14px 40px 10px; border-radius: 0 0 14px 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 -3px 0 rgba(0,0,0,0.12); }
+  .t2 .head .logo { filter: none; width: 330px; }
+  .t2 .tag { color: #4a4f55; text-shadow: none; }
+  /* T3: the city soft and dim, everything in the middle, concrete buttons. */
+  .t3 .city { filter: blur(2px) brightness(0.62) saturate(0.8); transform: scale(1.03); }
+  .t3 .ui { background: radial-gradient(ellipse at center, rgba(8,14,22,0) 30%, rgba(8,14,22,0.6) 100%); justify-content: center; gap: 26px; }
+  .t3 .btn { background: linear-gradient(#d9d5cd, #bdb8ae); color: #2c2f33; border: 0; box-shadow: 0 3px 0 #8d887e, 0 5px 10px rgba(0,0,0,0.4); }
+  .t3 .btn.primary { background: linear-gradient(#f2b54a, #e09a2a); color: #2c1a02; box-shadow: 0 3px 0 #a86b14, 0 5px 10px rgba(0,0,0,0.4); }
+  .raw { display: block; width: 640px; max-width: 100%; border-radius: 6px; margin-top: 2px; opacity: .9; }
+</style>
+</head>
+<body>
+<h1>Concretta logo workshop</h1>
+<p>Six clay/concrete logos, each shown on the title screen as it is today, over the showcase city (a still frame, at half size). Mark the ones you like. Spelling slips and small details can be tidied on whichever you pick. Below the logos are three looks for the title screen itself, drawn in code.</p>
+<p>The logos are cut off a white background for now. Whichever you pick gets made again on the usual magenta background so that it cuts out cleanly in the game.</p>
+
+<h2>L. Logos</h2>
+<div class="rowf" id="logos"></div>
+
+<h2>T. Title screen look</h2>
+<p>Shown with L1 as a stand-in: your pick goes in its place.</p>
+<div class="rowf">
+  <figure><div class="screen"><div class="city"></div><div class="ui"><div class="head"><img class="logo" src="sprites/logo/logo-1.png"><div class="tag">Build a town. Keep it moving.</div></div><div class="btns"><div class="btn primary">Continue</div><div class="btn">New city</div><div class="btn">Load</div></div></div></div>
+    <figcaption><span class="code">T1</span>As today: the city moving underneath, darkened at the top and bottom, the name at the top and the buttons at the bottom.</figcaption></figure>
+  <figure><div class="screen t2"><div class="city"></div><div class="ui"><div class="head"><img class="logo" src="sprites/logo/logo-1.png"><div class="tag">Build a town. Keep it moving.</div></div><div class="btns"><div class="btn primary">Continue</div><div class="btn">New city</div><div class="btn">Load</div></div></div></div>
+    <figcaption><span class="code">T2</span>The name on a slab of poured concrete hanging from the top edge, with the city left bright underneath.</figcaption></figure>
+  <figure><div class="screen t3"><div class="city"></div><div class="ui"><div class="head"><img class="logo" src="sprites/logo/logo-1.png"><div class="tag">Build a town. Keep it moving.</div></div><div class="btns"><div class="btn primary">Continue</div><div class="btn">New city</div><div class="btn">Load</div></div></div></div>
+    <figcaption><span class="code">T3</span>The city softly blurred and dimmed, with the name and buttons together in the middle. The buttons are concrete blocks, with Continue in safety orange.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="e.g. mix two logos, a different colour, a tagline…"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<!-- sprites/logo is not in git: make it with  for i in 1 2 3 4 5 6; do node art/clay-set/key-logo.mjs logo-$i; done -->
+<script>
+const LOGOS = [
+  ['L1', 'Cast-concrete capitals: chunky letters with air holes and formwork seams.'],
+  ['L2', 'Terracotta and cream modelling-clay letters on a slab of poured concrete.'],
+  ['L3', 'A round stamped-concrete badge: the name around a little skyline of brutalist towers.', true],
+  ['L4', 'Each letter a tiny brutalist building, with trees and cars at the foot: a city block that spells the name.'],
+  ['L5', 'Tall civic serif in polished concrete with a thin brass inlay, a clay crane leaning on the last letter.'],
+  ['L6', 'Wet concrete letters still being poured, with a trowel on top and a little yellow cement mixer.'],
+];
+const row = document.getElementById('logos');
+LOGOS.forEach(([code, text, tall], k) => {
+  const f = document.createElement('figure');
+  f.innerHTML = `<div class="screen"><div class="city"></div><div class="ui"><div class="head"><img class="logo${tall ? ' tall' : ''}" src="sprites/logo/logo-${k + 1}.png"><div class="tag">Build a town. Keep it moving.</div></div><div class="btns"><div class="btn primary">Continue</div><div class="btn">New city</div><div class="btn">Load</div></div></div></div>
+    <figcaption><span class="code">${code}</span>${text}</figcaption>`;
+  row.append(f);
+});
+
+// ── Feedback ──
+const KEY = 'city-builder-logo-workshop-1';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (lb, val, cls) => { const b = document.createElement('button'); b.textContent = lb; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+{ const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Concretta logo workshop feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
