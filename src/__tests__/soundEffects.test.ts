@@ -9,6 +9,7 @@ import { RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
 // Trains in view come from the renderer (render/clay/trains.ts); here a test sets them directly.
 const rail = vi.hoisted(() => ({ trains: [] as { x: number; y: number; a: number; phase: string; key: string }[], levels: [] as number[] }));
 vi.mock('../render/clay/trains', () => ({
+  TRAIN_MIN_TILE: 6,
   trainsInView: (_w: unknown, _now: number, _x0: number, _y0: number, _x1: number, _y1: number, level: number) => {
     rail.levels.push(level);
     return level === 1 ? rail.trains : [];
