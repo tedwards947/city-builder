@@ -73,6 +73,7 @@ import { TitleScreen } from './ui/TitleScreen';
 import { CameraTour } from './title/CameraTour';
 import { findTourSpots } from './title/tourSpots';
 import { SHOWCASE_PATH, markTitleSeen, titleDue, wantTitle } from './title/launch';
+import { ShowcaseKeeper } from './title/showcaseKeeper';
 import { BALANCE } from './data/balance';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
@@ -207,24 +208,31 @@ const titleScreen = new TitleScreen({
   onContinue: () => {
     if (!savedWorld) return;
     // With no showcase the title sits over the player's own city, paused: just carry on in it.
-    if (state.world === savedWorld) { closeTitle(); setSpeed(1); showLoadNotes(savedWorld); }
+    if (state.world === savedWorld) { closeTitle(); setSpeed(1); showLoadNotes(savedWorld); for (const notice of afterTitle.splice(0)) notice(); }
     else startGame(savedWorld);
   },
   onNew: () => newGameDialog.show(),
   onLoad: () => saveLoadPanel.showLoad(),
   onTouch: () => tour.stop(),
 });
+/** The showcase behind the title: its save file, and what keeps it from failing (title/showcaseKeeper.ts). */
+let showcase: { text: string; keeper: ShowcaseKeeper } | null = null;
+/** Notices raised while the title was up (about the player's own save): shown when it closes. */
+const afterTitle: Array<() => void> = [];
 if (titleUp) {
   titleScreen.show();           // at once: the city loads behind it
+  toastPanel.quiet = true;      // nothing but the title's own panes shows
   markTitleSeen(titleStore, new Date());
 }
 /** ?debug=true only: the tour is running over the city in play, as a preview (ui/MarkerPanel.ts). */
 let tourPreview = false;
 function closeTitle(): void {
   titleUp = false;
+  showcase = null;
   tour.stop();
   titleScreen.hide();
   camera.zoom = PLAY_ZOOM;      // the tour leaves the zoom wherever it was
+  toastPanel.quiet = false;
 }
 
 /** Start playing `world`. `behindTitle`: it is only the backdrop of the title screen, which stays up. */
@@ -251,7 +259,10 @@ function startGame(world: World, behindTitle = false): void {
   requestFeedback.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
-  if (!behindTitle) showLoadNotes(world);
+  if (!behindTitle) {
+    showLoadNotes(world);
+    for (const notice of afterTitle.splice(0)) notice();
+  }
 }
 
 /** Tell the player, once, what upgrading their old save changed (never for the title's showcase). */
@@ -640,6 +651,7 @@ function frame(now: number): void {
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
   if (titleUp || tourPreview) tour.update(now);
+  if (titleUp && showcase) keepShowcase();
   if (!titleUp && !autosaveHeld) autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
@@ -737,7 +749,10 @@ function frame(now: number): void {
   // The school or health map: the same marks, without a tool selected.
   if (seatView === null && overlay === 'school') seatView = { kind: BUILDING_SCHOOL, gained: [] };
   else if (seatView === null && overlay === 'health') seatView = { kind: BUILDING_HOSPITAL, gained: [] };
-  renderer.render(state.world, camera, {
+  // Behind the title: the city alone, with no pointer marks, badges or guides.
+  if (titleUp) renderer.render(state.world, camera, { now, bare: true, smooth: tour.active });
+  else renderer.render(state.world, camera, {
+    smooth: tourPreview && tour.active,
     seatView,
     pcPreview,
     requestOutcomes: requestFeedback.outcomes(performance.now()),
@@ -746,8 +761,8 @@ function frame(now: number): void {
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
     underground,
   });
-  if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
-  if (DEBUG) drawMarkerPins(renderer.ctx, state.world, camera);
+  if (overlay === 'traffic' && !titleUp) trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
+  if (DEBUG && !titleUp) drawMarkerPins(renderer.ctx, state.world, camera);
   markerPanel?.update();
   trafficTuning?.update();
   politicsTuning?.update();
@@ -821,12 +836,29 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { if (!titleUp && !autosaveHeld) void autosave.saveNow(); });
 
-/** The showcase city for the title screen, or null if the site has none (or it will not load). */
-async function loadShowcase(): Promise<World | null> {
+/**
+ * The showcase must never fail while it sits behind the title: its funds are
+ * held every frame, and if the city still declines over a long idle it starts
+ * again from its save file, the camera staying where it is.
+ */
+function keepShowcase(): void {
+  if (!showcase) return;
+  showcase.keeper.hold(state.world);
+  if (!showcase.keeper.declined(state.world)) return;
+  const { text } = showcase, { x, y, zoom } = camera;
+  const world = manager.importGame(text);
+  startGame(world, true);
+  showcase = { text, keeper: new ShowcaseKeeper(world) };
+  camera.zoom = zoom; camera.x = x; camera.y = y;
+}
+
+/** The showcase city for the title screen and its save file, or null if the site has none (or it will not load). */
+async function loadShowcase(): Promise<{ world: World; text: string } | null> {
   try {
     const res = await fetch(import.meta.env.BASE_URL + SHOWCASE_PATH);
     if (!res.ok) return null;
-    return manager.importGame(await res.text());
+    const text = await res.text();
+    return { world: manager.importGame(text), text };
   } catch (err) {
     console.warn('No showcase city for the title screen:', err);
     return null;
@@ -844,17 +876,21 @@ async function boot(): Promise<void> {
     // The save stays where it is until the next autosave, and a copy is already in the backup slot.
     console.warn('Could not load autosave:', err);
     if (err instanceof NewerSaveError) autosaveHeld = true;
-    if (err instanceof NewerSaveError) toastPanel.showToast(t('ui.toast.newerSaveTitle'), t('ui.toast.newerSave'), 'alert');
-    else toastPanel.showToast(t('ui.toast.savedCityUnreadableTitle'), t('ui.toast.savedCityUnreadable'), 'alert');
+    const notice = err instanceof NewerSaveError
+      ? () => toastPanel.showToast(t('ui.toast.newerSaveTitle'), t('ui.toast.newerSave'), 'alert')
+      : () => toastPanel.showToast(t('ui.toast.savedCityUnreadableTitle'), t('ui.toast.savedCityUnreadable'), 'alert');
+    // Under the title nothing else shows: the notice waits until the player starts or loads a city.
+    if (titleUp) afterTitle.push(notice); else notice();
   }
   if (!titleUp) {
     if (saved) startGame(saved);
     return;
   }
   savedWorld = saved;
-  const showcase = await loadShowcase();
-  if (showcase) {
-    startGame(showcase, true);
+  const shown = await loadShowcase();
+  if (shown) {
+    startGame(shown.world, true);
+    showcase = { text: shown.text, keeper: new ShowcaseKeeper(shown.world) };
   } else {
     // No showcase: tour the player's own city instead (or the empty default map), PAUSED,
     // so that nothing happens to it while nobody is playing.

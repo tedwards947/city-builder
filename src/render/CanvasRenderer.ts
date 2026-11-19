@@ -33,6 +33,7 @@ import type { Camera, TileBounds } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
 import { resolvePalette, resolveTilePalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
+import { SmoothZoom } from './SmoothZoom';
 import { ChunkCache } from './ChunkCache';
 import { chunkPainter, CLAY_TREE_MIN_TILE } from './chunkPainter';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
@@ -79,6 +80,15 @@ export interface RenderOptions {
   requestOutcomes?: readonly RequestOutcome[];
   /** Areas to outline (tiles, inclusive corners), each at `alpha` 0–1: where the camera just jumped to, or the request under the pointer. */
   areaHighlights?: readonly AreaHighlight[];
+  /** The title screen: the city alone. No problem badges, district pins, request marks, tile grid or other guides. */
+  bare?: boolean;
+  /**
+   * The camera is zooming by itself (the title tour): draw the frame at a whole
+   * tile size and scale the finished picture to the camera's zoom
+   * (SmoothZoom.ts). Tiles drawn one by one at a tile size that changes every
+   * frame land on whole pixels unevenly, so roads and buildings wiggle.
+   */
+  smooth?: boolean;
 }
 
 /** `tiles`, when given, is what gets outlined (a cluster of homes); otherwise the rectangle. */
@@ -183,6 +193,7 @@ export class CanvasRenderer {
   /** When each visible tile was last seen burning (ms), for the smoulder afterwards. Render-only. */
   private _lastBurn = new Map<number, number>();
   private _lastBurnWorld: World | null = null;
+  private readonly _smooth = new SmoothZoom();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -215,10 +226,20 @@ export class CanvasRenderer {
   /** Draws one frame. The passes run back to front. */
   render(world: World, camera: Camera, options: RenderOptions = {}): void {
     if (camera.zoom < 0.1) return;
-    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null, landscape = null, underground = false } = options;
+    if (options.smooth) {
+      const dpr = this.ctx.getTransform().a || 1;
+      const view = this._smooth.frame(camera, dpr);
+      if (view) {
+        this._renderFrame(view.ctx, view.ctx.canvas.width, view.ctx.canvas.height, world, view.camera, options);
+        this._smooth.blit(this.ctx, camera, dpr);
+        return;
+      }
+    }
+    this._renderFrame(this.ctx, this.canvas.width, this.canvas.height, world, camera, options);
+  }
 
-    const ctx = this.ctx;
-    const { width: cw, height: ch } = this.canvas;
+  private _renderFrame(ctx: CanvasRenderingContext2D, cw: number, ch: number, world: World, camera: Camera, options: RenderOptions): void {
+    const { hoverTile = null, tool = 'none', overlay = 'none', coveragePreview = null, now = 0, roadPreview = null, zonePreview = null, pcPreview = null, landscape = null, underground = false, bare = false } = options;
     ctx.fillStyle = '#0d1b2a';
     ctx.fillRect(0, 0, cw, ch);
 
@@ -249,6 +270,7 @@ export class CanvasRenderer {
     }
 
     // 3. Problem badges and district pins.
+    if (bare) { this._badges.length = 0; this._requestBadges.length = 0; return; }
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
     this._drawRequests(ctx, world, camera, ts, options.requestOutcomes ?? []);
     for (const h of options.areaHighlights ?? []) this._drawAreaHighlight(ctx, camera, ts, h);

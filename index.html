@@ -162,7 +162,10 @@
     .title-btn.primary:hover { background: #38b099; }
     #title-loading { font-size: 14px; color: #cfdbe8; }
     /* While the title is up, everything but the map, the title and the dialogs it opens is out of sight. */
-    body.title-up #game > :not(canvas), body.title-up > :not(#game):not(#title-screen):not(.modal):not(script):not(style) { visibility: hidden !important; }
+    /* The children too: one with its own `visibility: visible` would show through a hidden parent. */
+    body.title-up #game > :not(canvas), body.title-up #game > :not(canvas) *,
+    body.title-up > :not(#game):not(#title-screen):not(.modal):not(script):not(style),
+    body.title-up > :not(#game):not(#title-screen):not(.modal):not(script):not(style) * { visibility: hidden !important; }
     .btn { background: rgba(255,255,255,0.08); color: #ccc; border: 1px solid rgba(255,255,255,0.15); padding: 9px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; }
     .btn.primary { background: #2a6a4a; border-color: #4a9a6a; color: #fff; font-weight: 600; }
     .btn.primary:hover { background: #357a58; }
