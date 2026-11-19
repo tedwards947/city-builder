@@ -6,15 +6,13 @@ DESIGN is the owner's list: things that need a design decision before anyone bui
 
 ## UP NEXT (owner, cross-team)
 
-- **Train stations are too big** (owner, 2026-11-19; replaces the "retouch station scale" item). Shrink the straight station to a 3×2 shape:
-  ```
-  [ free , entrance, free  ]
-  [ track, track   , track ]
-  ```
-  A 3-tile platform on the track row and a 1-tile entrance building beside its middle. The two "free" tiles are not part of the station: the player can put roads, zones, trees or anything else there. Same idea as the subway (a 1-tile entrance plus a platform).
-  - **To decide:** whether track may go on the free tiles (a track parallel to the platform may look odd; PM pick: no track there at first, everything else allowed); the L station's equivalent (e.g. the entrance on the corner's inside); the platform length (3, so the subway platform shortens from 4 to 3 to match?).
-  - **ENGINE:** non-rectangular footprint (entrance = body, platform = platform tiles), road access from the entrance's sides only, and refitting stations in old saves (refund and remove if they don't fit, as with the airport in #275).
-  - **GRAPHICS:** a 1-tile entrance building [paid, owner's OK] and the platform drawn on the game's track.
+- **Train stations are too big** (owner, 2026-11-19; replaces the "retouch station scale" item). Today's 4×3 straight station rivals the seaport in size, which makes no sense in real life. New sizes:
+  - **Straight: 1×3**, a single row on the track: platform tiles with a small station house drawn alongside, like a country halt. Roads connect from either long side.
+  - **Curved (L): 2×2**: the track turns through it, and the station house fills the corner off the track.
+  - (Considered first: a 3×2 with an entrance above the middle of a 3-tile platform and free tiles either side. 1×3 is smaller still.)
+  - **To decide:** subway platforms shrink from 4 to 3 to match? Whether a track may run right beside a platform (may look like a second platform).
+  - **ENGINE:** new footprints (platform tiles with access from the long sides), and refitting stations in old saves (refund and remove if they don't fit, as with the airport in #275).
+  - **GRAPHICS:** a station house that fits in 1 tile's depth beside the track, and a 2×2 corner one [paid, owner's OK].
   - **ENGINEER 3:** re-check the rail suite (station cost may want to drop with the size).
 
 ## GRAPHICS
