@@ -298,6 +298,33 @@ describe('InputController auto road mode', () => {
     expect(history.canUndo).toBe(false);
   });
 
+  it('the rail tool in auto mode: two clicks lay a line that finds its own way, as one undo step', () => {
+    tool = 'rail';
+    const before = world.budget.money;
+    world.placeBuilding(o.tx + 4, o.ty + 1, BUILDING_PARK);              // in the straight way
+    click(1, 1);
+    expect(world.getRail(o.tx + 1, o.ty + 1)).toBe(0);
+    expect(input.autoRoadStart).toEqual({ tx: o.tx + 1, ty: o.ty + 1 });
+    click(4, 1);                                                          // on the park: no way, nothing happens
+    expect(input.autoRoadStart).not.toBeNull();
+    expect(world.budget.money).toBe(before);
+    click(8, 1);
+    expect(world.getRail(o.tx + 1, o.ty + 1)).not.toBe(0);
+    expect(world.getRail(o.tx + 8, o.ty + 1)).not.toBe(0);
+    expect(world.getRail(o.tx + 4, o.ty + 1)).toBe(0);                    // went round the park
+    expect(world.budget.money).toBe(before - 10 * BALANCE.rail.track[1].cost);
+    expect(input.autoRoadStart).toBeNull();
+    history.undo();
+    expect(world.budget.money).toBe(before);
+    expect(world.getRail(o.tx + 1, o.ty + 1)).toBe(0);
+    expect(history.canUndo).toBe(false);
+    // In manual mode the rail tool paints as before: no start is kept.
+    mode = 'manual';
+    click(1, 1);
+    expect(input.autoRoadStart).toBeNull();
+    expect(world.getRail(o.tx + 1, o.ty + 1)).not.toBe(0);
+  });
+
   it('right-click abandons the road; a right-drag pans and keeps it', () => {
     click(1, 1);
     canvas.fire('pointerdown', { ...at(4, 4), button: 2 });

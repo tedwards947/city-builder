@@ -135,7 +135,7 @@ export const en: TranslationSchema = {
       lots: "{count} lots",
     },
     route: { jobs: "work: {time} of {limit}", shops: "shops: {time} of {limit}", customers: "customers: {time} of {limit}", workers: "workers: {time} of {limit}", none: "no shops or jobs in reach", noCustomers: "no customers in reach", noWorkers: "no workers in reach" },
-    rail: { offMap: "Off the map", blocked: "Something is in the way", hasTrack: "Track is already here", crossing: "Track can only cross a straight street or avenue" },
+    rail: { offMap: "Off the map", blocked: "Something is in the way", hasTrack: "Track is already here", crossing: "Track can only cross a straight street or avenue", noRoute: "No way for track from the start to here" },
     airport: { noRoad: "⚠ No road to the terminal: build a street along its north side", roadHere: "Road here" },
     econ: {
       title: "Budget",
@@ -463,7 +463,7 @@ export const en: TranslationSchema = {
       largeWater: "Place a water pump on 2×2 tiles beside open water (1,250 units output)",
       largeSewage: "Place a large sewage treatment plant on 2×2 tiles (1,500 units)",
       seaport: "Place a seaport: a 4×3 yard on land with docks over open water. It turns to face the water; press X to turn it yourself. Trade is not in yet: for now it only costs upkeep.",
-      track: "Lay ground track: drag in a straight line, like a road. Crossing a road makes a level crossing, which slows cars and trains. Trains need stations at both ends of a trip.",
+      track: "Lay ground track. Manual: drag in a straight line, like a road. Auto: click a start and an end, and the line finds its way round buildings, roads and other track where it can. Crossing a road makes a level crossing, which slows cars and trains. Trains need stations at both ends of a trip.",
       station: "Place a straight station (4×3), the track through its middle. It turns to meet your track; press X to turn it yourself. It needs a street or avenue beside the building.",
       stationL: "Place a corner station (3×3), where the track turns. It turns to meet your track; press X to turn it yourself. It needs a street or avenue beside the building.",
       airport: "Place an airport (one per city). Homes send passengers, who earn the city money; arrivals go shopping and look for work, and shops grow faster. It needs a street or avenue along the terminal\'s north side.",

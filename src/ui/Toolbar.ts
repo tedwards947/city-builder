@@ -355,7 +355,7 @@ export class Toolbar {
       this.hover(row, () => this.itemTip(item), fly);
       fly.append(row);
     }
-    if (f.family === 'roads') fly.append(this.roadModeSwitch());
+    if (f.family === 'roads' || f.family === 'rail') fly.append(this.roadModeSwitch());   // one setting for roads and track
     if (f.family === 'zones') fly.append(this.zoneModeSwitch());
     if (f.family === 'landscape') fly.append(this.landscapeOptions());
 
@@ -455,7 +455,7 @@ export class Toolbar {
 
   private itemTip(item: ToolbarItem): TipText {
     const price = item.tool !== undefined ? toolPrice(item.tool) : {};
-    const isRoad = item.tool !== undefined && roadClassForTool(item.tool) !== undefined;
+    const isRoad = item.tool !== undefined && (roadClassForTool(item.tool) !== undefined || item.tool === 'rail');   // track shares the roads' manual / auto setting
     const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
     const radius = item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
     const kind = item.tool !== undefined ? BUILDING_KIND[item.tool] : undefined;

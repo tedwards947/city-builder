@@ -20,6 +20,7 @@ import { VibeSystem } from './sim/systems/VibeSystem';
 import { InputController, roadClassForTool, zoneForTool, isLandscapeTool } from './input/InputController';
 import type { Tool, RoadMode } from './input/InputController';
 import { autoRoadPath, planAutoRoad } from './input/autoRoad';
+import { autoRailPathCached, planAutoRail } from './input/autoRail';
 import { planZoneFill } from './input/zoneFill';
 import type { ZoneMode } from './input/zoneFill';
 import { loadZoneMode, saveZoneMode } from './ui/zoneMode';
@@ -564,6 +565,13 @@ function frame(now: number): void {
     const plan = planAutoRoad(state.world, autoRoadPath(roadStart, hoverTile), roadClass);
     roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US'), pc: pcTag(plan.pc) };
     pcPreview = planPcPreview(hoverTile, plan.pc);
+  }
+  // Track in auto mode, a start clicked: the line the game would lay to the pointer, and its price.
+  if (roadStart && hoverTile && currentTool === 'rail') {
+    const plan = planAutoRail(state.world, autoRailPathCached(state.world, roadStart, hoverTile, performance.now()));
+    roadPreview = plan.found
+      ? { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US') }
+      : { tiles: [roadStart, hoverTile], ok: false, label: t('ui.rail.noRoute') };
   }
   // Track (clay/rail.ts): the tile under the pointer, with its price or why track can't go there.
   if (!roadPreview && hoverTile && currentTool === 'rail') {
