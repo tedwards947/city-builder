@@ -186,6 +186,7 @@ export class TransitSystem {
   private _railKind!: Uint8Array;   // per tile: how many track tiles its track joins (3, 4 = a junction)
   private _railCap!: Float32Array;  // per tile: capacity of its track (the published data.rail.capacity)
   private _railExtra!: Float32Array; // per tile: time a level crossing adds to its track this iteration
+  private _railJam!: Float32Array;   // per tile: the jam time that is part of its track node's cost now
   private _crossings: number[] = []; // tiles that are level crossings
   private _crossSaved: number[] = [];
   // Portals: station access road ↔ platform node, both ways, as linked lists per node.
@@ -272,6 +273,7 @@ export class TransitSystem {
       this._railKind = new Uint8Array(n);
       this._railCap = this._data.rail.capacity;
       this._railExtra = new Float32Array(n);
+      this._railJam = new Float32Array(n);
       this._xHead = new Int32Array(nn).fill(-1);
       this._xNext.length = 0; this._xTo.length = 0; this._xStation.length = 0; this._xCount = 0;
       this._crossings.length = 0;
@@ -362,7 +364,7 @@ export class TransitSystem {
       this._classCost[k] = 1 / rc.speedMult;
     }
     const RL = BALANCE.rail;
-    tuning += `,${RL.speedMult},${RL.capacity},${RL.congestionDelay},${RL.boardTime},${RL.junction3.delay},${RL.junction3.capacityMult},${RL.junction4.delay},${RL.junction4.capacityMult},${RL.crossing.delay}`;
+    tuning += `,${RL.speedMult},${RL.capacity},${RL.congestionDelay},${RL.jam.from},${RL.jam.delay},${RL.jam.power},${RL.boardTime},${RL.junction3.delay},${RL.junction3.capacityMult},${RL.junction4.delay},${RL.junction4.capacityMult},${RL.crossing.delay}`;
     const changed = force || world.traffic !== data || h !== this._lastInputHash || tuning !== this._lastTuning;
     if (!changed && data.settled) return;
     if (changed) {
@@ -621,7 +623,8 @@ export class TransitSystem {
 
   /**
    * Travel cost per track tile: 1 / rail speed, more when loaded past free
-   * flow, plus the delay of a junction (which also carries less). At a level
+   * flow, much more when jammed (past BALANCE.rail.jam.from of capacity),
+   * plus the delay of a junction (which also carries less). At a level
    * crossing the cars wait longer the fuller the track is and the trains the
    * fuller the road is, up to BALANCE.rail.crossing.delay each.
    */
@@ -650,6 +653,9 @@ export class TransitSystem {
       if (Math.abs(target - cost[i]) > RAIL_COST_SETTLED) easing = true;
     }
 
+    const jam = RL.jam as { from: number; delay: number; power: number };
+    const jamFrom = jam.from > 0 ? jam.from : 0, jamDelay = jam.delay, jamPower = jam.power > 0 ? jam.power : 1;
+    const jamWas = this._railJam;
     const nodes = this._railNodes;
     for (let q = 0; q < this._railCount; q++) {
       const node = nodes[q], i = node - n, c = kind[i];
@@ -658,10 +664,19 @@ export class TransitSystem {
       else if (c >= 4) { time += RL.junction4.delay; room *= RL.junction4.capacityMult; }
       if (!(room > 0)) room = 1;
       cap[i] = room;
-      const over = Math.min(trafficVolume(data, node) / room, CONGESTION_CAP) - T.freeFlow;
+      const load = Math.min(trafficVolume(data, node) / room, CONGESTION_CAP);
+      const over = load - T.freeFlow;
+      const jammed = load - jamFrom;
       const target = time * (over > 0 ? 1 + RL.congestionDelay * over : 1) + extra[i];
-      cost[node] = cost[node] === 0 || first ? target : cost[node] + (target - cost[node]) * COST_EASE;
-      if (Math.abs(target - cost[node]) > RAIL_COST_SETTLED) easing = true;
+      // The jam is NOT eased. It is steep, and a steep cost that lags behind the volume makes
+      // riders swing between two lines in slow waves that never settle; applied at once, they
+      // swap every round or two, which the volume averaging (_merge) turns into a steady split.
+      const was = cost[node] - jamWas[i];
+      const eased = cost[node] === 0 || first ? target : was + (target - was) * COST_EASE;
+      const jamNow = jammed > 0 && jamDelay > 0 ? jamDelay * (jamPower === 1 ? jammed : Math.pow(jammed, jamPower)) : 0;
+      jamWas[i] = jamNow;
+      cost[node] = eased + jamNow;
+      if (Math.abs(target - eased) > RAIL_COST_SETTLED) easing = true;
     }
     // A junction built on a quiet line, or a crossing whose other side filled up, changes a
     // cost with no change in volume: the pass must go on until the cost has arrived.
