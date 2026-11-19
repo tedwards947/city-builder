@@ -34,7 +34,9 @@ function fingerprint(w: World): Record<string, unknown> {
   const layers: Record<string, string> = {};
   for (const [name, layer] of Object.entries(w.layers)) layers[name] = hash(layer as ArrayBufferView);
   const traffic: Record<string, string> = {};
-  for (const m of w.traffic?.markets ?? []) traffic[m.def.key] = hash(m.volume);
+  // The road half of each market's volumes (the second half is rail track, and the test city has none),
+  // so the stored hashes are the ones from before the arrays grew to hold track.
+  for (const m of w.traffic?.markets ?? []) traffic[m.def.key] = hash(m.volume.subarray(0, w.traffic!.tiles));
   return {
     tick: w.tick,
     population: population(w),

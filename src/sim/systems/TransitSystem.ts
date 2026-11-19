@@ -58,6 +58,19 @@
 // Highways carry traffic but give no access: zones join the network only
 // through streets and avenues (the same rule ZoneGrowthSystem uses).
 //
+// RAIL (RAIL_DESIGN.md). Every tile of track is a second NODE of the network,
+// numbered tile + n, joined to the track tiles sim/rail.ts says it joins. A
+// station is a portal: each of its access roads is tied to its platform, at
+// BALANCE.rail.boardTime a crossing. The flood of a market whose trips are
+// people (`rides`) may pass through portals, so a trip goes by train exactly
+// when that is the faster way, and the sweep then puts it on the track
+// instead of the roads. Freight markets never use a portal. Track has a
+// capacity and slows when over it, as a road does; a 3-way or 4-way junction
+// takes extra time and carries less; a level crossing slows the cars by how
+// full the track is and the trains by how full the road is. Stations have no
+// limit: the roads round them carry the riders. Riders boarding pay a fare.
+// With no station that has a road, none of this runs.
+//
 // The maps and per-market volumes are published as `world.traffic` for the
 // overlay, inspector and tuning panel.
 //
@@ -65,7 +78,9 @@
 // still settling, and at once when the road layer changes.
 
 import { World } from '../World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND } from '../constants';
+import { railLinks, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
+import { hasPlatforms, shapeRoles } from '../buildingShapes';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
@@ -87,6 +102,7 @@ const STABLE_LOAD = 0.01;           // a tile whose volume / capacity moved less
 const SETTLED_LOAD = 0.02;          // largest change in volume / capacity that still counts as settled
 const CONGESTION_CAP = 3;           // load ratio beyond which a tile gets no slower
 const COST_EASE = 0.3;              // share of the way a tile's travel cost moves per round
+const RAIL_COST_SETTLED = 0.01;     // a track or crossing cost this close to its target has arrived
 // How strongly traffic prefers the shortest way: each tile of detour cuts a
 // route's share by e^-ROUTE_SPREAD. Higher = closer to "everyone takes the
 // single best route" (and jumpier); lower = traffic smeared over more routes.
@@ -158,6 +174,34 @@ export class TransitSystem {
   private _customers: TrafficField | null = null;
   private _workers: TrafficField | null = null;
   private _idle: boolean[] = [];
+  // ── Rail ──
+  // Track nodes (tile + n), and every node the list-based loops must visit:
+  // the roads, then the track nodes (the road list itself while there is no track).
+  private _railNodes = new Int32Array(0);
+  private _railCount = 0;
+  private _railEver = false;        // track nodes have held values that may need wiping
+  private _allNodes = new Int32Array(0);
+  private _nodes!: Int32Array;
+  private _nodeCount = 0;
+  private _railKind!: Uint8Array;   // per tile: how many track tiles its track joins (3, 4 = a junction)
+  private _railCap!: Float32Array;  // per tile: capacity of its track (the published data.rail.capacity)
+  private _railExtra!: Float32Array; // per tile: time a level crossing adds to its track this iteration
+  private _crossings: number[] = []; // tiles that are level crossings
+  private _crossSaved: number[] = [];
+  // Portals: station access road ↔ platform node, both ways, as linked lists per node.
+  private _xHead!: Int32Array;      // first portal out of each node, -1 = none
+  private _xNext: number[] = [];
+  private _xTo: number[] = [];
+  private _xStation: number[] = []; // index into data.rail.stations
+  private _xCount = 0;
+  private _useRail = false;         // the flood and sweep under way may pass through portals
+  private _boardTime = 0;
+  private _railEasing = false;      // a track or crossing cost is still on its way to its new value
+  private _curWeight = 1;           // road taken up per trip of the market being swept
+  private _stBoard = new Float32Array(0);   // riders boarding per station, this iteration
+  private readonly _candTo = new Int32Array(16);
+  private readonly _candW = new Float32Array(16);
+  private readonly _candSt = new Int32Array(16);
 
   update(world: World): void {
     if (world.tick % BALANCE.transit.flowInterval !== 0) return;
@@ -192,6 +236,17 @@ export class TransitSystem {
       h = Math.imul(h ^ roadClass[i], 0x85ebca6b);
       h ^= h >>> 15;
     }
+    // Track, and the stations (a station cleared or brought back changes no track).
+    if (world.railVersion !== 0) {
+      h = Math.imul(h ^ world.railVersion, 0x9e3779b1);
+      const width = world.grid.width;
+      for (const b of world.buildings) {
+        if (!hasPlatforms(b.kind)) continue;
+        h = Math.imul(h ^ (b.ty * width + b.tx), 0x9e3779b1);
+        h = Math.imul(h ^ (b.kind * 4 + ((b.rot ?? 0) & 3)), 0x85ebca6b);
+        h ^= h >>> 15;
+      }
+    }
     return h ^ roadCount;
   }
 
@@ -202,30 +257,40 @@ export class TransitSystem {
     if (this._n !== n) {
       this._n = n;
       this._data = makeTrafficData(n);
-      this._flow = new Float32Array(n);
-      this._raw = new Float32Array(n);
-      this._room = new Float32Array(n);
+      // Two nodes per tile (its road and its track) for everything a flood or sweep touches.
+      const nn = 2 * n;
+      this._flow = new Float32Array(nn);
+      this._raw = new Float32Array(nn);
+      this._room = new Float32Array(nn);
       this._bldCap = new Float32Array(n);
-      this._onward = new Float32Array(n);
+      this._onward = new Float32Array(nn);
       this._zoneRoute = null;
-      this._cost = new Float32Array(n);
-      // Each road tile is pushed at most once per neighbour plus once as a source.
-      this._heapKey = new Float32Array(n * 5 + 1);
-      this._heapId = new Int32Array(n * 5 + 1);
+      this._cost = new Float32Array(nn);
+      // Each node is pushed at most once per neighbour plus once as a source (portals: see _linkRail).
+      this._heapKey = new Float32Array(nn * 5 + 1);
+      this._heapId = new Int32Array(nn * 5 + 1);
+      this._railKind = new Uint8Array(n);
+      this._railCap = this._data.rail.capacity;
+      this._railExtra = new Float32Array(n);
+      this._xHead = new Int32Array(nn).fill(-1);
+      this._xNext.length = 0; this._xTo.length = 0; this._xStation.length = 0; this._xCount = 0;
+      this._crossings.length = 0;
+      this._railCount = 0;
+      this._railEver = false;
       this._bfsQueue = new Int32Array(n);
       this._bfsFrom = new Int32Array(n);
       this._bfsSeen = new Uint32Array(n);
       this._bfsSteps = new Uint8Array(n);
       this._lots = new Int32Array(n);
-      this._prev = this._data.markets.map(() => new Float32Array(n));
-      this._unstable = this._data.markets.map(() => new Uint8Array(n));
+      this._prev = this._data.markets.map(() => new Float32Array(nn));
+      this._unstable = this._data.markets.map(() => new Uint8Array(nn));
       this._extraDoorCount = this._data.markets.map(() => 0);
       this._extraTripCount = this._data.markets.map(() => 0);
       this._idle = this._data.markets.map(() => false);
       this._firstIteration = true;
       this._lastInputHash = NaN;
       this._fresh = true;
-      this._nb = new Int32Array(n * 4);
+      this._nb = new Int32Array(nn * 4);
       this._nbStale = true;
       this._zoneShops = null;
       this._zoneJobs = null;
@@ -285,6 +350,7 @@ export class TransitSystem {
       }
     }
     this._roads = roads; this._roadCount = roadCount; this._lotCount = lotCount;
+    if (this._railCount === 0) { this._nodes = roads; this._nodeCount = roadCount; }
     let tuning = `${T.commuteMax},${T.congestionDelay},${T.freeFlow}`;
     for (const m of data.markets) tuning += `,${marketRate(m.def)},${marketCapacity(m.def)},${marketWeight(m.def)},${marketReach(m.def)}`;
     // Free Transit scales the trips put on the roads; a change means a new pass.
@@ -295,6 +361,8 @@ export class TransitSystem {
       tuning += `,${rc.capacity},${rc.speedMult}`;
       this._classCost[k] = 1 / rc.speedMult;
     }
+    const RL = BALANCE.rail;
+    tuning += `,${RL.speedMult},${RL.capacity},${RL.congestionDelay},${RL.boardTime},${RL.junction3.delay},${RL.junction3.capacityMult},${RL.junction4.delay},${RL.junction4.capacityMult},${RL.crossing.delay}`;
     const changed = force || world.traffic !== data || h !== this._lastInputHash || tuning !== this._lastTuning;
     if (!changed && data.settled) return;
     if (changed) {
@@ -303,7 +371,7 @@ export class TransitSystem {
       // Roads added or removed: wipe what the list-based loops below would
       // otherwise leave behind on tiles that are no longer roads.
       if (roadHash !== this._lastRoadHash) this._clearOffRoad(world);
-      if (roadHash !== this._lastRoadHash || this._nbStale) this._linkRoads(world);
+      if (roadHash !== this._lastRoadHash || this._nbStale) { this._linkRoads(world); this._linkRail(world); }
       this._lastRoadHash = roadHash;
       this._iter = 0;
       data.settled = false;
@@ -320,26 +388,27 @@ export class TransitSystem {
     // The way to homes is only needed for accessibility, so once per pass,
     // with the roads as slow as the final volumes make them.
     this._updateCosts(world);
+    this._useRail = this._xCount > 0;   // people look for homes, shops and jobs by train too
     this._flood(world, ZONE_R, data.toR, 1);
     // Likewise the way to shops and jobs without the doors buildings add (see Accessibility).
     const shopsK = data.markets.indexOf(data.shopping), jobsK = data.markets.indexOf(data.jobs);
     let toShops = data.shopping.field, toJobs = data.jobs.field;
     if (this._extraDoorCount[shopsK] > 0) {
-      toShops = this._zoneShops ??= makeTrafficField(n);
+      toShops = this._zoneShops ??= makeTrafficField(2 * n);
       this._flood(world, ZONE_C, toShops, 1);
     }
     if (this._extraDoorCount[jobsK] > 0) {
-      toJobs = this._zoneJobs ??= makeTrafficField(n);
+      toJobs = this._zoneJobs ??= makeTrafficField(2 * n);
       this._flood(world, ZONE_I, toJobs, 1);
     }
     // And the way to customers and workers: homes, plus buildings that send shoppers or job seekers.
     let toCustomers = data.toR, toWorkers = data.toR;
     if (this._extraTripCount[shopsK] > 0) {
-      toCustomers = this._customers ??= makeTrafficField(n);
+      toCustomers = this._customers ??= makeTrafficField(2 * n);
       this._flood(world, ZONE_R, toCustomers, 1, undefined, 'shopping');
     }
     if (this._extraTripCount[jobsK] > 0) {
-      toWorkers = this._workers ??= makeTrafficField(n);
+      toWorkers = this._workers ??= makeTrafficField(2 * n);
       this._flood(world, ZONE_R, toWorkers, 1, undefined, 'jobs');
     }
     data.toShops = toShops; data.toJobs = toJobs; data.toCustomers = toCustomers; data.toWorkers = toWorkers;
@@ -417,6 +486,20 @@ export class TransitSystem {
         this._unstable[k][i] = 0;
       }
     }
+    // The same for track nodes whose track has gone.
+    if (this._railEver) {
+      const rail = world.layers.rail;
+      for (let i = 0; i < n; i++) {
+        if (rail[i] & RAIL_GROUND) continue;
+        const node = n + i;
+        cost[node] = 0;
+        for (let k = 0; k < markets.length; k++) {
+          markets[k].volume[node] = 0;
+          this._prev[k][node] = 0;
+          this._unstable[k][node] = 0;
+        }
+      }
+    }
   }
 
   /** Record, for every road tile, which of its four neighbours are road tiles. */
@@ -436,6 +519,80 @@ export class TransitSystem {
     this._nbStale = false;
   }
 
+  /**
+   * Rail: list the track nodes, join them as sim/rail.ts says, note the level
+   * crossings, and tie each station's access roads to its platform (the
+   * portal a rider boards and leaves through). Call after _linkRoads, which
+   * empties the neighbour table.
+   */
+  private _linkRail(world: World): void {
+    const n = this._n;
+    const width = world.grid.width;
+    const rail = world.layers.rail;
+    const nb = this._nb, kind = this._railKind, cap = this._railCap;
+    const data = this._data;
+    if (this._xCount > 0 || this._railCount > 0) { this._xHead.fill(-1); kind.fill(0); cap.fill(0); this._railExtra.fill(0); }
+    this._xNext.length = 0; this._xTo.length = 0; this._xStation.length = 0; this._xCount = 0;
+    this._crossings.length = 0;
+    data.rail.stations = [];
+    data.rail.boardings = 0;
+    this._stBoard = new Float32Array(0);
+
+    let count = 0;
+    if (world.railVersion !== 0) {
+      if (this._railNodes.length < n) this._railNodes = new Int32Array(n);
+      const nodes = this._railNodes;
+      for (let i = 0; i < n; i++) {
+        if (!(rail[i] & RAIL_GROUND)) continue;
+        const node = n + i;
+        nodes[count++] = node;
+        const links = railLinks(world, i);
+        let c = 0;
+        // The neighbour table's order: W, E, N, S.
+        if (links & LINK_W) { nb[node * 4] = node - 1; c++; }
+        if (links & LINK_E) { nb[node * 4 + 1] = node + 1; c++; }
+        if (links & LINK_N) { nb[node * 4 + 2] = node - width; c++; }
+        if (links & LINK_S) { nb[node * 4 + 3] = node + width; c++; }
+        kind[i] = c;
+        cap[i] = BALANCE.rail.capacity;   // refined each iteration (_updateRailCosts)
+        if (isLevelCrossing(world, i)) this._crossings.push(i);
+      }
+    }
+    this._railCount = count;
+    if (count === 0) { this._nodes = this._roads; this._nodeCount = this._roadCount; return; }
+    this._railEver = true;
+
+    const total = this._roadCount + count;
+    if (this._allNodes.length < total) this._allNodes = new Int32Array(Math.max(total, this._allNodes.length * 2));
+    this._allNodes.set(this._roads.subarray(0, this._roadCount));
+    this._allNodes.set(this._railNodes.subarray(0, count), this._roadCount);
+    this._nodes = this._allNodes; this._nodeCount = total;
+
+    for (const b of world.buildings) {
+      if (!hasPlatforms(b.kind)) continue;
+      const tiles = world.buildingTilesAt(b.tx, b.ty), roles = shapeRoles(b.kind);
+      const platform = tiles.filter((_, k) => roles[k] === 'platform');
+      const roads = world.buildingAccessRoads(b.tx, b.ty);
+      const station = data.rail.stations.length;
+      data.rail.stations.push({ anchor: b.ty * width + b.tx, roads, boardings: 0 });
+      if (platform.length === 0) continue;
+      // Riders get on and off at one platform tile; the rest of the platform is track like any other.
+      const at = n + platform[platform.length >> 1];
+      for (const r of roads) { this._addPortal(r, at, station); this._addPortal(at, r, station); }
+    }
+    this._stBoard = new Float32Array(data.rail.stations.length);
+    const heapRoom = 2 * n * 5 + 1 + this._xCount;
+    if (this._heapKey.length < heapRoom) { this._heapKey = new Float32Array(heapRoom); this._heapId = new Int32Array(heapRoom); }
+  }
+
+  private _addPortal(from: number, to: number, station: number): void {
+    const e = this._xCount++;
+    this._xTo[e] = to;
+    this._xStation[e] = station;
+    this._xNext[e] = this._xHead[from];
+    this._xHead[from] = e;
+  }
+
   /** Travel cost per road tile from the current volumes: slower when loaded past free flow. */
   private _updateCosts(world: World): void {
     const T = BALANCE.transit;
@@ -444,6 +601,9 @@ export class TransitSystem {
     const cost = this._cost;
     const classCost = this._classCost;
     const roads = this._roads, roadCount = this._roadCount;
+    // A level crossing's road tile is costed again below, from what it cost before this loop.
+    const crossings = this._crossings, saved = this._crossSaved;
+    for (let q = 0; q < crossings.length; q++) saved[q] = cost[crossings[q]];
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
       const rc = roadClass[i];
@@ -455,6 +615,57 @@ export class TransitSystem {
       // (0 = a tile that had no cost yet.)
       cost[i] = cost[i] === 0 || this._firstIteration ? target : cost[i] + (target - cost[i]) * COST_EASE;
     }
+    this._railEasing = false;
+    if (this._railCount > 0) this._updateRailCosts(world);
+  }
+
+  /**
+   * Travel cost per track tile: 1 / rail speed, more when loaded past free
+   * flow, plus the delay of a junction (which also carries less). At a level
+   * crossing the cars wait longer the fuller the track is and the trains the
+   * fuller the road is, up to BALANCE.rail.crossing.delay each.
+   */
+  private _updateRailCosts(world: World): void {
+    const n = this._n;
+    const RL = BALANCE.rail, T = BALANCE.transit;
+    const roadClass = world.layers.roadClass;
+    const data = this._data, cost = this._cost;
+    const kind = this._railKind, cap = this._railCap, extra = this._railExtra;
+    const first = this._firstIteration;
+    const base = 1 / (RL.speedMult > 0 ? RL.speedMult : 1);
+    this._boardTime = RL.boardTime > 0 ? RL.boardTime : 0;
+
+    const crossings = this._crossings, saved = this._crossSaved;
+    const wait = RL.crossing.delay > 0 ? RL.crossing.delay : 0;
+    let easing = false;
+    for (let q = 0; q < crossings.length; q++) {
+      const i = crossings[q], rc = roadClass[i];
+      const roadRatio = trafficVolume(data, i) / roadCapacity(rc);
+      const railRatio = cap[i] > 0 ? trafficVolume(data, n + i) / cap[i] : 0;
+      extra[i] = wait * Math.min(1, roadRatio);
+      const over = Math.min(roadRatio, CONGESTION_CAP) - T.freeFlow;
+      const target = this._classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1) + wait * Math.min(1, railRatio);
+      const was = saved[q];
+      cost[i] = was === 0 || first ? target : was + (target - was) * COST_EASE;
+      if (Math.abs(target - cost[i]) > RAIL_COST_SETTLED) easing = true;
+    }
+
+    const nodes = this._railNodes;
+    for (let q = 0; q < this._railCount; q++) {
+      const node = nodes[q], i = node - n, c = kind[i];
+      let time = base, room: number = RL.capacity;
+      if (c === 3) { time += RL.junction3.delay; room *= RL.junction3.capacityMult; }
+      else if (c >= 4) { time += RL.junction4.delay; room *= RL.junction4.capacityMult; }
+      if (!(room > 0)) room = 1;
+      cap[i] = room;
+      const over = Math.min(trafficVolume(data, node) / room, CONGESTION_CAP) - T.freeFlow;
+      const target = time * (over > 0 ? 1 + RL.congestionDelay * over : 1) + extra[i];
+      cost[node] = cost[node] === 0 || first ? target : cost[node] + (target - cost[node]) * COST_EASE;
+      if (Math.abs(target - cost[node]) > RAIL_COST_SETTLED) easing = true;
+    }
+    // A junction built on a quiet line, or a crossing whose other side filled up, changes a
+    // cost with no change in volume: the pass must go on until the cost has arrived.
+    this._railEasing = easing;
   }
 
   /** One round of map → flow → spill for every market. Returns whether anything moved noticeably. */
@@ -463,6 +674,8 @@ export class TransitSystem {
 
     let moved = 0;
     const markets = this._data.markets;
+    const stBoard = this._stBoard;
+    if (stBoard.length > 0) stBoard.fill(0);
     for (let k = 0; k < markets.length; k++) {
       const m = markets[k];
       const { def, field } = m;
@@ -475,6 +688,9 @@ export class TransitSystem {
         continue;
       }
       this._idle[k] = false;
+      // People take a train when it is faster; freight never does.
+      this._useRail = def.rides === true && this._xCount > 0;
+      this._curWeight = marketWeight(def);
       this._flood(world, def.dest, field, marketCapacity(def), def.key);
       const demand = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
       this._openDoors(field, demand);
@@ -484,15 +700,22 @@ export class TransitSystem {
       moved = Math.max(moved, this._merge(world, m.volume, this._prev[k], this._unstable[k]));
     }
 
+    if (stBoard.length > 0) {
+      const stations = this._data.rail.stations;
+      let total = 0;
+      for (let q = 0; q < stations.length; q++) { stations[q].boardings = stBoard[q]; total += stBoard[q]; }
+      this._data.rail.boardings = total;
+    }
+
     this._firstIteration = false;
-    return moved > SETTLED_LOAD;
+    return moved > SETTLED_LOAD || this._railEasing;
   }
 
   /** Wipe a market that has stopped running: no doors, no routes, no traffic. */
   private _emptyMarket(k: number): void {
     const { field, volume } = this._data.markets[k];
     const prev = this._prev[k], unstable = this._unstable[k];
-    const roads = this._roads, roadCount = this._roadCount;
+    const roads = this._nodes, roadCount = this._nodeCount;
     for (let q = 0; q < roadCount; q++) {
       const i = roads[q];
       volume[i] = 0; prev[i] = 0; unstable[i] = 0;
@@ -524,8 +747,11 @@ export class TransitSystem {
     const roads = this._roads, roadCount = this._roadCount;
     const lots = this._lots, lotCount = this._lotCount;
 
-    for (let k = 0; k < roadCount; k++) { const ri = roads[k]; dist[ri] = Infinity; doorCap[ri] = 0; }
+    const nodes = this._nodes, nodeCount = this._nodeCount;
+    for (let k = 0; k < nodeCount; k++) { const ri = nodes[k]; dist[ri] = Infinity; doorCap[ri] = 0; }
     this._heapSize = 0;
+    const useRail = this._useRail;
+    const xHead = this._xHead, xNext = this._xNext, xTo = this._xTo, boardTime = this._boardTime;
 
     for (let q = 0; q < lotCount; q++) {
       const i = lots[q];
@@ -592,6 +818,18 @@ export class TransitSystem {
           this._push(ni, nd);
         }
       }
+      // A station's portal: from an access road onto the platform, or off it.
+      if (useRail) {
+        for (let e = xHead[cur]; e >= 0; e = xNext[e]) {
+          const ni = xTo[e];
+          const nd = Math.fround(key + boardTime + (curCost + cost[ni]) * 0.5);
+          if (nd < dist[ni]) {
+            dist[ni] = nd;
+            parent[ni] = cur;
+            this._push(ni, nd);
+          }
+        }
+      }
     }
     field.count = count;
   }
@@ -606,9 +844,9 @@ export class TransitSystem {
     const zone = world.layers.zone;
     const dev  = world.layers.devLevel;
     const roadClass = world.layers.roadClass;
-    const roads = this._roads, roadCount = this._roadCount;
     const lots = this._lots, lotCount = this._lotCount;
-    for (let k = 0; k < roadCount; k++) flow[roads[k]] = 0;
+    const nodes = this._nodes, nodeCount = this._nodeCount;
+    for (let k = 0; k < nodeCount; k++) flow[nodes[k]] = 0;
     field.stranded = 0;
     // No destination of this type anywhere: every trip wanted is stranded.
     const nowhere = field.count === 0;
@@ -672,8 +910,9 @@ export class TransitSystem {
     const room = this._room;
     const raw = this._raw;
     const cost = this._cost;
-    const roads = this._roads, roadCount = this._roadCount;
+    const roads = this._nodes, roadCount = this._nodeCount;
     if (reset) for (let k = 0; k < roadCount; k++) raw[roads[k]] = 0;
+    const useRail = this._useRail, xHead = this._xHead;
 
     // Farthest first: every tile a stream is handed to is nearer, so it is
     // handled later.
@@ -694,6 +933,9 @@ export class TransitSystem {
       // not just the best one: most to the best, less to each the more of a
       // detour it is. Near-equal routes then share traffic, and a small
       // change in cost shifts a little traffic instead of flipping all of it.
+      // A node with a portal (a station's access road, or its platform) has more ways on than four.
+      if (useRail && xHead[ri] >= 0) { this._handOnAtPortal(route, flow, ri, f); continue; }
+
       const here = dist[ri], hereCost = cost[ri];
       let n0 = -1, n1 = -1, n2 = -1, n3 = -1;
       let w0 = 0, w1 = 0, w2 = 0, w3 = 0;
@@ -717,6 +959,50 @@ export class TransitSystem {
   }
 
   /**
+   * _sweep's handing on, for a node that has portals: the same split by
+   * detour, over its neighbours and its portals alike. What goes from a road
+   * onto a platform is counted as boarding at that station.
+   */
+  private _handOnAtPortal(route: TrafficField, flow: Float32Array, ri: number, f: number): void {
+    const n = this._n;
+    const nb = this._nb, cost = this._cost;
+    const { dist, parent } = route;
+    const xNext = this._xNext, xTo = this._xTo, xStation = this._xStation;
+    const to = this._candTo, wt = this._candW, st = this._candSt;
+    const here = dist[ri], hereCost = cost[ri], boardTime = this._boardTime;
+    let cnt = 0, total = 0;
+    for (let d = 0; d < 4; d++) {
+      const ni = nb[ri * 4 + d];
+      if (ni < 0 || !(dist[ni] < here)) continue;
+      const detour = dist[ni] + (hereCost + cost[ni]) * 0.5 - here;
+      const w = detour <= 0 ? 1 : Math.exp(-ROUTE_SPREAD * detour);
+      to[cnt] = ni; wt[cnt] = w; st[cnt] = -1; cnt++; total += w;
+    }
+    let parentStation = -1;
+    for (let e = this._xHead[ri]; e >= 0; e = xNext[e]) {
+      const ni = xTo[e];
+      if (ni === parent[ri]) parentStation = xStation[e];
+      if (cnt >= to.length || !(dist[ni] < here)) continue;
+      const detour = dist[ni] + boardTime + (hereCost + cost[ni]) * 0.5 - here;
+      const w = detour <= 0 ? 1 : Math.exp(-ROUTE_SPREAD * detour);
+      to[cnt] = ni; wt[cnt] = w; st[cnt] = xStation[e]; cnt++; total += w;
+    }
+    const boarding = ri < n;   // from a road, a portal leads onto a platform
+    const perTrip = 1 / this._curWeight;
+    if (total <= 0) {
+      flow[parent[ri]] += f;
+      if (boarding && parentStation >= 0) this._stBoard[parentStation] += f * perTrip;
+      return;
+    }
+    const share = f / total;
+    for (let k = 0; k < cnt; k++) {
+      const amount = share * wt[k];
+      flow[to[k]] += amount;
+      if (boarding && st[k] >= 0) this._stBoard[st[k]] += amount * perTrip;
+    }
+  }
+
+  /**
    * What arrived at a building's door beyond its room drives on to the zones:
    * from that door, along the way to the nearest zone door of `zoneType`,
    * adding to the roads in between. Without this a small building door near
@@ -736,11 +1022,11 @@ export class TransitSystem {
     }
     if (!any) return;
 
-    const route = this._zoneRoute ??= makeTrafficField(this._n);
+    const route = this._zoneRoute ??= makeTrafficField(2 * this._n);
     this._flood(world, zoneType, route, capPerLevel);
     if (route.count === 0) return;
     const onward = this._onward;
-    const roads = this._roads, roadCount = this._roadCount;
+    const roads = this._nodes, roadCount = this._nodeCount;
     for (let k = 0; k < roadCount; k++) onward[roads[k]] = 0;
     for (let k = 0; k < count; k++) {
       const door = order[k];
@@ -817,7 +1103,8 @@ export class TransitSystem {
     const roadClass = world.layers.roadClass;
     const raw = this._raw;
     const first = this._firstIteration;
-    const roads = this._roads, roadCount = this._roadCount;
+    const roads = this._nodes, roadCount = this._nodeCount;
+    const n = this._n, railCap = this._railCap;
 
     let moved = 0;
     for (let k = 0; k < roadCount; k++) {
@@ -825,7 +1112,7 @@ export class TransitSystem {
       const r = raw[i], o = out[i], before = prev[i];
       if (r === 0 && o === 0 && before === 0) continue;
       prev[i] = r;
-      const cap = roadCapacity(roadClass[i]);
+      const cap = i < n ? roadCapacity(roadClass[i]) : (railCap[i - n] || 1);
       let next: number;
       if (first) {
         next = r;

@@ -1,0 +1,216 @@
+// Rail in the traffic system (TransitSystem, RAIL_DESIGN.md): stations are
+// portals, a trip rides when that is faster, freight never rides, track has a
+// capacity, junctions and level crossings cost time, and riders pay a fare.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { World } from '../sim/World';
+import { TransitSystem } from '../sim/systems/TransitSystem';
+import { railVolume, railLoad, trafficVolume } from '../sim/TrafficData';
+import { railFareIncome } from '../sim/rail';
+import { BUILDING_STATION, ROAD_STREET, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
+import { BALANCE } from '../data/balance';
+import { landWorld } from './pcTestWorld';
+
+const T = BALANCE.transit as unknown as { flowInterval: number; buildings: Record<number, unknown> };
+const RL = BALANCE.rail as unknown as {
+  speedMult: number; capacity: number; boardTime: number; fare: number; congestionDelay: number;
+  junction3: { delay: number; capacityMult: number }; junction4: { delay: number; capacityMult: number }; crossing: { delay: number };
+};
+const shipped = structuredClone({ ...RL, track: undefined });
+const shippedRows = T.buildings;
+
+let w: World;
+let transit: TransitSystem;
+let pass = 0;
+const idx = (x: number, y: number) => w.grid.idx(x, y);
+const zone = (x: number, y: number, z: number, level: number) => {
+  w.layers.zone[idx(x, y)] = z; w.layers.devLevel[idx(x, y)] = level; w.layers.landValue[idx(x, y)] = 128;
+};
+const street = (y: number, x0: number, x1: number) => { for (let x = x0; x <= x1; x++) expect(w.setRoad(x, y, ROAD_STREET)).toBe(true); };
+const track = (y: number, x0: number, x1: number) => { for (let x = x0; x <= x1; x++) expect(w.layTrack(x, y)).toBe(true); };
+/** Traffic passes until settled (each call starts on a new traffic tick). */
+const traffic = () => {
+  for (let k = 0; k < 12; k++) { w.tick = ++pass * T.flowInterval; transit.update(w); }
+  return w.traffic!;
+};
+
+// A SUBURB in the west: a street along y = 10 (x 2–12) with homes on its north side, and a
+// station south of it (building y 11–12, platform y 13, x 4–7).
+// A TOWN in the east: a street along y = 10 (x 48–60) with industry on its north side, and a
+// station (platform y 13, x 50–53). The line runs along y = 13 between the platforms.
+// No road joins the two.
+const HOME_ROAD = () => idx(5, 10);
+function suburbAndTown(line = true): void {
+  street(10, 2, 12);
+  for (let x = 4; x <= 9; x++) zone(x, 9, ZONE_R, 2);
+  street(10, 48, 60);
+  for (let x = 55; x <= 58; x++) zone(x, 9, ZONE_I, 3);
+  if (!line) return;
+  expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
+  expect(w.placeBuilding(50, 11, BUILDING_STATION)).toBe(true);
+  track(13, 8, 49);
+}
+
+beforeEach(() => {
+  T.buildings = {};
+  w = landWorld(64);
+  transit = new TransitSystem();
+  pass = 0;
+});
+afterEach(() => { Object.assign(RL, structuredClone(shipped), { track: BALANCE.rail.track }); T.buildings = shippedRows; });
+
+describe('a suburb joined to town only by rail', () => {
+  it('without the line its commuters are stranded and its homes have no access', () => {
+    suburbAndTown(false);
+    const t = traffic();
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBe(Infinity);
+    expect(t.jobs.field.stranded).toBeGreaterThan(0);
+    expect(w.layers.accessibility[idx(5, 9)]).toBe(0);
+    expect(t.rail.stations).toEqual([]);
+  });
+
+  it('with the line they ride: trips on the track, homes with access, both ways', () => {
+    suburbAndTown();
+    const t = traffic();
+    const trips = 6 * 2 * BALANCE.transit.tripsRtoI;                     // six level-2 homes
+    expect(t.jobs.field.stranded).toBe(0);
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThan(BALANCE.transit.commuteMax);
+    for (const x of [10, 30, 49]) expect(railVolume(t, idx(x, 13))).toBeCloseTo(trips, 3);
+    expect(railVolume(t, idx(30, 12))).toBe(0);
+    expect(w.layers.accessibility[idx(5, 9)]).toBeGreaterThan(0);          // homes reach jobs
+    expect(w.layers.accessibility[idx(56, 9)]).toBeGreaterThan(0);         // industry reaches workers
+    // The riders are on the streets at both ends, not in between.
+    expect(trafficVolume(t, idx(5, 10))).toBeGreaterThan(0);
+    expect(trafficVolume(t, idx(54, 10))).toBeCloseTo(trips, 3);
+    expect(t.tiles).toBe(64 * 64);
+  });
+
+  it('riders board at the suburb station and pay the fare', () => {
+    suburbAndTown();
+    const t = traffic();
+    const trips = 6 * 2 * BALANCE.transit.tripsRtoI;
+    expect(t.rail.stations.map((s) => s.anchor)).toEqual([idx(4, 11), idx(50, 11)]);
+    expect(t.rail.stations[0].boardings).toBeCloseTo(trips, 3);
+    expect(t.rail.stations[1].boardings).toBe(0);
+    expect(t.rail.boardings).toBeCloseTo(trips, 3);
+    expect(railFareIncome(w)).toBeCloseTo(trips * RL.fare, 3);
+  });
+
+  it('a station with no road is no portal; clearing a station ends the service', () => {
+    suburbAndTown();
+    traffic();
+    for (let x = 2; x <= 12; x++) w.clearTile(x, 10);                     // the suburb's street goes …
+    street(8, 2, 12);                                                     // … to the far side of the homes
+    let t = traffic();
+    expect(t.rail.stations[0].roads).toEqual([]);
+    expect(t.jobs.field.stranded).toBeGreaterThan(0);
+    expect(railVolume(t, idx(30, 13))).toBe(0);
+    for (let x = 2; x <= 12; x++) w.clearTile(x, 8);
+    street(10, 2, 12);
+    t = traffic();
+    expect(t.jobs.field.stranded).toBe(0);
+    w.clearTile(50, 11);                                                  // the town station (its platform stays as track)
+    t = traffic();
+    expect(t.rail.stations.length).toBe(1);
+    expect(t.jobs.field.stranded).toBeGreaterThan(0);
+    expect(railVolume(t, idx(30, 13))).toBe(0);
+    expect(railFareIncome(w)).toBe(0);
+  });
+});
+
+describe('the faster of driving or rail', () => {
+  it('with a street all the way as well, most ride; with slow trains, they drive', () => {
+    suburbAndTown();
+    street(10, 13, 47);
+    let t = traffic();
+    const trips = 6 * 2 * BALANCE.transit.tripsRtoI;
+    expect(railVolume(t, idx(30, 13))).toBeGreaterThan(trips * 0.9);
+    expect(trafficVolume(t, idx(30, 10))).toBeLessThan(trips * 0.1);
+    RL.speedMult = 0.5;                                                   // a tile of track now takes twice a street tile
+    t = traffic();
+    expect(railVolume(t, idx(30, 13))).toBeLessThan(trips * 0.1);
+    expect(trafficVolume(t, idx(30, 10))).toBeGreaterThan(trips * 0.9);
+  });
+});
+
+describe('freight never rides', () => {
+  it('shops joined to industry only by rail get no goods, though shoppers and workers ride', () => {
+    suburbAndTown();
+    for (let x = 10; x <= 11; x++) zone(x, 9, ZONE_C, 2);                  // shops in the suburb; the only industry is in town
+    const t = traffic();
+    expect(t.goods.field.stranded).toBeGreaterThan(0);
+    expect(t.goods.field.dist[idx(10, 10)]).toBe(Infinity);
+    expect(t.goods.volume[t.tiles + idx(30, 13)]).toBe(0);
+    expect(t.jobs.volume[t.tiles + idx(30, 13)]).toBeGreaterThan(0);
+  });
+});
+
+describe('track capacity and junctions', () => {
+  it('a junction carries less than plain track, a 4-way much less', () => {
+    suburbAndTown();
+    for (let y = 14; y <= 17; y++) expect(w.layTrack(20, y)).toBe(true);  // a 3-way at (20, 13)
+    for (let y = 9; y <= 17; y++) if (y !== 13) expect(w.layTrack(35, y)).toBe(true);   // a 4-way at (35, 13)
+    const t = traffic();
+    expect(t.rail.capacity[idx(30, 13)]).toBe(RL.capacity);
+    expect(t.rail.capacity[idx(20, 13)]).toBeCloseTo(RL.capacity * RL.junction3.capacityMult, 3);
+    expect(t.rail.capacity[idx(35, 13)]).toBeCloseTo(RL.capacity * RL.junction4.capacityMult, 3);
+    expect(t.rail.capacity[idx(30, 12)]).toBe(0);
+    expect(railLoad(t, idx(35, 13))).toBeGreaterThan(railLoad(t, idx(30, 13)));
+  });
+
+  it('passing a junction takes extra time, a 4-way more than a 3-way', () => {
+    suburbAndTown();
+    const plain = traffic().jobs.field.dist[HOME_ROAD()];
+    for (let y = 14; y <= 17; y++) w.layTrack(20, y);
+    const with3 = traffic().jobs.field.dist[HOME_ROAD()];
+    for (let y = 9; y <= 12; y++) w.layTrack(20, y);
+    const with4 = traffic().jobs.field.dist[HOME_ROAD()];
+    expect(with3 - plain).toBeCloseTo(RL.junction3.delay, 1);
+    expect(with4 - plain).toBeCloseTo(RL.junction4.delay, 1);
+  });
+
+  it('an overloaded line slows down', () => {
+    suburbAndTown();
+    const free = traffic().jobs.field.dist[HOME_ROAD()];
+    RL.capacity = 2;                                                      // about four trips ride it
+    const t = traffic();
+    expect(railLoad(t, idx(30, 13))).toBeGreaterThan(1);
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(free + 1);
+  });
+});
+
+describe('level crossings', () => {
+  // A local street runs north–south across the line at x = 30, joined to neither station:
+  // homes at its north end shop at its south end.
+  function localStreet(): void {
+    for (let y = 4; y <= 22; y++) expect(w.setRoad(30, y, ROAD_STREET)).toBe(true);
+  }
+  function localTraffic(): void {
+    for (let y = 4; y <= 7; y++) { zone(29, y, ZONE_R, 3); zone(31, y, ZONE_R, 3); }
+    for (let y = 19; y <= 22; y++) { zone(29, y, ZONE_C, 3); zone(31, y, ZONE_C, 3); }
+  }
+
+  it('cars at the crossing slow the trains', () => {
+    suburbAndTown();
+    localStreet();
+    const quiet = traffic().jobs.field.dist[HOME_ROAD()];
+    localTraffic();
+    const t = traffic();
+    expect(trafficVolume(t, idx(30, 13))).toBeGreaterThan(0);
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(quiet + 0.2);
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThanOrEqual(quiet + RL.crossing.delay + 1e-3);
+  });
+
+  it('trains at the crossing slow the cars', () => {
+    suburbAndTown(false);
+    w.placeBuilding(4, 11, BUILDING_STATION); w.placeBuilding(50, 11, BUILDING_STATION);
+    localStreet();
+    track(13, 8, 49);
+    localTraffic();
+    RL.capacity = 4;                                                      // the commuters fill the line
+    const withTrains = traffic().shopping.field.dist[idx(30, 6)];
+    for (let x = 4; x <= 9; x++) w.layers.devLevel[idx(x, 9)] = 0;        // the suburb empties: no riders
+    const without = traffic().shopping.field.dist[idx(30, 6)];
+    expect(withTrains).toBeGreaterThan(without + 0.5);
+  });
+});

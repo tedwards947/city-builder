@@ -1,4 +1,4 @@
-import { trackMaintenance } from '../rail';
+import { trackMaintenance, railFareIncome } from '../rail';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -70,6 +70,8 @@ export class EconomySystem {
     income += exportIncome(world);
     // Nor what buildings earn per trip they take (an airport's passengers).
     income += buildingTripIncome(world);
+    // Nor the fares riders pay at the stations.
+    income += railFareIncome(world);
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
       if (roadClass[i] !== ROAD_NONE) {
