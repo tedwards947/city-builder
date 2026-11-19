@@ -20,15 +20,16 @@
 | 1 | "Welcome to Concretta! Drag to look around, scroll to zoom." | – | The camera has panned and zoomed |
 | 2 | "Every city starts with a road. Draw a street from the highway." | Roads → Street; a ghost path from the highway stub | ≥ 10 street tiles connected to the highway |
 | 3 | "People need homes. Paint homes along your street." | Zones → Homes | ≥ 12 home tiles zoned beside a road |
-| 4 | "Homes need power. Build a power plant a little way off." | Utilities → Power; a suggested spot | A power plant reaches the homes |
-| 5 | "And water, and somewhere for it to go." | Utilities → Water, Sewage | The homes have water and sewage |
-| 6 | "Speed things up and watch your town move in." | Speed buttons; the demand bars | Population ≥ 40 |
-| 7 | "People need jobs. Add shops, and industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
-| 8 | "Click a home to see how it's doing." | Inspect | A home inspected |
-| 9 | *Scripted request:* "Families on {street} want a park nearby." | Services → Park; the request pin | That request met |
-| 10 | "Services cost upkeep. Check your budget and taxes." | Budget | The budget panel opened |
-| 11 | "Views show what's going on. Try the traffic view." | Views → Traffic | An overlay switched on |
-| 12 | "That's the basics. The city is yours now. Have fun!" | – | The card is closed |
+| 4 | "Homes only grow beside roads. Draw more streets to give your town room." | Roads → Street | ≥ 20 street tiles connected to the highway (10 more than step 2) |
+| 5 | "Homes need power. Build a power plant a little way off." | Utilities → Power; a suggested spot | A power plant reaches the homes |
+| 6 | "And water, and somewhere for it to go." | Utilities → Water, Sewage | The homes have water and sewage |
+| 7 | "Speed things up and watch your town move in." | Speed buttons; the demand bars | Population ≥ 40 |
+| 8 | "People need jobs. Add shops, and industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
+| 9 | "Click a home to see how it's doing." | Inspect | A home inspected |
+| 10 | *Scripted request:* "Families on {street} want a park nearby." | Services → Park; the request pin | That request met |
+| 11 | "Services cost upkeep. Check your budget and taxes." | Budget | The budget panel opened |
+| 12 | "Views show what's going on. Try the traffic view." | Views → Traffic | An overlay switched on |
+| 13 | "That's the basics. The city is yours now. Have fun!" | – | The card is closed |
 
 Every card has **Skip step** and **Leave tutorial**. Leaving asks once ("Keep playing this city without the tutorial?") and then continues the city as a normal game.
 

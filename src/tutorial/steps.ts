@@ -19,6 +19,8 @@ import type { TutorialStep, TutorialTarget, TutorialUi } from './types';
 export const GOALS = {
   /** Street tiles joined to the highway. */
   streetTiles: 10,
+  /** The "more roads" step: the street network joined to the highway has grown to this many tiles. */
+  moreStreetTiles: 20,
   /** Home tiles zoned beside a street; the same number must then have power, water and sewage. */
   homeTiles: 12,
   population: 40,
@@ -155,6 +157,8 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     done: (w) => roadTilesOffHighway(w) >= GOALS.streetTiles,
   },
   { id: 'homes', point: ['res'], done: (w) => homesBesideRoad(w) >= GOALS.homeTiles },
+  // Nothing else says the town needs more road than its first street: ten more tiles of it.
+  { id: 'roads', point: ['street'], done: (w) => roadTilesOffHighway(w) >= GOALS.moreStreetTiles },
   {
     id: 'power', point: ['plant'], target: (w) => markerArea(w, 'power'),
     done: (w) => homesBesideRoad(w, w.layers.power) >= GOALS.homeTiles,
