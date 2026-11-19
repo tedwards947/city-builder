@@ -19,7 +19,6 @@ import {
 } from '../sim/constants';
 import { MARKET_DEFS, railLoad } from '../sim/TrafficData';
 import { platformEnds } from '../sim/buildingShapes';
-import { trackMaintenance } from '../sim/rail';
 import { taxIncomeMult } from '../sim/tax';
 import { cloneWorld, freshWorld, startSim } from './world';
 import { playPersona, PERSONAS } from './personas';
@@ -29,6 +28,10 @@ export const MIN_STREET = 25;
 
 /** A starter line, for the money targets: two straight stations and this much ground track. */
 export const STARTER_TILES = 60;
+/** A starter line's upkeep per tick: its track and its two stations. */
+export function starterLineUpkeep(): number {
+  return 2 * (BALANCE.buildings[BUILDING_STATION]?.maintenance ?? 0) + STARTER_TILES * (BALANCE.rail.track[RAIL_GROUND]?.maintenance ?? 0);
+}
 export function starterLineCost(): number {
   return 2 * (BALANCE.buildings[BUILDING_STATION]?.cost ?? 0) + STARTER_TILES * (BALANCE.rail.track[RAIL_GROUND]?.cost ?? 0);
 }
@@ -56,7 +59,7 @@ export interface RailResult {
   bigResidents: number | null;
   oneLine: number | null;
   twoLines: number | null;
-  /** The suburb at full size: (its home taxes + fares) ÷ (the line's track and station upkeep). */
+  /** The suburb at full size: (its home taxes + fares) ÷ a starter line's upkeep (two stations, STARTER_TILES of track). */
   pays: number | null;
   /** The twin's surplus per day, and a starter line's price in days of it (null if the city runs at a loss). */
   surplusPerDay: number | null;
@@ -350,7 +353,8 @@ export function railResult(world: World, days = 180): RailResult {
   startSim(full);
   const tax = homes.reduce((s, i) => s + homeTax(full, i), 0);
   const fares = full.traffic!.rail.boardings * BALANCE.rail.fare;
-  const upkeep = trackMaintenance(full) + 2 * (BALANCE.buildings[BUILDING_STATION]?.maintenance ?? 0);
+  // Graded on a fixed starter line (owner 2026-11-18), not the probe's own line, whose length depends on the map.
+  const upkeep = starterLineUpkeep();
   res.pays = upkeep > 0 ? r2((tax + fares) / upkeep) : null;
 
   // Junctions, on the full suburb: a 3-way and a 4-way spur (three tiles each) on plain track,

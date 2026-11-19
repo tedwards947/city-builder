@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BALANCE } from '../data/balance';
-import { railResult, starterLineCost, STARTER_TILES } from './rail';
+import { railResult, starterLineCost, starterLineUpkeep, STARTER_TILES } from './rail';
 import { buildLivingCity } from '../__tests__/fixtures/testCity';
 import { startSim } from './world';
 import { landWorld } from '../__tests__/pcTestWorld';
@@ -26,8 +26,9 @@ describe('balance lab: rail probe', () => {
     }
   }, 120_000);
 
-  it('a starter line is two stations and 60 tiles of ground track', () => {
+  it('a starter line is two stations and 60 tiles of ground track, in cost and upkeep', () => {
     expect(starterLineCost()).toBe(2 * BALANCE.buildings[BUILDING_STATION].cost + STARTER_TILES * BALANCE.rail.track[RAIL_GROUND].cost);
+    expect(starterLineUpkeep()).toBe(2 * BALANCE.buildings[BUILDING_STATION].maintenance + STARTER_TILES * BALANCE.rail.track[RAIL_GROUND].maintenance);
   });
 });
 
