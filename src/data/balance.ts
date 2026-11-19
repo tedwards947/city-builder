@@ -304,6 +304,11 @@ export const BALANCE = {
     speedMult: 10,         // a tile of track takes 1 / speedMult (a highway's is 2)
     capacity: 300,         // riders a tile of track carries before it counts as full (a highway: 200)
     congestionDelay: 1,    // past transit.freeFlow × capacity: time × (1 + congestionDelay × (load − freeFlow))
+    // A line past `jam.from` of its capacity JAMS: every tile of it takes
+    // jam.delay × (load − jam.from) ^ jam.power street tiles longer (load counts up to 3).
+    // This is in street tiles, not a multiple of the track's own tiny time, so a jammed line
+    // can lose to a slower second line or to the road. delay 0 = no jam.
+    jam: { from: 1, delay: 4, power: 1 },
     boardTime: 2,          // getting on at a station, and again getting off
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
