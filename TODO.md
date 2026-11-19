@@ -10,7 +10,7 @@ DESIGN is the owner's list: things that need a design decision before anyone bui
   - **Straight: 1×3**, a single row on the track: platform tiles with a small station house drawn alongside, like a country halt. Roads connect from either long side.
   - **Curved (L): 2×2**: the track turns through it, and the station house fills the corner off the track.
   - (Considered first: a 3×2 with an entrance above the middle of a 3-tile platform and free tiles either side. 1×3 is smaller still.)
-  - **To decide:** subway platforms shrink from 4 to 3 to match? Whether a track may run right beside a platform (may look like a second platform).
+  - **Decided (owner):** subway platforms become 1×3 too. No track right beside a platform. **Start after the Concretta logo is done** (don't load graphics with both at once).
   - **ENGINE:** new footprints (platform tiles with access from the long sides), and refitting stations in old saves (refund and remove if they don't fit, as with the airport in #275).
   - **GRAPHICS:** a station house that fits in 1 tile's depth beside the track, and a 2×2 corner one [paid, owner's OK].
   - **ENGINEER 3:** re-check the rail suite (station cost may want to drop with the size).
