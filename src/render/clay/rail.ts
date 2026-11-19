@@ -265,8 +265,13 @@ export function drawElevatedTile(ctx: Ctx, links: number, px: number, py: number
       ctx.fillRect(x - w / 2, cy - lift, w, lift);
     }
   }
+  // The face hangs below the deck's top. Where the track runs on south, the next deck usually hides that strip,
+  // but a ramp rising from the south doesn't (owner saw a dark line across the track there), so clip it off.
+  ctx.save();
+  if (links & LINK_S) { ctx.beginPath(); ctx.rect(px - T, top - T, 3 * T, 2 * T); ctx.clip(); }
   ctx.strokeStyle = STEEL.face; ctx.lineWidth = T * 0.98;
   for (const pc of pcs) strokePiece(ctx, pc, px, top + T * 0.08, T, 0);
+  ctx.restore();
   if (T >= 12 && (links & (LINK_E | LINK_W)) && !(links & (LINK_N | LINK_S))) {   // a zigzag down the face of east–west deck
     ctx.strokeStyle = STEEL.lattice; ctx.lineWidth = 1; ctx.beginPath();
     const y0 = top + T * 0.99, y1 = y0 + T * 0.07;
@@ -395,7 +400,14 @@ export function drawElevatedLayer(ctx: Ctx, world: World, sx: number, sy: number
   const X = (tx: number): number => Math.floor(sx + tx * T), Y = (ty: number): number => Math.floor(sy + ty * T), tile = Math.ceil(T);
   // A deck's shadow and legs reach a little past its own tile: take in one more row and column.
   const ya = Math.max(0, y0 - 1), xa = Math.max(0, x0 - 1);
-  for (let ty = ya; ty <= y1; ty++) for (let tx = xa; tx <= x1; tx++) { const i = ty * w + tx; if (rail[i] & RAIL_ELEVATED && !bld[i]) drawElevatedShadow(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile); }
+  for (let ty = ya; ty <= y1; ty++) for (let tx = xa; tx <= x1; tx++) {
+    const i = ty * w + tx; if (!(rail[i] & RAIL_ELEVATED) || bld[i]) continue;
+    // A ramp rising from the south lifts its top into this tile's bottom strip: keep the shadow off it.
+    const ramp = ty + 1 < world.grid.height && bld[i + w] === BUILDING_RAMP_ELEVATED;
+    if (ramp) { ctx.save(); ctx.beginPath(); ctx.rect(X(tx) - tile, Y(ty), 3 * tile, Y(ty + 1) - Y(ty) - DECK_HEIGHT * T); ctx.clip(); }
+    drawElevatedShadow(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile);
+    if (ramp) ctx.restore();
+  }
   for (let ty = ya; ty <= Math.min(world.grid.height - 1, y1 + 1); ty++) for (let tx = xa; tx <= x1; tx++) {
     const i = ty * w + tx; if (rail[i] & RAIL_ELEVATED && !bld[i]) drawElevatedTile(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile, (tx + ty) % 2 === 0);
   }
