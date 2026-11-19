@@ -5,7 +5,7 @@ import { landWorld } from './pcTestWorld';
 
 describe('train runs', () => {
   it('cuts track into runs at junctions and dead ends, through bends and stations', () => {
-    const w = landWorld(40, 40);
+    const w = landWorld(40);
     // An L: 6 tiles east, a bend, 4 tiles south; then a branch off the middle (a junction).
     for (let x = 5; x <= 10; x++) expect(w.layTrack(x, 5)).toBe(true);
     for (let y = 6; y <= 9; y++) expect(w.layTrack(10, y)).toBe(true);
@@ -18,7 +18,7 @@ describe('train runs', () => {
   });
 
   it('knows where a station platform lies along its run', () => {
-    const w = landWorld(40, 40);
+    const w = landWorld(40);
     for (let x = 2; x <= 20; x++) if (x < 8 || x > 11) expect(w.layTrack(x, 10)).toBe(true);
     expect(w.placeBuilding(8, 9, BUILDING_STATION, 0)).toBe(true);   // platform on row 10, x 8–11
     const runs = buildRuns(w);
