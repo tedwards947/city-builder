@@ -300,6 +300,12 @@ export interface TranslationSchema {
       track: string;
       station: string;
       stationL: string;
+      trackElevated: string;
+      trackSubway: string;
+      rampElevated: string;
+      rampSubway: string;
+      subwayStation: string;
+      undergroundView: string;
       police: string;
       fireStation: string;
       school: string;
@@ -398,6 +404,12 @@ export interface TranslationSchema {
       track: string;
       station: string;
       stationL: string;
+      trackElevated: string;
+      trackSubway: string;
+      rampElevated: string;
+      rampSubway: string;
+      subwayStation: string;
+      undergroundView: string;
       police: string;
       fireStation: string;
       school: string;
