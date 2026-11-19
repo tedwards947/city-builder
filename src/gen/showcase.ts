@@ -1,3 +1,4 @@
+// NOTE: the shipped showcase is now the owner's hand-built city; this builds a generated one.
 // The title screen's showcase city (TODO DESIGN j): a big, live city behind
 // the logo for the camera to tour. Built by script, so it can be rebuilt when
 // the game changes: `npm run gen-showcase` (scripts/gen-showcase.mjs) writes
