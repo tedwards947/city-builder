@@ -2,7 +2,7 @@
 
 This file provides guidance to AI agents when working with code in this repository.
 
-Browser-based 2D top-down city builder (SimCity-style).
+**Concretta**: a browser-based 2D top-down city builder (SimCity-style). "Concretta" is the game's name (owner, 2026-11-19); the repo and folders stay `city-builder`. Use the name in player-facing text.
 
 **IMPORTANT** 
 I'm using a somewhat limited Pro plan so tokens and context length REALLY MATTER! Please ask before importing large resources and please be dilligent before adding too much context!
