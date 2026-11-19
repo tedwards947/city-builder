@@ -64,3 +64,42 @@ Stations have a road door (car traffic in and out) and track at the platform end
 - **Level crossings** are allowed on streets and avenues; the slowdown grows with the other side's traffic.
 - **Later than phase 1:** PC nuisance for track and the station growth bonus.
 - **Phase 1 = four engine PRs:** track layer and tool → stations → rail traffic → tests and lab hooks. Numbers live in `BALANCE.rail`.
+
+## Proposed numbers for the later rail pieces (ENGINEER 3, 2026-11-19; waiting on the owner)
+Nothing below is built or shipped. These are starting numbers for ENGINE to build against, with the lab targets to check them by.
+
+### Track nuisance near homes (PC)
+- It works like today's nuisance: a one-off PC cost when track is laid, per resident within the shared bands (within 2 tiles ×1, within 4 ×0.6, within 6 ×0.3).
+- **Proposed PC per resident at weight 1, per tile of track:** ground **0.01**, elevated **0.015** (pillars and noise over the street), subway **0**. Stations, ramps and track on empty land: 0.
+  - For scale: an industrial zone tile is 0.0667 and a power plant 0.267. So one tile of ground track is about a seventh of an industrial tile.
+- Worked by hand:
+  - A track tile one tile from a row of level-3 homes (20 residents each) weighs about 130 residents; with homes on both sides, about 300–400.
+  - So 20 tiles of ground track through a neighbourhood cost about 25–80 PC. That's 0.1–0.35 of a PC bar at 10k residents (cap about 230).
+- **Target rail.nuisance:**
+  - 20 tiles of ground track past a full row of homes costs 0.1–0.4 of a bar on a 10k city;
+  - the same line through empty land, or as subway, costs nothing;
+  - elevated costs 1.3–1.7× ground.
+
+### Growth near stations
+- **Proposed:** homes and shops (not industry) within **4 tiles** (manhattan) of a station that has a road and riders grow **× 1.25** faster.
+- Kept small on purpose: rail already gives a suburb its job access, which multiplies growth. The rail suite's suburb already grows 1.5–1.8× faster than the same suburb on a long street.
+- **Target rail.stationGrowth:** homes beside a served station reach level 3 15–30% sooner than the same homes without the bonus. rail.suburb must still pass.
+- This multiplies whatever growth model the owner picks for "homes level up too fast", so it should be tuned after that decision.
+
+### Phase 2 placeholders: sanity check
+At the shipped ground numbers (track 400 / 0.5 a tick; station 30,000 / 25):
+| | Cost a tile | Upkeep a tile, a tick | 60-tile line | Days of a 10k city's surplus (6–8.5k a day) |
+|---|---|---|---|---|
+| Ground | 400 | 0.5 | 24,000 | 3–4 |
+| Elevated 3× | 1,200 | proposed 1.5 (3×) | 72,000 | 8–12 |
+| Subway 25× | 10,000 | proposed **2** (4×, not 25×) | 600,000 | 70–100 |
+
+- **Elevated 3×: fine.** It buys no level crossings and passing over roads, for three times the price.
+- **Subway 25× build cost: fine as "really, really expensive".** A 60-tile subway is about a third of an airport (2,000,000). It's a big-city project: at 10k residents it's 70–100 days of surplus.
+- **Subway upkeep should not be 25×.** At 12.5 a tile a tick, 60 tiles cost 6,000 a day, which is a whole 10k city's surplus. Proposed 4× ground (2 a tile a tick): 60 tiles cost about 960 a day.
+- **Other phase 2 starting numbers:**
+  - subway station: 60,000, upkeep 40 (2× a train station: the hole is the cost);
+  - ramps (ground↔elevated, ground↔subway): 5,000 and 15,000, upkeep 5 and 10.
+- **Targets to add with phase 2:**
+  - rail.subwayCost: a 60-tile subway line costs 60–120 days of a 10k city's surplus, and ≤ 30 days at 50k;
+  - rail.elevatedCost: elevated costs 2.5–4× ground for the same line.

@@ -70,3 +70,35 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 ## Open questions
 - Tree price, and how strong each effect is (lab).
 - Water price per tile (lab). Possibly a PC cost later.
+
+## Proposed lab targets and numbers (ENGINEER 3, 2026-11-19; waiting on the owner)
+Nothing below is shipped. Every landscaping number is still 0. Once the owner OKs the targets, the lab builds a `landscape` suite and tunes the numbers to them.
+
+**Measured first, on the three saves:**
+- Wild trees within 2 tiles of a home are rare: 5% of homes on gen-s1, 16% on gen-suburban, 21% on testcity1. Where there are any, it's usually 1 or 2.
+- So turning the tree bonus on is a small shock: city income +0.1–0.3% at `treeBonus` 1, +0.2–0.7% at 2, and +0.5–1.5% at 4.
+
+### Targets
+| Id | Metric | Target | Why |
+|---|---|---|---|
+| land.treeHome | Land value gained by a home with 8 trees within 2 tiles | +12–20 (about half the service bonus of 35) | A tree belt is worth having, but it isn't a service. |
+| land.treePayback | Days for a tree planted between two rows of level-3 homes to repay its price in extra home tax | 60–180 | Trees beside homes pay off; trees in the wild never do (decoration). |
+| land.treeShock | Change in a mature save's income when the bonus is switched on (wild trees count too) | ≤ 3% | No windfall for maps that happen to be wooded. |
+| land.treeSpam | Carpeting every free tile within 2 of homes on a mature save: income gain, and the price in days of surplus | gain ≤ 10%; price ≥ 30 days | No money printer. |
+| land.treeBuffer | Pollution at the nearest homes behind a 3-tile tree belt from industry, against bare land | 15–35% lower | The owner's aim: tree belts buffer industry from homes. Tunes `pollution.vegDecayMult` (now 0.95). |
+| vibe.treeGreen | Green nudge from 50 trees planted in a neighbourhood, against one park (`parkBuilt` 5) | 0.75–1.25 parks; clearing them takes it back | Trees are a small, steady green push. |
+| water.canal | A 20-tile canal: days of a 10k city's surplus | 1–5 days | Reconnecting a cut-off port is worth doing. |
+| water.reclaim | Filling a 10×10 block of water: share of a 10k city's 30-day surplus | 25–100% | Reclaiming land is a project, not a whim. |
+
+### Starting numbers to tune from
+These are worked out by hand from the formulas; the suite would confirm them.
+- **`landValue.treeBonus` 2**, `treeRadius` 2, **`treeBonusMax` 16**: 8 trees max out at +16 land value, which is about +9% home tax at today's typical home land value of about 65.
+- **`costs.tree` 200.** One tree between two rows of level-3 homes reaches about 12 of them. At +2 land value each (home tax × 0.75 × 2/128) that's about 2.2 a day, so it pays back in about 90 days; well-educated homes pay up to 1.5× that, so about 60. A belt of 30 trees costs 6,000: a day of a 10k city's surplus, or 30% of a new town's starting 20,000.
+- **`costs.treeClear` 5**, the same as `bulldoze`. The bulldozer clears trees; clearing shouldn't be free, but shouldn't hurt either.
+- **`character.nudges.green.treePlanted` 0.1, `treeCleared` −0.1**: 50 trees = one park.
+- **`costs.water` 750 a tile** (a bridge is 30 a tile).
+  - A 20-tile canal costs 15,000, which is 1.8–2.5 days of a 10k city's surplus (6–8.5k a day).
+  - A 10×10 fill costs 75,000, which is 29–42% of its 30-day surplus.
+- **`pollution.vegDecayMult`**: leave at 0.95 until land.treeBuffer is measured.
+
+Water stays money-only (no PC), as decided. A PC cost can come later if play shows players flooding neighbourhoods casually.
