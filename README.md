@@ -1,4 +1,6 @@
-# City Builder
+# Concretta
+
+**Concretta** is the game's name (chosen by the owner, 2026-11-19). The repo stays `city-builder`.
 
 A deep, browser-based 2D top-down city simulation inspired by classic city builders like SimCity. Built with TypeScript and rendered via a high-performance custom Canvas 2D engine.
 
