@@ -306,6 +306,11 @@ export class Toolbar {
     this.render();
   }
 
+  /** Whether an item pulses: the tutorial points at it and it is not yet the tool (or view) in use. */
+  private pulses(item: ToolbarItem): boolean {
+    return this.pulse.has(item.key) && !this.isOn(item);
+  }
+
   private isOn(item: ToolbarItem): boolean {
     if (item.tool !== undefined) return item.tool === this.tool;
     if (item.overlay !== undefined) return item.overlay === this.overlay;
@@ -334,7 +339,7 @@ export class Toolbar {
       if (!isFamily(e)) {
         if (e.shown && !e.shown()) continue;
         const b = this.tile(e.icon, e.cls, this.isOn(e), false, t('ui.toolbar.' + e.key));
-        if (this.pulse.has(e.key)) b.classList.add('tb-pulse');
+        if (this.pulses(e)) b.classList.add('tb-pulse');
         const n = e.count ? e.count() : 0;
         if (n > 0) b.append(node('span', 'tb-count', String(n)));
         b.addEventListener('click', () => { this.open = null; this.pick(e); this.render(); });
@@ -346,7 +351,7 @@ export class Toolbar {
       const b = this.tile(face?.icon ?? e.icon, face?.cls, face !== null && this.isOn(face), true,
         t('ui.toolbar.' + (face?.key ?? e.family)));
       b.setAttribute('aria-expanded', String(this.open === e.family));
-      if (e.items.some(i => this.pulse.has(i.key))) b.classList.add('tb-pulse');
+      if (e.items.some(i => this.pulses(i))) b.classList.add('tb-pulse');
       b.addEventListener('click', () => {
         const opening = this.open !== e.family;
         this.open = opening ? e.family : null;
@@ -372,7 +377,7 @@ export class Toolbar {
     for (const item of f.items) {
       if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
       if (item.sepBefore) fly.append(node('div', 'tb-fly-sep'));
-      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulse.has(item.key) ? ' tb-pulse' : ''),
+      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulses(item) ? ' tb-pulse' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);

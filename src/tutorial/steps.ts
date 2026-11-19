@@ -14,7 +14,7 @@ import {
 import { isMet } from '../sim/requests';
 import { coveredBy, touchesAccessRoad } from '../sim/serviceValue';
 import { hasLivedInHome, openScriptedRequest, scriptedRequest } from './rules';
-import type { TutorialStep, TutorialTarget, TutorialUi } from './types';
+import type { TutorialProgress, TutorialStep, TutorialTarget, TutorialUi } from './types';
 
 export const GOALS = {
   /** Street tiles joined to the highway. */
@@ -150,28 +150,39 @@ function parkDone(world: World): boolean {
   return req === null || isMet(world, req);   // closed (RequestSystem paid it out), or about to be
 }
 
+/**
+ * A step with counted goals: it is done once every count has reached its
+ * target, and the card shows the counts (each `n` is capped at its target).
+ */
+function counted(step: Omit<TutorialStep, 'done' | 'progress'>, goals: (world: World) => TutorialProgress[]): TutorialStep {
+  return {
+    ...step,
+    progress: (w) => goals(w).map((g) => ({ ...g, n: Math.min(g.n, g.of) })),
+    done: (w) => goals(w).every((g) => g.n >= g.of),
+  };
+}
+
 export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   { id: 'camera', done: (_w, ui) => ui.panned && ui.zoomed },
-  {
-    id: 'street', point: ['street'], target: streetPath,
-    done: (w) => roadTilesOffHighway(w) >= GOALS.streetTiles,
-  },
-  { id: 'homes', point: ['res'], done: (w) => homesBesideRoad(w) >= GOALS.homeTiles },
+  counted({ id: 'street', point: ['street'], target: streetPath },
+    (w) => [{ key: 'streets', n: roadTilesOffHighway(w), of: GOALS.streetTiles }]),
+  counted({ id: 'homes', point: ['res'] },
+    (w) => [{ key: 'homes', n: homesBesideRoad(w), of: GOALS.homeTiles }]),
   // Nothing else says the town needs more road than its first street: ten more tiles of it.
-  { id: 'roads', point: ['street'], done: (w) => roadTilesOffHighway(w) >= GOALS.moreStreetTiles },
-  {
-    id: 'power', point: ['plant'], target: (w) => markerArea(w, 'power'),
-    done: (w) => homesBesideRoad(w, w.layers.power) >= GOALS.homeTiles,
-  },
-  {
-    id: 'water', point: ['water', 'sewage'],
-    done: (w) => homesBesideRoad(w, w.layers.water, w.layers.sewage) >= GOALS.homeTiles,
-  },
-  { id: 'grow', point: ['speed', 'demand'], done: (w) => w.stats.population >= GOALS.population },
-  {
-    id: 'jobs', point: ['com', 'ind'],
-    done: (w) => countZone(w, ZONE_C) >= GOALS.shopTiles && countZone(w, ZONE_I) >= GOALS.industryTiles,
-  },
+  counted({ id: 'roads', point: ['street'] },
+    (w) => [{ key: 'streets', n: roadTilesOffHighway(w), of: GOALS.moreStreetTiles }]),
+  counted({ id: 'power', point: ['plant'], target: (w) => markerArea(w, 'power') },
+    (w) => [{ key: 'powered', n: homesBesideRoad(w, w.layers.power), of: GOALS.homeTiles }]),
+  counted({ id: 'water', point: ['water', 'sewage'] }, (w) => [
+    { key: 'watered', n: homesBesideRoad(w, w.layers.water), of: GOALS.homeTiles },
+    { key: 'sewered', n: homesBesideRoad(w, w.layers.sewage), of: GOALS.homeTiles },
+  ]),
+  counted({ id: 'grow', point: ['speed', 'demand'] },
+    (w) => [{ key: 'residents', n: w.stats.population, of: GOALS.population }]),
+  counted({ id: 'jobs', point: ['com', 'ind'] }, (w) => [
+    { key: 'shops', n: countZone(w, ZONE_C), of: GOALS.shopTiles },
+    { key: 'industry', n: countZone(w, ZONE_I), of: GOALS.industryTiles },
+  ]),
   { id: 'inspect', point: ['inspect'], done: (_w, ui) => ui.inspectedHome },
   {
     id: 'park', point: ['park'],

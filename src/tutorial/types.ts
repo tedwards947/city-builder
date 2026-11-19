@@ -23,6 +23,9 @@ export interface TutorialTarget {
   area?: { x: number; y: number; w: number; h: number };
 }
 
+/** One counted goal of a step, for the card: "Shops 3 / 8". `key` names its label, ui.tutorial.progress.<key>. */
+export interface TutorialProgress { key: string; n: number; of: number }
+
 export interface TutorialStep {
   /** The card's copy is ui.tutorial.step.<id>. */
   id: string;
@@ -34,6 +37,8 @@ export interface TutorialStep {
   enter?(world: World): void;
   /** Values for the copy's {placeholders}. */
   vars?(world: World): Record<string, string | number>;
+  /** How far along the step's counted goals are, if it has any. The card shows them and keeps them up to date. */
+  progress?(world: World): TutorialProgress[];
   done(world: World, ui: TutorialUi): boolean;
 }
 

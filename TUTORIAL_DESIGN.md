@@ -24,12 +24,14 @@
 | 5 | "Homes need power. Build a power plant a little way off." | Utilities → Power; a suggested spot | A power plant reaches the homes |
 | 6 | "And water, and somewhere for it to go." | Utilities → Water, Sewage | The homes have water and sewage |
 | 7 | "Speed things up and watch your town move in." | Speed buttons; the demand bars | Population ≥ 40 |
-| 8 | "People need jobs. Add shops, and industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
-| 9 | "Click a home to see how it's doing." | Inspect | A home inspected |
+| 8 | "People need jobs. Zone 8 tiles of shops, and 8 of industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
+| 9 | "Pick the Inspect tool (I), then click a home to see how it's doing and what it needs." | Inspect, until it is picked | A home clicked with Inspect |
 | 10 | *Scripted request:* "Families on {street} want a park nearby." | Services → Park; the request pin | That request met |
 | 11 | "Services cost upkeep. Check your budget and taxes." | Budget | The budget panel opened |
 | 12 | "Views show what's going on. Try the traffic view." | Views → Traffic | An overlay switched on |
 | 13 | "That's the basics. The city is yours now. Have fun!" | – | The card is closed |
+
+Steps with a counted goal (2 to 8) show their progress on the card and keep it up to date, e.g. "Shop tiles 3 / 8 · Industry tiles 0 / 8". A toolbar button stops pulsing once it is the tool in use.
 
 Every card has **Skip step** and **Leave tutorial**. Leaving asks once ("Keep playing this city without the tutorial?") and then continues the city as a normal game.
 
