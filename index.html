@@ -242,9 +242,9 @@
     #debug-money, #debug-ship { margin-left: 6px; font: inherit; font-size: 10px; padding: 0 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #cfe; cursor: pointer; pointer-events: auto; }
 
     /* ── Toolbar tooltip ── */
-    .tb-tip { position: fixed; background: rgba(10,18,28,0.95); color: #dde; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; pointer-events: none; white-space: nowrap; z-index: 56; opacity: 0; transition: opacity 0.12s; }
+    .tb-tip { position: fixed; background: rgba(10,18,28,0.95); color: #dde; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 11px; font-size: 12px; pointer-events: none; width: max-content; max-width: min(320px, calc(100vw - 80px)); line-height: 1.4; z-index: 56; opacity: 0; transition: opacity 0.12s; }
     .tb-tip.visible { opacity: 1; }
-    .tb-tip-name { color: #fff; font-weight: 600; }
+    .tb-tip-name { color: #fff; font-weight: 600; white-space: nowrap; }
     .tb-tip-desc { color: #cde; }
     .tb-tip-cost { color: #7dd87d; font-weight: 600; margin-top: 2px; font-size: 11px; }
     .tb-tip-pc { color: #7dd8c0; font-weight: 600; margin-top: 2px; font-size: 11px; }
