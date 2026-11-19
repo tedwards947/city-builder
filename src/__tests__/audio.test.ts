@@ -7,7 +7,8 @@ const TRACK_COUNT = Object.keys(import.meta.glob('../audio/tracks/*.ts')).length
 // Mock AudioContext
 const mockOscillator = {
   connect: vi.fn(),
-  frequency: { setValueAtTime: vi.fn() },
+  frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+  detune: { setValueAtTime: vi.fn() },
   start: vi.fn(),
   stop: vi.fn(),
   type: 'sine',
@@ -26,7 +27,19 @@ const mockGain = {
 
 const mockAudioContext = {
   createOscillator: vi.fn(() => mockOscillator),
-  createGain: vi.fn(() => mockGain),
+  // A fresh gain per call (each holds its own value), sharing the automation spies.
+  createGain: vi.fn(() => ({ connect: mockGain.connect, gain: { ...mockGain.gain, value: 0 } })),
+  createBufferSource: vi.fn(() => ({ connect: vi.fn(), start: vi.fn(), stop: vi.fn(), buffer: null, loop: false })),
+  createBiquadFilter: vi.fn(() => ({
+    connect: vi.fn(), type: 'lowpass', Q: { value: 0 },
+    frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+  })),
+  createConvolver: vi.fn(() => ({ connect: vi.fn(), buffer: null })),
+  createBuffer: vi.fn((channels: number, length: number) => {
+    const data = Array.from({ length: channels }, () => new Float32Array(length));
+    return { getChannelData: (c: number) => data[c] };
+  }),
+  sampleRate: 8000,
   destination: {},
   currentTime: 0,
   resume: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +78,8 @@ function songsKeptApart(names: string[]): boolean {
   }
   return true;
 }
+
+const FUGUE = 'Bach: Fugue in G minor, BWV 542';
 
 describe('shufflePlaylist', () => {
   const fake = (name: string): Track => ({ name, genre: 'ambient', bpm: 100, patterns: [], sequence: [] });
@@ -180,7 +195,8 @@ describe('MusicManager', () => {
     expect(list).toHaveLength(TRACK_COUNT);
     expect(list.find(t => t.name === 'Glass Towers')?.genre).toBe('edm');
     expect(list.find(t => t.name === 'Dusty Roads · Prairie Waltz')?.genre).toBe('country');
-    expect(new Set(list.map(t => t.genre))).toEqual(new Set(['ambient', 'country', 'edm']));
+    expect(list.find(t => t.name === FUGUE)?.genre).toBe('classical');
+    expect(new Set(list.map(t => t.genre))).toEqual(new Set(['ambient', 'classical', 'country', 'edm']));
   });
 
   it('lists every track and jumps to a picked one, starting playback', () => {
@@ -201,7 +217,8 @@ describe('MusicManager', () => {
   it('applies and clamps the volume', () => {
     musicManager.setVolume(0.5);
     musicManager.start(); // context created after setVolume: starts at the chosen level
-    expect(mockGain.gain.value).toBeCloseTo(0.06);
+    const master = mockAudioContext.createGain.mock.results[0].value;
+    expect(master.gain.value).toBeCloseTo(0.06);
     musicManager.setVolume(2);
     expect(musicManager.getVolume()).toBe(1);
     expect(mockGain.gain.setTargetAtTime).toHaveBeenLastCalledWith(0.12, 0, 0.02);
@@ -209,9 +226,37 @@ describe('MusicManager', () => {
     expect(musicManager.getVolume()).toBe(0);
   });
 
+  it('plays the Fugue on its marimbas, one per voice', () => {
+    const mods = import.meta.glob<{ track: Track }>('../audio/tracks/bach-*.ts', { eager: true });
+    const [fugue, ...others] = Object.values(mods).map(m => m.track);
+    expect(others).toHaveLength(0);
+    expect(fugue.name).toBe(FUGUE);
+    expect(fugue.genre).toBe('classical');
+    expect(fugue.instruments).toHaveLength(fugue.patterns[0].length);
+    expect(fugue.pans).toHaveLength(fugue.patterns[0].length);
+    const minutes = fugue.patterns[0][0].reduce((s, n) => s + n.length, 0) / fugue.bpm;
+    expect(minutes).toBeGreaterThan(5);
+    expect(minutes).toBeLessThan(6);
+    musicManager.playTrack(FUGUE);
+    expect(mockAudioContext.createConvolver).toHaveBeenCalledTimes(1); // its wooden room
+  });
+
   it('plays notes through AudioContext when started', () => {
     musicManager.start();
     expect(mockAudioContext.createOscillator).toHaveBeenCalled();
     expect(mockAudioContext.createGain).toHaveBeenCalled();
+  });
+});
+
+describe('ticks', () => {
+  it('decodes gap/length/midi tokens onto an exact beat grid', async () => {
+    const { ticks } = await import('../audio/compose');
+    expect(ticks('0/192/67 192/32/70 32/32/72 32/32/74', 384, 0.8)).toEqual([
+      { t: 0, pitch: 'G4', len: 0.5, vel: 0.8 },
+      { t: 0.5, pitch: 'A#4', len: 0.083333, vel: 0.8 },
+      { t: 0.583333, pitch: 'C5', len: 0.083333, vel: 0.8 },
+      { t: 0.666667, pitch: 'D5', len: 0.083333, vel: 0.8 },
+    ]);
+    expect(() => ticks('0/0/60', 384)).toThrow();
   });
 });

@@ -12,7 +12,7 @@ function displayName(trackName: string): string {
 }
 
 /** Song picker sections, in display order. */
-const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['country', 'Country'], ['edm', 'Electronic']];
+const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['classical', 'Classical'], ['country', 'Country'], ['edm', 'Electronic']];
 
 /** The effects volume the panel's FX slider controls (SoundEffects implements this). */
 export interface EffectsSettings {
@@ -138,7 +138,7 @@ export class MusicPanel {
     this.updateUI();
   }
 
-  /** Tracks grouped by style (Ambient, Country, Electronic), alphabetical within each; the current track is marked. */
+  /** Tracks grouped by style (Ambient, Classical, Country, Electronic), alphabetical within each; the current track is marked. */
   private openMenu() {
     const tracks = this.musicManager.getTrackList();
     const current = this.musicManager.getTrackName();
