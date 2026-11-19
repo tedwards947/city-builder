@@ -171,6 +171,12 @@ function bestSite(w: World, zone: number): Site | null {
   return best;
 }
 
+/** Build a seaport at the site with the most industry near it, with its access street; false if there is none (src/gen/showcase.ts). */
+export function placeSeaport(w: World): boolean {
+  const s = bestSite(w, ZONE_I);
+  return s ? build(w, s) : false;
+}
+
 /** Industry's own tax per developed level per tick, as EconomySystem pays it. */
 function industryTaxPerLevel(w: World): number {
   return w.budget.taxRates.I * BALANCE.tax.industryLandValueMult * ordinanceModifier(w, 'industrialIncome') * taxIncomeMult(w.budget.taxLevel);

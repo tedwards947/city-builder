@@ -113,6 +113,7 @@ Done and merged:
 - Growth pace (owner, 2026-11-19; docs/GROWTH_OPTIONS.md, #305): option B for homes only, `growth.homeProbabilityByLevel` 8% / 4% / 2% (empty→1, 1→2, 2→3; shops and industry stay at `probability` 0.08), with `tax.level.exodusPerPoint` 7e-5. Tax/debt suite 13/13; golden test city −19% residents at 400 ticks (#307).
 - Landscape suite and numbers (owner-approved targets 2026-11-19): land.treeHome, .treePayback, .treeShock, .treeSpam, .treeBuffer, vibe.treeGreen, water.canal, water.reclaim. Tree 200, clear 5, water 750 a tile, `treeBonus` 3 (cap 16), green ±0.05 a tree, `vegDecayMult` 0.98. All pass after the owner dropped land.treeSpam's price half (#311; dropped in the rail phase 2 PR).
 
+- Title screen showcase city (owner, 2026-11-19): `public/showcase/showcase.citysave.json` from `npm run gen-showcase` (`src/gen/showcase.ts`): 21k residents, airport, seaport, a train line, an elevated line, a subway, towers downtown, parks and tree belts; about a quarter of the roads jammed (the owner's testcity1: 14%), surplus about 15k a day; 3.1 MB (59 kB gzipped) (this PR).
 Approved by the owner (2026-11-19, proposals in #305):
 - Rail leftovers: ENGINE builds track nuisance and the station growth bonus with the RAIL_DESIGN.md numbers in rail phase 2.
 - Rail phase 2 prices: elevated 1,200 a tile (3×), subway 10,000 (25×), subway upkeep 2 (4×). Targets rail.subwayCost and rail.elevatedCost added; rail suite 26/26 after ENGINE's #310 (#314).
