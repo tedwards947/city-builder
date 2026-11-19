@@ -21,7 +21,7 @@ import {
 } from '../sim/constants';
 import { MARKET_DEFS, railLoad } from '../sim/TrafficData';
 import { platformEnds } from '../sim/buildingShapes';
-import { railLinks, trackBlocker } from '../sim/rail';
+import { railLinks, stationGrowthMask, trackBlocker } from '../sim/rail';
 import { pcQuote, pcCap } from '../sim/politics';
 import { mulberry32 } from '../sim/rng';
 import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
@@ -494,10 +494,19 @@ export function railNuisance(w: World): RailNuisance | null {
 
 // ── Growth near stations (rail.stationGrowth) ────────────────────────────────
 
+/** Built homes the station bonus reaches (stationGrowthMask), around any station of the line. */
+function homesByStations(w: World): number[] {
+  const mask = stationGrowthMask(w);
+  if (!mask) return [];
+  const out: number[] = [];
+  for (let i = 0; i < mask.length; i++) if (mask[i] && w.layers.zone[i] === ZONE_R && w.layers.devLevel[i] > 0) out.push(i);
+  return out;
+}
+
 export interface StationGrowth {
-  /** Suburb homes within BALANCE.rail.stationGrowth.radius of the suburb's station. */
+  /** Homes the station bonus reaches, around either station of the line, that got to level 3 in at least one run. */
   homes: number;
-  /** Mean over the seeds of the median days to level 3 for those homes (one that never gets there counts as `days`): bonus off, and on. */
+  /** Mean days to level 3 for those homes over every seed (a run where one never gets there counts as `days`): bonus off, and on. */
   daysOff: number;
   daysOn: number;
   /** 1 − on ÷ off: how much sooner they get there. */
@@ -506,29 +515,33 @@ export interface StationGrowth {
 
 /**
  * The suburb and its line, as railResult builds them, run `settle` days in the
- * full sim so services, education and riders are in place. Then the homes near
- * the suburb's station are emptied and only the growth system runs from there,
+ * full sim so services, education and riders are in place. Then every home the
+ * station bonus reaches (stationGrowthMask: the suburb's station and the city's)
+ * is emptied, and only the growth system runs from there,
  * `days` days, once per seed with the station bonus off and once as shipped.
  * Growth alone is cheap, so enough seeds can be run for a ×1.25 to show above
  * the noise of a handful of homes; everything else stays as it was settled.
+ * Every home the growth system touches shares one random stream, so the two
+ * runs of a seed soon draw different rolls: the seeds, not the pairing, beat
+ * the noise (20 seeds swung one city from 1% to 18%; at 100 it moves a few points).
+ * Homes that never reach level 3 in any run are held back by something else
+ * (a service or education gate) and are left out.
  */
-export function stationGrowthResult(world: World, days = 360, seeds = 20, settle = 30): StationGrowth | null {
+export function stationGrowthResult(world: World, days = 360, seeds = 100, settle = 30): StationGrowth | null {
   const cfg = BALANCE.rail.stationGrowth as { radius: number; mult: number };
   const site = findSite(world, 16, 1, MIN_STREET);
   if (!site) return null;
   const w = cloneWorld(site.world);
   if (!layPath(w, site.path)) return null;
-  const { width } = w.grid, r = Math.floor(cfg.radius);
-  const station = w.buildingTilesAt(site.sub.east.x, site.sub.east.y);
-  const near = site.sub.homes.filter(h => station.some(t => Math.abs(h % width - t % width) + Math.abs(Math.floor(h / width) - Math.floor(t / width)) <= r));
-  if (!near.length) return null;
   const sim = startSim(w);
   for (let d = 0; d < settle; d++) sim.tick(BALANCE.ticksPerDay);
+  const near = homesByStations(w);
+  if (!near.length) return null;
   for (const h of near) w.layers.devLevel[h] = 0;
   const L = w.layers, saved = { dev: L.devLevel.slice(), abandoned: L.abandoned.slice(), distress: L.distress.slice() }, tick0 = w.tick;
   const ti = BALANCE.growth.tickInterval, passes = Math.round(days * BALANCE.ticksPerDay / ti), perDay = BALANCE.ticksPerDay / ti;
-  const median = (v: number[]) => { const s = v.slice().sort((a, b) => a - b); return s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
-  const run = (mult: number, seed: number): number => {
+  // Days to level 3 for each home, or -1 if it never got there.
+  const run = (mult: number, seed: number): number[] => {
     L.devLevel.set(saved.dev); L.abandoned.set(saved.abandoned); L.distress.set(saved.distress);
     w.tick = Math.ceil(tick0 / ti) * ti;
     w.rng = mulberry32(seed);
@@ -541,12 +554,18 @@ export function stationGrowthResult(world: World, days = 360, seeds = 20, settle
         for (const h of near) if (!first.has(h) && L.devLevel[h] >= 3) first.set(h, p / perDay);
       }
     } finally { cfg.mult = was; }
-    return median(near.map(h => first.get(h) ?? days));
+    return near.map(h => first.get(h) ?? -1);
   };
-  let off = 0, on = 0;
-  for (let k = 1; k <= seeds; k++) { off += run(1, k); on += run(cfg.mult, k); }
-  off /= seeds; on /= seeds;
-  return { homes: near.length, daysOff: r2(off), daysOn: r2(on), sooner: off > 0 ? r2(1 - on / off) : null };
+  const offRuns: number[][] = [], onRuns: number[][] = [];
+  for (let k = 1; k <= seeds; k++) { offRuns.push(run(1, k)); onRuns.push(run(cfg.mult, k)); }
+  // A home that never gets there, bonus or not, is held back by something else
+  // (a service or education gate, say) and says nothing about the bonus.
+  const grows = near.map((_, j) => offRuns.some(r => r[j] >= 0) || onRuns.some(r => r[j] >= 0));
+  const n = grows.filter(Boolean).length;
+  if (!n) return { homes: 0, daysOff: days, daysOn: days, sooner: null };
+  const mean = (runs: number[][]) => { let t = 0; for (const r of runs) r.forEach((d, j) => { if (grows[j]) t += d < 0 ? days : d; }); return t / (runs.length * n); };
+  const off = mean(offRuns), on = mean(onRuns);
+  return { homes: n, daysOff: r2(off), daysOn: r2(on), sooner: off > 0 ? r2(1 - on / off) : null };
 }
 
 /** On a fresh map: a real-money Planner's bank at day 180 and 360, against a starter line. */
