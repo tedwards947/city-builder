@@ -4,7 +4,7 @@
 // itself at time `t` on `out`; `arg` is a small per-sound variation (a level, a
 // tile count in a drag).
 
-import { N, R, bed, bell, bird, carPass, fm, horn, kalimba, marimba, noise, poisson, tone } from './synth';
+import { N, R, bed, bell, bird, brownNoise, carPass, fm, horn, kalimba, marimba, noise, poisson, tone } from './synth';
 import type { Bed } from './synth';
 
 type Play = (ac: BaseAudioContext, out: AudioNode, t: number, arg?: number) => void;
@@ -17,6 +17,36 @@ const bubble = (ac: BaseAudioContext, o: AudioNode, t: number, f: number, peak =
   tone(ac, o, { t, f, f2: f * 1.7, glide: 0.035, a: 0.004, d: 0.045, peak });
 const windClick = (ac: BaseAudioContext, o: AudioNode, t: number, i: number, lift = 0) =>
   fm(ac, o, { t, f: 900 - i * 45 + lift, ratio: 1.5, index: 300, d: 0.025, peak: 0.12 });
+/** A felt-wrapped bell: a bell with its overtones damped. */
+const feltBell = (ac: BaseAudioContext, o: AudioNode, t: number, f: number, peak: number) => bell(ac, o, { t, f, d: 0.7, peak, bright: 0.45 });
+/** One breathy pipe of a wooden train whistle. */
+const pipe = (ac: BaseAudioContext, o: AudioNode, t: number, f: number, len: number, peak: number) => {
+  tone(ac, o, { t, f, type: 'triangle', a: 0.04, hold: len, d: 0.12, peak, vib: [5.5, f * 0.004], lp: f * 3 });
+  noise(ac, o, { t, a: 0.03, hold: len, d: 0.1, peak: peak * 0.5, f, Q: 9 });
+};
+/**
+ * A train far off: a long, low swell of rumble that drifts across (dir 1 left to right, -1 back) and
+ * opens up a little as it passes nearest.
+ */
+function distantTrain(ac: BaseAudioContext, o: AudioNode, t: number, peak: number, dir: number, D = 9) {
+  const src = ac.createBufferSource();
+  src.buffer = brownNoise(ac); src.loop = true;
+  const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.Q.value = 0.8;
+  const g = ac.createGain();
+  g.gain.value = 0;
+  src.connect(fl); fl.connect(g);
+  let node: AudioNode = g;
+  if (typeof ac.createStereoPanner === 'function') {
+    const p = ac.createStereoPanner(); g.connect(p); node = p;
+    p.pan.setValueAtTime(-0.4 * dir, t); p.pan.linearRampToValueAtTime(0.4 * dir, t + D);
+  }
+  node.connect(o);
+  const mid = t + D / 2;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, mid); g.gain.exponentialRampToValueAtTime(0.0001, t + D);
+  fl.frequency.setValueAtTime(140, t); fl.frequency.exponentialRampToValueAtTime(420, mid); fl.frequency.exponentialRampToValueAtTime(140, t + D);
+  src.start(t, Math.random() * 2); src.stop(t + D + 0.1);
+}
+
 /** Wind-up pace for each game speed: gaps between clicks are multiplied by this (1× is unhurried, 3× races). */
 const WIND_PACE: Record<number, number> = { 1: 1.5, 2: 0.95, 3: 0.55 };
 
@@ -214,6 +244,23 @@ export const SOUNDS = {
   } },
   /** Steam hiss (no crackles: the owner found them distracting). */
   fireOut: { len: 1.4, play: (ac, o, t) => noise(ac, o, { t, a: 0.05, d: 1.2, peak: 0.12, type: 'highpass', f: 2500, f2: 5000 }) },
+
+  // ── Rail (review page, Nov 2026: "Distant rumble", "Platform hand bell", "Air sigh") ──
+  /** A train on screen, heard far off; arg = how busy the line is, 0..1. */
+  railRumble: { len: 9.2, play: (ac, o, t, busy = 0.5) => distantTrain(ac, o, t, 0.04 + 0.06 * busy, Math.random() < 0.5 ? 1 : -1) },
+  /** Now and then, a faint wooden whistle far away. */
+  railWhistle: { len: 1.4, play: (ac, o, t) => {
+    for (const [dt, len] of [[0, 0.25], [0.4, 0.7]]) for (const st of [0, 4, 7]) pipe(ac, o, t + dt, N('C5') * Math.pow(2, st / 12), len, 0.012);
+  } },
+  /** A train easing to a stop at a platform: a soft falling breath of brakes, then a little release of air. Kept just above the ambience. */
+  trainSigh: { len: 1.7, play: (ac, o, t) => {
+    noise(ac, o, { t, a: 0.15, hold: 0.4, d: 0.5, peak: 0.03, f: 2400, f2: 700, Q: 1.4 });
+    noise(ac, o, { t: t + 1.05, a: 0.02, d: 0.5, peak: 0.02, type: 'highpass', f: 2800 });
+  } },
+  /** The platform hand bell as a train comes to rest, rung twice. Kept just above the ambience. */
+  trainBell: { len: 1.4, play: (ac, o, t) => {
+    for (const dt of [0, 0.32]) { feltBell(ac, o, t + dt, N('A5'), 0.04); feltBell(ac, o, t + dt + 0.012, N('A5') * 1.003, 0.016); }
+  } },
 } satisfies Record<string, OneShot>;
 
 export type SfxName = keyof typeof SOUNDS;

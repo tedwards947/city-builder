@@ -12,6 +12,11 @@
 // - Effects (ambience included) have their own volume, the FX slider.
 // - City hum fades from Small town to Downtown as the population grows; the
 //   traffic-jam layer plays only when zoomed in close.
+// - Trains (rail review page): only trains drawn on screen make sound. Each one is
+//   heard as a distant rumble, panned where it is, with now and then a faint
+//   whistle; a train stopping at a platform sighs and rings the hand bell, both
+//   just above the ambience. Subway trains are drawn only in the underground
+//   view and stay silent.
 
 import { LOOPS, SOUNDS } from './sfx/sounds';
 import type { LoopHandle, LoopName, SfxName } from './sfx/sounds';
@@ -19,6 +24,8 @@ import type { World } from '../sim/World';
 import type { Camera } from '../render/Camera';
 import { Projection, TILE_SIZE } from '../render/Projection';
 import type { Tool } from '../input/InputController';
+import { trainsInView } from '../render/clay/trains';
+import { RAIL_ELEVATED, RAIL_GROUND } from '../sim/constants';
 
 /** Overall level of the effects at full volume, set by ear against the music. */
 const SFX_BASE = 0.45;
@@ -36,6 +43,7 @@ const GAP: Partial<Record<SfxName, number>> = {
   toastInfo: 300, toastWarning: 300, toastAlert: 300,
   moneyLow: 4000, crime: 8000, health: 8000,
   fireStart: 1500, fireSpread: 1200, fireOut: 1200,
+  railRumble: 2500, railWhistle: 60000, trainSigh: 5000, trainBell: 5000,
 };
 
 /** Sounds that stand for the toast that comes with them: the toast itself then plays nothing. */
@@ -65,6 +73,8 @@ interface PlayOpts {
   arg?: number;
   /** Start this many seconds from now. */
   delay?: number;
+  /** Play on the ambience bed instead of with the effects (no room echo, the ambience's level). */
+  ambience?: boolean;
 }
 
 interface RunningLoop { handle: LoopHandle; out: GainNode; next: number; v: number }
@@ -109,6 +119,8 @@ export class SoundEffects {
   private unsubscribe: (() => void) | null = null;
   private lastSpeed: number | null = null;
   private readonly loops = new Map<string, RunningLoop>();
+  /** Trains heard last tick: key -> phase, and when a station train was first seen slowing in. */
+  private trains = new Map<string, { phase: string; inSince: number; sighed: boolean }>();
 
   // A drag: tiles built since the pointer went down, and taps waiting to be counted.
   private dragRoads = 0;
@@ -210,14 +222,15 @@ export class SoundEffects {
     }
     this.lastPlayed.set(name, now);
     if (COVERS_TOAST.has(name)) this.toastCoveredUntil = now + 600;
-    this.output(name, gain, pan, opts.arg, opts.delay ?? 0);
+    this.output(name, gain, pan, opts.arg, opts.delay ?? 0, opts.ambience ?? false);
     return true;
   }
 
   /** Schedules the sound's nodes. Separate from play() so tests can see what plays without audio. */
-  protected output(name: SfxName, gain: number, pan: number | undefined, arg: number | undefined, delay: number): void {
+  protected output(name: SfxName, gain: number, pan: number | undefined, arg: number | undefined, delay: number, ambience = false): void {
     const ctx = this.ctx;
-    if (!ctx || !this.fx || ctx.state !== 'running' || gain <= 0.01) return;
+    const bus = ambience ? this.ambience : this.fx;
+    if (!ctx || !bus || ctx.state !== 'running' || gain <= 0.01) return;
     const sound = SOUNDS[name];
     const out = ctx.createGain();
     out.gain.value = gain;
@@ -228,7 +241,7 @@ export class SoundEffects {
       out.connect(p);
       node = p;
     }
-    node.connect(this.fx);
+    node.connect(bus);
     sound.play(ctx, out, ctx.currentTime + 0.01 + delay, arg);
     setTimeout(() => node.disconnect(), (sound.len + delay + 1) * 1000);
   }
@@ -388,6 +401,38 @@ export class SoundEffects {
       if (n > 0) jam = Math.max(0, Math.min(1, (sum / n - 100) / 120));
     }
     this.runLoop('trafficJam', 'trafficJam', this.ambience, jam > 0.05 ? 0.4 + 0.6 * jam : 0, jam);
+
+    this.listenTrains(world, performance.now());
+  }
+
+  /**
+   * Trains on screen (render/clay/trains.ts, read only). A train coming into view rumbles far off; a
+   * station train sighs once it has been slowing in for a moment, and the bell rings as it stops.
+   */
+  private listenTrains(world: World, now: number): void {
+    const cam = this.deps.camera;
+    const heard = new Map<string, { phase: string; inSince: number; sighed: boolean }>();
+    // Trains are drawn from 6 px a tile up.
+    if (TILE_SIZE * cam.zoom >= 6) {
+      const b = cam.visibleTileBounds(world.grid);
+      const seen = [RAIL_GROUND, RAIL_ELEVATED].flatMap(level => trainsInView(world, now, b.x0, b.y0, b.x1, b.y1, level));
+      const busy = Math.min(1, seen.length / 6);
+      for (const tr of seen) {
+        const before = this.trains.get(tr.key);
+        const at = { tx: tr.x - 0.5, ty: tr.y - 0.5 };   // x, y are the train's middle; spatial() takes a tile
+        const state = { phase: tr.phase, inSince: before?.inSince ?? (tr.phase === 'in' ? now : -1), sighed: before?.sighed ?? false };
+        if (!before && this.play('railRumble', { at, far: 'skip', arg: busy, ambience: true }) && Math.random() < 0.3) {
+          this.play('railWhistle', { at, far: 'skip', delay: 3.5, ambience: true });
+        }
+        if (tr.phase === 'in' && !state.sighed && state.inSince >= 0 && now - state.inSince >= 1500) {
+          this.play('trainSigh', { at, far: 'skip' });
+          state.sighed = true;
+        }
+        if (tr.phase === 'dwell' && before?.phase === 'in') this.play('trainBell', { at, far: 'skip', delay: 0.4 });
+        heard.set(tr.key, state);
+      }
+    }
+    this.trains = heard;
   }
 
   /** Starts, updates or stops one loop; `gain` 0 stops it. Events are scheduled 1.2 s ahead. */

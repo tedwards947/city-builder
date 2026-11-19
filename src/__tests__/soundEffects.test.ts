@@ -4,6 +4,16 @@ import type { SfxName } from '../audio/sfx/sounds';
 import { SoundEffects } from '../audio/SoundEffects';
 import { World } from '../sim/World';
 import { Camera } from '../render/Camera';
+import { RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
+
+// Trains in view come from the renderer (render/clay/trains.ts); here a test sets them directly.
+const rail = vi.hoisted(() => ({ trains: [] as { x: number; y: number; a: number; phase: string; key: string }[], levels: [] as number[] }));
+vi.mock('../render/clay/trains', () => ({
+  trainsInView: (_w: unknown, _now: number, _x0: number, _y0: number, _x1: number, _y1: number, level: number) => {
+    rail.levels.push(level);
+    return level === 1 ? rail.trains : [];
+  },
+}));
 
 // ── A minimal stand-in for an AudioContext: enough to schedule every sound ───
 
@@ -41,7 +51,7 @@ describe('sound recipes', () => {
       sound.play(ctx, ctx.destination as unknown as AudioNode, 0, 2);
       expect(made.oscillators + made.sources, name).toBeGreaterThan(0);
       expect(sound.len, name).toBeGreaterThan(0);
-      expect(sound.len, name).toBeLessThan(3);
+      expect(sound.len, name).toBeLessThan(name === 'railRumble' ? 10 : 3);   // a far-off train is a long swell
     }
   });
 
@@ -153,5 +163,47 @@ describe('SoundEffects', () => {
     expect(fx.names()).toEqual([]);
     world.events.emit('requestOpened', { id: 1, kind: 'park', x0: 0, y0: 0, x1: 1, y1: 1, deadlineTick: 10 });
     expect(fx.names()).toEqual(['requestOpened']);
+  });
+
+  describe('trains', () => {
+    const train = (key: string, phase: string, x = 32.5, y = 32.5) => ({ x, y, a: 1, phase, key });
+    const listen = (now: number) => (fx as any).listenTrains(world, now);
+    beforeEach(() => { rail.trains = []; rail.levels = []; camera.zoom = 2; camera.centerOnTile(32, 32); });
+
+    it('hears a train coming into view as a distant rumble, once, on the ambience', () => {
+      expect(RAIL_GROUND).toBe(1);
+      rail.trains = [train('a', 'run')];
+      listen(0); listen(250); listen(500);
+      expect(fx.names().filter(n => n === 'railRumble')).toEqual(['railRumble']);
+      expect(fx.played.find(p => p.name === 'railRumble')!.gain).toBe(1);
+    });
+
+    it('sighs as a station train slows in and rings the bell as it stops', () => {
+      rail.trains = [train('s', 'in')];
+      listen(10_000); listen(11_000);
+      expect(fx.names()).not.toContain('trainSigh');
+      listen(11_600);
+      expect(fx.names()).toContain('trainSigh');
+      rail.trains = [train('s', 'dwell')];
+      listen(12_000); listen(12_250);
+      expect(fx.names().filter(n => n === 'trainBell')).toEqual(['trainBell']);
+      expect(fx.names().filter(n => n === 'trainSigh')).toEqual(['trainSigh']);
+    });
+
+    it('stays silent for trains off screen, and when zoomed out too far to draw them', () => {
+      rail.trains = [train('far', 'run', 2, 2)];
+      listen(0);
+      expect(fx.names()).not.toContain('railRumble');
+      camera.zoom = 0.05;
+      rail.trains = [train('b', 'run')];
+      listen(5000);
+      expect(fx.names()).not.toContain('railRumble');
+    });
+
+    it('listens to ground and elevated track, not the subway', () => {
+      listen(0);
+      expect(rail.levels).toEqual([RAIL_GROUND, RAIL_ELEVATED]);
+      expect(rail.levels).not.toContain(RAIL_SUBWAY);
+    });
   });
 });
