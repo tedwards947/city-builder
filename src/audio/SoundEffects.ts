@@ -120,7 +120,7 @@ export class SoundEffects {
   private lastSpeed: number | null = null;
   private readonly loops = new Map<string, RunningLoop>();
   /** Trains heard last tick: key -> phase, and when a station train was first seen slowing in. */
-  private trains = new Map<string, { phase: string; inSince: number; sighed: boolean }>();
+  private trains = new Map<string, { phase: string; inSince: number; sighed: boolean; rumbled: boolean }>();
 
   // A drag: tiles built since the pointer went down, and taps waiting to be counted.
   private dragRoads = 0;
@@ -411,7 +411,7 @@ export class SoundEffects {
    */
   private listenTrains(world: World, now: number): void {
     const cam = this.deps.camera;
-    const heard = new Map<string, { phase: string; inSince: number; sighed: boolean }>();
+    const heard = new Map<string, { phase: string; inSince: number; sighed: boolean; rumbled: boolean }>();
     // Trains are drawn only from TRAIN_MIN_TILE px a tile up.
     if (TILE_SIZE * cam.zoom >= TRAIN_MIN_TILE) {
       const b = cam.visibleTileBounds(world.grid);
@@ -420,9 +420,13 @@ export class SoundEffects {
       for (const tr of seen) {
         const before = this.trains.get(tr.key);
         const at = { tx: tr.x - 0.5, ty: tr.y - 0.5 };   // x, y are the train's middle; spatial() takes a tile
-        const state = { phase: tr.phase, inSince: before?.inSince ?? (tr.phase === 'in' ? now : -1), sighed: before?.sighed ?? false };
-        if (!before && this.play('railRumble', { at, far: 'skip', arg: busy, ambience: true }) && Math.random() < 0.3) {
-          this.play('railWhistle', { at, far: 'skip', delay: 3.5, ambience: true });
+        // A train comes into one station after another: each time it starts slowing in counts afresh.
+        const slowing = before?.phase === 'in';
+        const state = { phase: tr.phase, inSince: tr.phase === 'in' ? (slowing ? before.inSince : now) : -1, sighed: slowing ? before.sighed : false, rumbled: before?.rumbled ?? false };
+        // Trains keep running, so one may first be seen just off screen: it rumbles once it is on it.
+        if (!state.rumbled && this.play('railRumble', { at, far: 'skip', arg: busy, ambience: true })) {
+          state.rumbled = true;
+          if (Math.random() < 0.3) this.play('railWhistle', { at, far: 'skip', delay: 3.5, ambience: true });
         }
         if (tr.phase === 'in' && !state.sighed && state.inSince >= 0 && now - state.inSince >= 1500) {
           this.play('trainSigh', { at, far: 'skip' });

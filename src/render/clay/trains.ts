@@ -1,145 +1,19 @@
 /**
- * Trains (art/clay-set/rail2.html, the owner's picks): drawn top-down in code like the road
- * cars, ¾ of a tile a car, in the H1–H3 liveries, on the right-hand of the two tracks drawn on
- * each rail tile. Nothing is simulated: like the road cars, what runs comes from the clock and
- * the rail load (sim/TrafficData.ts `railLoad`), so it costs nothing off screen.
- *
- * The track is cut into runs: chains of tiles with exactly two joins, ended by junctions and
- * dead ends (a loop is one run). Trains are ephemeral, like the road cars (owner): passing
- * trains appear, run a short leg and fade, more of them the busier the run; at a station a
- * train appears a few tiles out, slows in, waits and pulls out, then fades.
+ * Trains (art/clay-set/rail2.html, the owner's picks): drawn top-down in code like the road cars,
+ * ¾ of a tile a car, in the H1–H3 liveries (M1–M4 underground), on the right-hand of the two tracks
+ * drawn on each rail tile. They keep running round the track (clay/trainNet.ts, which decides where
+ * every train is); this file draws them and tells the sound where they are.
  */
 import type { World } from '../../sim/World';
-import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
-import { railLoad } from '../../sim/TrafficData';
-import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION } from '../../sim/constants';
-import { subwayPlatform } from '../../sim/buildingShapes';
-import { TRACK_OFFSET, islandOffset } from './rail';
+import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY } from '../../sim/constants';
+import { TRACK_OFFSET, islandOffset, DECK_HEIGHT } from './rail';
+import { TrainNet, edgeAt, CAR_LEN, CAR_GAP, CARS, CROSS, type Train, type Edge, type TrainPhase } from './trainNet';
+
+export { buildRuns, type Run } from './trainRuns';
+export { CAR_LEN, CAR_GAP, CARS, TrainNet, type TrainPhase } from './trainNet';
 
 type Ctx = CanvasRenderingContext2D;
-const SIDES = [LINK_N, LINK_E, LINK_S, LINK_W];
-const STEP: Record<number, [number, number]> = { [LINK_N]: [0, -1], [LINK_E]: [1, 0], [LINK_S]: [0, 1], [LINK_W]: [-1, 0] };
-const OPP: Record<number, number> = { [LINK_N]: LINK_S, [LINK_E]: LINK_W, [LINK_S]: LINK_N, [LINK_W]: LINK_E };
-
-/** A run of track as a sampled centre line in tile units, with distance along it. */
-export interface Run {
-  P: [number, number][];
-  D: number[];
-  len: number;
-  /** Tile indices along the run (for its load). */
-  tiles: number[];
-  /** Distance along the run of the middle of a station platform on it, if any. */
-  stop: number | null;
-  /** Stretches of the run (from, to) through straight stations, where the tracks spread round the island (clay/rail.ts). */
-  wide: [number, number][];
-  /** Bounding box in tiles, for culling. */
-  x0: number; y0: number; x1: number; y1: number;
-  seed: number;
-}
-
-function edgeMid(tx: number, ty: number, side: number): [number, number] {
-  const [dx, dy] = STEP[side]; return [tx + 0.5 + dx / 2, ty + 0.5 + dy / 2];
-}
-/** Points across one tile from side a to side b (a straight or a quarter turn round their shared corner). */
-function across(tx: number, ty: number, a: number, b: number, out: [number, number][]): void {
-  const p = edgeMid(tx, ty, a), q = edgeMid(tx, ty, b);
-  if (OPP[a] === b) { out.push(p, [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], q); return; }
-  const cx = tx + ((a | b) & LINK_E ? 1 : 0), cy = ty + ((a | b) & LINK_S ? 1 : 0);
-  const A1 = Math.atan2(p[1] - cy, p[0] - cx);
-  let A2 = Math.atan2(q[1] - cy, q[0] - cx);
-  if (A2 - A1 > Math.PI) A2 -= 2 * Math.PI; if (A1 - A2 > Math.PI) A2 += 2 * Math.PI;
-  for (let k = 0; k <= 8; k++) { const A = A1 + (A2 - A1) * k / 8; out.push([cx + 0.5 * Math.cos(A), cy + 0.5 * Math.sin(A)]); }
-}
-
-/** The subway platform tiles of every subway station (they are plain subway track otherwise). */
-function subwayPlatformTiles(world: World): Set<number> {
-  const out = new Set<number>(), w = world.grid.width;
-  for (const b of world.buildings) if (b.kind === BUILDING_SUBWAY_STATION) for (const [dx, dy] of subwayPlatform(b.kind, b.rot ?? 0)) out.add((b.ty + dy) * w + b.tx + dx);
-  return out;
-}
-
-/** Cuts one level's track (RAIL_GROUND, RAIL_ELEVATED or RAIL_SUBWAY) into runs. Pure apart from reading the world. */
-export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
-  const { width, height } = world.grid, rail = world.layers.rail, n = width * height;
-  const links = new Uint8Array(n);
-  for (let i = 0; i < n; i++) if (rail[i] & level) links[i] = railLinks(world, i, level);
-  const subwayStops = level === RAIL_SUBWAY ? subwayPlatformTiles(world) : null;
-  const isPlatform = (t: number): boolean => subwayStops ? subwayStops.has(t) : level === RAIL_GROUND && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform';
-  const count = (m: number): number => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
-  const used = new Uint8Array(n * 4);   // each (tile, side) walked once
-  const sideIdx = (s: number): number => SIDES.indexOf(s);
-  const runs: Run[] = [];
-  const walk = (start: number, side: number): void => {
-    // From tile `start` leave by `side`, through two-join tiles, until a junction, a dead end or back to the start.
-    const pts: [number, number][] = [], tiles: number[] = [];
-    let i = start, out = side, guard = 0;
-    used[i * 4 + sideIdx(out)] = 1;
-    let tx = i % width, ty = (i - tx) / width;
-    // Half of the first tile: from its centre out (a junction or dead end starts here).
-    pts.push([tx + 0.5, ty + 0.5], edgeMid(tx, ty, out)); tiles.push(i);
-    for (;;) {
-      const [dx, dy] = STEP[out]; tx += dx; ty += dy; const j = ty * width + tx, inn = OPP[out];
-      used[j * 4 + sideIdx(inn)] = 1; tiles.push(j);
-      const m = links[j];
-      if (count(m) !== 2 || j === start || ++guard > n) { pts.push([tx + 0.5, ty + 0.5]); break; }
-      out = m & ~inn; used[j * 4 + sideIdx(out)] = 1;
-      across(tx, ty, inn, out, pts);
-      i = j;
-    }
-    // Distances, and the middle of any platform along the run.
-    const P: [number, number][] = [pts[0]], D = [0];
-    for (const p of pts.slice(1)) { const q = P[P.length - 1], d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < 1e-6) continue; P.push(p); D.push(D[D.length - 1] + d); }
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const [x, y] of P) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
-    let stop: number | null = null, first = -1, last = -1;
-    tiles.forEach((t, k) => { if (isPlatform(t)) { if (first < 0) first = k; last = k; } });
-    if (first >= 0) {   // tile k's centre is about k tiles along (the first tile counts a half)
-      stop = Math.min(D[D.length - 1], (first + last) / 2 + 0.0);
-    }
-    // Straight stations along the run: each group of their tiles, from half a tile before the first to half after the last.
-    const wide: [number, number][] = [];
-    const along = (t: number): number => {   // distance along the run nearest tile t's centre
-      const cx = t % width + 0.5, cy = (t - (t % width)) / width + 0.5; let best = 0, bd = Infinity;
-      P.forEach(([x, y], k) => { const d = (x - cx) ** 2 + (y - cy) ** 2; if (d < bd) { bd = d; best = D[k]; } });
-      return best;
-    };
-    if (level === RAIL_GROUND) {
-      let g0 = -1;
-      for (let k = 0; k <= tiles.length; k++) {
-        const on = k < tiles.length && world.layers.building[tiles[k]] === BUILDING_STATION;
-        if (on && g0 < 0) g0 = k;
-        if (!on && g0 >= 0) { const a = along(tiles[g0]), b = along(tiles[k - 1]); wide.push([Math.min(a, b) - 0.5, Math.max(a, b) + 0.5]); g0 = -1; }
-      }
-    }
-    if (D[D.length - 1] >= 1) runs.push({ P, D, len: D[D.length - 1], tiles, stop, wide, x0, y0, x1, y1, seed: (start * 2654435761 + sideIdx(side) * 40503) >>> 0 });
-  };
-  // Runs start at junctions and dead ends…
-  for (let i = 0; i < n; i++) { const m = links[i]; if (!m || count(m) === 2) continue; for (const s of SIDES) if (m & s && !used[i * 4 + sideIdx(s)]) walk(i, s); }
-  // …and what is left is loops.
-  for (let i = 0; i < n; i++) { const m = links[i]; if (count(m) !== 2) continue; for (const s of SIDES) if (m & s && !used[i * 4 + sideIdx(s)]) walk(i, s); }
-  return runs;
-}
-
-const caches = new Map<number, { world: World; edits: number; sig: number; runs: Run[] }>();
-function runsFor(world: World, level: number): Run[] {
-  const edits = world.grid.edits, cache = caches.get(level);
-  if (cache && cache.world === world && cache.edits === edits) return cache.runs;
-  // Grid edits count every redrawn tile; rebuild only when the track itself (or a station on it) changed.
-  const rail = world.layers.rail, b = world.layers.building, road = world.layers.roadClass;
-  let sig = 0;
-  for (let i = 0; i < rail.length; i++) if (rail[i]) sig = (Math.imul(sig ^ (i * 8 + rail[i]), 0x9e3779b1) ^ b[i] ^ (road[i] << 12)) | 0;
-  if (!cache || cache.world !== world || cache.sig !== sig) { const c = { world, edits, sig, runs: buildRuns(world, level) }; caches.set(level, c); return c.runs; }
-  cache.edits = edits;
-  return cache.runs;
-}
-
-function at(r: Run, s: number): [number, number, number, number] {
-  const { P, D } = r; s = Math.max(0, Math.min(r.len - 1e-6, s));
-  let lo = 0, hi = D.length - 1;
-  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (D[m] <= s) lo = m; else hi = m; }
-  const f = (s - D[lo]) / (D[hi] - D[lo] || 1), a = P[lo], b = P[hi];
-  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, b[0] - a[0], b[1] - a[1]];
-}
+export const CAR_WID = 0.2;
 
 interface Livery { body: string; band: string; roof: string; nose: string; panto?: boolean }
 /** H1–H3 (heavy rail), on ground and elevated track. */
@@ -157,8 +31,6 @@ export const METRO_LIVERIES: Livery[] = [
 ];
 /** Below this many pixels a tile no trains are drawn (the sound reads it too, to stay quiet when none show). */
 export const TRAIN_MIN_TILE = 6;
-export const CAR_LEN = 0.75, CAR_WID = 0.2, CARS = 3, CAR_GAP = 0.05;
-const SPEED = 2.4, DWELL = 3, FADE = 0.8;
 
 function car(ctx: Ctx, x: number, y: number, ang: number, T: number, lv: Livery, lead: boolean, tail: boolean): void {
   const L = CAR_LEN * T, W = CAR_WID * T, r = W * 0.38, nose = W * 0.48;
@@ -178,126 +50,139 @@ function car(ctx: Ctx, x: number, y: number, ang: number, T: number, lv: Livery,
   ctx.restore();
 }
 
-/** Where a train is `u` seconds after it set off along a run of length len (stopping at `stop` if given): front distance and opacity, or null once gone. */
-/** What a train is doing: running past ('run'), or at a station slowing in ('in'), stopped ('dwell') or pulling out ('out'). */
-export type TrainPhase = 'run' | 'in' | 'dwell' | 'out';
+// ── The one net per world, moved on by the clock ──
 
-export function trainAt(u: number, len: number, stop: number | null): { s: number; a: number; phase: TrainPhase } | null {
-  const s0 = 0.4, s1 = len - 0.4; if (s1 <= s0 || u < 0) return null;
-  if (stop === null) { const s = s0 + SPEED * u; if (s > s1) return null; return { s, a: Math.min(1, u / FADE, (s1 - s) / (SPEED * FADE)), phase: 'run' }; }
-  const front = Math.min(s1, stop + (CARS * (CAR_LEN + CAR_GAP)) / 2);   // the train's middle at the platform's
-  const dIn = Math.max(0, front - s0), tIn = 2 * dIn / SPEED, dOut = s1 - front, tOut = 2 * Math.max(dOut, 0.01) / SPEED;
-  if (u < tIn) { const f = u / tIn; return { s: s0 + dIn * (1 - (1 - f) * (1 - f)), a: Math.min(1, u / FADE), phase: 'in' }; }
-  if (u < tIn + DWELL) return { s: front, a: 1, phase: 'dwell' };
-  const g = (u - tIn - DWELL) / tOut; if (g > 1) return null;
-  return { s: front + dOut * g * g, a: Math.min(1, (1 - g) * tOut / FADE), phase: 'out' };
+const nets = new WeakMap<World, { net: TrainNet; edits: number; sig: number; now: number }>();
+
+/** A signature of the track (and the stations and ramps on it): the net is rebuilt when it changes. */
+function trackSig(world: World): number {
+  const rail = world.layers.rail, b = world.layers.building, road = world.layers.roadClass;
+  let sig = 0;
+  for (let i = 0; i < rail.length; i++) if (rail[i] || b[i] >= 14) sig = (Math.imul(sig ^ (i * 8 + rail[i]), 0x9e3779b1) ^ b[i] ^ (road[i] << 12)) | 0;
+  return sig;
 }
 
-/** Seconds between trains each way on a run: one a minute on an empty line, down to one every 12 s when full. */
-export function headway(load: number): number {
-  return 60 / (1 + 4 * Math.min(1, Math.max(0, load)));
+/** The world's train net, rebuilt (keeping its trains where the track is still there) when the track has changed. */
+export function trainNetFor(world: World): TrainNet {
+  const c = nets.get(world), edits = world.grid.edits;
+  if (c && c.edits === edits) return c.net;
+  const sig = trackSig(world);
+  if (c && c.sig === sig) { c.edits = edits; return c.net; }
+  const net = new TrainNet(world);
+  if (c) carryOver(c.net, net); else net.populate();
+  net.view = c?.net.view ?? null;
+  nets.set(world, { net, edits, sig, now: c?.now ?? -1 });
+  return net;
 }
 
-/** A short leg of a passing train: how far it runs before fading, in tiles. */
-export const LEG = 5;
-/** Platform approach and departure: a station train appears this far before the platform's middle and fades this far after. */
-export const APPROACH = 4;
-/** Passing trains a run shows each way, per 10 tiles, when its line is full (like the road cars: none on an empty line). */
-const PASSING_PER_10 = 1.5;
-
-/** Where a passing train is `u` seconds into its leg: distance along the leg and opacity, or null once gone. */
-export function legAt(u: number): { s: number; a: number } | null {
-  const dur = LEG / SPEED; if (u < 0 || u > dur) return null;
-  return { s: SPEED * u, a: Math.min(1, u / FADE, (dur - u) / FADE) };
+/** Moves the world's trains on to `now` (ms; the same clock for every caller) and returns its net. */
+function advance(world: World, now: number): TrainNet {
+  const net = trainNetFor(world), c = nets.get(world)!;
+  if (c.now < 0) c.now = now;
+  if (now > c.now) {
+    // At most a second at a time (a hidden tab pauses them), in steps of a tenth.
+    let dt = Math.min(1, (now - c.now) / 1000);
+    while (dt > 1e-6) { const h = Math.min(0.1, dt); net.step(h); dt -= h; }
+    c.now = now;
+  }
+  return net;
 }
 
-const hash = (a: number, b: number, c: number): number => {
-  let h = Math.imul(a ^ 0x9e3779b1, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35) ^ Math.imul(c + 0x27d4eb2f, 0x165667b1);
-  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
-  return (h >>> 0) / 4294967296;
-};
-
-/** Called for each train there is now: its run and direction, its front's distance along the run, opacity, a stable id and its phase. */
-export type TrainVisitor = (r: Run, dir: number, front: number, a: number, key: number, phase: TrainPhase) => void;
-
-/**
- * Every train on one level whose run reaches the view, now: the one place that decides what runs
- * (drawTrains draws from it; the sound listens with trainsInView). Passing trains appear, run a
- * short leg and fade, as many as the line's load asks for; at a station a train slows in, waits
- * and pulls out. `key` stays the same for one train for as long as it is there.
- */
-export function forEachTrain(world: World, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number, fn: TrainVisitor): void {
-  const runs = runsFor(world, level), d = world.traffic, t = now * 0.001;
-  for (const r of runs) {
-    if (r.x1 < bx0 - 1 || r.x0 > bx1 + 1 || r.y1 < by0 - 1 || r.y0 > by1 + 1) continue;
-    let load = 0; for (const i of r.tiles) load = Math.max(load, d ? railLoad(d, i, level) : 0);
-    load = Math.min(1, Math.max(0, load));
-    for (const dir of [1, -1]) {
-      // Station trains: appear APPROACH tiles out, slow in, wait, pull out, fade APPROACH tiles on.
-      const stop = r.stop === null ? null : dir > 0 ? r.stop : r.len - r.stop;
-      let zone0 = Infinity, zone1 = -Infinity;
-      if (stop !== null) {
-        const a0 = Math.max(0, stop - APPROACH), a1 = Math.min(r.len, stop + APPROACH);
-        zone0 = a0; zone1 = a1;
-        const P = headway(load), dur = 2 * APPROACH / SPEED * 2 + DWELL + 2, phase = hash(r.seed, 1, dir) * P;
-        for (let k = Math.floor((t - dur - phase) / P); k <= Math.floor((t - phase) / P); k++) {
-          const pos = trainAt(t - (k * P + phase), a1 - a0, stop - a0); if (pos) fn(r, dir, a0 + pos.s, pos.a, k, pos.phase);
-        }
-      }
-      // Passing trains: short legs at random places along the run, as many as the load asks for, kept clear of the station.
-      if (r.len < LEG + 1) continue;
-      const want = r.len / 10 * PASSING_PER_10 * load, slots = Math.ceil(want), cycle = LEG / SPEED + 1;
-      for (let j = 0; j < slots; j++) {
-        const phase = hash(r.seed, j + 7, dir) * cycle, c = Math.floor((t + phase) / cycle), u = t + phase - c * cycle;
-        if (j === slots - 1 && hash(r.seed, j, c * 2 + (dir > 0 ? 0 : 1)) > want - j) continue;   // the last slot runs only part of the time
-        const s0 = hash(r.seed ^ c, j, dir) * (r.len - LEG);
-        if (s0 < zone1 && s0 + LEG > zone0) continue;
-        const pos = legAt(u); if (pos) fn(r, dir, s0 + pos.s, pos.a, c * 31 + j, 'run');
+/** After the track changed: each train goes on from the same place on the new track, if its track is still there. */
+function carryOver(from: TrainNet, to: TrainNet): void {
+  for (const t of from.trains) {
+    const [x, y, dx, dy] = edgeAt(t.edge, t.s);
+    let best: Edge | null = null, bs = 0, bd = 0.3;
+    for (const e of to.edges) {
+      if (e.level !== t.edge.level || e.ramp !== t.edge.ramp || x < e.x0 - 0.5 || x > e.x1 + 0.5 || y < e.y0 - 0.5 || y > e.y1 + 0.5) continue;
+      for (let k = 1; k < e.P.length; k++) {
+        const a = e.P[k - 1], b = e.P[k], ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy || 1;
+        const f = Math.max(0, Math.min(1, ((x - a[0]) * ux + (y - a[1]) * uy) / L2)), px = a[0] + ux * f, py = a[1] + uy * f;
+        const d = Math.hypot(x - px, y - py), L = Math.sqrt(L2);
+        if (d < bd && (ux * dx + uy * dy) / L > 0.5) { bd = d; best = e; bs = e.D[k - 1] + f * L; }
       }
     }
+    if (best) to.adopt(t, best, bs);
   }
 }
 
+// ── Drawing ──
+
+/** How a car shows on a pass: its opacity there and how far up the elevated deck it is (0–1). */
+function carLook(world: World, e: Edge, x: number, y: number, level: number): { a: number; lift: number } | null {
+  const W = world.grid.width, i = Math.floor(y) * W + Math.floor(x), kind = world.layers.building[i];
+  let u = -1;
+  if (kind === BUILDING_RAMP_ELEVATED || kind === BUILDING_RAMP_SUBWAY) {
+    const an = world.buildingAnchorAt(i), r = world.buildingRotAt(an) & 3, ax = an % W + 0.5, ay = (an - (an % W)) / W + 0.5;
+    const [px, py] = [[1, 0], [0, 1], [-1, 0], [0, -1]][r];
+    u = Math.max(0, Math.min(2, 0.5 + (x - ax) * px + (y - ay) * py));
+  }
+  const onLevel = e.ramp ? RAIL_GROUND : e.level;
+  if (kind === BUILDING_RAMP_SUBWAY && u >= 0) {
+    // Down into the tunnel: gone from the surface by the deep end, and the other way round underground.
+    const g = Math.max(0, Math.min(1, 1.5 - u));
+    if (level === RAIL_GROUND && onLevel === RAIL_GROUND) return g > 0 ? { a: g, lift: 0 } : null;
+    if (level === RAIL_SUBWAY && (e.ramp === RAIL_SUBWAY || e.level === RAIL_SUBWAY)) return 1 - g > 0 ? { a: 1 - g, lift: 0 } : null;
+    return null;
+  }
+  if (onLevel !== level) return null;
+  if (kind === BUILDING_RAMP_ELEVATED && u >= 0) return { a: 1, lift: u / 2 };
+  return { a: 1, lift: level === RAIL_ELEVATED ? 1 : 0 };
+}
+
+/** The point `back` tiles behind a train's front, on its right-hand track, and the edge it is on. */
+function trackPoint(t: Train, back: number): { x: number; y: number; e: Edge } {
+  const { e, s } = TrainNet.locate(t, back), [x, y, tx, ty] = edgeAt(e, s);
+  let o = TRACK_OFFSET;
+  for (const [a, b] of e.wide) if (s > a && s < b) o = islandOffset((s - a) * 3 / (b - a));
+  // Coming back from a dead end it starts on the other track and crosses over, each car where the first did.
+  if (t.crossPending) o = -o;
+  else if (!Number.isNaN(t.crossAt)) o *= -1 + 2 * Math.max(0, Math.min(1, (t.odo - back - t.crossAt) / CROSS));
+  return { x: x - ty * o, y: y + tx * o, e };
+}
+
+function drawTrain(ctx: Ctx, world: World, t: Train, level: number, lv: Livery, sx: number, sy: number, T: number): void {
+  for (let c = CARS - 1; c >= 0; c--) {
+    const mid = c * (CAR_LEN + CAR_GAP) + CAR_LEN / 2;
+    const f = trackPoint(t, mid - CAR_LEN * 0.32), r = trackPoint(t, mid + CAR_LEN * 0.32), m = TrainNet.locate(t, mid);
+    const [mx, my] = edgeAt(m.e, m.s);
+    const look = carLook(world, m.e, mx, my, level);
+    if (!look) continue;
+    ctx.save(); ctx.globalAlpha *= t.alpha * look.a;
+    // Both bogies on the right-hand track; the body spans the chord between them, as a real car does round a bend.
+    car(ctx, sx + (f.x + r.x) / 2 * T, sy + (f.y + r.y) / 2 * T - look.lift * DECK_HEIGHT * T, Math.atan2(f.y - r.y, f.x - r.x), T, lv, c === 0, c === CARS - 1);
+    ctx.restore();
+  }
+}
+
+const near = (t: Train, bx0: number, by0: number, bx1: number, by1: number): boolean => {
+  const [x, y] = edgeAt(t.edge, t.s); return x > bx0 - 4 && x < bx1 + 5 && y > by0 - 4 && y < by1 + 5;
+};
+
 /**
- * Draws one level's trains (see forEachTrain). (sx, sy) is the screen position of tile (0, 0); T the
- * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1]; `lift` raises elevated trains onto the deck.
+ * Draws one level's trains (the cars on it: a train on a ramp is part on each). (sx, sy) is the screen
+ * position of tile (0, 0); T the tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1].
  */
-export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND, lift = 0): void {
+export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND): void {
   if (T < TRAIN_MIN_TILE) return;
+  const net = advance(world, now);
+  net.view = { x0: bx0, y0: by0, x1: bx1, y1: by1 };
   const liveries = level === RAIL_SUBWAY ? METRO_LIVERIES : HEAVY_LIVERIES;
-  forEachTrain(world, now, bx0, by0, bx1, by1, level, (r, dir, front, a, k) => {
-    drawTrain(ctx, r, dir, front, a, liveries[Math.floor(hash(r.seed, k, dir) * liveries.length)], sx, sy - lift, T);
-  });
+  for (const t of net.trains) if (near(t, bx0, by0, bx1, by1)) drawTrain(ctx, world, t, level, liveries[t.livery % liveries.length], sx, sy, T);
 }
 
 /** A train for the sound: the middle of the train in tiles, its opacity, its phase and a stable id. */
 export interface TrainInView { x: number; y: number; a: number; phase: TrainPhase; key: string }
 
-/** The trains on one level whose run reaches the view (read only: nothing is drawn). For the sound (audio/). */
+/** The trains on one level in view (read only: nothing is drawn). For the sound (audio/). */
 export function trainsInView(world: World, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND): TrainInView[] {
-  const out: TrainInView[] = [], half = CARS * (CAR_LEN + CAR_GAP) / 2;
-  forEachTrain(world, now, bx0, by0, bx1, by1, level, (r, dir, front, a, key, phase) => {
-    const [x, y] = at(r, dir > 0 ? front - half : r.len - (front - half));
-    if (x < bx0 - 1 || x > bx1 + 2 || y < by0 - 1 || y > by1 + 2) return;
-    out.push({ x, y, a, phase, key: `${level}:${r.seed}:${dir}:${phase === 'run' ? 'p' : 's'}${key}` });
-  });
-  return out;
-}
-
-/** One train of CARS cars with its front `front` tiles along run r (taken in direction dir). */
-function drawTrain(ctx: Ctx, r: Run, dir: number, front: number, a: number, lv: Livery, sx: number, sy: number, T: number): void {
-  ctx.save(); ctx.globalAlpha *= a;
-  for (let c = CARS - 1; c >= 0; c--) {
-    const mid = front - c * (CAR_LEN + CAR_GAP) - CAR_LEN / 2;
-    // Both bogies on the right-hand track; the body spans the chord between them, as a real car does round a bend.
-    const bog = (q: number): [number, number] => {
-      const s = dir > 0 ? q : r.len - q, [x, y, tx0, ty0] = at(r, s), m = Math.hypot(tx0, ty0) || 1, tx = tx0 / m * dir, ty = ty0 / m * dir;
-      let o = TRACK_OFFSET;
-      for (const [a, b] of r.wide) if (s > a && s < b) o = islandOffset((s - a) * 3 / (b - a));
-      return [x - ty * o, y + tx * o];
-    };
-    const [fx, fy] = bog(mid + CAR_LEN * 0.32), [rx, ry] = bog(mid - CAR_LEN * 0.32);
-    car(ctx, sx + (fx + rx) / 2 * T, sy + (fy + ry) / 2 * T, Math.atan2(fy - ry, fx - rx), T, lv, c === 0, c === CARS - 1);
+  const net = advance(world, now), out: TrainInView[] = [], half = (CARS * (CAR_LEN + CAR_GAP) - CAR_GAP) / 2;
+  for (const t of net.trains) {
+    const m = TrainNet.locate(t, half), [x, y] = edgeAt(m.e, m.s);
+    if (x < bx0 - 1 || x > bx1 + 2 || y < by0 - 1 || y > by1 + 2) continue;
+    const look = carLook(world, m.e, x, y, level);
+    if (!look) continue;
+    out.push({ x, y, a: t.alpha * look.a, phase: t.phase, key: 't' + t.id });
   }
-  ctx.restore();
+  return out;
 }
