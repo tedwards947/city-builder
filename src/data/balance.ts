@@ -326,6 +326,7 @@ export const BALANCE = {
     // can lose to a slower second line or to the road. delay 0 = no jam.
     jam: { from: 1, delay: 4, power: 1 },
     boardTime: 2,          // getting on at a station, and again getting off
+    rampTime: 1,           // passing a ramp between ground and elevated or subway track (placeholder)
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
     junction4: { delay: 4, capacityMult: 0.35 },

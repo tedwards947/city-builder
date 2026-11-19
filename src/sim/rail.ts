@@ -13,7 +13,7 @@
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
-import { buildingShape, rampLevel } from './buildingShapes';
+import { buildingShape, rampLevel, subwayPlatform } from './buildingShapes';
 import { railVolume } from './TrafficData';
 
 /** Directions as bits, for railLinks. */
@@ -231,15 +231,35 @@ export function trackMaintenance(world: World): number {
  * on, getting off and passing through, averaged like all traffic volumes.
  */
 export function stationBusiestTile(world: World, tx: number, ty: number): number {
+  return stationPeak(world, tx, ty)?.tile ?? -1;
+}
+
+/**
+ * The busiest platform tile of the station at (tx, ty) and the level its
+ * track is on: ground for a train station, subway for a subway station (whose
+ * platform is under the tiles round its entrance). Null before the first
+ * traffic pass or if the building has no platform. `riders` are those getting
+ * on, getting off and passing through, per tick.
+ */
+export function stationPeak(world: World, tx: number, ty: number): { tile: number; level: number; riders: number } | null {
   const d = world.traffic;
-  if (!d) return -1;
+  if (!d || !world.grid.inBounds(tx, ty)) return null;
+  const b = world.buildingAt(tx, ty);
+  let tiles: number[], level = RAIL_GROUND;
+  const under = b ? subwayPlatform(b.kind, b.rot ?? 0) : [];
+  if (b && under.length > 0) {
+    level = RAIL_SUBWAY;
+    tiles = under.map(([dx, dy]) => world.grid.idx(b.tx + dx, b.ty + dy));
+  } else {
+    tiles = world.buildingTilesAt(tx, ty);
+  }
   let best = -1, most = -1;
-  for (const i of world.buildingTilesAt(tx, ty)) {
-    if (!(world.layers.rail[i] & RAIL_GROUND)) continue;
-    const v = railVolume(d, i);
+  for (const i of tiles) {
+    if (!(world.layers.rail[i] & level)) continue;
+    const v = railVolume(d, i, level);
     if (v > most) { most = v; best = i; }
   }
-  return best;
+  return best < 0 ? null : { tile: best, level, riders: most };
 }
 
 /** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare. */
