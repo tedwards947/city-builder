@@ -8,6 +8,8 @@ import { migrate, SAVE_VERSION, type SaveRecord } from '../persistence/SaveForma
 import { serialize, deserialize } from '../persistence/Serializer';
 import { railLinks, trackBlocker, LINK_E, LINK_W, LINK_N, LINK_S } from '../sim/rail';
 import { BUILDING_NONE, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION, RAIL_GROUND, RAIL_SUBWAY, ROAD_NONE, ROAD_STREET } from '../sim/constants';
+import { decodeSaveFile } from '../persistence/SaveFile';
+import showcase from '../../public/showcase/showcase.citysave.json?raw';
 import { landWorld } from './pcTestWorld';
 
 type Offset = [number, number];
@@ -65,6 +67,20 @@ describe('a version-9 city with train stations', () => {
     expect(w.getRoad(12, 12)).toBe(ROAD_STREET);                          // … and one south, where the street ended
     expect(w.getRoad(10, 12)).toBe(ROAD_NONE);
     expect(w.buildingAccessRoads(10, 11).sort((a, b) => a - b)).toEqual([w.grid.idx(10, 10), w.grid.idx(12, 12)]);
+  });
+
+  it('keeps the other three platform tiles when the only road is beside the fourth', () => {
+    const old = landWorld(32);
+    for (let y = 4; y <= 9; y++) old.setRoad(13, y, ROAD_STREET);         // ends against the north wall above the fourth tile
+    for (let x = 4; x <= 9; x++) old.layTrack(x, 11);
+    oldStation(old, 10, 10, BUILDING_STATION);
+    const w = upgrade(old);
+    expect(w.buildings).toEqual([{ tx: 11, ty: 11, kind: BUILDING_STATION }]);
+    expect(w.getBuilding(10, 11)).toBe(BUILDING_NONE);
+    expect(w.getRail(10, 11)).toBe(RAIL_GROUND);                          // the first tile is the one left as track
+    expect(railLinks(w, w.grid.idx(10, 11))).toBe(LINK_E | LINK_W);
+    expect(w.getRoad(13, 10)).toBe(ROAD_STREET);
+    expect(w.buildingAccessRoads(11, 11)).toEqual([w.grid.idx(13, 10)]);
   });
 
   it('with no road at the old wall nothing is paved', () => {
@@ -128,5 +144,29 @@ describe('a version-9 city with train stations', () => {
     const w = deserialize(rec.snapshot);
     expect(w.buildings).toEqual(now.buildings);
     expect(w.loadNotes).toEqual({});
+  });
+});
+
+describe('the showcase city, saved at version 9 with four old stations', () => {
+  it('loads with every station rebuilt, on its line and still reached by a road', () => {
+    const text = showcase;
+    const file = JSON.parse(text) as { version: number };
+    if (file.version !== 9) return;                                       // rebuilt since at the new size: nothing to upgrade
+    const w = deserialize(decodeSaveFile(text).snapshot);
+    const stations = w.buildings.filter(b => b.kind === BUILDING_STATION);
+    expect(stations.length).toBe(4);
+    expect(w.loadNotes.stationsRebuilt).toBe(6);                          // four train stations and two subway stations
+    for (const b of stations) {
+      const tiles = w.buildingTilesAt(b.tx, b.ty);
+      expect(tiles.length).toBe(3);
+      for (const i of tiles) { expect(w.layers.building[i]).toBe(BUILDING_STATION); expect(w.layers.rail[i] & RAIL_GROUND).toBe(RAIL_GROUND); }
+      expect(w.buildingAccessRoads(b.tx, b.ty).length).toBeGreaterThan(0);
+      // A line leaves at least one end of the platform.
+      expect(tiles.some(i => (railLinks(w, i) & (LINK_E | LINK_W)) === (LINK_E | LINK_W))).toBe(true);
+      expect([tiles[0], tiles[2]].some(i => railLinks(w, i) === (LINK_E | LINK_W))).toBe(true);
+    }
+    // No tile is left claiming to be a station without belonging to one.
+    const owned = new Set(stations.flatMap(b => w.buildingTilesAt(b.tx, b.ty)));
+    for (let i = 0; i < w.layers.building.length; i++) if (w.layers.building[i] === BUILDING_STATION) expect(owned.has(i)).toBe(true);
   });
 });

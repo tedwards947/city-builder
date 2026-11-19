@@ -2,7 +2,8 @@
 //
 //   Straight: was a 4×3 block with the platform along its middle row (4
 //     tiles), anchored at its top-left. Now 3 platform tiles in a row,
-//     anchored at one end.
+//     anchored at one end. Either three of the old four can be kept: the
+//     three that keep the most roads are.
 //   Curved: was a 3×3 block. Now its top-left 2×2 (same anchor, same platform).
 //   Subway: the platform went from 4 tiles to 3; nothing is stored for it.
 //
@@ -45,17 +46,22 @@ interface Plan {
   stubs: { tile: Offset; outside: Offset }[][];
 }
 
-const PLANS: Record<number, Plan> = {
-  [STATION]: {
-    old: block(4, 3),
-    keep: [[0, 1], [1, 1], [2, 1]],
-    anchor: [0, 1],
-    stubs: [
-      [0, 1, 2].map(dx => ({ tile: [dx, 0] as Offset, outside: [dx, -1] as Offset })),
-      [0, 1, 2].map(dx => ({ tile: [dx, 2] as Offset, outside: [dx, 3] as Offset })),
-    ],
-  },
-  [STATION_L]: {
+/** A straight station keeping the platform tiles `from`…`from + 2` of its old four. */
+const straight = (from: number): Plan => ({
+  old: block(4, 3),
+  keep: [0, 1, 2].map(k => [from + k, 1] as Offset),
+  anchor: [from, 1],
+  stubs: [
+    [0, 1, 2].map(k => ({ tile: [from + k, 0] as Offset, outside: [from + k, -1] as Offset })),
+    [0, 1, 2].map(k => ({ tile: [from + k, 2] as Offset, outside: [from + k, 3] as Offset })),
+  ],
+});
+
+// The ways each kind can be rebuilt; the one that keeps the most roads is taken, the first on a tie.
+// A straight station may keep either three of its four platform tiles.
+const PLANS: Record<number, Plan[]> = {
+  [STATION]: [straight(0), straight(1)],
+  [STATION_L]: [{
     old: block(3, 3),
     keep: [[0, 0], [1, 0], [0, 1], [1, 1]],
     anchor: [0, 0],
@@ -63,7 +69,7 @@ const PLANS: Record<number, Plan> = {
       [{ tile: [2, 0], outside: [3, 0] }, { tile: [2, 1], outside: [3, 1] }],
       [{ tile: [0, 2], outside: [0, 3] }, { tile: [1, 2], outside: [1, 3] }],
     ],
-  },
+  }],
 };
 
 /**
@@ -83,26 +89,34 @@ export function shrinkStations(snap: WorldSnapshot): WorldSnapshot {
   const crossing = (i: number): boolean => i >= 0 && roadClass[i] !== 0 && !!rail && (rail[i] & RAIL_GROUND) !== 0;
 
   const buildings = snap.buildings.map((b) => {
-    const plan = PLANS[b.kind];
-    if (!plan) return b;
+    const plans = PLANS[b.kind];
+    if (!plans) return b;
     const rot = (b.rot ?? 0) & 3;
     const tile = (o: Offset): number => { const [dx, dy] = turn(o, rot); return at(b.tx + dx, b.ty + dy); };
-    const old = plan.old.map(tile);
+    const old = plans[0].old.map(tile);
     // Only a station that really stands in the old shape (a damaged save is left alone).
     if (old.some(i => i < 0 || building[i] !== b.kind)) return b;
+    // The tiles each plan would pave: on each side, the first freed tile beside the platform that a street or avenue ends against.
+    const paving = (plan: Plan): number[] => {
+      const out: number[] = [];
+      for (const side of plan.stubs) {
+        for (const st of side) {
+          const i = tile(st.tile), outside = tile(st.outside);
+          if (outside < 0 || (roadClass[outside] !== ROAD_STREET && roadClass[outside] !== ROAD_AVENUE) || crossing(outside)) continue;
+          // Not next to a level crossing: a road joining one from the side would break it.
+          const x = i % width, y = (i - x) / width;
+          if ([at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(crossing)) continue;
+          out.push(i);
+          break;
+        }
+      }
+      return out;
+    };
+    let plan = plans[0], pave = paving(plan);
+    for (const other of plans.slice(1)) { const p = paving(other); if (p.length > pave.length) { plan = other; pave = p; } }
     const keep = new Set(plan.keep.map(tile));
     for (const i of old) if (!keep.has(i)) { building[i] = 0; visualVariant[i] = 0; }
-    for (const side of plan.stubs) {
-      for (const s of side) {
-        const i = tile(s.tile), out = tile(s.outside);
-        if (out < 0 || (roadClass[out] !== ROAD_STREET && roadClass[out] !== ROAD_AVENUE) || crossing(out)) continue;
-        // Not next to a level crossing: a road joining one from the side would break it.
-        const x = i % width, y = (i - x) / width;
-        if ([at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some(crossing)) continue;
-        roadClass[i] = ROAD_STREET;
-        break;
-      }
-    }
+    for (const i of pave) roadClass[i] = ROAD_STREET;
     rebuilt++;
     const [ax, ay] = turn(plan.anchor, rot);
     return { ...b, tx: b.tx + ax, ty: b.ty + ay };
