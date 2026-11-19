@@ -10,7 +10,7 @@ import type { AreaHighlight } from '../render/CanvasRenderer';
 import { TILE_SIZE } from '../render/Projection';
 import { TUTORIAL_STEPS } from '../tutorial/steps';
 import { endTutorial } from '../tutorial/rules';
-import type { TutorialStep, TutorialState, TutorialTarget, TutorialUi } from '../tutorial/types';
+import type { TutorialStep, TutorialTarget, TutorialUi } from '../tutorial/types';
 import { t } from '../i18n';
 
 /** Set once the player has finished or left a tutorial: only stops the title's first-launch highlight. */
@@ -21,11 +21,6 @@ export function tutorialDone(): boolean {
 }
 function markTutorialDone(): void {
   try { window.localStorage.setItem(TUTORIAL_DONE_KEY, '1'); } catch { /* private window: the highlight just shows again */ }
-}
-
-/** `world.tutorial`, until World declares it (ENGINE adds the field and its save lines). */
-export function tutorialOf(world: World): TutorialState | undefined {
-  return (world as unknown as { tutorial?: TutorialState }).tutorial;
 }
 
 const CHECK_MS = 250;
@@ -82,7 +77,7 @@ export class Tutorial {
 
   /** Call whenever the city in play changes: starts the runner at the saved step if the city has a tutorial, else stops it. */
   attach(world: World, camera: Camera): void {
-    const state = tutorialOf(world);
+    const state = world.tutorial;
     this.world = state ? world : null;
     for (const k of Object.keys(this.ui) as Array<keyof TutorialUi>) this.ui[k] = false;
     this.cam0 = { x: camera.x, y: camera.y, zoom: camera.zoom };
@@ -102,7 +97,7 @@ export class Tutorial {
     if (camera.zoom > this.cam0.zoom * ZOOM_BY || camera.zoom < this.cam0.zoom / ZOOM_BY) this.ui.zoomed = true;
     if (now - this.lastCheck < CHECK_MS) return;
     this.lastCheck = now;
-    const state = tutorialOf(world);
+    const state = world.tutorial;
     if (!state) { this.stop(); return; }   // ended elsewhere
     let step = state.step;
     while (step < this.steps.length && this.steps[step].done(world, this.ui)) step++;
@@ -127,7 +122,7 @@ export class Tutorial {
   private go(step: number): void {
     const world = this.world!;
     if (step >= this.steps.length) { this.finish(); return; }
-    tutorialOf(world)!.step = step;
+    world.tutorial!.step = step;
     this.steps[step].enter?.(world);
     this.confirming = false;
     this.show();
@@ -148,7 +143,7 @@ export class Tutorial {
   /** Redraw the card for the current step (or hide it). */
   private show(): void {
     const world = this.world;
-    const step = world ? tutorialOf(world)?.step ?? -1 : -1;
+    const step = world ? world.tutorial?.step ?? -1 : -1;
     const s = this.steps[step];
     if (!world || !s) {
       this.card.hidden = true;
