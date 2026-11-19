@@ -322,7 +322,9 @@ export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number):
 export function drawRampTrack(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
   const r = rot & 3, ew = r % 2 === 0;
   // In tile units from the footprint's corner: the ground end's centre and the far end's, and how high the far end draws.
-  const len = 2, mouth = subway ? (ew ? 0.3 : r === 3 ? 0.45 : 0.6) : 0, rise = subway ? 0 : DECK_HEIGHT;
+  // `mouth`: how far short of the far end the bed meets the tunnel mouth, measured on each portal picture (the art sits a
+  // little off its template; the owner saw the rails run on into the arch).
+  const len = 2, mouth = subway ? (ew ? 0.25 : r === 3 ? 0.63 : 0.65) : 0, rise = subway ? 0 : DECK_HEIGHT;
   const a: [number, number] = r === 0 ? [0, 0.5] : r === 1 ? [0.5, 0] : r === 2 ? [len, 0.5] : [0.5, len];
   const b: [number, number] = r === 0 ? [len - mouth, 0.5 - rise] : r === 1 ? [0.5, len - mouth - rise] : r === 2 ? [mouth, 0.5 - rise] : [0.5, mouth - rise];
   const dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m, nx = -uy, ny = ux;
@@ -343,7 +345,8 @@ export function drawRampTrack(ctx: Ctx, subway: boolean, rot: number, L: number,
   ctx.stroke();
   if (subway) {   // the track darkens into the tunnel
     const g = ctx.createLinearGradient(L + a[0] * T, Tp + a[1] * T, L + b[0] * T, Tp + b[1] * T);
-    g.addColorStop(0, 'rgba(20,18,18,0)'); g.addColorStop(1, 'rgba(20,18,18,0.55)');
+    // Dark over the last stretch, so the track fades into the tunnel rather than stopping at a line.
+    g.addColorStop(0, 'rgba(20,18,18,0)'); g.addColorStop(Math.max(0, 1 - 0.7 / m), 'rgba(20,18,18,0.08)'); g.addColorStop(1, 'rgba(20,18,18,0.85)');
     ctx.strokeStyle = g; ctx.lineWidth = T * 0.86; ctx.beginPath(); ctx.moveTo(L + a[0] * T, Tp + a[1] * T); ctx.lineTo(L + b[0] * T, Tp + b[1] * T); ctx.stroke();
   }
   ctx.restore();
