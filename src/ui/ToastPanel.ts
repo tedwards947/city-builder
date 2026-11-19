@@ -26,6 +26,8 @@ export class ToastPanel {
   private readonly maxToasts: number = 3;
   /** Called when the player clicks a toast that is about a place. Set by main.ts (moves the camera). */
   public onGo: ((place: ToastPlace) => void) | null = null;
+  /** While true no toast is shown, and what is asked for is dropped (the title screen: the city behind is not the player's). */
+  public quiet = false;
 
   constructor() {
     this.container = document.createElement('div');
@@ -108,6 +110,7 @@ export class ToastPanel {
 
   /** `place`: where the toast is about. Such a toast shows a chevron, and a click goes there instead of dismissing it. */
   public showToast(title: string, message: string, type: ToastType = 'info', place?: ToastPlace): void {
+    if (this.quiet) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}` + (place ? ' go' : '');
     
