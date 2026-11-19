@@ -89,13 +89,13 @@ The owner approved the eight targets and the starting numbers below. The `landsc
 | land.treeHome (+12–20) | +13 | +13 | +13 |
 | land.treePayback (60–180 days) | 97 | 112 | 130 |
 | land.treeShock (≤ 3%) | +0.3% | +0.6% | +0.8% |
-| land.treeSpam (gain ≤ 10%; price ≥ 30 days) | 0.8%; **2.0 days** | 1.0%; **2.3 days** | 2.4%; n/a |
+| land.treeSpam (gain ≤ 10%) | 0.8% | 1.0% | 2.4% |
 | vibe.treeGreen (0.75–1.25 parks) | 0.83 | 0.83 | 0.83 |
 | water.canal (1–5 days) | 2.5 | 1.7 | n/a |
 | water.reclaim (25–100%) | 42% | 29% | n/a |
 | land.treeBuffer (15–35%, made-up map) | 26.5% | | |
 
-**land.treeSpam's price check fails, and no tree price fixes it.** Mature cities have few free tiles near homes (60–345), so planting all of them costs about 2 days of surplus at 200 a tree. That is a 15× gap. A price that passes (about 3,000 a tree) would put one tree's payback at about 1,500 days and break land.treePayback. The spam gain is 1–2.4%, far under its 10% cap, so trees are no money printer either way. **For the owner:** drop the price half of land.treeSpam, or replace it with "carpeting pays back no faster than one well-placed tree".
+**land.treeSpam's price half is dropped (owner, 2026-11-19).** Mature cities have few free tiles near homes (60–345), so carpeting them costs about 2 days of surplus at 200 a tree, against a target of 30 days. A price that passed (about 3,000 a tree) would break land.treePayback. The gain is 1–2.4%, far under its 10% cap. The target is now gain ≤ 10% only, so all 8 pass.
 
 ## Proposed lab targets and numbers (ENGINEER 3, 2026-11-19; approved by the owner the same day)
 The proposal as approved. The shipped numbers are in the section above.

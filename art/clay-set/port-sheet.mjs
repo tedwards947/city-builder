@@ -125,6 +125,9 @@ const AIR_GAME = {
 const RAIL_GAME = {
   'victorian-straight-1': ['station-h', 4 * 128 / 444], 'victorian-straight-2': ['station-v', 3 * 128 / 387], 'victorian-straight-3': ['subway-entrance', 128 / 223],
   'l-stations-1': ['station-l-up', 3 * 128 / 305], 'l-stations-4': ['station-l-down', 3 * 128 / 304],
+  // Brick ramps and portals for the R5 deck (¼ tile up), from colour-blocked templates at 160 px a tile (raw-rail/tpl-*-r5.png).
+  'ramps-r5-1': ['ramp-ew', 0.8], 'ramps-r5-2': ['ramp-ns-away', 0.8], 'ramps-r5-3': ['ramp-ns-toward', 0.8],
+  'portals-r5-1': ['portal-ew', 0.8], 'portals-r5-2': ['portal-ns-away', 0.8], 'portals-r5-3': ['portal-ns-toward', 0.8],
 };
 const RAIL = set === 'rail', AIR = set === 'airport' || RAIL;   // both write the same sprite data shape
 const GAME_OUT = join(here, '../../public/sprites/clay/' + (RAIL ? 'rail' : AIR ? 'airport' : 'port'));
@@ -190,6 +193,8 @@ blobs.forEach((bl, k) => {
     game[id] = { w: r.W, h: r.H, footX: Math.round(((bl.x0 + bl.x1) / 2 - x0) * kk), footY: Math.round((bl.y1 - y0) * kk), k: +kk.toFixed(4) };
     // The airport also needs the solid box's left, right and top (bridges are placed by their corners).
     if (AIR) Object.assign(game[id], { left: Math.round((bl.x0 - x0) * kk), right: Math.round((bl.x1 - x0) * kk), top: Math.round((bl.y0 - y0) * kk) });
+    // Rail: where the crop sits on the raw sheet (image px), to place props drawn from a template by the template's own coordinates.
+    if (RAIL) Object.assign(game[id], { sheetX: Math.round(x0 * kk), sheetY: Math.round(y0 * kk) });
   }
 });
 if (Object.keys(game).length) {
@@ -199,7 +204,7 @@ if (Object.keys(game).length) {
   const all = { ...prev, ...game };
   writeFileSync(GAME_DATA, RAIL ? `// Made by art/clay-set/port-sheet.mjs (… rail): the stations' painted props in public/sprites/clay/rail, at 128 px a tile.
 // w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
-export interface RailSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number }
+export interface RailSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number; sheetX?: number; sheetY?: number }
 export const RAIL_SPRITES: Record<string, RailSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;
 ` : AIR ? `// Made by art/clay-set/port-sheet.mjs (… airport): the airport's painted props in public/sprites/clay/airport, at 128 px a tile.
 // w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.

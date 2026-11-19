@@ -9,8 +9,10 @@
  * Track pieces come from a tile's links (sim/rail.ts `railLinks`): a straight for opposite
  * sides, a quarter turn round the shared corner for a bend, both at a junction.
  */
-import { LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
-import { BUILDING_STATION, BUILDING_STATION_L } from '../../sim/constants';
+import { LINK_N, LINK_E, LINK_S, LINK_W, railLinks } from '../../sim/rail';
+import type { World } from '../../sim/World';
+import { subwayPlatform } from '../../sim/buildingShapes';
+import { BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, RAIL_ELEVATED, RAIL_SUBWAY } from '../../sim/constants';
 import { RAIL_SPRITES } from './railSpriteData';
 
 type Ctx = CanvasRenderingContext2D;
@@ -174,5 +176,175 @@ export function drawStation(ctx: Ctx, kind: number, rot: number, L: number, Tp: 
     ctx.translate(2 * axis, 0); ctx.scale(-1, 1);
   }
   ctx.drawImage(s.img, x, y, m.w * qx, m.h * qy);
+  ctx.restore();
+}
+
+// ── Phase 2: elevated track, ramps and portals, the underground view ──
+
+/** The elevated deck's height in tiles (owner's R5 in art/clay-set/rail2.html: low, so the climb is a small step). */
+export const DECK_HEIGHT = 0.25;
+const STEEL = { deck: '#6f7781', face: '#4d545d', pillar: '#5f6670', pillarDark: '#40464e', lattice: 'rgba(30,34,40,0.7)' };   // E2
+
+/** Shadow of elevated track on tile (px, py): drawn first, on the ground, pushed right by the deck's height. */
+export function drawElevatedShadow(ctx: Ctx, links: number, px: number, py: number, T: number): void {
+  ctx.save(); ctx.lineCap = 'butt'; ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = T * 0.95;
+  for (const pc of railPieces(links)) strokePiece(ctx, pc, px + DECK_HEIGHT * 0.3 * T, py, T, 0);
+  ctx.restore();
+}
+
+/**
+ * Elevated track on one tile (E2 steel deck, two tracks): paired steel legs on every other tile
+ * (`legs`), the deck's front face, its top, then the track, all raised DECK_HEIGHT up the page.
+ */
+export function drawElevatedTile(ctx: Ctx, links: number, px: number, py: number, T: number, legs: boolean): void {
+  const pcs = railPieces(links), lift = DECK_HEIGHT * T, top = py - lift;
+  ctx.save(); ctx.lineCap = 'butt';
+  if (legs) {
+    const cx = px + T / 2, cy = py + T / 2, w = Math.max(2, T * 0.08);
+    for (const dx of [-0.3, 0.3]) {
+      const x = cx + dx * T, g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+      g.addColorStop(0, STEEL.pillar); g.addColorStop(1, STEEL.pillarDark); ctx.fillStyle = g;
+      ctx.fillRect(x - w / 2, cy - lift, w, lift);
+    }
+  }
+  ctx.strokeStyle = STEEL.face; ctx.lineWidth = T * 0.98;
+  for (const pc of pcs) strokePiece(ctx, pc, px, top + T * 0.08, T, 0);
+  if (T >= 12 && (links & (LINK_E | LINK_W)) && !(links & (LINK_N | LINK_S))) {   // a zigzag down the face of east–west deck
+    ctx.strokeStyle = STEEL.lattice; ctx.lineWidth = 1; ctx.beginPath();
+    const y0 = top + T * 0.99, y1 = y0 + T * 0.07;
+    for (let k = 0; k <= 6; k++) { const x = px + T * k / 6; if (k === 0) ctx.moveTo(x, y0); else ctx.lineTo(x, k % 2 ? y1 : y0); }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = STEEL.deck; ctx.lineWidth = T * 0.98;
+  for (const pc of pcs) strokePiece(ctx, pc, px, top, T, 0);
+  ctx.restore();
+  drawRailTile(ctx, links, px, top, T);
+}
+
+// Ramps and portals: drawn from colour-blocked templates (art/clay-set/raw-rail/tpl-*-r5.png, 160 px a tile).
+// Each picture's footprint (its ground rectangle) on the raw sheet, top-left, in raw px.
+const RAMP_FOOT: Record<string, [number, number]> = {
+  'ramp-ew': [70, 180], 'ramp-ns-away': [560, 90], 'ramp-ns-toward': [980, 90],
+  'portal-ew': [70, 200], 'portal-ns-away': [560, 90], 'portal-ns-toward': [980, 90],
+};
+/**
+ * The picture for a ramp at a rotation: at rot 0 the ground end is west and the high (or deep) end east;
+ * each turn is a quarter clockwise (sim/buildingShapes.ts), so rot 1 runs north → south (toward us),
+ * rot 2 east → west (the east–west picture mirrored), rot 3 south → north (away from us).
+ */
+export function rampArt(subway: boolean, rot: number): { name: string; flip: boolean } {
+  const p = subway ? 'portal' : 'ramp', r = rot & 3;
+  return r === 0 ? { name: `${p}-ew`, flip: false } : r === 1 ? { name: `${p}-ns-toward`, flip: false } : r === 2 ? { name: `${p}-ew`, flip: true } : { name: `${p}-ns-away`, flip: false };
+}
+/** A ramp or portal whose footprint's top-left corner is at screen (L, Tp), T pixels a tile. */
+export function drawRamp(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
+  const art = rampArt(subway, rot), s = load()[art.name], m = RAIL_SPRITES[art.name], foot = RAMP_FOOT[art.name];
+  if (!s || !m || !foot || !s.img.complete || !s.img.naturalWidth) return;
+  const q = T / 128, fx = foot[0] * m.k - (m.sheetX ?? 0), fy = foot[1] * m.k - (m.sheetY ?? 0);   // the footprint's corner in the image
+  const ew = art.name.endsWith('-ew'), w = ew ? 2 : 1;
+  ctx.save();
+  if (art.flip) { ctx.translate(2 * (L + w * T / 2), 0); ctx.scale(-1, 1); }
+  ctx.drawImage(s.img, L - fx * q, Tp - fy * q, m.w * q, m.h * q);
+  ctx.restore();
+}
+
+/** The underground view (U1 blueprint): the surface dims to dark blue; `a` fades it in. */
+export function drawUndergroundShade(ctx: Ctx, w: number, h: number, a: number): void {
+  if (a <= 0) return;
+  ctx.save(); ctx.fillStyle = `rgba(10,22,40,${0.82 * a})`; ctx.fillRect(0, 0, w, h); ctx.restore();
+}
+/** Subway track on one tile in the underground view: a pale tunnel glow, rails in light cyan. `platform`: a station's platform edges. */
+export function drawSubwayTile(ctx: Ctx, links: number, px: number, py: number, T: number, platform = false): void {
+  const pcs = railPieces(links);
+  ctx.save(); ctx.lineCap = 'butt';
+  ctx.strokeStyle = 'rgba(120,220,255,0.18)'; ctx.lineWidth = T * 0.95;
+  for (const pc of pcs) strokePiece(ctx, pc, px, py, T, 0);
+  if (T >= 12) {
+    ctx.strokeStyle = 'rgba(120,220,255,0.35)'; ctx.lineWidth = Math.max(1, T * 0.04); ctx.beginPath();
+    for (const pc of pcs) {
+      const n = Math.max(1, Math.round(pc.L / 0.14));
+      for (let k = 0; k < n; k++) {
+        const [x, y, tx, ty] = pc.p((k + 0.5) / n);
+        for (const o of [-TRACK_OFFSET, TRACK_OFFSET]) { const a = o - 0.12, b = o + 0.12; ctx.moveTo(px + (x - ty * a) * T, py + (y + tx * a) * T); ctx.lineTo(px + (x - ty * b) * T, py + (y + tx * b) * T); }
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#9fe8ff'; ctx.lineWidth = Math.max(1, T * 0.03);
+  for (const pc of pcs) for (const o of [-TRACK_OFFSET, TRACK_OFFSET]) for (const g of [-HALF_GAUGE, HALF_GAUGE]) strokePiece(ctx, pc, px, py, T, o + g);
+  if (platform) {   // pale platforms along both outer edges
+    ctx.strokeStyle = 'rgba(160,230,255,0.45)'; ctx.lineWidth = Math.max(1, T * 0.1);
+    for (const pc of pcs) for (const o of [-0.44, 0.44]) strokePiece(ctx, pc, px, py, T, o);
+  }
+  ctx.restore();
+}
+
+/** Every elevated tile in view: shadows first, then legs and deck row by row from the back. (sx, sy): screen position of tile (0, 0). */
+export function drawElevatedLayer(ctx: Ctx, world: World, sx: number, sy: number, T: number, x0: number, y0: number, x1: number, y1: number): void {
+  // A ramp's own tiles carry the levels too, but its picture draws them.
+  const rail = world.layers.rail, w = world.grid.width, bld = world.layers.building;
+  const X = (tx: number): number => Math.floor(sx + tx * T), Y = (ty: number): number => Math.floor(sy + ty * T), tile = Math.ceil(T);
+  // A deck's shadow and legs reach a little past its own tile: take in one more row and column.
+  const ya = Math.max(0, y0 - 1), xa = Math.max(0, x0 - 1);
+  for (let ty = ya; ty <= y1; ty++) for (let tx = xa; tx <= x1; tx++) { const i = ty * w + tx; if (rail[i] & RAIL_ELEVATED && !bld[i]) drawElevatedShadow(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile); }
+  for (let ty = ya; ty <= Math.min(world.grid.height - 1, y1 + 1); ty++) for (let tx = xa; tx <= x1; tx++) {
+    const i = ty * w + tx; if (rail[i] & RAIL_ELEVATED && !bld[i]) drawElevatedTile(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile, (tx + ty) % 2 === 0);
+  }
+}
+
+const isRamp = (b: number): boolean => b === BUILDING_RAMP_ELEVATED || b === BUILDING_RAMP_SUBWAY;
+
+/** The underground view: the surface dims, and subway track and platforms show. */
+export function drawSubwayLayer(ctx: Ctx, world: World, sx: number, sy: number, T: number, x0: number, y0: number, x1: number, y1: number): void {
+  drawUndergroundShade(ctx, ctx.canvas.width, ctx.canvas.height, 1);
+  const rail = world.layers.rail, w = world.grid.width, tile = Math.ceil(T), platforms = new Set<number>();
+  for (const b of world.buildings) if (b.kind === BUILDING_SUBWAY_STATION) for (const [dx, dy] of subwayPlatform(b.kind, b.rot ?? 0)) platforms.add((b.ty + dy) * w + b.tx + dx);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    const i = ty * w + tx; if (!(rail[i] & RAIL_SUBWAY) || isRamp(world.layers.building[i])) continue;
+    drawSubwayTile(ctx, railLinks(world, i, RAIL_SUBWAY), Math.floor(sx + tx * T), Math.floor(sy + ty * T), tile, platforms.has(i));
+  }
+}
+
+/** The N2 globe-lamp subway entrance on its tile at screen (px, py). */
+export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number): void {
+  const s = load()['subway-entrance'], m = RAIL_SPRITES['subway-entrance'];
+  if (!s || !m || !s.img.complete || !s.img.naturalWidth) return;
+  const q = T / (m.right - m.left), front = m.footY - (SOIL['subway-entrance'] ?? 0);
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py - T, T, 2 * T); ctx.clip();   // flush with the ground, as the stations
+  ctx.drawImage(s.img, px - m.left * q, py + T - front * q, m.w * q, m.h * q);
+  ctx.restore();
+}
+
+/**
+ * The game's track over a ramp's empty strip: straight along it, from the ground end to the high end
+ * (lifted DECK_HEIGHT) for a ramp up, or to the tunnel mouth for a ramp down. (L, Tp): the footprint's top-left.
+ */
+export function drawRampTrack(ctx: Ctx, subway: boolean, rot: number, L: number, Tp: number, T: number): void {
+  const r = rot & 3, ew = r % 2 === 0;
+  // In tile units from the footprint's corner: the ground end's centre and the far end's, and how high the far end draws.
+  const len = 2, mouth = subway ? (ew ? 0.3 : r === 3 ? 0.45 : 0.6) : 0, rise = subway ? 0 : DECK_HEIGHT;
+  const a: [number, number] = r === 0 ? [0, 0.5] : r === 1 ? [0.5, 0] : r === 2 ? [len, 0.5] : [0.5, len];
+  const b: [number, number] = r === 0 ? [len - mouth, 0.5 - rise] : r === 1 ? [0.5, len - mouth - rise] : r === 2 ? [mouth, 0.5 - rise] : [0.5, mouth - rise];
+  const dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m, nx = -uy, ny = ux;
+  ctx.save(); ctx.lineCap = 'butt';
+  if (T >= 12) {
+    ctx.strokeStyle = SLEEPER; ctx.lineWidth = Math.max(1, T * 0.055); ctx.beginPath();
+    const n = Math.round(m / 0.12);
+    for (let k = 0; k < n; k++) {
+      const f = (k + 0.5) / n, x = a[0] + dx * f, y = a[1] + dy * f;
+      for (const o of [-TRACK_OFFSET, TRACK_OFFSET]) { const p = o - 0.13, q = o + 0.13; ctx.moveTo(L + (x + nx * p) * T, Tp + (y + ny * p) * T); ctx.lineTo(L + (x + nx * q) * T, Tp + (y + ny * q) * T); }
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = RAIL; ctx.lineWidth = Math.max(1, T * 0.033); ctx.beginPath();
+  for (const o of [-TRACK_OFFSET, TRACK_OFFSET]) for (const g of [-HALF_GAUGE, HALF_GAUGE]) {
+    ctx.moveTo(L + (a[0] + nx * (o + g)) * T, Tp + (a[1] + ny * (o + g)) * T); ctx.lineTo(L + (b[0] + nx * (o + g)) * T, Tp + (b[1] + ny * (o + g)) * T);
+  }
+  ctx.stroke();
+  if (subway) {   // the track darkens into the tunnel
+    const g = ctx.createLinearGradient(L + a[0] * T, Tp + a[1] * T, L + b[0] * T, Tp + b[1] * T);
+    g.addColorStop(0, 'rgba(20,18,18,0)'); g.addColorStop(1, 'rgba(20,18,18,0.55)');
+    ctx.strokeStyle = g; ctx.lineWidth = T * 0.86; ctx.beginPath(); ctx.moveTo(L + a[0] * T, Tp + a[1] * T); ctx.lineTo(L + b[0] * T, Tp + b[1] * T); ctx.stroke();
+  }
   ctx.restore();
 }

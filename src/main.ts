@@ -327,6 +327,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'budget':     togglePanel('budget'); break;
       case 'ordinances': togglePanel('ordinances'); break;
       case 'requests':   togglePanel('requests'); break;
+      case 'underground': setUnderground(!underground); break;
     }
   },
   onRoadMode: (mode) => {

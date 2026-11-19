@@ -89,4 +89,4 @@ describe('large-city generator', () => {
       expect(nets.size).toBe(1);
     });
   }
-});
+}, 30_000);   // each builds a whole city: a few seconds alone, past the 5 s default when the suite runs in parallel

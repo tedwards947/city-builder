@@ -314,8 +314,9 @@ export const BALANCE = {
     // Ground track on water costs times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
     track: {
       1: { cost: 400, maintenance: 0.5 },   // ground (owner 2026-11-18; a highway is 150 / 0.35)
-      // Phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's sanity check): elevated 3× ground;
-      // subway 25× to build but only 4× to keep up.
+      // Owner-approved 2026-11-19 (RAIL_DESIGN.md): elevated 3× ground to build; subway 25× to
+      // build but only 4× to keep up (at 25× a 60-tile line would eat a 10k city's whole surplus).
+      // Elevated upkeep 1.5 (3×) is still a placeholder, proposed to the owner.
       2: { cost: 1200, maintenance: 1.5 },    // elevated
       4: { cost: 10000, maintenance: 2 },     // subway
     } as Record<number, { cost: number; maintenance: number }>,
