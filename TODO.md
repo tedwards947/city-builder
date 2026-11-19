@@ -26,6 +26,7 @@ Seaport G2 and the seaport art are in (picks A1, B3, D3 → E1 on `art/clay-set/
 
 ### Waiting on something else
 
+- **Retouch the train station art** (owner, 2026-11-19): the scale doesn't look quite right. Do it after the main rail work (phase 2) is in.
 - **Terrain in the clay style** (grass, sand, water, rounded shorelines): deferred by the owner.
 - **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.
 - **Landscaping polish**: on hold. Known issues: identical neighbours (6 variants per sprite), uniform all-tower districts, plazas over shops' painted parking bays, the slate duplex (`res-2-b`) almost never dressed, green-vibe lots too busy.
