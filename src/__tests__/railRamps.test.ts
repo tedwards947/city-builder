@@ -8,7 +8,7 @@ import {
   RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY, ROAD_STREET, ZONE_R,
 } from '../sim/constants';
 import { buildingShape, rampLevel, shapeRoles, subwayPlatform } from '../sim/buildingShapes';
-import { LINK_E, LINK_N, LINK_S, LINK_W, railLinks, rampOther } from '../sim/rail';
+import { LINK_E, LINK_N, LINK_S, LINK_W, railLinks, rampOther, trackBlocker } from '../sim/rail';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { buildingKindForPlacing, commandForTool } from '../input/InputController';
 import { meetsTrack, placementFor, resetPlacementTurn } from '../input/placement';
@@ -129,15 +129,16 @@ describe('a subway ramp', () => {
 });
 
 describe('a subway station', () => {
-  it('is a one-tile entrance over four tiles of subway platform, west–east or north–south', () => {
+  it('is a one-tile entrance over three tiles of subway platform, west–east or north–south', () => {
     expect(buildingShape(BUILDING_SUBWAY_STATION)).toEqual([[0, 0]]);
-    expect(subwayPlatform(BUILDING_SUBWAY_STATION, 0)).toEqual([[-1, 0], [0, 0], [1, 0], [2, 0]]);
-    expect(subwayPlatform(BUILDING_SUBWAY_STATION, 1)).toEqual([[0, -1], [0, 0], [0, 1], [0, 2]]);
+    expect(subwayPlatform(BUILDING_SUBWAY_STATION, 0)).toEqual([[-1, 0], [0, 0], [1, 0]]);
+    expect(subwayPlatform(BUILDING_SUBWAY_STATION, 1)).toEqual([[0, -1], [0, 0], [0, 1]]);
     expect(subwayPlatform(BUILDING_SUBWAY_STATION, 2)).toEqual(subwayPlatform(BUILDING_SUBWAY_STATION, 0));
     expect(subwayPlatform(BUILDING_PARK)).toEqual([]);
     expect(w.placeBuilding(10, 10, BUILDING_SUBWAY_STATION)).toBe(true);
-    for (let x = 9; x <= 12; x++) expect(w.getRail(x, 10)).toBe(RAIL_SUBWAY);
+    for (let x = 9; x <= 11; x++) expect(w.getRail(x, 10)).toBe(RAIL_SUBWAY);
     expect(w.getRail(8, 10)).toBe(0);
+    expect(w.getRail(12, 10)).toBe(0);
     expect(w.getBuilding(10, 10)).toBe(BUILDING_SUBWAY_STATION);
     expect(w.getBuilding(11, 10)).toBe(BUILDING_NONE);                    // only the entrance is on the surface
     expect(links(10, 10, RAIL_SUBWAY)).toBe(LINK_E | LINK_W);
@@ -146,7 +147,8 @@ describe('a subway station', () => {
   it('turned, the platform runs north–south; a turn of 2 or 3 is 0 or 1', () => {
     expect(w.placeBuilding(10, 10, BUILDING_SUBWAY_STATION, 3)).toBe(true);
     expect(w.buildings[0].rot).toBe(1);
-    for (let y = 9; y <= 12; y++) expect(w.getRail(10, y)).toBe(RAIL_SUBWAY);
+    for (let y = 9; y <= 11; y++) expect(w.getRail(10, y)).toBe(RAIL_SUBWAY);
+    expect(w.getRail(10, 12)).toBe(0);
     expect(w.getRail(11, 10)).toBe(0);
   });
 
@@ -162,19 +164,36 @@ describe('a subway station', () => {
   it('needs its whole platform under the map', () => {
     expect(w.checkPlacement(0, 10, BUILDING_SUBWAY_STATION, 0).offMap).toBe(true);
     expect(w.canPlaceBuilding(0, 10, BUILDING_SUBWAY_STATION, 1)).toBe(true);
-    expect(w.checkPlacement(30, 10, BUILDING_SUBWAY_STATION, 0).offMap).toBe(true);
-    expect(w.canPlaceBuilding(29, 10, BUILDING_SUBWAY_STATION, 0)).toBe(true);
+    expect(w.checkPlacement(31, 10, BUILDING_SUBWAY_STATION, 0).offMap).toBe(true);
+    expect(w.canPlaceBuilding(30, 10, BUILDING_SUBWAY_STATION, 0)).toBe(true);
   });
 
   it('its platform cannot be dug out while it stands; cleared, the tunnel stays', () => {
     w.placeBuilding(10, 10, BUILDING_SUBWAY_STATION);
-    lay(13, 10, RAIL_SUBWAY);
+    lay(12, 10, RAIL_SUBWAY);
     expect(w.removeSubway(9, 10)).toBe(false);
-    expect(w.removeSubway(12, 10)).toBe(false);
-    expect(w.removeSubway(13, 10)).toBe(true);
+    expect(w.removeSubway(11, 10)).toBe(false);
+    expect(w.removeSubway(12, 10)).toBe(true);
     expect(w.clearTile(10, 10)).toBe(true);
-    for (let x = 9; x <= 12; x++) expect(w.getRail(x, 10)).toBe(RAIL_SUBWAY);
+    for (let x = 9; x <= 11; x++) expect(w.getRail(x, 10)).toBe(RAIL_SUBWAY);
     expect(w.removeSubway(9, 10)).toBe(true);
+  });
+
+  it('no tunnel may be dug beside its platform, and it cannot be placed beside one; other levels are free', () => {
+    w.placeBuilding(10, 10, BUILDING_SUBWAY_STATION);
+    for (let x = 9; x <= 11; x++) {
+      expect(trackBlocker(w, x, 9, RAIL_SUBWAY)).toBe('blocked');
+      expect(trackBlocker(w, x, 11, RAIL_SUBWAY)).toBe('blocked');
+      expect(trackBlocker(w, x, 9, RAIL_GROUND)).toBeNull();
+    }
+    expect(trackBlocker(w, 8, 10, RAIL_SUBWAY)).toBeNull();               // straight on from an end
+    expect(trackBlocker(w, 8, 9, RAIL_SUBWAY)).toBeNull();
+    for (let x = 4; x <= 20; x++) lay(x, 21, RAIL_SUBWAY);
+    expect(w.canPlaceBuilding(10, 20, BUILDING_SUBWAY_STATION, 0)).toBe(false);
+    expect(w.canPlaceBuilding(10, 19, BUILDING_SUBWAY_STATION, 0)).toBe(true);
+    expect(w.canPlaceBuilding(10, 21, BUILDING_SUBWAY_STATION, 0)).toBe(true);   // on the tunnel
+    w.clearTile(10, 10);
+    expect(trackBlocker(w, 10, 9, RAIL_SUBWAY)).toBeNull();
   });
 
   it('undo of placing takes back the platform it dug and leaves a tunnel that was there', () => {
@@ -183,7 +202,7 @@ describe('a subway station', () => {
     expect(cmd.execute(w)).toBe(true);
     cmd.undo(w);
     expect(w.getRail(9, 10)).toBe(RAIL_SUBWAY);
-    for (let x = 10; x <= 12; x++) expect(w.getRail(x, 10)).toBe(0);
+    for (let x = 10; x <= 11; x++) expect(w.getRail(x, 10)).toBe(0);
     expect(w.getBuilding(10, 10)).toBe(BUILDING_NONE);
   });
 });

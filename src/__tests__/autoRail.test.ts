@@ -193,8 +193,8 @@ describe('track that is already there', () => {
   });
 
   it('runs straight into the end of a platform two tiles away (the tile beside the platform is a fine place to end)', () => {
-    // Owner's case: a station whose platform (row 11) ends at x 13; a line whose free end is at (16,11).
-    expect(w.placeBuilding(10, 10, BUILDING_STATION, 0)).toBe(true);
+    // Owner's case: a station whose platform (row 11, x 11–13) ends at x 13; a line whose free end is at (16,11).
+    expect(w.placeBuilding(11, 11, BUILDING_STATION, 0)).toBe(true);
     for (let x = 16; x <= 20; x++) track(x, 11);
     for (const [from, to] of [[P(16, 11), P(14, 11)], [P(14, 11), P(16, 11)], [P(16, 11), P(13, 11)], [P(15, 11), P(14, 11)]] as const) {
       const path = autoRailPath(w, from, to)!;
@@ -214,12 +214,12 @@ describe('track that is already there', () => {
   });
 
   it('joins a station at the end of its platform, never through its side', () => {
-    expect(w.placeBuilding(10, 10, BUILDING_STATION)).toBe(true);         // platform y 11, x 10–13
+    expect(w.placeBuilding(10, 11, BUILDING_STATION)).toBe(true);         // platform y 11, x 10–12
     const path = autoRailPath(w, P(5, 5), P(11, 11))!;                    // the end is a platform tile
     connected(path);
     expect(has(path, 9, 11)).toBe(true);                                  // in by the west end
     expect(has(path, 10, 11)).toBe(true);
-    expect(autoRailPath(w, P(5, 5), P(11, 10))).toBeNull();               // the building itself
+    expect(autoRailPath(w, P(5, 5), P(11, 10))).toBeNull();               // beside the platform: no track there
     expect(layAndCountJunctions(path)).toBe(0);
   });
 });

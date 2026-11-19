@@ -8,12 +8,13 @@
 // Track tiles that touch are joined, as roads are, except at a crossing, which
 // only joins along its track axis. A station's platform tiles carry ground
 // track too: they join each other, and the tile straight on from each end of
-// the platform, and nothing beside them.
+// the platform, and nothing beside them; no track may be laid beside a
+// platform (side-on), on the ground or, for a subway platform, underground.
 
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
-import { buildingShape, rampLevel, subwayPlatform } from './buildingShapes';
+import { buildingShape, hasPlatforms, platformSides, rampLevel, subwayPlatform } from './buildingShapes';
 import { railVolume } from './TrafficData';
 
 /** Directions as bits, for railLinks. */
@@ -126,26 +127,58 @@ export function railLinks(world: World, i: number, level: number = RAIL_GROUND):
   return m;
 }
 
+/** Whether tile `i` touches a train station's platform side-on (not straight on from a platform end). */
+function besideGroundPlatform(world: World, i: number): boolean {
+  const L = world.layers;
+  for (const d of DIRS) {
+    const j = towards(world, i, d);
+    if (j < 0 || L.building[j] === BUILDING_NONE || !hasPlatforms(L.building[j]) || !(L.rail[j] & RAIL_GROUND)) continue;
+    if (world.buildingPartRoleAt(j % world.grid.width, (j / world.grid.width) | 0) !== 'platform') continue;
+    if (!(trackSides(world, j) & opposite(d))) return true;
+  }
+  return false;
+}
+
+const subwaySidesCache = new WeakMap<World, { buildings: unknown; count: number; tiles: Set<number> }>();
+
+/** Every tile beside a subway station's platform. Worked out again only when the list of buildings changes. */
+function besideSubwayPlatform(world: World): Set<number> {
+  const hit = subwaySidesCache.get(world);
+  if (hit && hit.buildings === world.buildings && hit.count === world.buildings.length) return hit.tiles;
+  const tiles = new Set<number>();
+  for (const b of world.buildings) {
+    for (const [dx, dy] of platformSides(b.kind, b.rot ?? 0)) {
+      if (subwayPlatform(b.kind, b.rot ?? 0).length > 0 && world.grid.inBounds(b.tx + dx, b.ty + dy)) tiles.add(world.grid.idx(b.tx + dx, b.ty + dy));
+    }
+  }
+  subwaySidesCache.set(world, { buildings: world.buildings, count: world.buildings.length, tiles });
+  return tiles;
+}
+
 /** Why ground track cannot be laid on a tile, or null if it can. */
 export type TrackBlocker = 'offMap' | 'blocked' | 'hasTrack' | 'crossing';
 
 /**
  * Whether track of `level` can be laid on (tx, ty), and if not, why.
- *   Ground: 'offMap'; 'blocked' (a building or a zone); 'hasTrack' (already
- *     there); 'crossing' (a road it cannot cross: a highway, or a road tile
- *     that is a bend or a junction).
+ *   Ground: 'offMap'; 'blocked' (a building or a zone, or the tile is beside
+ *     a station's platform); 'hasTrack' (already there); 'crossing' (a road
+ *     it cannot cross: a highway, or a road tile that is a bend or a junction).
  *   Elevated: goes over land, water, any road (no crossing is made) and
  *     ground track; 'blocked' by a building or a zone.
- *   Subway: goes under anything; only 'offMap' and 'hasTrack'.
+ *   Subway: goes under anything; 'offMap', 'hasTrack', or 'blocked' beside a
+ *     subway station's platform.
+ * "Beside a platform" is side-on (buildingShapes.platformSides): track never
+ * runs alongside a platform of its own level.
  */
 export function trackBlocker(world: World, tx: number, ty: number, level: number = RAIL_GROUND): TrackBlocker | null {
   if (!world.grid.inBounds(tx, ty)) return 'offMap';
   const L = world.layers;
   const i = world.grid.idx(tx, ty);
-  if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : null;
+  if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : besideSubwayPlatform(world).has(i) ? 'blocked' : null;
   if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE) return 'blocked';
   if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : null;
   if (L.rail[i] & RAIL_GROUND) return 'hasTrack';
+  if (besideGroundPlatform(world, i)) return 'blocked';
   const rc = L.roadClass[i];
   if (rc !== ROAD_NONE) {
     if (rc > ROAD_AVENUE) return 'crossing';

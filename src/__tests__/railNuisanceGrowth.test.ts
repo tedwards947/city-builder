@@ -98,15 +98,16 @@ describe('growth near a station', () => {
   const traffic = () => { for (let k = 1; k <= 12; k++) { w.tick = k * T.flowInterval; transit.update(w); } };
 
   // A suburb in the west and a town in the east, joined only by a line between two stations
-  // (buildings at x 4–7 and x 38–41, y 11–13).
+  // (platforms at x 4–6 and x 38–40 on y 12).
   function line(withTrack = true): void {
     street(10, 2, 12);
     for (let x = 4; x <= 9; x++) zone(x, 9, ZONE_R, 2);
     street(10, 36, 46);
     for (let x = 42; x <= 45; x++) zone(x, 9, ZONE_I, 3);
-    w.placeBuilding(4, 11, BUILDING_STATION);
-    w.placeBuilding(38, 11, BUILDING_STATION);
-    if (withTrack) for (let x = 8; x <= 37; x++) w.layTrack(x, 12);
+    w.placeBuilding(4, 12, BUILDING_STATION);
+    w.placeBuilding(38, 12, BUILDING_STATION);
+    w.setRoad(5, 11, ROAD_STREET); w.setRoad(39, 11, ROAD_STREET);       // a stub from each platform up to its street
+    if (withTrack) for (let x = 7; x <= 37; x++) w.layTrack(x, 12);
   }
 
   beforeEach(() => { T.buildings = {}; transit = new TransitSystem(); });
@@ -117,13 +118,13 @@ describe('growth near a station', () => {
     traffic();
     const mask = stationGrowthMask(w)!;
     expect(mask).not.toBeNull();
-    expect(mask[at(5, 9)]).toBe(1);           // 2 north of the building
-    expect(mask[at(5, 7)]).toBe(1);           // 4 north
-    expect(mask[at(5, 6)]).toBe(0);           // 5 north
-    expect(mask[at(11, 11)]).toBe(1);         // 4 east of its east edge
-    expect(mask[at(12, 11)]).toBe(0);
-    expect(mask[at(9, 9)]).toBe(1);           // 2 east + 2 north of the corner
-    expect(mask[at(10, 8)]).toBe(0);          // 3 east + 3 north
+    expect(mask[at(5, 9)]).toBe(1);           // 3 north of the platform
+    expect(mask[at(5, 8)]).toBe(1);           // 4 north
+    expect(mask[at(5, 7)]).toBe(0);           // 5 north
+    expect(mask[at(10, 12)]).toBe(1);         // 4 east of its east end
+    expect(mask[at(11, 12)]).toBe(0);
+    expect(mask[at(8, 10)]).toBe(1);          // 2 east + 2 north of the end
+    expect(mask[at(9, 9)]).toBe(0);           // 3 east + 3 north
     expect(mask[at(40, 9)]).toBe(1);          // the town station is served too (riders arrive)
     expect(mask[at(24, 12)]).toBe(0);         // the line itself gives nothing
   });
@@ -132,7 +133,7 @@ describe('growth near a station', () => {
     line(false);                              // two stations, no track between
     traffic();
     expect(stationGrowthMask(w)).toBeNull();
-    for (let x = 8; x <= 37; x++) w.layTrack(x, 12);
+    for (let x = 7; x <= 37; x++) w.layTrack(x, 12);
     traffic();
     expect(stationGrowthMask(w)).not.toBeNull();
     G.mult = 1;
@@ -141,6 +142,7 @@ describe('growth near a station', () => {
 
   it('homes and shops beside a served station grow faster than the same ones far away; industry does not', () => {
     line();
+    G.radius = 6;                             // wide enough to take in all nine lots south of the platform
     // Three matched pairs of level-1 lots, each on a street: near the suburb station and far from it.
     street(15, 2, 12); street(30, 2, 12);
     const near = { R: [] as number[], C: [] as number[], I: [] as number[] }, far = { R: [] as number[], C: [] as number[], I: [] as number[] };

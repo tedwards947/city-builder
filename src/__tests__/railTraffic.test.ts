@@ -36,10 +36,18 @@ const traffic = () => {
   return w.traffic!;
 };
 
+// A station whose platform is x..x+2 on y = 12, with a tile of plain track after it (x+3) and
+// a one-tile street (x+1, 11) up to the street along y = 10.
+const station = (x: number): void => {
+  expect(w.placeBuilding(x, 12, BUILDING_STATION)).toBe(true);
+  expect(w.layTrack(x + 3, 12)).toBe(true);
+  expect(w.setRoad(x + 1, 11, ROAD_STREET)).toBe(true);
+};
+
 // A SUBURB in the west: a street along y = 10 (x 2–12) with homes on its north side, and a
-// station south of it (y 11–13, x 4–7; the platform is its middle row, y 12).
+// station south of it (platform y 12, x 4–6, joined to the street by a stub).
 // A TOWN in the east: a street along y = 10 (x 48–60) with industry on its north side, and a
-// station (platform y 12, x 50–53). The line runs along y = 12 between the platforms.
+// station (platform y 12, x 50–52). The line runs along y = 12 between the platforms.
 // No road joins the two.
 const HOME_ROAD = () => idx(5, 10);
 function suburbAndTown(line = true): void {
@@ -48,8 +56,7 @@ function suburbAndTown(line = true): void {
   street(10, 48, 60);
   for (let x = 55; x <= 58; x++) zone(x, 9, ZONE_I, 3);
   if (!line) return;
-  expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
-  expect(w.placeBuilding(50, 11, BUILDING_STATION)).toBe(true);
+  station(4); station(50);
   track(12, 8, 49);
 }
 
@@ -91,7 +98,7 @@ describe('a suburb joined to town only by rail', () => {
     suburbAndTown();
     const t = traffic();
     const trips = 6 * 2 * BALANCE.transit.tripsRtoI;
-    expect(t.rail.stations.map((s) => s.anchor)).toEqual([idx(4, 11), idx(50, 11)]);
+    expect(t.rail.stations.map((s) => s.anchor)).toEqual([idx(4, 12), idx(50, 12)]);
     expect(t.rail.stations[0].boardings).toBeCloseTo(trips, 3);
     expect(t.rail.stations[1].boardings).toBe(0);
     expect(t.rail.boardings).toBeCloseTo(trips, 3);
@@ -102,6 +109,7 @@ describe('a suburb joined to town only by rail', () => {
     suburbAndTown();
     traffic();
     for (let x = 2; x <= 12; x++) w.clearTile(x, 10);                     // the suburb's street goes …
+    w.clearTile(5, 11);                                                   // … with the stub to the platform …
     street(8, 2, 12);                                                     // … to the far side of the homes
     let t = traffic();
     expect(t.rail.stations[0].roads).toEqual([]);
@@ -109,9 +117,10 @@ describe('a suburb joined to town only by rail', () => {
     expect(railVolume(t, idx(30, 12))).toBe(0);
     for (let x = 2; x <= 12; x++) w.clearTile(x, 8);
     street(10, 2, 12);
+    expect(w.setRoad(5, 11, ROAD_STREET)).toBe(true);
     t = traffic();
     expect(t.jobs.field.stranded).toBe(0);
-    w.clearTile(50, 11);                                                  // the town station (its platform stays as track)
+    w.clearTile(50, 12);                                                  // the town station (its platform stays as track)
     t = traffic();
     expect(t.rail.stations.length).toBe(1);
     expect(t.jobs.field.stranded).toBeGreaterThan(0);
@@ -153,10 +162,10 @@ describe('riders at a station', () => {
     const t = traffic();
     const trips = t.rail.boardings;
     expect(trips).toBeGreaterThan(0);
-    const from = stationBusiestTile(w, 4, 11), to = stationBusiestTile(w, 50, 11);
+    const from = stationBusiestTile(w, 4, 12), to = stationBusiestTile(w, 50, 12);
     expect(railVolume(t, from)).toBeCloseTo(trips, 3);
     expect(railVolume(t, to)).toBeCloseTo(trips, 3);                      // nobody boards in town, but they all arrive
-    expect(t.rail.stations.find(st => st.anchor === idx(50, 11))!.boardings).toBe(0);
+    expect(t.rail.stations.find(st => st.anchor === idx(50, 12))!.boardings).toBe(0);
     // The platform tiles on the dead-end side of where riders get on carry nobody: reading one tile misleads.
     expect(railVolume(t, idx(4, 12))).toBe(0);
     expect(railVolume(t, idx(53, 12))).toBe(0);
@@ -230,7 +239,7 @@ describe('track capacity and junctions', () => {
     RL.jam = { from: 1, delay: 0.5, power: 1 };
     const t = traffic();
     expect(railLoad(t, idx(30, 12))).toBeCloseTo(load, 2);                // … so they still ride
-    // 42 tiles of plain track and 8 of platform (lighter loaded, as riders board in the middle).
+    // 44 tiles of plain track and 6 of platform (lighter loaded, as riders board in the middle).
     expect(t.jobs.field.dist[HOME_ROAD()] - mild).toBeGreaterThan(42 * 0.5 * (load - 1));
     expect(t.jobs.field.dist[HOME_ROAD()] - mild).toBeLessThanOrEqual(50 * 0.5 * (load - 1) + 0.01);
     RL.jam = { from: 1, delay: 0.5, power: 2 };
@@ -243,9 +252,10 @@ describe('track capacity and junctions', () => {
     suburbAndTown();
     // A second pair of stations further down a side street at each end, and a second line along y = 16.
     for (let y = 11; y <= 17; y++) { expect(w.setRoad(2, y, ROAD_STREET)).toBe(true); expect(w.setRoad(60, y, ROAD_STREET)).toBe(true); }
-    expect(w.placeBuilding(3, 15, BUILDING_STATION)).toBe(true);
-    expect(w.placeBuilding(56, 15, BUILDING_STATION)).toBe(true);
-    track(16, 7, 55);
+    // Each platform ends against its side street (x 3–5 and x 57–59).
+    expect(w.placeBuilding(3, 16, BUILDING_STATION)).toBe(true);
+    expect(w.placeBuilding(57, 16, BUILDING_STATION)).toBe(true);
+    track(16, 6, 56);
     RL.capacity = 2; RL.jam.delay = 0;
     const none = traffic();
     const crowded = railLoad(none, idx(30, 12)), quiet = railLoad(none, idx(30, 16));
@@ -289,7 +299,7 @@ describe('level crossings', () => {
 
   it('trains at the crossing slow the cars', () => {
     suburbAndTown(false);
-    w.placeBuilding(4, 11, BUILDING_STATION); w.placeBuilding(50, 11, BUILDING_STATION);
+    station(4); station(50);
     localStreet();
     track(12, 8, 49);
     localTraffic();

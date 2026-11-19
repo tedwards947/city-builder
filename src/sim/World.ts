@@ -17,7 +17,7 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
-import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole, rampLevel, subwayPlatform } from './buildingShapes';
+import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole, rampLevel, subwayPlatform, platformSides } from './buildingShapes';
 import { openWater } from './openWater';
 import { trackBlocker, trackBlocksRoad } from './rail';
 
@@ -220,6 +220,8 @@ export class World {
   developedSince: Uint16Array;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
+  /** What upgrading an old save changed that the player should be told once (persistence/SaveFormat.ts upgradeNotes). Not saved. */
+  loadNotes: { stationsRebuilt?: number } = {};
   /**
    * Running total of what passive regeneration has added to (or drained
    * from) political capital. Undo compares it with its value when a command
@@ -619,6 +621,14 @@ export class World {
       const railFree = railFits(roles[k], kind, surface);
       if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
     }
+    // No track of a platform's level may run beside it (a tile off the map has none).
+    const beside = platformSides(kind, rot);
+    if (beside.length > 0) {
+      const level = subwayPlatform(kind, rot).length > 0 ? RAIL_SUBWAY : RAIL_GROUND;
+      for (const [dx, dy] of beside) {
+        if (this.grid.inBounds(tx + dx, ty + dy) && (this.layers.rail[this.grid.idx(tx + dx, ty + dy)] & level) !== 0) blocked.push(this.grid.idx(tx + dx, ty + dy));
+      }
+    }
     let noWater = false;
     if (placementRules(kind).needsWaterEdge) {
       noWater = true;
@@ -678,7 +688,7 @@ export class World {
       this.buildingId[i] = anchor + 1;
       this.grid.markDirty(i % width, (i - (i % width)) / width);
     }
-    // A subway station's platform: subway track under four tiles, whatever stands on them.
+    // A subway station's platform: subway track under three tiles, whatever stands on them.
     for (const [dx, dy] of subwayPlatform(b, rot)) {
       this.layers.rail[this.grid.idx(tx + dx, ty + dy)] |= RAIL_SUBWAY;
       this.railVersion++;
@@ -746,15 +756,15 @@ export class World {
 
   /**
    * The streets and avenues the building at (tx, ty) is entered from: every
-   * such road tile along the edge of its BODY tiles (docks and platforms do
-   * not count; a highway gives no access). Empty = not connected, or no building there.
+   * such road tile along the edge of its tiles on land (docks do not count,
+   * a station's platform does; a highway gives no access). Empty = not connected, or no building there.
    */
   buildingAccessRoads(tx: number, ty: number): number[] {
     const tiles = this.buildingTilesAt(tx, ty);
     if (tiles.length === 0) return [];
     const { width, height } = this.grid;
     const roles = shapeRoles(this.layers.building[tiles[0]]);
-    const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock' && roles[k] !== 'platform') : tiles;
+    const body = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] !== 'dock') : tiles;
     // A kind with a frontage is entered only from roads beside its frontage tiles.
     const frontage = tiles.length === roles.length ? tiles.filter((_, k) => roles[k] === 'frontage') : [];
     const out: number[] = [];

@@ -73,8 +73,8 @@ export const BALANCE = {
     // Train stations (RAIL_DESIGN.md). Placeholders until the balance lab proposes them.
     // Stations: 30,000 / 25 (Balance Lab rail suite, owner 2026-11-18): rail is gated by
     // cost, so a starter line (two stations and 60 tiles, about 84k) is a mid-game buy.
-    14: { cost: 30000, maintenance: 25 }, // BUILDING_STATION (straight, 4×3)
-    15: { cost: 30000, maintenance: 25 }, // BUILDING_STATION_L (elbow, 3×3)
+    14: { cost: 30000, maintenance: 25 }, // BUILDING_STATION (straight, three platform tiles)
+    15: { cost: 30000, maintenance: 25 }, // BUILDING_STATION_L (curved, 2×2)
     // Rail phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's starting numbers).
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.

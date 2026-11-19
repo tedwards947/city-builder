@@ -141,6 +141,8 @@ export interface TranslationSchema {
       water: string;
     };
     toast: {
+      stationsRebuiltTitle: string;
+      stationsRebuilt: string;
       autosaveFailedTitle: string;
       autosaveFailed: string;
       resourceShortage: string;

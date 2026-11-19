@@ -23,14 +23,14 @@ describe('finding spots', () => {
     const w = landWorld(96);
     expect(w.placeBuilding(40, 60, BUILDING_AIRPORT)).toBe(true);        // 12×5
     for (let x = 8; x <= 14; x++) expect(w.setRoad(x, 13, ROAD_STREET)).toBe(true);
-    expect(w.placeBuilding(10, 10, BUILDING_STATION)).toBe(true);        // 4×3
+    expect(w.placeBuilding(10, 12, BUILDING_STATION)).toBe(true);        // three tiles, x 10–12
     for (let x = 62; x <= 65; x++) { w.setZone(x, 14, ZONE_R); w.layers.devLevel[w.grid.idx(x, 14)] = 3; }
     const spots = findTourSpots(w);
     const of = (kind: string) => spots.filter(s => s.kind === kind);
     expect(of('airport')).toHaveLength(1);
     expect(of('airport')[0]).toMatchObject({ tx: 45.5, ty: 62 });
     expect(of('station')).toHaveLength(1);
-    expect(of('station')[0]).toMatchObject({ tx: 11.5, ty: 11 });
+    expect(of('station')[0]).toMatchObject({ tx: 11, ty: 12 });
     expect(of('towers')).toHaveLength(1);
     expect(of('towers')[0]).toMatchObject({ tx: 63.5, ty: 14 });
     expect(of('overview')).toHaveLength(1);

@@ -16,7 +16,8 @@
 // 'body' unless the shape says otherwise. 'platform' stands on land and
 // carries rail track (a train station's platform): it may be placed over
 // ground track already there, track joins it at its two ends (sim/rail.ts),
-// and roads beside it do not reach the building.
+// and no other track of its level may run beside it. Roads beside it reach
+// the building.
 //
 // A building can be ROTATED in quarter turns clockwise about its anchor
 // (0–3), so a seaport can face water on any side. The rotation is saved on
@@ -104,6 +105,36 @@ export function platformEnds(kind: number, rot = 0): ShapeOffset[] {
   return out;
 }
 
+/**
+ * The tiles BESIDE the platform of a `kind` building turned `rot`, as offsets
+ * from its anchor: every tile that touches a platform tile side-on, that is,
+ * a neighbour of a platform tile that is neither part of the building nor
+ * straight on from a platform end. No track of the platform's level may be
+ * there (ground track for a train station, subway track for a subway
+ * station). Empty for a kind with no platform.
+ */
+export function platformSides(kind: number, rot = 0): ShapeOffset[] {
+  const under = subwayPlatform(kind, rot);
+  const shape = under.length > 0 ? under : buildingShape(kind, rot);
+  const roles = under.length > 0 ? null : shapeRoles(kind);
+  if (roles && !PLATFORMED.has(kind)) return [];
+  const platform = shape.filter((_, k) => !roles || roles[k] === 'platform');
+  const ends = under.length > 0
+    ? [[2 * under[0][0], 2 * under[0][1]], [2 * under[2][0], 2 * under[2][1]]]
+    : platformEnds(kind, rot);
+  const taken = new Set([...shape, ...ends].map(([x, y]) => `${x},${y}`));
+  const out: ShapeOffset[] = [];
+  for (const [x, y] of platform) {
+    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]] as const) {
+      const key = `${nx},${ny}`;
+      if (taken.has(key)) continue;
+      taken.add(key);
+      out.push([nx, ny]);
+    }
+  }
+  return out;
+}
+
 /** Whether `kind` stands on more than one tile. */
 export function isLargeBuilding(kind: number): boolean {
   return buildingShape(kind).length > 1;
@@ -127,7 +158,7 @@ export function setBuildingShape(kind: number, shape: readonly ShapeOffset[], ro
   if (roles) {
     if (roles.length !== shape.length) throw new Error(`building shape for kind ${kind}: one role per tile`);
     const anchorRole = roles[shape.findIndex(([dx, dy]) => dx === 0 && dy === 0)];
-    if (anchorRole !== 'body' && anchorRole !== 'rampLow') throw new Error(`building shape for kind ${kind}: the anchor must be a body tile (or a ramp's low end)`);
+    if (anchorRole === 'dock' || anchorRole === 'rampHigh') throw new Error(`building shape for kind ${kind}: the anchor must stand on the ground (not a dock or a ramp's high end)`);
   }
   SHAPES.set(kind, shape.map(([dx, dy]) => [dx, dy] as const));
   if (roles && roles.some((r) => r !== 'body')) ROLES.set(kind, [...roles]); else ROLES.delete(kind);
@@ -172,19 +203,19 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
   const shape: ShapeOffset[] = [...block(12, 4), ...Array.from({ length: 18 }, (_, k): ShapeOffset => [k - 3, 4])];
   setBuildingShape(BUILDING_AIRPORT, shape, shape.map(([dx, dy]) => (dy === 0 && dx >= 2 && dx <= 9 ? 'frontage' : 'body')));
 }
-// The train stations (RAIL_DESIGN.md). Straight: a 4×3 block, anchor at its
-// top-left; at rotation 0 the track runs through the MIDDLE row (dy 1), the
-// platform, joining at its west and east ends, with building on the rows
-// north and south of it. Elbow: a 3×3 block; the track comes in from the west
-// along the middle row, turns on the centre tile and leaves to the north, so
-// the platform is (0,1), (1,1), (1,0) and the other six tiles are building.
-// Both turn four ways. A road beside any building tile reaches the station.
-{
-  const straight = block(4, 3);
-  setBuildingShape(BUILDING_STATION, straight, straight.map(([, dy]) => (dy === 1 ? 'platform' : 'body')));
-  const elbow = block(3, 3);
-  setBuildingShape(BUILDING_STATION_L, elbow, elbow.map(([dx, dy]) => ((dy === 1 && dx <= 1) || (dx === 1 && dy === 0) ? 'platform' : 'body')));
-}
+// The train stations (RAIL_DESIGN.md; resized by the owner, TODO "station
+// resize"). STRAIGHT: three tiles in a row, ALL platform, the anchor at one
+// end; at rotation 0 they run east from the anchor, and track joins straight
+// on at the west and east ends. Its station house is only drawn (beside the
+// track, inside the row), so it takes no tile. CURVED: a 2×2 block, anchor at
+// its top-left, which is the station house (the one body tile); the track
+// comes in from the west along the bottom row, turns on (1, 1) and leaves to
+// the north, so the platform is (0, 1), (1, 1), (1, 0), listed in that order
+// so that the middle one is the corner. Both turn four ways. A road beside
+// any tile of a station reaches it. No track of the same level may run
+// beside a platform (platformSides).
+setBuildingShape(BUILDING_STATION, [[0, 0], [1, 0], [2, 0]], ['platform', 'platform', 'platform']);
+setBuildingShape(BUILDING_STATION_L, [[0, 0], [0, 1], [1, 1], [1, 0]], ['body', 'platform', 'platform', 'platform']);
 
 // The ramps (RAIL_DESIGN.md): 2×1, the anchor is the GROUND end and (1, 0) at
 // rotation 0 the high (elevated) or deep (subway) end. Ground track joins the
@@ -202,15 +233,15 @@ export function rampLevel(kind: number): number {
 }
 
 const SUBWAY_PLATFORM: readonly (readonly ShapeOffset[])[] = [
-  [[-1, 0], [0, 0], [1, 0], [2, 0]],
-  [[0, -1], [0, 0], [0, 1], [0, 2]],
+  [[-1, 0], [0, 0], [1, 0]],
+  [[0, -1], [0, 0], [0, 1]],
 ];
 const NO_TILES: readonly ShapeOffset[] = [];
 
 /**
  * The underground platform of a subway station, as offsets from its entrance
- * (the anchor): four tiles in a row through the entrance, west–east at
- * rotation 0 and north–south at rotation 1. They carry subway track. Empty
+ * (the anchor): three tiles in a row, the entrance over the middle one,
+ * west–east at rotation 0 and north–south at rotation 1. They carry subway track. Empty
  * for any other kind.
  */
 export function subwayPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
