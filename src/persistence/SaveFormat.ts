@@ -110,6 +110,8 @@ export interface WorldSnapshot {
     vibeEgalitarian?: Uint8Array;
     vibeGreen?:       Uint8Array;
     vibePlanned?:     Uint8Array;
+    // Optional: saves written before rail existed lack it (no track).
+    rail?: Uint8Array;
     // Optional: saves written before lots kept their age lack it (their clocks start at load).
     developedSince?:  Uint16Array;
   };

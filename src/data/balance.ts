@@ -286,6 +286,14 @@ export const BALANCE = {
     2: { cost: 50,  maintenance: 0.12, capacity: 80,  speedMult: 1.4 }, // Avenue
     3: { cost: 150, maintenance: 0.35, capacity: 200, speedMult: 2.0 }, // Highway
   } as Record<number, { cost: number; maintenance: number; capacity: number; speedMult: number }>,
+  // Rail (RAIL_DESIGN.md). Placeholder numbers until the balance lab proposes them.
+  rail: {
+    // Per tile of track, by level (the RAIL_ bits in sim/constants.ts): 1 = ground.
+    // On water the cost is times costs.bridgeMultiplier. Upkeep is per economy tick, like a road's.
+    track: {
+      1: { cost: 100, maintenance: 0.25 },
+    } as Record<number, { cost: number; maintenance: number }>,
+  },
   transit: {
     flowInterval: 8,      // run every 8 ticks (slower than growth)
     // Trips put on the road per developed level of the ORIGIN zone tile.

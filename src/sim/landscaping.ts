@@ -26,12 +26,13 @@ export interface TreeQuote {
   affordable: boolean;
 }
 
-/** Whether a tree may stand on tile `i`: land with no road, building or zone. */
+/** Whether a tree may stand on tile `i`: land with no road, rail track, building or zone. */
 export function canHoldTree(world: World, i: number): boolean {
   const L = world.layers;
   return i >= 0 && i < L.terrain.length
     && L.terrain[i] !== TERRAIN_WATER
     && L.roadClass[i] === ROAD_NONE
+    && L.rail[i] === 0
     && L.building[i] === BUILDING_NONE
     && L.zone[i] === ZONE_NONE;
 }
@@ -104,7 +105,7 @@ export function waterQuote(world: World, tiles: readonly number[], add: boolean)
     seen.add(i);
     const isWater = L.terrain[i] === TERRAIN_WATER;
     if (isWater === add) continue;
-    if (L.roadClass[i] !== ROAD_NONE || (!add && L.building[i] !== BUILDING_NONE)) { blocked.push(i); continue; }
+    if (L.roadClass[i] !== ROAD_NONE || L.rail[i] !== 0 || (!add && L.building[i] !== BUILDING_NONE)) { blocked.push(i); continue; }
     out.push(i);
     if (!add) continue;
     const target = L.building[i] !== BUILDING_NONE ? world.buildingAnchorAt(i) : L.zone[i] !== ZONE_NONE ? i : -1;

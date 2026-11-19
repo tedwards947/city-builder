@@ -7,7 +7,7 @@ import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
 import { mulberry32 } from './rng';
 import {
-  TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND,
+  TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND, RAIL_NONE, RAIL_GROUND,
   ZONE_NONE,
   ROAD_NONE, ROAD_HIGHWAY,
   BUILDING_NONE,
@@ -18,11 +18,13 @@ import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
 import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole } from './buildingShapes';
 import { openWater } from './openWater';
+import { trackBlocker, trackBlocksRoad } from './rail';
 
 export interface Layers {
   terrain:   Uint8Array;
   zone:      Uint8Array;
   roadClass: Uint8Array; // 0=none, 1=street, 2=avenue, 3=highway
+  rail:      Uint8Array; // rail track, one bit per level (RAIL_GROUND, …); see sim/rail.ts
   building:  Uint8Array; // 0=none, 1=power plant, 2=water tower, 3=sewage plant, 4–8=service
   vegetation: Uint8Array; // 0=none, 1-6=tree species
   devLevel:  Uint8Array; // 0-3: development level
@@ -189,6 +191,8 @@ export class World {
   buildingRot: Uint8Array;
   readonly events: EventBus;
   roadNetDirty: boolean;
+  /** Goes up whenever the rail layer changes, so what is worked out from it knows to start again. */
+  railVersion = 0;
   /** Last traffic pass (maps and per-flow volumes); null until TransitSystem has run. Not saved. */
   traffic: TrafficData | null = null;
   /**
@@ -241,6 +245,7 @@ export class World {
       terrain:   new Uint8Array(n),
       zone:      new Uint8Array(n),
       roadClass: new Uint8Array(n),
+      rail:      new Uint8Array(n),
       building:  new Uint8Array(n),
       vegetation: new Uint8Array(n),
       devLevel:  new Uint8Array(n),
@@ -432,6 +437,7 @@ export class World {
   getTerrain(tx: number, ty: number):  number { return this.layers.terrain[this.grid.idx(tx, ty)]; }
   getZone(tx: number, ty: number):     number { return this.layers.zone[this.grid.idx(tx, ty)]; }
   getRoad(tx: number, ty: number):     number { return this.layers.roadClass[this.grid.idx(tx, ty)]; }
+  getRail(tx: number, ty: number):     number { return this.layers.rail[this.grid.idx(tx, ty)]; }
   getBuilding(tx: number, ty: number): number { return this.layers.building[this.grid.idx(tx, ty)]; }
   getVegetation(tx: number, ty: number): number { return this.layers.vegetation[this.grid.idx(tx, ty)]; }
   getDevLevel(tx: number, ty: number): number { return this.layers.devLevel[this.grid.idx(tx, ty)]; }
@@ -465,6 +471,7 @@ export class World {
     if (this.getTerrain(tx, ty) === TERRAIN_WATER) return false;
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
+    if (z !== ZONE_NONE && this.layers.rail[i] !== RAIL_NONE) return false;
     if (this.layers.zone[i] !== z) {
       this.layers.devLevel[i] = 0;
       this.layers.abandoned[i] = 0;
@@ -481,6 +488,7 @@ export class World {
     if (!this.grid.inBounds(tx, ty)) return false;
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
+    if (r !== ROAD_NONE && trackBlocksRoad(this, i, r)) return false;
     const prev = this.layers.roadClass[i];
     this.layers.roadClass[i] = r;
     if (r !== ROAD_NONE) {
@@ -494,6 +502,21 @@ export class World {
       this.layers.visualVariant[i] = 0;
     }
     if (prev !== r) this.roadNetDirty = true;
+    this.grid.markDirty(tx, ty);
+    return true;
+  }
+
+  /**
+   * Lay ground rail track on (tx, ty); false if it cannot go there
+   * (sim/rail.ts trackBlocker). Clears any trees. A road on the tile stays:
+   * the tile becomes a level crossing.
+   */
+  layTrack(tx: number, ty: number): boolean {
+    if (trackBlocker(this, tx, ty) !== null) return false;
+    const i = this.grid.idx(tx, ty);
+    this.layers.rail[i] |= RAIL_GROUND;
+    this.layers.vegetation[i] = VEG_NONE;
+    this.railVersion++;
     this.grid.markDirty(tx, ty);
     return true;
   }
@@ -521,9 +544,9 @@ export class World {
         const i = tiles[k];
         const x = i % width, y = (i - x) / width;
         if (roles[k] === 'dock') {
-          if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE) blocked.push(i);
+          if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE || this.layers.rail[i] !== RAIL_NONE) blocked.push(i);
           else if (!open[i]) notOpenWater.push(i);
-        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE) {
+        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE || this.layers.rail[i] !== RAIL_NONE) {
           blocked.push(i);
         }
       }
@@ -531,7 +554,7 @@ export class World {
     }
     for (const i of tiles) {
       const x = i % width, y = (i - x) / width;
-      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE)) blocked.push(i);
+      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || this.layers.rail[i] !== RAIL_NONE) blocked.push(i);
     }
     let noWater = false;
     if (placementRules(kind).needsWaterEdge) {
@@ -713,7 +736,7 @@ export class World {
           if (L.building[i] === b.kind) continue;
           missing.push(i);
           const water = L.terrain[i] === TERRAIN_WATER;
-          const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE
+          const free = L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.rail[i] === RAIL_NONE && L.zone[i] === ZONE_NONE
             && (roles[k] === 'dock' ? water : !water);
           if (!free) fits = false;
         }
@@ -799,6 +822,7 @@ export class World {
     const i = this.grid.idx(tx, ty);
     const hadRoad = this.layers.roadClass[i] !== ROAD_NONE;
     const hadBuilding = this.layers.building[i];
+    if (this.layers.rail[i] !== RAIL_NONE) { this.layers.rail[i] = RAIL_NONE; this.railVersion++; }
     this.buildingId[i] = 0;
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;
