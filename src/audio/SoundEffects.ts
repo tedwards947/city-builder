@@ -24,7 +24,7 @@ import type { World } from '../sim/World';
 import type { Camera } from '../render/Camera';
 import { Projection, TILE_SIZE } from '../render/Projection';
 import type { Tool } from '../input/InputController';
-import { trainsInView } from '../render/clay/trains';
+import { TRAIN_MIN_TILE, trainsInView } from '../render/clay/trains';
 import { RAIL_ELEVATED, RAIL_GROUND } from '../sim/constants';
 
 /** Overall level of the effects at full volume, set by ear against the music. */
@@ -412,8 +412,8 @@ export class SoundEffects {
   private listenTrains(world: World, now: number): void {
     const cam = this.deps.camera;
     const heard = new Map<string, { phase: string; inSince: number; sighed: boolean }>();
-    // Trains are drawn from 6 px a tile up.
-    if (TILE_SIZE * cam.zoom >= 6) {
+    // Trains are drawn only from TRAIN_MIN_TILE px a tile up.
+    if (TILE_SIZE * cam.zoom >= TRAIN_MIN_TILE) {
       const b = cam.visibleTileBounds(world.grid);
       const seen = [RAIL_GROUND, RAIL_ELEVATED].flatMap(level => trainsInView(world, now, b.x0, b.y0, b.x1, b.y1, level));
       const busy = Math.min(1, seen.length / 6);
