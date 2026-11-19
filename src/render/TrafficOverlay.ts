@@ -25,7 +25,7 @@ import { rampLevel } from '../sim/buildingShapes';
 import { t } from '../i18n';
 import {
   type TrafficData, type TrafficField, type MarketKey, MARKET_DEFS,
-  bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, railLoad, NODES_PER_TILE,
+  bestAccessRoad, neighbourIndex, shownRoadLoad, railLoad, NODES_PER_TILE,
 } from '../sim/TrafficData';
 
 type Ctx = CanvasRenderingContext2D;
@@ -148,7 +148,7 @@ export class TrafficOverlay {
         const sy = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
         if (road !== ROAD_NONE) {
           // Before the first traffic pass there are no volumes: use the saved byte.
-          const ratio = data ? trafficVolume(data, i) / roadCapacity(road) : L.congestion[i] / 255;
+          const ratio = data ? shownRoadLoad(data, i, road, (L.rail[i] & RAIL_GROUND) !== 0) : L.congestion[i] / 255;
           ctx.fillStyle = loadColor(ratio);
           ctx.fillRect(sx, sy, tsi, tsi);
         } else {

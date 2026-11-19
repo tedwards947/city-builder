@@ -346,8 +346,14 @@ export const BALANCE = {
     // Junctions are the weak points: extra time to pass one, and less capacity. A 4-way is much worse.
     junction3: { delay: 1, capacityMult: 0.6 },
     junction4: { delay: 4, capacityMult: 0.35 },
-    // A level crossing slows cars by up to `delay` as the track fills, and trains as the road fills.
-    crossing: { delay: 2 },
+    // A level crossing: cars wait carDelay × rail load × road load street tiles (each load
+    // counted up to 1), trains wait trainDelay × road load. Owner 2026-11-19 (rail.crossing):
+    // a full line across a busy avenue adds about 12% to the trips through it, so an elevated
+    // hop pays off; a quiet line across a quiet street barely matters. Was one `delay` 2 both ways.
+    // overlayCut: the traffic overlay (and the cars drawn) show a crossing tile's road as if it
+    // had (1 − overlayCut × rail load) of its capacity, so the player sees where a line hurts.
+    // Looks only: the simulation's congestion layer is untouched.
+    crossing: { carDelay: 8, trainDelay: 2, overlayCut: 0.5 },
     fare: 0.5,             // income per rider boarding, per economy tick (like transit.buildings incomePerTrip)
   },
   transit: {

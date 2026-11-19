@@ -8,7 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
-import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
+import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
 import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
@@ -40,7 +40,7 @@ import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { loadClaySprites, beginClayFrame, pickClaySprite, bigClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
-import { trafficVolume, roadCapacity } from '../sim/TrafficData';
+import { trafficVolume, shownRoadLoad } from '../sim/TrafficData';
 import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
 import { drawCommuteRoutes } from './clay/commuteRoute';
 import { BALANCE } from '../data/balance';
@@ -461,7 +461,7 @@ export class CanvasRenderer {
           // Each road tile shows its own load as cars in its lanes (see clay/roads.ts).
           const traffic = world.traffic;
           const volume = traffic ? trafficVolume(traffic, i) : 0;
-          const load = traffic ? volume / roadCapacity(road) : congestion / 255;
+          const load = traffic ? shownRoadLoad(traffic, i, road, (world.layers.rail[i] & RAIL_GROUND) !== 0) : congestion / 255;
           const cars = this._trafficCars;
           // Cars only a few pixels long are thinned by half: they cost as much to draw and say no more.
           const count = roadTrafficCars(tx, ty, drawnRoadAt(world, tx, ty), drawnRoadsAround(world, tx, ty), load,

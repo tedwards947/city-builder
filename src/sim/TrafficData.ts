@@ -307,6 +307,20 @@ export function roadCapacity(roadClass: number): number {
   return BALANCE.roadClasses[roadClass]?.capacity ?? BALANCE.roadClasses[1].capacity;
 }
 
+/**
+ * A road tile's load as the traffic overlay and the drawn cars show it: volume ÷
+ * capacity, except at a level crossing (`groundTrack`), where the capacity is cut by
+ * BALANCE.rail.crossing.overlayCut × the line's load (up to 1). Looks only.
+ */
+export function shownRoadLoad(d: TrafficData, i: number, roadClass: number, groundTrack: boolean): number {
+  let cap = roadCapacity(roadClass);
+  if (groundTrack) {
+    const cut = BALANCE.rail.crossing.overlayCut;
+    if (cut > 0) cap *= Math.max(0.05, 1 - cut * Math.min(1, railLoad(d, i)));
+  }
+  return trafficVolume(d, i) / cap;
+}
+
 /** Index of the tile's k-th cardinal neighbour (W, E, N, S), or -1 off the map. */
 export function neighbourIndex(i: number, k: number, width: number, height: number): number {
   const x = i % width;

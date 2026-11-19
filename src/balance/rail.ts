@@ -17,9 +17,10 @@ import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   BUILDING_NONE, BUILDING_STATION, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
-  RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R,
+  RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R,
 } from '../sim/constants';
-import { MARKET_DEFS, railLoad } from '../sim/TrafficData';
+import { MARKET_DEFS, railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { TransitSystem } from '../sim/systems/TransitSystem';
 import { platformEnds } from '../sim/buildingShapes';
 import { railLinks, stationGrowthMask, trackBlocker } from '../sim/rail';
 import { pcQuote, pcCap } from '../sim/politics';
@@ -81,6 +82,8 @@ export interface RailFresh {
   bank180: number;
   bank360: number;
   starterCost: number;
+  /** rail.crossing, on its own bare map. */
+  crossing: CrossingResult;
 }
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -568,10 +571,66 @@ export function stationGrowthResult(world: World, days = 360, seeds = 100, settl
   return { homes: n, daysOff: r2(off), daysOn: r2(on), sooner: off > 0 ? r2(1 - on / off) : null };
 }
 
+// ── Level crossings (rail.crossing) ─────────────────────────────────────────
+
+export interface CrossingResult {
+  /** A full line across a busy avenue: how much longer the trips through it take (0.1 = 10%), and the road's load there. */
+  busy: number; busyRoad: number;
+  /** A quarter-full line across a quiet street: the same. */
+  quiet: number; quietRoad: number;
+}
+
+/**
+ * On a bare 100×100 map: a road north–south at x 50 with `rows` level-3 homes a side at
+ * its north end and as many jobs and shops at its south end, crossed mid-way (y 48) by
+ * a line between a suburb in the west and a town in the east, joined only by rail. The
+ * line's capacity is set so its riders fill `railLoad` of it. Returns the trip time from
+ * the homes to work, and the road's load at the crossing.
+ */
+function crossingTrip(road: number, rows: number, railLoad: number): { time: number; road: number } {
+  const RL = BALANCE.rail as { capacity: number };
+  const T = BALANCE.transit as unknown as { flowInterval: number; buildings: Record<number, unknown> };
+  const savedCap = RL.capacity, savedRows = T.buildings;
+  const build = (cap: number, riders: boolean) => {
+    const w = freshWorld(100, 1), g = w.grid;
+    const zone = (x: number, y: number, z: number) => { const i = g.idx(x, y); w.layers.zone[i] = z; w.layers.devLevel[i] = 3; w.layers.landValue[i] = 128; };
+    for (let y = 2; y <= 97; y++) w.setRoad(50, y, road);
+    for (let k = 0; k < rows; k++) { zone(49, 3 + k, ZONE_R); zone(51, 3 + k, ZONE_R); zone(49, 96 - k, k % 2 ? ZONE_C : ZONE_I); zone(51, 96 - k, k % 2 ? ZONE_I : ZONE_C); }
+    for (let x = 2; x <= 20; x++) w.setRoad(x, 46, ROAD_STREET);
+    for (let x = 80; x <= 97; x++) w.setRoad(x, 46, ROAD_STREET);
+    if (riders) for (let x = 3; x < 19; x++) { if (x !== 5) zone(x, 47, ZONE_R); zone(x, 45, ZONE_R); }
+    for (let x = 82; x <= 96; x++) { zone(x, 45, ZONE_I); if (x !== 85) zone(x, 47, ZONE_C); }
+    for (const x of [4, 84]) { w.placeBuilding(x, 48, BUILDING_STATION); w.setRoad(x + 1, 47, ROAD_STREET); }
+    for (let x = 7; x <= 83; x++) w.layTrack(x, 48);
+    RL.capacity = cap;
+    const transit = new TransitSystem();
+    for (let k = 0; k < 28; k++) { w.tick = (k + 1) * T.flowInterval; transit.update(w); }
+    return w;
+  };
+  T.buildings = {};
+  try {
+    const n = 100 * 100, cross = 48 * 100 + 50, home = (3 + (rows >> 1)) * 100 + 50;
+    const riders = trafficVolume(build(1e9, true).traffic!, n + cross);
+    const w = railLoad > 0 && riders > 0 ? build(riders / railLoad, true) : build(1e9, false);
+    const d = w.traffic!;
+    return { time: d.jobs.field.dist[home], road: trafficVolume(d, cross) / roadCapacity(road) };
+  } finally { RL.capacity = savedCap; T.buildings = savedRows; }
+}
+
+/** rail.crossing: a full line across a busy avenue, and a quarter-full line across a quiet street. */
+export function crossingResult(): CrossingResult {
+  const longer = (road: number, rows: number, load: number) => {
+    const off = crossingTrip(road, rows, 0), on = crossingTrip(road, rows, load);
+    return { more: off.time > 0 ? Math.round((on.time / off.time - 1) * 1000) / 1000 : 0, road: r2(on.road) };
+  };
+  const busy = longer(ROAD_AVENUE, 30, 1), quiet = longer(ROAD_STREET, 2, 0.25);
+  return { busy: busy.more, busyRoad: busy.road, quiet: quiet.more, quietRoad: quiet.road };
+}
+
 /** On a fresh map: a real-money Planner's bank at day 180 and 360, against a starter line. */
 export function railFresh(size = 128, seed = 7): RailFresh {
   const run = playPersona(PERSONAS.find(p => p.id === 'planner')!, freshWorld(size, seed), true, 360, { realMoney: true });
   const d = run.rec.days;
   const at = (day: number) => Math.round(d[Math.min(d.length - 1, day - 1)]?.money ?? 0);
-  return { bank180: at(180), bank360: at(360), starterCost: starterLineCost() };
+  return { bank180: at(180), bank360: at(360), starterCost: starterLineCost(), crossing: crossingResult() };
 }

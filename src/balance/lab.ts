@@ -428,7 +428,7 @@ export function runLab(o: LabOptions): Report {
         if (city.kind === 'fresh') {
           const f = railFresh(city.size, city.seed);
           report.railRuns[id][city.id] = f;
-          log(`rail ${id} ${city.id}: bank ${f.bank180} at day 180, ${f.bank360} at 360; starter line ${f.starterCost} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+          log(`rail ${id} ${city.id}: bank ${f.bank180} at day 180, ${f.bank360} at 360; starter line ${f.starterCost}; crossing busy +${(f.crossing.busy * 100).toFixed(1)}% (road ${f.crossing.busyRoad}), quiet +${(f.crossing.quiet * 100).toFixed(1)}% (road ${f.crossing.quietRoad}) (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
           grade('rail', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, railFresh: f });
         } else {
           const r = railResult(loadCity(city));
