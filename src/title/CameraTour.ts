@@ -1,6 +1,7 @@
 // The title screen's camera tour: HOW the camera moves. It rests on a spot
-// for a few seconds, never quite still (a slow push in and a slow drift to
-// one side), then glides to the next one:
+// for a few seconds, never quite still (a slow drift to one side, the zoom
+// held fixed: a zoom that creeps looks rough, since the picture is resampled
+// at a slightly different scale every frame), then glides to the next one:
 // eased at both ends, and pulling back a little in the middle of a long
 // flight so the city passes underneath. `stop()` ends it at once, wherever
 // the camera is (the player clicked).
@@ -15,12 +16,10 @@ export interface Pose { x: number; y: number; zoom: number }
 export const TOUR = {
   /** Seconds resting on a spot. */
   dwell: 3.5,
-  /** How much the view pushes in while resting (0.05 = 5 %). */
-  push: 0.05,
   /** How far the view drifts sideways while resting, as a share of the view's smaller side. Each rest drifts another way. */
   drift: 0.06,
   /** Seconds a flight takes: `flight` plus `perScreen` for each screen-width travelled, at most `maxFlight`. */
-  flight: 1.5, perScreen: 0.12, maxFlight: 2.2,
+  flight: 3, perScreen: 0.6, maxFlight: 6.5,
   /** How far a long flight pulls back at its middle: the zoom falls to 1 / (1 + pull × screens), screens capped at `pullScreens`. */
   pull: 0.3, pullScreens: 4,
   /** Spots are found again this often (seconds): jams move. */
@@ -33,7 +32,7 @@ export function easeInOut(t: number): number {
   return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 }
 
-/** How far through a rest's drift and push the view is, `t` 0→1 of the rest: a short ease in, then steady to the end. */
+/** How far through a rest's drift the view is, `t` 0→1 of the rest: a short ease in, then steady to the end. */
 export function restProgress(t: number): number {
   const u = Math.max(0, Math.min(1, t)), ramp = 0.2;
   return (u < ramp ? u * u / (2 * ramp) : u - ramp / 2) / (1 - ramp / 2);
@@ -128,10 +127,10 @@ export class CameraTour {
     if (t < this.flight) {
       this.apply(flightPose(this.from, this.to, t / this.flight, this.viewport()));
     } else {
-      // Resting, but never still: push in and drift a little (world units = pixels / zoom).
+      // Resting, but never still: drift a little (world units = pixels / zoom). The zoom does not change.
       const rest = restProgress((t - this.flight) / TOUR.dwell);
       const far = TOUR.drift * this.viewport() * rest / this.to.zoom, angle = driftAngle(this.rests);
-      this.apply({ x: this.to.x + Math.cos(angle) * far, y: this.to.y + Math.sin(angle) * far, zoom: this.to.zoom * (1 + TOUR.push * rest) });
+      this.apply({ x: this.to.x + Math.cos(angle) * far, y: this.to.y + Math.sin(angle) * far, zoom: this.to.zoom });
     }
   }
 

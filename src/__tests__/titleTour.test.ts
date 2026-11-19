@@ -140,20 +140,20 @@ describe('the tour', () => {
     expect([10.5, 100.5]).toContain(Number(first.x.toFixed(3)));
     const z0 = camera.zoom;
     tour.update(TOUR.dwell * 500);
-    // Resting, never still: a slow push in and a drift of a few per cent of the view, no more.
+    // Resting, never still: a drift of a few per cent of the view, no more, and the zoom held fixed.
     const drifted = Math.hypot(centre(camera).x - first.x, centre(camera).y - first.y) * TILE_SIZE * camera.zoom;
     expect(drifted).toBeGreaterThan(0);
     expect(drifted).toBeLessThan(TOUR.drift * 800);
-    expect(camera.zoom).toBeGreaterThan(z0);
-    expect(camera.zoom).toBeLessThan(z0 * (1 + TOUR.push));
+    expect(camera.zoom).toBe(z0);
+    for (let ms = 0; ms < TOUR.dwell * 1000; ms += 50) { tour.update(ms); expect(camera.zoom).toBe(z0); }
     // Past the rest: under way to the other spot, never jumping.
     let last = centre(camera).x, t = TOUR.dwell * 1000;
     tour.update(t);
-    for (let k = 0; k < 180; k++) {      // the flight, and into the rest
+    for (let k = 0; k < 480; k++) {      // the flight, and into the rest
       t += 16;
       tour.update(t);
       const x = centre(camera).x;
-      expect(Math.abs(x - last)).toBeLessThan(4);                  // tiles per frame
+      expect(Math.abs(x - last)).toBeLessThan(2);                  // tiles per frame
       last = x;
     }
     const other = first.x < 50 ? 100.5 : 10.5;
@@ -170,11 +170,11 @@ describe('the tour', () => {
 });
 
 describe('the pacing', () => {
-  it('a rest is 3 to 4 seconds and a flight 1.5 to about 2', () => {
+  it('a rest is 3 to 4 seconds; a flight is unhurried, 3 seconds or more (owner: the rests were too long, not the flights too slow)', () => {
     expect(TOUR.dwell).toBeGreaterThanOrEqual(3);
     expect(TOUR.dwell).toBeLessThanOrEqual(4);
-    expect(TOUR.flight).toBeGreaterThanOrEqual(1.5);
-    expect(TOUR.maxFlight).toBeLessThanOrEqual(2.25);
+    expect(TOUR.flight).toBeGreaterThanOrEqual(3);
+    expect(TOUR.maxFlight).toBeGreaterThanOrEqual(6);
   });
 
   it('the rest eases in from still, then moves steadily to its end; each rest drifts another way', () => {
