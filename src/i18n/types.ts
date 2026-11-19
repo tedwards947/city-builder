@@ -333,8 +333,8 @@ export interface TranslationSchema {
       zones: string;
       utilities: string;
       services: string;
-      parks: string;
-      overlays: string;
+      ports: string;
+      views: string;
       menu: string;
       upkeep: string;
       shortcut: string;
