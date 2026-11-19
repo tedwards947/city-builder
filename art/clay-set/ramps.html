@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ramp workshop 3</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pc: #7dd8c0; --pcd: #2f9c86; }
+  body { background: #10161d; color: #dde; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px 28px 90px; }
+  h1 { font-size: 22px; } h2 { font-size: 18px; margin: 48px 0 4px; color: #fff; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 22px; }
+  p { max-width: 900px; color: #a9b6c2; margin-bottom: 8px; } p b { color: #e6edf3; }
+  .rowf { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+  figure { display: inline-flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; border: 2px solid transparent; }
+  figure.yes { border-color: #4fbf7a; } figure.no { border-color: rgba(224,130,90,0.5); opacity: .7; }
+  figcaption { color: #a9b6c2; font-size: 12px; max-width: 520px; }
+  .code { display: inline-block; background: var(--pc); color: #06261f; font-weight: 700; border-radius: 4px; padding: 0 7px; font-size: 12px; margin-right: 6px; }
+  canvas { display: block; align-self: flex-start; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); max-width: 100%; }
+  .fb { display: flex; gap: 6px; align-items: center; margin-top: 2px; max-width: 520px; }
+  .fb button, .fbar button { font: inherit; font-size: 12px; color: #dde; background: #2a313b; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; padding: 3px 11px; cursor: pointer; }
+  .fb button.on.y { background: #4fbf7a; border-color: #4fbf7a; color: #06200f; font-weight: 700; }
+  .fb button.on.n { background: #e0825a; border-color: #e0825a; color: #2a0d02; font-weight: 700; }
+  .fb input, textarea { flex: 1; min-width: 90px; background: #12151a; border: 1px solid rgba(255,255,255,0.16); border-radius: 7px; color: #dde; padding: 4px 8px; font: inherit; font-size: 12px; }
+  textarea { display: block; width: 100%; max-width: 900px; min-height: 60px; margin-top: 8px; }
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(16,22,29,0.96); border-top: 1px solid rgba(255,255,255,0.14); padding: 9px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 13px; color: #a9b6c2; z-index: 10; }
+  .fbar button { font-size: 13px; padding: 5px 14px; background: var(--pcd); border-color: var(--pcd); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Ramp workshop 3: no brick</h1>
+<p>The painted brick ramps (top) stand up off the map, and their rails don't match the game's double track. Every option below is <b>drawn in code on the game's own track</b>, like the elevated deck, so the rails always line up and nothing rises like a wall. Each scene shows a ramp heading east and one heading north (toward the top of the screen, the view where the old arch looked worst). No paid images.</p>
+
+<h2>Today</h2>
+<div class="rowf"><figure><canvas width="560" height="392" data-scene="today"></canvas><figcaption>The painted brick ramps in the game now, for comparison.</figcaption></figure></div>
+
+<h2>P. Down to the subway</h2>
+<div class="rowf">
+  <figure><canvas width="560" height="392" data-scene="subway" data-v="cut"></canvas><figcaption><span class="code">P1</span>Open cutting: plain concrete walls along both sides, the track darkening as it goes down, and a concrete headwall with a dark mouth at the deep end.</figcaption></figure>
+  <figure><canvas width="560" height="392" data-scene="subway" data-v="cover" data-off="3"></canvas><figcaption><span class="code">P2</span>Half open, half covered: the first tile is a cutting, the second has grass over it, with a concrete lip where the train goes under.</figcaption></figure>
+  <figure><canvas width="560" height="392" data-scene="subway" data-v="rim" data-off="6"></canvas><figcaption><span class="code">P3</span>Minimal: no walls, just a thin concrete kerb round the opening, and the track fading into the dark.</figcaption></figure>
+</div>
+
+<h2>E. Up to the elevated deck</h2>
+<div class="rowf">
+  <figure><canvas width="560" height="392" data-scene="elevated" data-v="steel"></canvas><figcaption><span class="code">E1</span>The E2 steel deck carried down to the ground on short legs (the code climb you picked as R5).</figcaption></figure>
+  <figure><canvas width="560" height="392" data-scene="elevated" data-v="bank" data-off="3"></canvas><figcaption><span class="code">E2</span>A grassy earth bank up to the deck, with a concrete edge where it meets the steel.</figcaption></figure>
+</div>
+
+<h2>Anything else?</h2>
+<textarea id="overall" placeholder="e.g. darker mouth, longer cutting…"></textarea>
+<div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
+
+<!-- sprites/rail is not in git: see rail.html for the commands that make it -->
+<script src="sprites/rail/meta.js"></script>
+<script>
+// ── Helpers ──
+const lerp = (a, b, f) => a + (b - a) * f, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const E = f => f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2, seg = (v, a, b) => clamp((v - a) / (b - a), 0, 1);
+const REF = { 'res-1': [128, 128, 13, 113, 109, 1], 'com-1': [128, 128, 13, 113, 109, 1], 'com-3': [128, 128, 13, 113, 109, 1] };
+const REF_IMG = {}; for (const n in REF) REF_IMG[n] = Object.assign(new Image(), { src: `../../public/sprites/clay/${n}.png` });
+function lot(ctx, n, tx, ty) {   // the game's own building on its lot, (tx, ty) its top-left tile
+  const im = REF_IMG[n], [w, h, l, r, b, N] = REF[n], T = ctx.T; if (!im.complete || !im.naturalWidth) return;
+  const q = N * T / (r - l); ctx.drawImage(im, tx * T - l * q, (ty + N) * T - b * q, w * q, h * q);
+}
+function label(ctx, txt, x, y) {
+  ctx.save(); ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.fillText(txt, x * ctx.T, y * ctx.T); ctx.restore();
+}
+function footprint(ctx, x, y, w, h, txt) {
+  const T = ctx.T; ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(x * T, y * T, w * T, h * T); ctx.strokeRect(x * T + 0.5, y * T + 0.5, w * T - 1, h * T - 1); ctx.restore();
+  label(ctx, txt, x + w / 2, y + 0.3);
+}
+
+// ── Ground: grass and roads, as the airport workshop drew them ──
+function grass(ctx, W, H) {
+  const T = ctx.T;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { ctx.fillStyle = (x + y) % 2 ? '#4f7a3e' : '#4a7339'; ctx.fillRect(x * T, y * T, T, T); }
+}
+function road(ctx, x0, y0, x1, y1) {   // a 1-tile road from tile (x0, y0) to (x1, y1), straight
+  const T = ctx.T, v = x0 === x1;
+  ctx.fillStyle = '#8d8a84'; ctx.fillRect(Math.min(x0, x1) * T, Math.min(y0, y1) * T, (Math.abs(x1 - x0) + 1) * T, (Math.abs(y1 - y0) + 1) * T);
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.setLineDash([T * 0.2, T * 0.2]); ctx.lineWidth = Math.max(1, T / 48);
+  ctx.beginPath(); if (v) { ctx.moveTo((x0 + 0.5) * T, Math.min(y0, y1) * T); ctx.lineTo((x0 + 0.5) * T, (Math.max(y0, y1) + 1) * T); }
+  else { ctx.moveTo(Math.min(x0, x1) * T, (y0 + 0.5) * T); ctx.lineTo((Math.max(x0, x1) + 1) * T, (y0 + 0.5) * T); } ctx.stroke(); ctx.setLineDash([]);
+}
+
+// ── Track network: tiles with connection bits N=1 E=2 S=4 W=8 and a level ──
+const N = 1, EA = 2, S = 4, W = 8, DIR = { 1: [0, -1], 2: [1, 0], 4: [0, 1], 8: [-1, 0] }, OPP = { 1: 4, 2: 8, 4: 1, 8: 2 };
+function net() { return new Map(); }
+function line(m, x0, y0, x1, y1, lv, h0, h1) {   // straight run; h0/h1: deck height at each end for ramps (0 = ground, 1 = full elevated)
+  const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0), n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  const d = dx > 0 ? EA : dx < 0 ? W : dy > 0 ? S : N;
+  for (let k = 0; k <= n; k++) {
+    const key = `${x0 + dx * k},${y0 + dy * k}`, t = m.get(key) || { x: x0 + dx * k, y: y0 + dy * k, c: 0, lv };
+    if (k < n) t.c |= d; if (k > 0) t.c |= OPP[d];
+    if (h0 !== undefined) { t.h0 = lerp(h0, h1, (k - 0.5) / n); t.h1 = lerp(h0, h1, (k + 0.5) / n); if (dx < 0 || dy < 0) [t.h0, t.h1] = [t.h1, t.h0]; }
+    t.lv = lv; m.set(key, t);
+  }
+}
+// A tile's track pieces as samplers p(s) → [x, y, tangent x, tangent y], in tile units from the tile's corner.
+function pieces(c) {
+  const out = [], has = b => (c & b) !== 0, n = [N, EA, S, W].filter(has).length;
+  const H = () => out.push({ L: 1, p: s => [s, 0.5, 1, 0] }), V = () => out.push({ L: 1, p: s => [0.5, s, 0, 1] });
+  const arc = (a, b) => {   // quarter circle round the corner the two edges share
+    const cx = (a | b) & EA ? 1 : 0, cy = (a | b) & S ? 1 : 0;
+    const m1 = [0.5 + DIR[a][0] / 2, 0.5 + DIR[a][1] / 2], m2 = [0.5 + DIR[b][0] / 2, 0.5 + DIR[b][1] / 2];
+    let A1 = Math.atan2(m1[1] - cy, m1[0] - cx), A2 = Math.atan2(m2[1] - cy, m2[0] - cx);
+    if (A2 - A1 > Math.PI) A2 -= 2 * Math.PI; if (A1 - A2 > Math.PI) A2 += 2 * Math.PI;
+    out.push({ L: Math.PI / 4, p: s => { const A = lerp(A1, A2, s), sg = Math.sign(A2 - A1); return [cx + 0.5 * Math.cos(A), cy + 0.5 * Math.sin(A), -Math.sin(A) * sg, Math.cos(A) * sg]; } });
+  };
+  if (n === 4) { H(); V(); return out; }
+  const hz = has(EA) && has(W), vt = has(N) && has(S);
+  if (hz) H(); if (vt) V();
+  // Curves join each perpendicular pair; at a 3-way junction that is the branch with each end of the straight.
+  for (const a of [N, S]) for (const b of [EA, W]) if (has(a) && has(b)) arc(a, b);
+  if (n === 1) { const b = [N, EA, S, W].find(has), [dx, dy] = DIR[b]; out.push({ L: 0.5, stub: true, p: s => [0.5 + dx * s / 2, 0.5 + dy * s / 2, dx, dy] }); }
+  return out;
+}
+
+const GAUGE = 0.16;
+function sampleTile(t, pc, k, nn, d, lift) {   // point k of nn along a piece, offset d across, raised by lift(s)
+  const s = k / nn, [x, y, tx, ty] = pc.p(s); return [(t.x + x - ty * d), (t.y + y + tx * d) - (lift ? lift(t, s, tx, ty) : 0)];
+}
+function strokePiece(ctx, t, pc, d, lift) {
+  const T = ctx.T, nn = pc.L === 1 ? 2 : 14; ctx.beginPath();
+  for (let k = 0; k <= nn; k++) { const [x, y] = sampleTile(t, pc, k, nn, d, lift); k ? ctx.lineTo(x * T, y * T) : ctx.moveTo(x * T, y * T); } ctx.stroke();
+}
+
+// ── Elevated decks ──
+const ELEV = {
+  concrete: { deck: '#d3cec4', face: '#a7a196', pillar: '#bdb7ab', pillarDark: '#99938a', every: 1, round: true },
+  steel: { deck: '#6f7781', face: '#4d545d', pillar: '#5f6670', pillarDark: '#40464e', every: 2, lattice: true, pair: true },
+  slim: { deck: '#eeece7', face: '#c9c6bf', pillar: '#e3e0da', pillarDark: '#b8b5ae', every: 2, glass: true, tee: true },
+};
+let EH = 0.62;   // full deck height in tiles (the R scenes set their own)
+const height = (t, s) => t.h0 !== undefined ? clamp(lerp(t.h0, t.h1, s), 0, 1) * EH : t.lv === 'e' ? EH : 0;
+function drawElevated(ctx, tiles, el, st) {
+  const T = ctx.T;
+  // Shadow on the ground, pushed right by the deck's height.
+  ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.66 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) { ctx.save(); strokePiece(ctx, t, pc, 0, (tt, s) => -height(tt, s) * 0.2); ctx.restore(); }
+  ctx.restore();
+  // Pillars (at tile centres; every second tile for the lighter styles), behind decks.
+  const sorted = [...tiles].sort((a, b) => a.y - b.y);
+  for (const t of sorted) {
+    const h = height(t, 0.5); if (h < 0.12 || (t.x + t.y) % el.every) continue;
+    const cx = (t.x + 0.5) * T, cy = (t.y + 0.5) * T, top = cy - h * T, pw = 0.13 * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx + 0.06 * T, cy + 0.02 * T, pw * 1.3, pw * 0.5, 0, 0, 7); ctx.fill();
+    const col = (x, w) => { const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0); g.addColorStop(0, el.pillar); g.addColorStop(1, el.pillarDark); ctx.fillStyle = g; ctx.fillRect(x - w / 2, top, w, cy - top); };
+    if (el.pair) { col(cx - 0.18 * T, pw * 0.7); col(cx + 0.18 * T, pw * 0.7); ctx.fillStyle = el.pillarDark; ctx.fillRect(cx - 0.24 * T, top + 0.05 * T, 0.48 * T, 0.04 * T); }
+    else col(cx, pw);
+    if (el.tee) { ctx.fillStyle = el.pillar; ctx.fillRect(cx - 0.3 * T, top - 0.02 * T, 0.6 * T, 0.08 * T); }
+  }
+  // Deck: the front face first (a band below the top), then the top, then track.
+  const lift = (t, s) => height(t, s);
+  ctx.save(); ctx.lineCap = 'butt';
+  ctx.strokeStyle = el.face; ctx.lineWidth = 0.7 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, (tt, s) => height(tt, s) - 0.12);
+  if (el.lattice) {   // a zigzag down the front face of east–west runs
+    ctx.strokeStyle = 'rgba(30,34,40,0.7)'; ctx.lineWidth = 1;
+    for (const t of tiles) if ((t.c & (EA | W)) && !(t.c & (N | S))) {
+      const h = height(t, 0.5), y0 = (t.y + 0.5 + 0.35 - h) * T, y1 = y0 + 0.12 * T; ctx.beginPath();
+      for (let k = 0; k <= 6; k++) { const x = (t.x + k / 6) * T; k % 2 ? ctx.lineTo(x, y1) : (k ? ctx.lineTo(x, y0) : ctx.moveTo(x, y0)); } ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = el.deck; ctx.lineWidth = 0.7 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, lift);
+  ctx.restore();
+  drawTrack(ctx, tiles, { ...st, bedW: 0.5, bed: shade(el.deck, -0.12) }, lift);
+  if (el.glass) { ctx.save(); ctx.strokeStyle = 'rgba(120,220,210,0.75)'; ctx.lineWidth = 2;
+    for (const t of tiles) for (const pc of pieces(t.c)) for (const d of [-0.33, 0.33]) strokePiece(ctx, t, pc, d, (tt, s) => height(tt, s) + 0.06); ctx.restore(); }
+}
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(clamp(v * (1 + f), 0, 255))); return `rgb(${c})`; }
+
+
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+// ── Painted sprites (sprites/rail, cut by port-sheet.mjs; meta = [w, h, left, right, footY] in raw pixels) ──
+const M = window.AIR_META || {}, IMG = {};
+const img = n => IMG[n] || (IMG[n] = Object.assign(new Image(), { src: `sprites/rail/${n}.png` }));
+const ready = n => { const im = img(n); return M[n] && im.complete && im.naturalWidth; };
+// Draw so the solid box's left edge is at px x and its foot at px y; q = screen px per raw px; sy stretches y.
+function sprAt(ctx, n, x, y, q, o = {}) {
+  if (!ready(n)) return; const [w, h, l, r, f] = M[n], im = img(n), sy = o.sy || 1;
+  ctx.save(); ctx.globalAlpha *= o.a ?? 1;
+  if (o.flip) { ctx.translate(2 * x + (r - l) * q, 0); ctx.scale(-1, 1); }
+  if (o.clipH) { ctx.beginPath(); ctx.rect(x - l * q - 2, y - f * q * sy, w * q + 4, o.clipH * q * sy); ctx.clip(); }
+  ctx.drawImage(im, x - l * q, y - f * q * sy, w * q, h * q * sy); ctx.restore();
+}
+
+const STRIP = { 'victorian-1': 237, 'victorian-2': 292 };
+
+
+// ── Double track: two tracks per tile, centres TO either side of the tile's middle ──
+const TO = 0.22, G2 = 0.07;   // track centre offset; half gauge (rail to track centre)
+const TRK = { bed: '#857a6c', sl: '#6b4a32', rail: '#d6dade', under: '#3f3a35' };   // T1 classic, as picked
+function drawTrack2(ctx, tiles, mode, lift, o = {}) {
+  const T = ctx.T, st = { ...TRK, ...o }; ctx.save(); ctx.lineCap = 'butt';
+  if (st.bed !== 'none') { ctx.strokeStyle = st.bed;
+    if (mode === 'twin') { ctx.lineWidth = 0.34 * T; for (const t of tiles) for (const pc of pieces(t.c)) for (const d of [-TO, TO]) strokePiece(ctx, t, pc, d, lift); }
+    else { ctx.lineWidth = (o.bedW || 0.82) * T; for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, lift); } }
+  ctx.strokeStyle = st.sl; ctx.lineWidth = 0.055 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) for (const d0 of [-TO, TO]) {
+    const n = Math.max(1, Math.round(pc.L / 0.12));
+    for (let k = 0; k < n; k++) {
+      const s = (k + 0.5) / n, [x, y, tx, ty] = pc.p(s), h = lift ? lift(t, s) : 0;
+      const a = d0 - 0.13, b = d0 + 0.13;
+      ctx.beginPath(); ctx.moveTo((t.x + x - ty * a) * T, (t.y + y + tx * a - h) * T); ctx.lineTo((t.x + x - ty * b) * T, (t.y + y + tx * b - h) * T); ctx.stroke();
+    }
+  }
+  for (const [col, w, dy] of [[st.under, 2.6, 0.6], [st.rail, 1.6, 0]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    for (const t of tiles) for (const pc of pieces(t.c)) for (const d0 of [-TO, TO]) for (const g of [-G2, G2]) { ctx.save(); ctx.translate(0, dy); strokePiece(ctx, t, pc, d0 + g, lift); ctx.restore(); }
+  }
+  ctx.restore();
+}
+// The elevated deck (E2 steel, as picked) made wide enough for two tracks.
+function drawElevated2(ctx, tiles) {
+  const T = ctx.T, el = ELEV.steel, lift = (t, s) => height(t, s);
+  ctx.save(); ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.95 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, (tt, s) => -height(tt, s) * 0.2);
+  ctx.restore();
+  for (const t of [...tiles].sort((a, b) => a.y - b.y)) {
+    const h = height(t, 0.5); if (h < 0.12 || (t.x + t.y) % 2) continue;
+    const cx = (t.x + 0.5) * T, cy = (t.y + 0.5) * T, top = cy - h * T;
+    for (const dx of [-0.3, 0.3]) { const g = ctx.createLinearGradient(cx + dx * T - 4, 0, cx + dx * T + 4, 0); g.addColorStop(0, el.pillar); g.addColorStop(1, el.pillarDark); ctx.fillStyle = g; ctx.fillRect(cx + dx * T - 4, top, 8, cy - top);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx + dx * T + 3, cy + 1, 7, 3, 0, 0, 7); ctx.fill(); }
+    ctx.fillStyle = el.pillarDark; ctx.fillRect(cx - 0.36 * T, top + 0.05 * T, 0.72 * T, 0.04 * T);
+  }
+  ctx.save(); ctx.strokeStyle = el.face; ctx.lineWidth = 0.98 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, (tt, s) => height(tt, s) - 0.12);
+  ctx.strokeStyle = 'rgba(30,34,40,0.7)'; ctx.lineWidth = 1;
+  for (const t of tiles) if ((t.c & (EA | W)) && !(t.c & (N | S))) {
+    const h = height(t, 0.5), y0 = (t.y + 0.5 + 0.49 - h) * T, y1 = y0 + 0.12 * T; ctx.beginPath();
+    for (let k = 0; k <= 6; k++) { const x = (t.x + k / 6) * T; k % 2 ? ctx.lineTo(x, y1) : (k ? ctx.lineTo(x, y0) : ctx.moveTo(x, y0)); } ctx.stroke();
+  }
+  ctx.strokeStyle = el.deck; ctx.lineWidth = 0.98 * T;
+  for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, lift);
+  ctx.restore();
+  drawTrack2(ctx, tiles, 'shared', lift, { bed: shade(el.deck, -0.12), bedW: 0.86 });
+}
+
+// ── Paths trains follow: straight runs and quarter turns, in tile units; sampled for distance along ──
+function path(segs) {
+  const pts = [];
+  for (const sg of segs) {
+    if (sg[0] === 'L') { const [, x0, y0, x1, y1] = sg, L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.ceil(L / 0.05));
+      for (let k = 0; k <= n; k++) pts.push([lerp(x0, x1, k / n), lerp(y0, y1, k / n)]); }
+    else { const [, cx, cy, r, a0, a1] = sg, n = 24; for (let k = 0; k <= n; k++) { const a = lerp(a0, a1, k / n); pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } }
+  }
+  const P = [pts[0]], D = [0];
+  for (const p of pts.slice(1)) { const q = P[P.length - 1], d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < 1e-6) continue; P.push(p); D.push(D[D.length - 1] + d); }
+  return { P, D, len: D[D.length - 1] };
+}
+function at(pa, s) {   // point and heading at distance s (clamped)
+  const { P, D } = pa; s = clamp(s, 0, pa.len - 1e-6); let lo = 0, hi = D.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (D[m] <= s) lo = m; else hi = m; }
+  const f = (s - D[lo]) / (D[hi] - D[lo] || 1), a = P[lo], b = P[hi];
+  return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), b[0] - a[0], b[1] - a[1]];
+}
+
+// ── Trains drawn top-down like the road cars: rounded bodies with a roof, rotating round curves ──
+const LIVERY = {
+  red: { body: '#c9473a', band: '#f1e3c4', roof: '#ddd6ca', nose: '#c9473a', panto: true },
+  green: { body: '#2f5d43', band: '#e8b730', roof: '#9aa39d', nose: '#e8b730', panto: true },
+  white: { body: '#eef0f2', band: '#2f4f9b', roof: '#c7ccd2', nose: '#eef0f2', panto: true },
+  navy: { body: '#24324f', band: '#d6453b', roof: '#b9bec6', nose: '#24324f' },
+  teal: { body: '#2c8c8a', band: '#f2f2ee', roof: '#c8d4d3', nose: '#2c8c8a' },
+  graphite: { body: '#3e4349', band: '#a6d64a', roof: '#8d939a', nose: '#a6d64a' },
+  maroon: { body: '#7a2834', band: '#d9b45a', roof: '#c9bfb2', nose: '#7a2834' },
+};
+function trainCar(ctx, x, y, ang, len, wid, lv, lead, tail, sh = 0) {   // sh: height above the ground, in tiles, for a shadow left on the ground
+  const T = ctx.T, L = len * T, Wd = wid * T, r = Wd * 0.38;
+  ctx.save(); ctx.translate(x * T + T * 0.014 + sh * 0.3 * T, (y + sh) * T + T * 0.03); ctx.rotate(ang);
+  ctx.fillStyle = 'rgba(20,24,28,0.3)'; ctx.beginPath(); ctx.roundRect(-L / 2, -Wd / 2, L, Wd, r); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(x * T, y * T); ctx.rotate(ang);
+  ctx.fillStyle = lv.body; ctx.beginPath(); ctx.roundRect(-L / 2, -Wd / 2, L, Wd, [lead ? Wd * 0.48 : r * 0.5, lead ? Wd * 0.48 : r * 0.5, tail ? Wd * 0.48 : r * 0.5, tail ? Wd * 0.48 : r * 0.5].reverse()); ctx.fill();
+  ctx.fillStyle = lv.band; ctx.fillRect(-L / 2 + Wd * 0.3, -Wd / 2 + Wd * 0.06, L - Wd * 0.6, Wd * 0.1); ctx.fillRect(-L / 2 + Wd * 0.3, Wd / 2 - Wd * 0.16, L - Wd * 0.6, Wd * 0.1);
+  ctx.fillStyle = lv.roof; ctx.globalAlpha *= 0.55; ctx.beginPath(); ctx.roundRect(-L / 2 + Wd * 0.45, -Wd * 0.15, L - Wd * 0.9, Wd * 0.3, Wd * 0.1); ctx.fill(); ctx.globalAlpha /= 0.55;   // a narrow roof walkway; the livery shows either side
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; for (const f of [-0.28, 0.28]) ctx.fillRect(f * L - Wd * 0.12, -Wd * 0.12, Wd * 0.24, Wd * 0.24);
+  if (lv.panto) { ctx.strokeStyle = 'rgba(40,40,44,0.85)'; ctx.lineWidth = Math.max(1, T / 60); ctx.beginPath(); ctx.moveTo(-Wd * 0.3, -Wd * 0.2); ctx.lineTo(0, Wd * 0.2); ctx.lineTo(Wd * 0.3, -Wd * 0.2); ctx.stroke(); }
+  for (const [end, on] of [[1, lead], [-1, tail]]) if (on) {
+    ctx.fillStyle = lv.nose; ctx.beginPath(); ctx.roundRect(end > 0 ? L / 2 - Wd * 0.42 : -L / 2, -Wd / 2, Wd * 0.42, Wd, Wd * 0.4); ctx.fill();
+    ctx.fillStyle = 'rgba(30,40,55,0.85)'; ctx.beginPath(); ctx.roundRect(end > 0 ? L / 2 - Wd * 0.36 : -L / 2 + Wd * 0.2, -Wd * 0.36, Wd * 0.16, Wd * 0.72, Wd * 0.06); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.roundRect(-L * 0.4, -Wd * 0.42, L * 0.8, Wd * 0.12, Wd * 0.05); ctx.fill();
+  ctx.restore();
+}
+// A train of n cars along path pa with its front at distance s, on the right-hand track (offset TO); lift(x, y) raises it (elevated).
+const SIZE = { a: { len: 0.75, wid: 0.2 }, b: { len: 1.0, wid: 0.21 } };
+function train(ctx, pa, s, n, lv, a = 1, size = SIZE.a, lift, slide = false) {
+  if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; const gap = 0.05;
+  for (let k = n - 1; k >= 0; k--) {
+    // Both bogies sit on the right-hand track (offset TO); the body spans the chord between them, as a real car does on a curve.
+    const c = s - k * (size.len + gap) - size.len / 2, bog = q => { const [x, y, tx, ty] = at(pa, q), m = Math.hypot(tx, ty) || 1; return [x - ty / m * TO, y + tx / m * TO]; };
+    const [fx, fy] = bog(c + size.len * 0.32), [rx, ry] = bog(c - size.len * 0.32), px = (fx + rx) / 2, py = (fy + ry) / 2, h = lift ? lift(px, py) : 0;
+    trainCar(ctx, px, py - h, Math.atan2(fy - ry, fx - rx), size.len, size.wid, lv, k === 0, k === n - 1, slide ? h : 0);
+  }
+  ctx.restore();
+}
+// Run along a path: fade in, cruise, optionally stop at a platform (front at sStop) and dwell, fade out at the far end.
+function run(pa, t, P, o = {}) {
+  const v = o.v || 2.4, u = t % P, s0 = o.s0 ?? 1, s1 = o.s1 ?? pa.len - 0.2, fadeT = 0.8;
+  if (o.stop == null) { const s = s0 + v * u; if (s > s1) return null; return { s, a: Math.min(1, u / fadeT, (s1 - s) / (v * fadeT)) }; }
+  const dIn = o.stop - s0, tIn = 2 * dIn / v, dwell = o.dwell || 3, dOut = s1 - o.stop, tOut = 2 * dOut / v;
+  if (u < tIn) { const f = u / tIn; return { s: s0 + dIn * (1 - (1 - f) * (1 - f)), a: Math.min(1, u / fadeT) }; }
+  if (u < tIn + dwell) return { s: o.stop, a: 1 };
+  const g = (u - tIn - dwell) / tOut; if (g > 1) return null;
+  return { s: o.stop + dOut * g * g, a: Math.min(1, (1 - g) * tOut / fadeT) };
+}
+
+// ── Ramp mock: everything in code, on the game's own double track ──
+EH = 0.25;   // R5: the deck a quarter of a tile up
+const RX = 3, RY_ROW = 5;    // the east-going ramp: tiles (3,5), (4,5); deep or high end at the east
+const VX = 7, RY = 2;        // the north-going ramp: tiles (7,2), (7,3); deep or high end at the north
+const CON = { cap: '#d6d2c9', face: '#a19d95', faceD: '#7d7a73', dark: '#121110' };
+const NETH = (() => { const m = net(); line(m, -1, RY_ROW, 11, RY_ROW, 'g'); return [...m.values()]; })();
+const NETV = (() => { const m = net(); line(m, VX, 8, VX, -1, 'g'); return [...m.values()]; })();
+const rampH = t => t.y === RY_ROW ? t.x === RX || t.x === RX + 1 : t.y === RY || t.y === RY + 1;
+const P_H = path([['L', -1, RY_ROW + 0.5, 11, RY_ROW + 0.5]]), P_V = path([['L', VX + 0.5, 8, VX + 0.5, -1]]);
+function base(ctx) {
+  const T = ctx.T; grass(ctx, 10, 7);
+  road(ctx, 0, 3, 5, 3); road(ctx, 9, 0, 9, 6);
+  lot(ctx, 'res-1', 0, 6); lot(ctx, 'res-1', 1, 6); lot(ctx, 'com-1', 4, 6); lot(ctx, 'res-1', 1, 2); lot(ctx, 'res-1', 4, 1); lot(ctx, 'res-1', 8, 6);
+}
+function darkness(ctx, x0, y0, x1, y1, gx0, gy0, gx1, gy1, a0, a1) {   // a dark wash fading from (gx0,gy0) to (gx1,gy1)
+  const T = ctx.T, g = ctx.createLinearGradient(gx0 * T, gy0 * T, gx1 * T, gy1 * T);
+  g.addColorStop(0, `rgba(18,17,16,${a0})`); g.addColorStop(1, `rgba(18,17,16,${a1})`);
+  ctx.fillStyle = g; ctx.fillRect(x0 * T, y0 * T, (x1 - x0) * T, (y1 - y0) * T);
+}
+
+// P: the subway ramp. v: 'cut' (open cutting with retaining walls), 'cover' (half open, half under a grass roof), 'rim' (no walls, a thin kerb).
+function sceneSubway(ctx, t, d) {
+  const T = ctx.T = 56, v = d.v; base(ctx);
+  // Ground track up to the ramps (the subway beyond is underground and not drawn).
+  drawTrack2(ctx, NETH.filter(x => x.x < RX), 'shared'); drawTrack2(ctx, NETV.filter(x => x.y > RY + 1), 'shared');
+  const ramps = [...NETH.filter(x => x.x === RX || x.x === RX + 1), ...NETV.filter(x => x.y === RY || x.y === RY + 1)];
+  // Floor of the cutting, then its track (no bed: the floor is the bed).
+  ctx.fillStyle = shade(TRK.bed, -0.1); ctx.fillRect(RX * T, (RY_ROW + 0.06) * T, 2 * T, 0.88 * T); ctx.fillRect((VX + 0.06) * T, RY * T, 0.88 * T, 2 * T);
+  drawTrack2(ctx, ramps, 'shared', null, { bed: 'none' });
+  // Trains: they darken as they go down, and fade out under the ground.
+  let r;
+  if ((r = run(P_H, t, 9, { s0: 0.4, s1: RX + 2 + 1 + 0.3, v: 1.8 }))) train(ctx, P_H, r.s, 3, LIVERY.red, r.a);
+  if ((r = run(P_V, t + 4.5, 9, { s0: 0.2, s1: 8 - RY + 0.3, v: 1.8 }))) train(ctx, P_V, r.s, 3, LIVERY.white, r.a);
+  const covered = v === 'cover';
+  darkness(ctx, RX, RY_ROW + 0.06, RX + 2, RY_ROW + 0.94, RX, 0, RX + 2, 0, 0, covered ? 0.75 : 0.88);
+  darkness(ctx, VX + 0.06, RY, VX + 0.94, RY + 2, 0, RY + 2, 0, RY, 0, covered ? 0.75 : 0.88);
+  if (v === 'cut' || v === 'cover') {
+    const len = covered ? 1 : 2;
+    // East-going: walls along both sides; the north wall's inner face shows, deeper toward the far end.
+    ctx.fillStyle = CON.face; ctx.beginPath(); ctx.moveTo(RX * T, (RY_ROW + 0.06) * T); ctx.lineTo((RX + len) * T, (RY_ROW + 0.06) * T); ctx.lineTo((RX + len) * T, (RY_ROW + 0.06 + 0.09 * len) * T); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = CON.cap; ctx.fillRect(RX * T, RY_ROW * T, len * T, 0.07 * T); ctx.fillRect(RX * T, (RY_ROW + 0.93) * T, len * T, 0.07 * T);
+    // North-going: side walls (their faces point east and west, so only the tops show), the far end's headwall face shows.
+    const vy0 = covered ? RY + 1 : RY;
+    ctx.fillStyle = CON.cap; ctx.fillRect(VX * T, vy0 * T, 0.07 * T, (RY + 2 - vy0) * T); ctx.fillRect((VX + 0.93) * T, vy0 * T, 0.07 * T, (RY + 2 - vy0) * T);
+  }
+  if (v === 'cut') {
+    ctx.fillStyle = CON.cap; ctx.fillRect((RX + 2 - 0.08) * T, RY_ROW * T, 0.1 * T, T);   // east end: the headwall's top
+    ctx.fillStyle = CON.cap; ctx.fillRect(VX * T, (RY - 0.04) * T, T, 0.08 * T);          // north end: its top, and its face below with the dark mouth
+    ctx.fillStyle = CON.face; ctx.fillRect((VX + 0.07) * T, (RY + 0.04) * T, 0.86 * T, 0.12 * T);
+    ctx.fillStyle = CON.dark; ctx.beginPath(); ctx.roundRect((VX + 0.12) * T, (RY + 0.07) * T, 0.76 * T, 0.12 * T, [0.06 * T, 0.06 * T, 0, 0]); ctx.fill();
+  }
+  if (covered) {
+    // The far tile is roofed over with grass; a concrete lip where the roof starts, a shadow under it.
+    ctx.fillStyle = '#4c7640'; ctx.fillRect((RX + 1) * T, RY_ROW * T, T, T); ctx.fillRect(VX * T, RY * T, T, T);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect((RX + 1 - 0.1) * T, (RY_ROW + 0.07) * T, 0.1 * T, 0.86 * T);
+    ctx.fillStyle = CON.cap; ctx.fillRect((RX + 1 - 0.03) * T, RY_ROW * T, 0.11 * T, T);
+    ctx.fillStyle = CON.cap; ctx.fillRect(VX * T, (RY + 1 - 0.06) * T, T, 0.08 * T);
+    ctx.fillStyle = CON.face; ctx.fillRect((VX + 0.07) * T, (RY + 1 + 0.02) * T, 0.86 * T, 0.11 * T);
+    ctx.fillStyle = CON.dark; ctx.beginPath(); ctx.roundRect((VX + 0.12) * T, (RY + 1 + 0.05) * T, 0.76 * T, 0.1 * T, [0.05 * T, 0.05 * T, 0, 0]); ctx.fill();
+  }
+  if (v === 'rim') {
+    ctx.strokeStyle = CON.cap; ctx.lineWidth = 0.05 * T;
+    ctx.beginPath(); ctx.roundRect((RX + 0.02) * T, (RY_ROW + 0.03) * T, 1.98 * T, 0.94 * T, [0, 0.12 * T, 0.12 * T, 0]); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect((VX + 0.03) * T, (RY + 0.02) * T, 0.94 * T, 1.98 * T, [0.12 * T, 0.12 * T, 0, 0]); ctx.stroke();
+  }
+}
+
+// E: the elevated ramp. v: 'steel' (the E2 deck carried down to the ground), 'bank' (an earth embankment up to the deck).
+function setRampHeights(tiles) {
+  for (const t of tiles) {
+    if (t.y === RY_ROW && t.x === RX) { t.lv = 'r'; t.h0 = 0; t.h1 = 0.5; } else if (t.y === RY_ROW && t.x === RX + 1) { t.lv = 'r'; t.h0 = 0.5; t.h1 = 1; } else if (t.y === RY_ROW && t.x > RX + 1) t.lv = 'e';
+    if (t.x === VX && t.y === RY + 1) { t.lv = 'r'; t.h0 = 0.5; t.h1 = 0; } else if (t.x === VX && t.y === RY) { t.lv = 'r'; t.h0 = 1; t.h1 = 0.5; } else if (t.x === VX && t.y < RY) t.lv = 'e';
+  }
+  return tiles;
+}
+const NETH_E = setRampHeights(NETH.map(t => ({ ...t }))), NETV_E = setRampHeights(NETV.map(t => ({ ...t })));
+const liftH = (x) => x < RX ? 0 : x < RX + 2 ? EH * (x - RX) / 2 : EH, liftV = (x, y) => y > RY + 2 ? 0 : y > RY ? EH * (RY + 2 - y) / 2 : EH;
+function sceneElevated(ctx, t, d) {
+  const T = ctx.T = 56, v = d.v; base(ctx);
+  const all = [...NETH_E, ...NETV_E];
+  drawTrack2(ctx, all.filter(x => x.lv === 'g'), 'shared');
+  if (v === 'steel') drawElevated2(ctx, all.filter(x => x.lv !== 'g'));
+  else {
+    // Earth bank under the ramp tiles: its top rises with the track; the east-going one shows its south face.
+    const lift = (tt, s) => height(tt, s);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(RX * T + 3, (RY_ROW + 0.02) * T + 3, 2 * T, T); ctx.fillRect(VX * T + 3, RY * T + 3, T, 2 * T);
+    ctx.fillStyle = '#3f6534'; ctx.beginPath(); ctx.moveTo(RX * T, (RY_ROW + 1) * T); ctx.lineTo((RX + 2) * T, (RY_ROW + 1 - EH) * T); ctx.lineTo((RX + 2) * T, (RY_ROW + 1) * T); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5b8a49'; ctx.beginPath(); ctx.moveTo(RX * T, RY_ROW * T); ctx.lineTo((RX + 2) * T, (RY_ROW - EH) * T); ctx.lineTo((RX + 2) * T, (RY_ROW + 1 - EH) * T); ctx.lineTo(RX * T, (RY_ROW + 1) * T); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5b8a49'; ctx.fillRect(VX * T, (RY - EH) * T, T, (2 + EH) * T);
+    ctx.fillStyle = CON.cap; ctx.fillRect((RX + 2 - 0.06) * T, (RY_ROW - EH) * T, 0.1 * T, (1 + EH) * T); ctx.fillRect(VX * T, (RY - EH - 0.04) * T, T, 0.1 * T);   // where the bank meets the deck
+    drawTrack2(ctx, all.filter(x => x.lv === 'r'), 'shared', lift);
+    drawElevated2(ctx, all.filter(x => x.lv === 'e'));
+  }
+  let r;
+  if ((r = run(P_H, t, 9, { s0: 0.4, s1: 11.6, v: 1.8 }))) train(ctx, P_H, r.s, 3, LIVERY.red, r.a, SIZE.a, liftH);
+  if ((r = run(P_V, t + 4.5, 9, { s0: 0.2, s1: 8.6, v: 1.8 }))) train(ctx, P_V, r.s, 3, LIVERY.white, r.a, SIZE.a, liftV);
+}
+
+// Today's painted brick ramps, for comparison (the game's own sprites).
+const OLD = {}; for (const n of ['portal-ew', 'portal-ns-away']) OLD[n] = Object.assign(new Image(), { src: `../../public/sprites/clay/rail/${n}.png` });
+function sceneToday(ctx, t, d) {
+  const T = ctx.T = 56; base(ctx);
+  drawTrack2(ctx, NETH.filter(x => x.x < RX), 'shared'); drawTrack2(ctx, NETV.filter(x => x.y > RY + 1), 'shared');
+  const im = OLD['portal-ew']; if (im.complete && im.naturalWidth) ctx.drawImage(im, RX * T - 0.1 * T, (RY_ROW - 0.35) * T, 2.4 * T, im.naturalHeight * 2.4 * T / im.naturalWidth);
+  const iv = OLD['portal-ns-away']; if (iv.complete && iv.naturalWidth) ctx.drawImage(iv, (VX - 0.15) * T, (RY - 0.6) * T, 1.3 * T, iv.naturalHeight * 1.3 * T / iv.naturalWidth);
+}
+
+const SCENES = { subway: sceneSubway, elevated: sceneElevated, today: sceneToday };
+const scenes = [...document.querySelectorAll('canvas[data-scene]')];
+const vis = new WeakMap(); const io = new IntersectionObserver(es => es.forEach(e => vis.set(e.target, e.isIntersecting))); scenes.forEach(cv => io.observe(cv));
+window.__t = null;
+function loop() { const t = window.__t ?? performance.now() / 1000; for (const cv of scenes) if (vis.get(cv) !== false) { const ctx = cv.getContext('2d'), d = cv.dataset; ctx.clearRect(0, 0, cv.width, cv.height); SCENES[d.scene](ctx, t + +(d.off || 0), d); } requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// ── Feedback ──
+const KEY = 'city-builder-ramp-workshop-3';
+let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const CODES = [];
+function tally() { const v = CODES.map(id => (state[id] || {}).v); document.getElementById('tally').textContent = `${v.filter(x => x === 'yes').length} yes · ${v.filter(x => x === 'no').length} no · ${v.filter(x => !x).length} unmarked`; }
+for (const c of document.querySelectorAll('figure .code')) {
+  const id = c.textContent.trim(), fig = c.closest('figure'); CODES.push(id);
+  const st = state[id] || (state[id] = { v: '', note: '' });
+  const box = document.createElement('div'); box.className = 'fb';
+  const paint = () => { y.classList.toggle('on', st.v === 'yes'); n.classList.toggle('on', st.v === 'no'); fig.classList.toggle('yes', st.v === 'yes'); fig.classList.toggle('no', st.v === 'no'); tally(); };
+  const mk = (lb, val, cls) => { const b = document.createElement('button'); b.textContent = lb; b.className = cls; b.onclick = () => { st.v = st.v === val ? '' : val; save(); paint(); }; box.append(b); return b; };
+  const y = mk('Yes', 'yes', 'y'), n = mk('No', 'no', 'n');
+  const note = document.createElement('input'); note.placeholder = 'note (optional)'; note.value = st.note || ''; note.oninput = () => { st.note = note.value; save(); };
+  box.append(note); fig.append(box); paint();
+}
+{ const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
+document.getElementById('copy').onclick = async () => {
+  const text = ['Ramp workshop 3 feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
+  catch { window.prompt('Copy this:', text); }
+};
+</script>
+</body>
+</html>
