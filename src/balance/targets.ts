@@ -441,10 +441,11 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-18): 4-way junctions much worse than 3-way; jams should be fun to resolve.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; if (o.r.junction3 === null) return NA('no room for the junction spurs');
       return all({ three: range(o.r.junction3, 0, 0.9), four: range(o.r.junction4, 1.2) }); } },
-  { id: 'rail.parallel', metric: 'A big suburb (3,000+ residents, full) on one line: the worst load; then with a second line to another city station: the worst load on either', target: 'one line > 1.0; two lines ≤ 0.7', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-18): an overloaded line slows down; the fix is a parallel line.',
-    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; if (o.r.oneLine === null) return NA('no site for the big suburb');
-      return all({ one: range(o.r.oneLine, 1.0001), two: o.r.twoLines === null ? NA('no room for a second line') : range(o.r.twoLines, 0, 0.7) }); } },
+  { id: 'rail.parallel', metric: 'A big suburb (3,000+ residents, full) on one line: the worst load; then with a second line to another city station: the worst load on either', target: 'one line > 1.0; the second line cuts the worst load by ≥ 25%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): an overloaded line slows down; the fix is a parallel line. Owner (2026-11-18): the second half is a cut of at least a quarter; testcity1 is n/a (its big suburb rides too little to fill a line).',
+    evaluate: c => { if (c.city === 'testcity1') return NA('owner: testcity1\'s suburb rides too little'); const o = railOf(c); if (!('r' in o)) return o; if (o.r.oneLine === null) return NA('no site for the big suburb');
+      const cut = o.r.twoLines === null || !o.r.oneLine ? null : 1 - o.r.twoLines / o.r.oneLine;
+      return all({ one: range(o.r.oneLine, 1.0001), cut: o.r.twoLines === null ? NA('no room for a second line') : range(cut, 0.25) }); } },
   { id: 'rail.early', metric: 'A starter line (two stations and 60 tiles of track) ÷ a fresh real-money Planner\'s bank at day 180', target: '≥ 2', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
     why: 'Owner (2026-11-18): rail is gated by cost, not by an unlock: not an early-game buy.',
     evaluate: c => { if (c.cityKind !== 'fresh') return NA('fresh map only'); const f = c.railFresh; if (!f) return NA('not run');

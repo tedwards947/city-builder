@@ -106,11 +106,10 @@ Done and merged:
 - Service jobs: police, fire, school and hospital take 1 job trip each (owner-approved), after ENGINE's overflow fix (#272); golden test city +1.4% residents at 400 ticks (#273).
 
 - Airport suite (owner-approved targets 2026-11-18): airport.seats, .payback, .demand, .cost, .traffic, .request; 17/17 on the saved cities (1 n/a). The airport request's reward is 250 PC (#282).
-- Rail numbers and rail suite (owner-approved 2026-11-18): speed 10, boarding 2, track 400 / 0.5, stations 30,000 / 25, fare 0.5, 4-way delay 4; targets rail.suburb, .beatsRoad, .freight, .junctions, .parallel, .early, .midgame, .pays (#291). rail.pays graded on a fixed 60-tile starter line (owner, #293), band 0.8–2.0 (owner, this PR).
+- Rail numbers and rail suite (owner-approved 2026-11-18): speed 10, boarding 2, track 400 / 0.5, stations 30,000 / 25, fare 0.5, 4-way delay 4; targets rail.suburb, .beatsRoad, .freight, .junctions, .parallel, .early, .midgame, .pays (#291). rail.pays graded on a fixed 60-tile starter line (owner, #293), band 0.8–2.0 (owner, #295). rail.parallel probe fixed (#299); capacity 250 and a ≥ 25% cut for the second line, testcity1 n/a (owner, this PR).
 
 Next:
-1. rail.parallel after ENGINE's jam (#297): probe layout fixed (this PR); with capacity 300 the second line passes but one line never jams (0.62–0.92). Capacity 250 proposed to the owner, with the target's second half at ≤ 0.8.
-2. Landscaping numbers (trees, water editing; GAME ENGINE item 1): propose targets first, tune after the owner's OK.
+1. Landscaping numbers (trees, water editing; GAME ENGINE item 1): propose targets first, tune after the owner's OK.
 
 ## DESIGN
 

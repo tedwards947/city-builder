@@ -302,7 +302,9 @@ export const BALANCE = {
     // Speed 10 and boarding 2 (owner 2026-11-18): a suburb 50–90 tiles out gets a third to a
     // half of the city's job access by rail; at 6 and 4 it was a fifth to a third.
     speedMult: 10,         // a tile of track takes 1 / speedMult (a highway's is 2)
-    capacity: 300,         // riders a tile of track carries before it counts as full (a highway: 200)
+    // 250 (owner 2026-11-18, rail suite): a full 3,200-resident suburb jams one line, and a
+    // second line clears it.
+    capacity: 250,         // riders a tile of track carries before it counts as full (a highway: 200)
     congestionDelay: 1,    // past transit.freeFlow × capacity: time × (1 + congestionDelay × (load − freeFlow))
     // A line past `jam.from` of its capacity JAMS: every tile of it takes
     // jam.delay × (load − jam.from) ^ jam.power street tiles longer (load counts up to 3).
