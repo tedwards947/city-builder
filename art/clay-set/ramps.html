@@ -39,10 +39,11 @@
   <figure><canvas width="560" height="392" data-scene="subway" data-v="rim" data-off="6"></canvas><figcaption><span class="code">P3</span>Minimal: no walls, just a thin concrete kerb round the opening, and the track fading into the dark.</figcaption></figure>
 </div>
 
-<h2>E. Up to the elevated deck</h2>
+<h2>E. Up to the elevated deck, round 2: concrete</h2>
+<p>You said no to E1 (steel) and E2 (earth bank). Both of these are a solid concrete ramp drawn in code, to go with P3: a pale slab rising under the game's own track, its side face showing on the east–west ramp, and thin kerbs along both edges like P3's.</p>
 <div class="rowf">
-  <figure><canvas width="560" height="392" data-scene="elevated" data-v="steel"></canvas><figcaption><span class="code">E1</span>The E2 steel deck carried down to the ground on short legs (the code climb you picked as R5).</figcaption></figure>
-  <figure><canvas width="560" height="392" data-scene="elevated" data-v="bank" data-off="3"></canvas><figcaption><span class="code">E2</span>A grassy earth bank up to the deck, with a concrete edge where it meets the steel.</figcaption></figure>
+  <figure><canvas width="560" height="392" data-scene="elevated" data-v="concrete"></canvas><figcaption><span class="code">E3</span>Concrete ramp up to the steel deck you picked (E2 in round 1).</figcaption></figure>
+  <figure><canvas width="560" height="392" data-scene="elevated" data-v="concrete-deck" data-off="3"></canvas><figcaption><span class="code">E4</span>The same ramp, with the elevated deck in matching concrete too (same legs), instead of steel.</figcaption></figure>
 </div>
 
 <h2>Anything else?</h2>
@@ -229,7 +230,7 @@ function drawElevated2(ctx, tiles) {
   ctx.save(); ctx.strokeStyle = el.face; ctx.lineWidth = 0.98 * T;
   for (const t of tiles) for (const pc of pieces(t.c)) strokePiece(ctx, t, pc, 0, (tt, s) => height(tt, s) - 0.12);
   ctx.strokeStyle = 'rgba(30,34,40,0.7)'; ctx.lineWidth = 1;
-  for (const t of tiles) if ((t.c & (EA | W)) && !(t.c & (N | S))) {
+  if (el.lattice) for (const t of tiles) if ((t.c & (EA | W)) && !(t.c & (N | S))) {
     const h = height(t, 0.5), y0 = (t.y + 0.5 + 0.49 - h) * T, y1 = y0 + 0.12 * T; ctx.beginPath();
     for (let k = 0; k <= 6; k++) { const x = (t.x + k / 6) * T; k % 2 ? ctx.lineTo(x, y1) : (k ? ctx.lineTo(x, y0) : ctx.moveTo(x, y0)); } ctx.stroke();
   }
@@ -390,6 +391,27 @@ function sceneElevated(ctx, t, d) {
   const all = [...NETH_E, ...NETV_E];
   drawTrack2(ctx, all.filter(x => x.lv === 'g'), 'shared');
   if (v === 'steel') drawElevated2(ctx, all.filter(x => x.lv !== 'g'));
+  else if (v === 'concrete' || v === 'concrete-deck') {
+    const y = RY_ROW, C = { top: '#c9c4ba', face: '#9e9990', faceD: '#8a857c', joint: 'rgba(60,56,50,0.35)' };
+    // Shadow on the ground, longer as the ramp rises.
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.moveTo(RX * T, (y + 0.95) * T); ctx.lineTo((RX + 2) * T, (y + 0.95) * T); ctx.lineTo((RX + 2 + EH * 0.3) * T, (y + 0.95 + EH * 0.2) * T); ctx.closePath(); ctx.fill();
+    ctx.fillRect((VX + 0.95) * T, (RY - EH) * T, EH * 0.3 * T, (2 + EH) * T * 0.5);
+    // East-going: the south face (a wedge, with panel joints), then the top.
+    ctx.fillStyle = C.face; ctx.beginPath(); ctx.moveTo(RX * T, (y + 0.95) * T); ctx.lineTo((RX + 2) * T, (y + 0.95 - EH) * T); ctx.lineTo((RX + 2) * T, (y + 0.95) * T); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.joint; ctx.lineWidth = 1; ctx.beginPath();
+    for (const f of [0.5, 1, 1.5]) { ctx.moveTo((RX + f) * T, (y + 0.95) * T); ctx.lineTo((RX + f) * T, (y + 0.95 - EH * f / 2) * T); } ctx.stroke();
+    ctx.fillStyle = C.top; ctx.beginPath(); ctx.moveTo(RX * T, (y + 0.05) * T); ctx.lineTo((RX + 2) * T, (y + 0.05 - EH) * T); ctx.lineTo((RX + 2) * T, (y + 0.95 - EH) * T); ctx.lineTo(RX * T, (y + 0.95) * T); ctx.closePath(); ctx.fill();
+    // North-going: the top only (its sides face east and west), stretched up by the rise.
+    ctx.fillRect((VX + 0.05) * T, (RY - EH) * T, 0.9 * T, (2 + EH) * T);
+    const lift = (tt, s) => height(tt, s);
+    drawTrack2(ctx, all.filter(x => x.lv === 'r'), 'shared', lift, { bed: shade(C.top, -0.22), bedW: 0.8 });
+    // Kerbs along both edges, as P3's.
+    ctx.strokeStyle = CON.cap; ctx.lineWidth = Math.max(1, 0.05 * T); ctx.beginPath();
+    for (const e of [0.05, 0.95]) { ctx.moveTo(RX * T, (y + e) * T); ctx.lineTo((RX + 2) * T, (y + e - EH) * T); ctx.moveTo((VX + e) * T, (RY + 2) * T); ctx.lineTo((VX + e) * T, (RY - EH) * T); }
+    ctx.stroke();
+    if (v === 'concrete') drawElevated2(ctx, all.filter(x => x.lv === 'e'));
+    else { const sv = ELEV.steel; ELEV.steel = { deck: '#c9c4ba', face: '#9e9990', pillar: '#bdb7ab', pillarDark: '#99938a' }; drawElevated2(ctx, all.filter(x => x.lv === 'e')); ELEV.steel = sv; }
+  }
   else {
     // Earth bank under the ramp tiles: its top rises with the track; the east-going one shows its south face.
     const lift = (tt, s) => height(tt, s);
@@ -423,7 +445,7 @@ function loop() { const t = window.__t ?? performance.now() / 1000; for (const c
 requestAnimationFrame(loop);
 
 // ── Feedback ──
-const KEY = 'city-builder-ramp-workshop-3';
+const KEY = 'city-builder-ramp-workshop-3b';
 let state = {}; try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 const CODES = [];
@@ -440,7 +462,7 @@ for (const c of document.querySelectorAll('figure .code')) {
 }
 { const el = document.getElementById('overall'); el.value = state._overall || ''; el.oninput = () => { state._overall = el.value; save(); }; }
 document.getElementById('copy').onclick = async () => {
-  const text = ['Ramp workshop 3 feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
+  const text = ['Ramp workshop 3, round 2 feedback', ...CODES.map(id => { const s = state[id] || {}; return `${id}: ${s.v || 'unmarked'}${s.note ? ' — ' + s.note : ''}`; }), state._overall ? `Overall: ${state._overall}` : ''].filter(Boolean).join('\n');
   try { await navigator.clipboard.writeText(text); document.getElementById('copied').textContent = 'Copied. Paste it to Claude.'; }
   catch { window.prompt('Copy this:', text); }
 };
