@@ -160,15 +160,18 @@ function car(ctx: Ctx, x: number, y: number, ang: number, T: number, lv: Livery,
 }
 
 /** Where a train is `u` seconds after it set off along a run of length len (stopping at `stop` if given): front distance and opacity, or null once gone. */
-export function trainAt(u: number, len: number, stop: number | null): { s: number; a: number } | null {
+/** What a train is doing: running past ('run'), or at a station slowing in ('in'), stopped ('dwell') or pulling out ('out'). */
+export type TrainPhase = 'run' | 'in' | 'dwell' | 'out';
+
+export function trainAt(u: number, len: number, stop: number | null): { s: number; a: number; phase: TrainPhase } | null {
   const s0 = 0.4, s1 = len - 0.4; if (s1 <= s0 || u < 0) return null;
-  if (stop === null) { const s = s0 + SPEED * u; if (s > s1) return null; return { s, a: Math.min(1, u / FADE, (s1 - s) / (SPEED * FADE)) }; }
+  if (stop === null) { const s = s0 + SPEED * u; if (s > s1) return null; return { s, a: Math.min(1, u / FADE, (s1 - s) / (SPEED * FADE)), phase: 'run' }; }
   const front = Math.min(s1, stop + (CARS * (CAR_LEN + CAR_GAP)) / 2);   // the train's middle at the platform's
   const dIn = Math.max(0, front - s0), tIn = 2 * dIn / SPEED, dOut = s1 - front, tOut = 2 * Math.max(dOut, 0.01) / SPEED;
-  if (u < tIn) { const f = u / tIn; return { s: s0 + dIn * (1 - (1 - f) * (1 - f)), a: Math.min(1, u / FADE) }; }
-  if (u < tIn + DWELL) return { s: front, a: 1 };
+  if (u < tIn) { const f = u / tIn; return { s: s0 + dIn * (1 - (1 - f) * (1 - f)), a: Math.min(1, u / FADE), phase: 'in' }; }
+  if (u < tIn + DWELL) return { s: front, a: 1, phase: 'dwell' };
   const g = (u - tIn - DWELL) / tOut; if (g > 1) return null;
-  return { s: front + dOut * g * g, a: Math.min(1, (1 - g) * tOut / FADE) };
+  return { s: front + dOut * g * g, a: Math.min(1, (1 - g) * tOut / FADE), phase: 'out' };
 }
 
 /** Seconds between trains each way on a run: one a minute on an empty line, down to one every 12 s when full. */
@@ -195,26 +198,22 @@ const hash = (a: number, b: number, c: number): number => {
   return (h >>> 0) / 4294967296;
 };
 
+/** Called for each train there is now: its run and direction, its front's distance along the run, opacity, a stable id and its phase. */
+export type TrainVisitor = (r: Run, dir: number, front: number, a: number, key: number, phase: TrainPhase) => void;
+
 /**
- * Draws the trains, which come and go like the road cars (owner): passing trains appear, run a
- * short leg and fade, as many as the line's load asks for; the care goes into stations, where a
- * train slows in, waits and pulls out. (sx, sy) is the screen position of tile (0, 0); T the
- * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1].
+ * Every train on one level whose run reaches the view, now: the one place that decides what runs
+ * (drawTrains draws from it; the sound listens with trainsInView). Passing trains appear, run a
+ * short leg and fade, as many as the line's load asks for; at a station a train slows in, waits
+ * and pulls out. `key` stays the same for one train for as long as it is there.
  */
-export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND, lift = 0): void {
-  if (T < 6) return;
+export function forEachTrain(world: World, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number, fn: TrainVisitor): void {
   const runs = runsFor(world, level), d = world.traffic, t = now * 0.001;
-  const liveries = level === RAIL_SUBWAY ? METRO_LIVERIES : HEAVY_LIVERIES;
-  sy -= lift;   // elevated trains ride on the deck
   for (const r of runs) {
     if (r.x1 < bx0 - 1 || r.x0 > bx1 + 1 || r.y1 < by0 - 1 || r.y0 > by1 + 1) continue;
     let load = 0; for (const i of r.tiles) load = Math.max(load, d ? railLoad(d, i, level) : 0);
     load = Math.min(1, Math.max(0, load));
     for (const dir of [1, -1]) {
-      const draw = (front: number, a: number, k: number): void => {
-        const lv = liveries[Math.floor(hash(r.seed, k, dir) * liveries.length)];
-        drawTrain(ctx, r, dir, front, a, lv, sx, sy, T);
-      };
       // Station trains: appear APPROACH tiles out, slow in, wait, pull out, fade APPROACH tiles on.
       const stop = r.stop === null ? null : dir > 0 ? r.stop : r.len - r.stop;
       let zone0 = Infinity, zone1 = -Infinity;
@@ -223,7 +222,7 @@ export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: nu
         zone0 = a0; zone1 = a1;
         const P = headway(load), dur = 2 * APPROACH / SPEED * 2 + DWELL + 2, phase = hash(r.seed, 1, dir) * P;
         for (let k = Math.floor((t - dur - phase) / P); k <= Math.floor((t - phase) / P); k++) {
-          const pos = trainAt(t - (k * P + phase), a1 - a0, stop - a0); if (pos) draw(a0 + pos.s, pos.a, k);
+          const pos = trainAt(t - (k * P + phase), a1 - a0, stop - a0); if (pos) fn(r, dir, a0 + pos.s, pos.a, k, pos.phase);
         }
       }
       // Passing trains: short legs at random places along the run, as many as the load asks for, kept clear of the station.
@@ -234,10 +233,36 @@ export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: nu
         if (j === slots - 1 && hash(r.seed, j, c * 2 + (dir > 0 ? 0 : 1)) > want - j) continue;   // the last slot runs only part of the time
         const s0 = hash(r.seed ^ c, j, dir) * (r.len - LEG);
         if (s0 < zone1 && s0 + LEG > zone0) continue;
-        const pos = legAt(u); if (pos) draw(s0 + pos.s, pos.a, c * 31 + j);
+        const pos = legAt(u); if (pos) fn(r, dir, s0 + pos.s, pos.a, c * 31 + j, 'run');
       }
     }
   }
+}
+
+/**
+ * Draws one level's trains (see forEachTrain). (sx, sy) is the screen position of tile (0, 0); T the
+ * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1]; `lift` raises elevated trains onto the deck.
+ */
+export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND, lift = 0): void {
+  if (T < 6) return;
+  const liveries = level === RAIL_SUBWAY ? METRO_LIVERIES : HEAVY_LIVERIES;
+  forEachTrain(world, now, bx0, by0, bx1, by1, level, (r, dir, front, a, k) => {
+    drawTrain(ctx, r, dir, front, a, liveries[Math.floor(hash(r.seed, k, dir) * liveries.length)], sx, sy - lift, T);
+  });
+}
+
+/** A train for the sound: the middle of the train in tiles, its opacity, its phase and a stable id. */
+export interface TrainInView { x: number; y: number; a: number; phase: TrainPhase; key: string }
+
+/** The trains on one level whose run reaches the view (read only: nothing is drawn). For the sound (audio/). */
+export function trainsInView(world: World, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND): TrainInView[] {
+  const out: TrainInView[] = [], half = CARS * (CAR_LEN + CAR_GAP) / 2;
+  forEachTrain(world, now, bx0, by0, bx1, by1, level, (r, dir, front, a, key, phase) => {
+    const [x, y] = at(r, dir > 0 ? front - half : r.len - (front - half));
+    if (x < bx0 - 1 || x > bx1 + 2 || y < by0 - 1 || y > by1 + 2) return;
+    out.push({ x, y, a, phase, key: `${level}:${r.seed}:${dir}:${phase === 'run' ? 'p' : 's'}${key}` });
+  });
+  return out;
 }
 
 /** One train of CARS cars with its front `front` tiles along run r (taken in direction dir). */
