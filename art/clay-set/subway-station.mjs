@@ -1,6 +1,6 @@
 // Bakes the subway station's surface picture (owner's A1: the brick station house) from raw-rail/subway-stations.png
 // into public/sprites/clay/rail/subway-station.png at 128 px a tile: the house cut from its painted lot, shrunk to
-// SCALE and set at the back of a tile of the same painted paving, leaving the front for props (drawn in code, rail.ts).
+// SCALE and set in the middle of a tile of the same painted paving, with props round it (drawn in code, rail.ts).
 // Usage: node art/clay-set/subway-station.mjs
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -14,7 +14,7 @@ const SCALE = 0.38;                         // the house's size against the shee
 const HOUSE = [136, 34, 418, 290];          // the house and its shadow on the sheet: x0, y0, x1, y1
 const STRIP = [126, 292, 416, 328];         // a band of plain paving below it
 const T = 300, HEAD = 60, OUT_T = 128;      // work at 300 px a tile with headroom above, then shrink to the game's 128
-const AT = [70, 228];                       // where the house's crop sits on the tile: left, and its bottom (from the tile's top)
+const AT = [97, 199];                       // where the house's crop sits on the tile: left, and its bottom (from the tile's top): centred
 
 const tmp = join(tmpdir(), `subway-${process.pid}.bmp`);
 execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-rail/subway-stations.png'), '--out', tmp], { stdio: 'ignore' });

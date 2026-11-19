@@ -425,8 +425,8 @@ export function drawSubwayLayer(ctx: Ctx, world: World, sx: number, sy: number, 
 
 /**
  * The subway station on its tile at screen (px, py) (owner's A1, art/clay-set/subway-station.mjs): a small brick
- * station house at the back of a paved lot (painted), and in front of it, drawn in code in the lot props' two-tone
- * clay, a globe lamp, two planters by the door, a bench and the "M" sign that says it is the subway.
+ * station house in the middle of a paved lot (painted), and round it, drawn in code in the lot props' two-tone clay,
+ * bushes, benches, a bin, planters by the door, a bike rack, a globe lamp and the "M" sign that says it is the subway.
  */
 export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number): void {
   const s = load()['subway-station'], m = RAIL_SPRITES['subway-station'];
@@ -438,17 +438,38 @@ export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number):
   const ell = (u: number, v: number, rx: number, ry: number): void => { ctx.beginPath(); ctx.ellipse(X(u), Y(v), rx * T, ry * T, 0, 0, Math.PI * 2); ctx.fill(); };
   const box = (u: number, v: number, w: number, h: number, r: number): void => { ctx.beginPath(); ctx.roundRect(X(u), Y(v), w * T, h * T, r * T); ctx.fill(); };
   ctx.save();
-  // A bench beside the house, along its east wall.
-  ctx.fillStyle = 'rgba(0,0,0,0.18)'; box(0.84, 0.2, 0.08, 0.22, 0.02);
-  ctx.fillStyle = '#6d4630'; box(0.82, 0.18, 0.08, 0.22, 0.02);
-  ctx.fillStyle = '#a5714c'; box(0.83, 0.19, 0.05, 0.2, 0.015);
-  // Two planters either side of the door.
-  for (const u of [0.2, 0.62]) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ell(u + 0.02, 0.9, 0.06, 0.03);
-    ctx.fillStyle = '#8a4f33'; ell(u, 0.875, 0.055, 0.04);
-    ctx.fillStyle = '#b86d45'; ell(u, 0.86, 0.055, 0.036);
-    ctx.fillStyle = '#2f7d3a'; ell(u, 0.83, 0.045, 0.045);
-    ctx.fillStyle = '#4b9d47'; ell(u - 0.01, 0.82, 0.03, 0.03);
+  const shade = (u: number, v: number, rx: number, ry: number): void => { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ell(u, v, rx, ry); };
+  // Round the house (centred, its door at u 0.49 and front wall at v 0.62): bushes at the back corners...
+  for (const u of [0.14, 0.86]) {
+    shade(u + 0.03, 0.25, 0.08, 0.035);
+    ctx.fillStyle = '#2f7d3a'; ell(u, 0.2, 0.075, 0.07);
+    ctx.fillStyle = '#4b9d47'; ell(u - 0.015, 0.18, 0.05, 0.045);
+  }
+  // ...a bench down each side, and a litter bin by the west one...
+  for (const [u, v, h] of [[0.08, 0.36, 0.22], [0.84, 0.3, 0.18]]) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; box(u + 0.02, v + 0.02, 0.08, h, 0.02);
+    ctx.fillStyle = '#6d4630'; box(u, v, 0.08, h, 0.02);
+    ctx.fillStyle = '#a5714c'; box(u + 0.01, v + 0.01, 0.05, h - 0.02, 0.015);
+  }
+  shade(0.215, 0.65, 0.035, 0.015);
+  ctx.fillStyle = '#2c5a3c'; ell(0.2, 0.635, 0.03, 0.03);
+  ctx.fillStyle = '#3f7a54'; ell(0.2, 0.625, 0.022, 0.02);
+  // ...two planters either side of the door...
+  for (const u of [0.34, 0.64]) {
+    shade(u + 0.02, 0.8, 0.06, 0.03);
+    ctx.fillStyle = '#8a4f33'; ell(u, 0.775, 0.055, 0.04);
+    ctx.fillStyle = '#b86d45'; ell(u, 0.76, 0.055, 0.036);
+    ctx.fillStyle = '#2f7d3a'; ell(u, 0.73, 0.045, 0.045);
+    ctx.fillStyle = '#4b9d47'; ell(u - 0.01, 0.72, 0.03, 0.03);
+  }
+  // ...and a bike rack at the front, three bikes parked nose up.
+  if (T >= 20) {
+    ctx.fillStyle = '#8b9097'; box(0.15, 0.93, 0.18, 0.015, 0.005);
+    ['#c0392b', '#2f66a8', '#e0a526'].forEach((col, k) => {
+      const u = 0.18 + k * 0.06;
+      ctx.fillStyle = '#2b2f35'; ell(u, 0.84, 0.012, 0.022); ell(u, 0.92, 0.012, 0.022);
+      ctx.fillStyle = col; box(u - 0.008, 0.845, 0.016, 0.07, 0.006);
+    });
   }
   // A globe lamp at the front left, and the M sign on its post at the front right.
   const post = (u: number, base: number, top: number): void => {
