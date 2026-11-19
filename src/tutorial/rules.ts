@@ -6,7 +6,8 @@
 //     full and no debt builds up (tutorial/TutorialSystem.ts, every tick);
 //   - no fire starts (FireSystem) and residents make no requests of their own
 //     (RequestSystem);
-//   - one scripted request, for a park, opens when the park step is reached.
+//   - one scripted request, for a park, opens when the park step is reached;
+//     its deadline is pushed back every day, so it cannot be missed.
 // A city that is not a tutorial city is not touched and draws no random number
 // here, so the simulation is otherwise unchanged.
 
@@ -24,8 +25,6 @@ export const TUTORIAL = {
   startMoney: 100_000,
   /** Money is topped up to this whenever it falls below. */
   minMoney: 50_000,
-  /** The scripted park request's deadline, in game days: long enough never to be missed. */
-  requestDays: 3600,
   /** The step (tutorial/steps.ts id) whose request is scripted. */
   requestStep: 'park',
 };
@@ -40,13 +39,20 @@ export function beginTutorial(world: World): void {
 /**
  * The tutorial is over (finished or left): the city carries on as a normal
  * game. If the scripted request is still open it becomes an ordinary one,
- * with the usual time to meet it.
+ * with the usual time to meet it from now.
  */
 export function endTutorial(world: World): void {
-  const req = scriptedRequest(world);
-  if (req) req.deadlineTick = world.tick + (requestConfig().kinds[req.kind]?.days ?? 0) * BALANCE.ticksPerDay;
+  holdScriptedRequest(world);
   delete world.tutorial;
 }
+
+/** The scripted request, while open, always has its full time left: it shows an ordinary deadline but is never missed. */
+export function holdScriptedRequest(world: World): void {
+  const req = scriptedRequest(world);
+  if (req) req.deadlineTick = world.tick + requestDays(req.kind) * BALANCE.ticksPerDay;
+}
+
+const requestDays = (kind: string): number => requestConfig().kinds[kind]?.days ?? 0;
 
 /** The money floor and the full political capital. Does nothing outside the tutorial. */
 export function holdTutorial(world: World): void {
@@ -74,7 +80,7 @@ export function openScriptedRequest(world: World): OpenRequest | null {
   const { width, height } = world.grid;
   const plan = planRequest(world, 'park', { x0: 0, y0: 0, x1: width - 1, y1: height - 1 }, () => 0);
   if (!plan) return null;
-  const req = openRequest(world, 'park', plan.area, TUTORIAL.requestDays, plan.need, plan);
+  const req = openRequest(world, 'park', plan.area, requestDays('park'), plan.need, plan);
   state.request = req.id;
   return req;
 }

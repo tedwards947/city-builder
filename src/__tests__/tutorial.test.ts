@@ -16,6 +16,9 @@ import {
 import { BALANCE } from '../data/balance';
 import { pcCap } from '../sim/politics';
 import { startSim } from '../balance/world';
+import { Scheduler } from '../sim/Scheduler';
+import { RequestSystem } from '../sim/systems/RequestSystem';
+import { TutorialSystem } from '../tutorial/TutorialSystem';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
@@ -283,18 +286,25 @@ describe('the tutorial-only rules', () => {
     expect(fires).toBeGreaterThan(0);
   });
 
-  it('endTutorial ends every rule, and a scripted request still open becomes an ordinary one', () => {
+  it('the scripted request is never missed, and becomes an ordinary one when the tutorial ends', () => {
     const w = needyTown();
     beginTutorial(w);
     const req = openScriptedRequest(w)!;
-    expect(req.deadlineTick).toBe(TUTORIAL.requestDays * BALANCE.ticksPerDay);
+    const full = BALANCE.politicalCapital.requests.kinds.park.days * BALANCE.ticksPerDay;
+    // Only the two systems concerned, so the homes stay as they are for the length of the test.
+    const scheduler = new Scheduler(w, [new RequestSystem(), new TutorialSystem()]);
+    const sim = { tick: (n: number): void => { for (let k = 0; k < n; k++) scheduler.tick(); } };
+    sim.tick(3 * full);                                      // three deadlines' worth of time, no park built
+    expect(scriptedRequest(w)).toBe(req);
+    expect(req.deadlineTick).toBe(w.tick + full);            // and it still shows its full time
     endTutorial(w);
     expect(w.tutorial).toBeUndefined();
-    expect(req.deadlineTick).toBe(w.tick + BALANCE.politicalCapital.requests.kinds.park.days * BALANCE.ticksPerDay);
-    const sim = startSim(w);
+    expect(req.deadlineTick).toBe(w.tick + full);
     w.budget.money = 10;
-    sim.tick();
+    startSim(w).tick();
     expect(w.budget.money).toBeLessThan(TUTORIAL.minMoney);  // no floor any more
+    sim.tick(full + BALANCE.ticksPerDay);                    // an ordinary request now: it can be missed
+    expect(w.politics.requests).not.toContain(req);
   });
 
   it('the step and the scripted request survive a save and a load', () => {

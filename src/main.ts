@@ -73,6 +73,8 @@ import { TitleScreen } from './ui/TitleScreen';
 import { CameraTour } from './title/CameraTour';
 import { findTourSpots } from './title/tourSpots';
 import { SHOWCASE_PATH, markTitleSeen, titleDue, wantTitle } from './title/launch';
+import { Tutorial, tutorialDone, tutorialOf } from './ui/TutorialCard';
+import { TUTORIAL_PATH, beginTutorial } from './tutorial/rules';
 import { ShowcaseKeeper } from './title/showcaseKeeper';
 import { BALANCE } from './data/balance';
 import { blankWorld } from './gen/tutorialMap';
@@ -214,6 +216,7 @@ const titleScreen = new TitleScreen({
   },
   onNew: () => newGameDialog.show(),
   onLoad: () => saveLoadPanel.showLoad(),
+  onTutorial: () => void startTutorial(),
   onTouch: () => tour.stop(),
 });
 /** The showcase behind the title: its save file, and what keeps it from failing (title/showcaseKeeper.ts). */
@@ -259,6 +262,7 @@ function startGame(world: World, behindTitle = false): void {
   milestoneBanner.setWorld(world);
   requestFeedback.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
+  tutorial.attach(world, camera);
   document.getElementById('hint')?.classList.remove('hidden');
   if (!behindTitle) {
     showLoadNotes(world);
@@ -279,6 +283,33 @@ const saveLoadPanel = new SaveLoadPanel(
   () => state.world,
   (world) => startGame(world),
 );
+
+// ── Tutorial (TUTORIAL_DESIGN.md) ─────────────────────────────────────────────
+// A guided first city: one goal at a time on a card, the toolbar button for it
+// pulsing, and a ghost on the map where the step has a spot.
+const tutorial = new Tutorial({
+  onPoint: (keys) => {
+    toolbar.setPulse(keys);
+    document.querySelectorAll('#speedbar .speed[data-speed="2"], #speedbar .speed[data-speed="3"]').forEach(b => b.classList.toggle('tut-pulse', keys.includes('speed')));
+    document.getElementById('demand-chart-wrap')?.classList.toggle('tut-pulse', keys.includes('demand'));
+  },
+});
+/** Start the tutorial city (its own map; a small default one until that map exists). */
+async function startTutorial(): Promise<void> {
+  let world: World;
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + TUTORIAL_PATH);
+    if (!res.ok) throw new Error(String(res.status));
+    world = manager.importGame(await res.text());
+  } catch {
+    // PLACEHOLDER until the tutorial map lands (public/tutorial/tutorial.citysave.json).
+    world = new World(64, 64, 7, { vegAmount: 'low' });
+    world.budget.money = 100_000;
+  }
+  if (!tutorialOf(world)) beginTutorial(world);
+  startGame(world);
+  setSpeed(1);
+}
 
 const newGameDialog = new NewGameDialog((opts) => {
   startGame(opts.blank
@@ -377,6 +408,15 @@ canvas.addEventListener('pointermove', (e) => {
   pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top; pointer.inside = true;
 });
 canvas.addEventListener('pointerleave', () => { pointer.inside = false; });
+// The tutorial's "click a home" step: a click (not a drag) with Inspect on a home tile.
+let pressAt: { x: number; y: number } | null = null;
+canvas.addEventListener('pointerdown', (e) => { pressAt = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerup', (e) => {
+  if (!tutorial.active || !pressAt || currentTool !== 'inspect' || !hoverTile) return;
+  if (Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 6) return;
+  const w = state.world;
+  if (w.grid.inBounds(hoverTile.tx, hoverTile.ty) && w.layers.zone[w.grid.idx(hoverTile.tx, hoverTile.ty)] === ZONE_R) tutorial.ui.inspectedHome = true;
+});
 
 /** The areas to outline this frame: where the camera just jumped (three blinks), and the request under the pointer. */
 function areaHighlights(now: number): AreaHighlight[] {
@@ -390,6 +430,7 @@ function areaHighlights(now: number): AreaHighlight[] {
     const b = renderer.requestAt(pointer.x, pointer.y);
     if (b) out.push({ x0: b.request.x0, y0: b.request.y0, x1: b.request.x1, y1: b.request.y1, alpha: 1, tiles: clusterTiles(b.request, state.world.grid.width) ?? undefined });
   }
+  out.push(...tutorial.highlights(now));
   return out;
 }
 
@@ -425,6 +466,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'new':    newGameDialog.show(); break;
       case 'save':   saveLoadPanel.showSave(); break;
       case 'load':   saveLoadPanel.showLoad(); break;
+      case 'tutorial': void startTutorial(); break;
       case 'undo':   sfx.undo(state.history.canUndo); state.history.undo(); break;
       case 'redo':   sfx.redo(state.history.canRedo); state.history.redo(); break;
       case 'budget':     togglePanel('budget'); break;
@@ -655,6 +697,11 @@ function frame(now: number): void {
   state.transit.refreshIfRoadsChanged(state.world);
   if (titleUp || tourPreview) tour.update(now);
   if (titleUp && showcase) keepShowcase();
+  if (tutorial.active && !titleUp) {
+    if (econPanel.isOpen) tutorial.ui.budgetOpened = true;
+    if (overlay !== 'none') tutorial.ui.overlayOn = true;
+    tutorial.update(camera, now);
+  }
   if (!titleUp && !autosaveHeld) autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
@@ -901,7 +948,7 @@ async function boot(): Promise<void> {
     setSpeed(0);
   }
   tour.start(performance.now());
-  titleScreen.ready(saved !== null);
+  titleScreen.ready(saved !== null, saved === null && !tutorialDone());
 }
 void boot().finally(() => requestAnimationFrame(frame));
 

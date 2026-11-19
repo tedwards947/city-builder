@@ -53,6 +53,8 @@ const ICONS = {
   newCity: p('M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6'),
   save: p('M5 3h11l3 3v15H5zM8 3v6h7V3M8 21v-7h8v7'),
   load: p('M3 6h6l2 3h10v11H3z'),
+  // A question mark in a circle.
+  tutorial: '<circle cx="12" cy="12" r="9"/>' + p('M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.6v.7M12 17v.1'),
 } as const;
 
 export type IconName = keyof typeof ICONS;
