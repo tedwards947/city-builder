@@ -121,8 +121,9 @@ const AIR_GAME = {
   'vehicles-side-4': ['catering', 0.6 * 128 / 292], 'vehicles-side-5': ['stairs', 0.6 * 128 / 280], 'vehicles-side-6': ['fire', 0.7 * 128 / 331],
 };
 // The rail props (art/clay-set/rail.html, the owner's picks): the Victorian stations, scaled so the base spans its footprint's width.
+// The straight ones and the subway entrance come from the template sheet (raw-rail/tpl-stations.png → victorian-straight.png).
 const RAIL_GAME = {
-  'victorian-1': ['station-h', 4 * 128 / 548], 'victorian-2': ['station-v', 3 * 128 / 520],
+  'victorian-straight-1': ['station-h', 4 * 128 / 444], 'victorian-straight-2': ['station-v', 3 * 128 / 387], 'victorian-straight-3': ['subway-entrance', 128 / 223],
   'l-stations-1': ['station-l-up', 3 * 128 / 305], 'l-stations-4': ['station-l-down', 3 * 128 / 304],
 };
 const RAIL = set === 'rail', AIR = set === 'airport' || RAIL;   // both write the same sprite data shape

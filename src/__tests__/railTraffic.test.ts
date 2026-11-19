@@ -2,6 +2,7 @@
 // portals, a trip rides when that is faster, freight never rides, track has a
 // capacity, junctions and level crossings cost time, and riders pay a fare.
 
+import { routeFrom, routeTile } from '../render/TrafficOverlay';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
@@ -14,6 +15,7 @@ import { landWorld } from './pcTestWorld';
 const T = BALANCE.transit as unknown as { flowInterval: number; buildings: Record<number, unknown> };
 const RL = BALANCE.rail as unknown as {
   speedMult: number; capacity: number; boardTime: number; fare: number; congestionDelay: number;
+  jam: { from: number; delay: number; power: number };
   junction3: { delay: number; capacityMult: number }; junction4: { delay: number; capacityMult: number }; crossing: { delay: number };
 };
 const shipped = structuredClone({ ...RL, track: undefined });
@@ -145,6 +147,25 @@ describe('freight never rides', () => {
   });
 });
 
+describe('the route of a trip that rides', () => {
+  it('holds track nodes; routeTile puts every one on the map, each next to the one before', () => {
+    suburbAndTown();
+    const t = traffic();
+    const path = routeFrom(t.jobs.field, HOME_ROAD());
+    expect(path.some(v => v >= t.tiles)).toBe(true);
+    const tiles = path.map(v => routeTile(t.jobs.field, v));
+    expect(tiles.filter(i => i === idx(30, 12)).length).toBe(1);          // along the line
+    for (let k = 0; k < tiles.length; k++) {
+      expect(tiles[k]).toBeGreaterThanOrEqual(0);
+      expect(tiles[k]).toBeLessThan(t.tiles);
+      if (k === 0) continue;
+      const step = Math.abs(tiles[k] % 64 - tiles[k - 1] % 64) + Math.abs(Math.floor(tiles[k] / 64) - Math.floor(tiles[k - 1] / 64));
+      // One tile at a time, but for getting on or off: from the road to the middle of the platform.
+      expect(step).toBeLessThanOrEqual(path[k] >= t.tiles === path[k - 1] >= t.tiles ? 1 : 5);
+    }
+  });
+});
+
 describe('track capacity and junctions', () => {
   it('a junction carries less than plain track, a 4-way much less', () => {
     suburbAndTown();
@@ -176,6 +197,50 @@ describe('track capacity and junctions', () => {
     const t = traffic();
     expect(railLoad(t, idx(30, 12))).toBeGreaterThan(1);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(free + 1);
+  });
+
+  it('past jam.from a line jams: every tile takes jam.delay × (load − from) street tiles longer', () => {
+    suburbAndTown();
+    RL.capacity = 2; RL.jam.delay = 0;
+    const t0 = traffic();
+    const mild = t0.jobs.field.dist[HOME_ROAD()];
+    const load = railLoad(t0, idx(30, 12));
+    expect(load).toBeGreaterThan(1.5);                                    // the riders have no other way
+    RL.jam = { from: 1, delay: 0.5, power: 1 };
+    const t = traffic();
+    expect(railLoad(t, idx(30, 12))).toBeCloseTo(load, 2);                // … so they still ride
+    // 42 tiles of plain track and 8 of platform (lighter loaded, as riders board in the middle).
+    expect(t.jobs.field.dist[HOME_ROAD()] - mild).toBeGreaterThan(42 * 0.5 * (load - 1));
+    expect(t.jobs.field.dist[HOME_ROAD()] - mild).toBeLessThanOrEqual(50 * 0.5 * (load - 1) + 0.01);
+    RL.jam = { from: 1, delay: 0.5, power: 2 };
+    const squared = traffic().jobs.field.dist[HOME_ROAD()] - mild;
+    expect(squared).toBeGreaterThan(42 * 0.5 * (load - 1) ** 2);
+    expect(squared).toBeLessThanOrEqual(50 * 0.5 * (load - 1) ** 2 + 0.01);
+  });
+
+  it('a jammed line sends riders to a second, slower line; with no jam they all crowd the fast one', () => {
+    suburbAndTown();
+    // A second pair of stations further down a side street at each end, and a second line along y = 16.
+    for (let y = 11; y <= 17; y++) { expect(w.setRoad(2, y, ROAD_STREET)).toBe(true); expect(w.setRoad(60, y, ROAD_STREET)).toBe(true); }
+    expect(w.placeBuilding(3, 15, BUILDING_STATION)).toBe(true);
+    expect(w.placeBuilding(56, 15, BUILDING_STATION)).toBe(true);
+    track(16, 7, 55);
+    RL.capacity = 2; RL.jam.delay = 0;
+    const none = traffic();
+    const crowded = railLoad(none, idx(30, 12)), quiet = railLoad(none, idx(30, 16));
+    expect(crowded).toBeGreaterThan(1.5);
+    expect(quiet).toBeLessThan(0.2);
+    RL.jam = { from: 1, delay: 4, power: 1 };
+    const t = traffic();
+    const first = railLoad(t, idx(30, 12)), second = railLoad(t, idx(30, 16));
+    expect(first).toBeLessThan(crowded * 0.65);
+    expect(second).toBeGreaterThan(crowded * 0.35);
+    expect(first).toBeGreaterThan(second);                                // the first line is still the shorter way
+    expect(first + second).toBeCloseTo(crowded + quiet, 1);              // nobody gave up
+    // … and the split holds from pass to pass.
+    const again = traffic();
+    expect(railLoad(again, idx(30, 12))).toBeCloseTo(first, 1);
+    expect(railLoad(again, idx(30, 16))).toBeCloseTo(second, 1);
   });
 });
 

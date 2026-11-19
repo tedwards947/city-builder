@@ -90,7 +90,21 @@ export function markUpstream(field: TrafficField, target: number, out: Uint8Arra
   }
 }
 
-/** Road tiles from `start` to the destination on `field`, in driving order. */
+/**
+ * The map tile a route node is on. A field has two nodes per tile: the road
+ * (the tile's own index) and the track (tile index + tile count), so a route
+ * that rides a train holds numbers past the end of the map. Use this before
+ * turning a node of `routeFrom` into x and y.
+ */
+export function routeTile(field: TrafficField, node: number): number {
+  const tiles = field.dist.length >> 1;
+  return node >= tiles ? node - tiles : node;
+}
+
+/**
+ * The NODES from `start` to the destination on `field`, in travel order: road
+ * tiles, and track nodes where the trip rides a train (see `routeTile`).
+ */
 export function routeFrom(field: TrafficField, start: number): number[] {
   const path: number[] = [];
   if (start < 0 || !(field.dist[start] < Infinity)) return path;
@@ -169,13 +183,13 @@ export class TrafficOverlay {
       markets.forEach((m, k) => {
         if (m.volume[hover] <= 0) return;
         targets[k].push(hover);
-        this._drawRoute(ctx, camera, width, routeFrom(m.field, hover), MARKET_COLOR[m.def.key], ts);
+        this._drawRoute(ctx, camera, width, routeFrom(m.field, hover).map(v => routeTile(m.field, v)), MARKET_COLOR[m.def.key], ts);
       });
     } else if (zone !== ZONE_NONE && isOrigin(hover)) {
       markets.forEach((m, k) => {
         // A building that sends trips: the route they take…
         if (m.def.origin === zone) {
-          this._drawRoute(ctx, camera, width, routeFrom(m.field, bestAccessRoad(world, hover, m.field)), MARKET_COLOR[m.def.key], ts);
+          this._drawRoute(ctx, camera, width, routeFrom(m.field, bestAccessRoad(world, hover, m.field)).map(v => routeTile(m.field, v)), MARKET_COLOR[m.def.key], ts);
         }
         // …and one that receives them: who drives to the road tiles at its door.
         if (m.def.dest === zone) {
@@ -194,7 +208,9 @@ export class TrafficOverlay {
     if (key !== this._upKey) {
       this._upKey = key;
       markets.forEach((m, k) => {
-        if (!this._up[k] || this._up[k].length !== n) this._up[k] = new Uint8Array(n);
+        // One entry per node (road and track), so a catchment carries on through a train ride.
+        const nodes = m.field.dist.length;
+        if (!this._up[k] || this._up[k].length !== nodes) this._up[k] = new Uint8Array(nodes);
         this._markAll(m.field, targets[k], this._up[k]);
       });
     }
@@ -237,7 +253,7 @@ export class TrafficOverlay {
     }
   }
 
-  /** A line through the route's tile centres, with arrowheads in driving direction. */
+  /** A line through the route's tile centres (`path` holds map tiles, not nodes), with arrowheads in driving direction. */
   private _drawRoute(ctx: Ctx, camera: Camera, width: number, path: number[], color: string, ts: number): void {
     if (path.length === 0) return;
     const cx = (i: number) => camera.worldToScreenX(Projection.tileToWorldX(i % width)) + ts / 2;
