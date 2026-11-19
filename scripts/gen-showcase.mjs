@@ -1,3 +1,7 @@
+// NOTE: the file that ships on the title screen is now the owner's hand-built
+// city (public/showcase/showcase.citysave.json, with focus markers). Running
+// this script overwrites it with a generated city: use --out to write elsewhere.
+//
 // npm run gen-showcase [-- --seed 3 --target 19000 --out public/showcase/showcase.citysave.json]
 //
 // Builds the title screen's showcase city (src/gen/showcase.ts) and writes it
