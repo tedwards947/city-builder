@@ -112,6 +112,23 @@
     .tb-sep { grid-column: 1 / -1; height: 1px; background: rgba(255,255,255,0.12); margin: 2px 0; }
     .tb-fly { position: absolute; right: calc(100% + 6px); top: 0; z-index: 55; background: rgba(10,18,28,0.96); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px; white-space: nowrap; display: flex; flex-direction: column; gap: 2px; }
     .tb-fly-sep { height: 1px; background: rgba(255,255,255,0.12); margin: 3px 4px; flex: none; }
+    /* Tutorial (src/ui/TutorialCard.ts): the card, and the soft pulse on what the step points at. */
+    .tut-card { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; width: min(520px, calc(100vw - 32px)); box-sizing: border-box; background: rgba(10,18,28,0.94); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 12px 14px 12px; color: #dfe7ee; box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+    .tut-card[hidden] { display: none; }
+    .tut-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+    .tut-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #8aa; font-weight: 600; }
+    .tut-count { font-size: 11px; color: #8aa; font-variant-numeric: tabular-nums; }
+    .tut-text { font-size: 15px; line-height: 1.4; color: #fff; text-wrap: pretty; }
+    .tut-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+    .tut-btn { font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); color: #cfdbe6; cursor: pointer; }
+    .tut-btn:hover { background: rgba(255,255,255,0.14); }
+    .tut-btn.primary { background: #2f9c86; border-color: #2f9c86; color: #fff; }
+    .tut-btn.primary:hover { background: #38b099; }
+    @media (max-width: 600px) { .tut-card { left: 0; right: 0; bottom: 0; transform: none; width: auto; border-radius: 10px 10px 0 0; border-width: 1px 0 0; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); } }
+    @keyframes tut-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(159,243,220,0); } 50% { box-shadow: 0 0 0 3px rgba(159,243,220,0.8), 0 0 14px rgba(159,243,220,0.45); } }
+    .tb-pulse, .tut-pulse { animation: tut-pulse 1.6s ease-in-out infinite; }
+    #demand-chart-wrap.tut-pulse { border-radius: 4px; }
+    @media (prefers-reduced-motion: reduce) { .tb-pulse, .tut-pulse { animation: none; box-shadow: 0 0 0 2px rgba(159,243,220,0.8); } }
     .tb-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #8aa; margin: 0 3px 4px; font-weight: 600; }
     .tb-row { display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 5px; border: 0; border-radius: 6px; background: none; color: #dfe7ee; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
     .tb-row:hover { background: rgba(255,255,255,0.1); }
@@ -460,6 +477,7 @@
       <button id="title-continue" class="title-btn primary" data-i18n="ui.title.continue" hidden>Continue</button>
       <button id="title-new" class="title-btn" data-i18n="ui.title.newCity">New city</button>
       <button id="title-load" class="title-btn" data-i18n="ui.title.load">Load</button>
+      <button id="title-tutorial" class="title-btn" data-i18n="ui.title.tutorial">Tutorial</button>
     </div>
   </div>
 </div>
