@@ -1,5 +1,5 @@
 // Tax exodus: while the tax level is above neutral, developed homes slowly
-// lose levels. Ships at 1e-4 (ENGINEER 3's lab tuning, owner-approved 2026-11-18).
+// lose levels. Ships at 7e-5 (ENGINEER 3, owner 2026-11-19; it was 1e-4 before homes levelled up slower).
 
 import { describe, it, expect, afterEach } from 'vitest';
 import type { World } from '../sim/World';
@@ -28,8 +28,8 @@ function run(w: World, passes: number): void {
 const levels = (w: World) => w.layers.devLevel.reduce((a, b) => a + b, 0);
 
 describe('tax exodus', () => {
-  it('ships at the lab-tuned 1e-4 and draws no random number at or below neutral', () => {
-    expect(shipped.exodusPerPoint).toBe(0.0001);
+  it('ships at the lab-tuned 7e-5 and draws no random number at or below neutral', () => {
+    expect(shipped.exodusPerPoint).toBe(0.00007);
     const low = town(5), neutral = town(10);
     run(low, 50); run(neutral, 50);
     expect(levels(low)).toBe(200);

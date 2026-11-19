@@ -133,7 +133,8 @@ export class ZoneGrowthSystem {
         accessMult = BALANCE.transit.accessFloor + (1 - BALANCE.transit.accessFloor) * a;
       }
       const ordinance = zone[i] === ZONE_I ? growthIndustry : growthAll;
-      if (world.rng() < BALANCE.growth.probability * demandMult * congestionMult * accessMult * shortagePenalty * ordinance) {
+      const baseP = zone[i] === ZONE_R ? (BALANCE.growth.homeProbabilityByLevel[dev[i]] ?? BALANCE.growth.probability) : BALANCE.growth.probability;
+      if (world.rng() < baseP * demandMult * congestionMult * accessMult * shortagePenalty * ordinance) {
         dev[i]++;
         if (dev[i] === 1) markDeveloped(world, i);   // built up from empty: its years start now
         world.grid.markDirty(x, y);
