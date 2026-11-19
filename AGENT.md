@@ -166,6 +166,16 @@ Not covered by tests: anything wired in `main.ts` (toolbar, shortcuts, overlays,
 
 ---
 
+## Save compatibility (owner, 2026-11-19)
+The game is live, and players keep cities in their browsers. A change must never silently break a save.
+- **Additions** (a new layer, list or field): old saves load with a sensible default. No version bump.
+- **Changes to the shape or meaning of saved data:** bump `SAVE_VERSION` (`src/persistence/SaveFormat.ts`) and add an upgrade step vN→vN+1, with a test.
+- **Convert in place where possible.** If something can't carry over, remove it, refund its full price (money and PC), and show the player a notice on load saying what changed.
+- **Fixtures:** keep one save from every version in `src/__tests__/fixtures`; a test loads them all on every PR.
+- **Backup:** before an upgraded save overwrites the player's autosave, keep the old one so a bad upgrade can be recovered.
+- **Newer saves** than the running build get a clear message, never a half-loaded city.
+- **PRs say so:** "Save format: vN → vN+1, upgrade tested". Upgrade or rebuild the showcase save (`public/showcase/`) with it.
+
 ## Lessons from Previous Sessions
 
 - Don't claim bugs are fixed without running the code. If you can't verify in a browser, say so.
