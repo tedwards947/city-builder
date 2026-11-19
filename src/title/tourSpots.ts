@@ -7,8 +7,9 @@ import type { World } from '../sim/World';
 import { BUILDING_AIRPORT, BUILDING_SEAPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION, ROAD_NONE, ZONE_NONE } from '../sim/constants';
 import { buildingShape } from '../sim/buildingShapes';
 import { roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { focusMarkers } from '../sim/markers';
 
-export type SpotKind = 'jam' | 'busyRoad' | 'airport' | 'seaport' | 'station' | 'towers' | 'overview';
+export type SpotKind = 'focus' | 'jam' | 'busyRoad' | 'airport' | 'seaport' | 'station' | 'towers' | 'overview';
 
 export interface TourSpot {
   kind: SpotKind;
@@ -23,7 +24,7 @@ export interface TourSpot {
 
 /** Zoom per kind of spot: close on a jam or a station, wider on the airport, widest for the whole town. */
 export const SPOT_ZOOM: Record<SpotKind, number> = {
-  jam: 2.6, busyRoad: 2.2, station: 2.4, seaport: 2, towers: 2, airport: 1.6, overview: 0.9,
+  focus: 2.2, jam: 2.6, busyRoad: 2.2, station: 2.4, seaport: 2, towers: 2, airport: 1.6, overview: 0.9,
 };
 
 // Roads and towers are judged per square of this many tiles, so that one long jam is one spot, not twenty.
@@ -36,8 +37,25 @@ const TOWER_LEVEL = 3;
 
 const rankScore = (rank: number): number => 1 / (1 + rank);
 
-/** Every spot worth a look in `world` right now, in no particular order. Never empty. */
+/** The city's focus markers (sim/markers.ts) as spots, in the order they were placed. */
+export function focusSpots(world: World): TourSpot[] {
+  return focusMarkers(world).map(m => ({ kind: 'focus' as const, tx: m.x, ty: m.y, zoom: m.zoom ?? SPOT_ZOOM.focus, score: 1 }));
+}
+
+/**
+ * The spots the tour visits. A city with focus markers is toured by those
+ * alone, in order (`nextTourSpot`); a single marker takes turns with the
+ * spots found from the city, since one place is no tour. With no markers,
+ * the spots found from the city. Never empty.
+ */
 export function findTourSpots(world: World): TourSpot[] {
+  const focus = focusSpots(world);
+  if (focus.length >= 2) return focus;
+  return [...focus, ...findCitySpots(world)];
+}
+
+/** Every spot worth a look in `world` right now, found from the live city, in no particular order. Never empty. */
+export function findCitySpots(world: World): TourSpot[] {
   const { width, height } = world.grid;
   const L = world.layers, d = world.traffic;
   const spots: TourSpot[] = [];
@@ -122,10 +140,28 @@ const near = (a: TourSpot, b: TourSpot): boolean => Math.abs(a.tx - b.tx) < SAME
  * offers the choice not one of the last few places nor the same KIND of spot
  * twice running. Among what is left the pick is random, weighted by score;
  * `random` returns 0–1. Null only when `spots` is empty.
+ *
+ * FOCUS spots (placed by hand) come first and in their own order: where there
+ * are any, the next one after the focus spot last shown is the pick, round
+ * and round. Only when the spot just shown was a focus spot and the list also
+ * holds other kinds (a city with a single marker) does one of those others
+ * get a turn.
  */
 export function nextTourSpot(spots: readonly TourSpot[], recent: readonly TourSpot[], random: () => number = Math.random): TourSpot | null {
   if (spots.length === 0) return null;
   const last = recent[recent.length - 1];
+  const focus = spots.filter(s => s.kind === 'focus');
+  if (focus.length > 0) {
+    const others = spots.filter(s => s.kind !== 'focus');
+    if (last?.kind !== 'focus' || others.length === 0) {
+      let shown = -1;
+      for (let k = recent.length - 1; k >= 0 && shown < 0; k--) {
+        if (recent[k].kind === 'focus') shown = focus.findIndex(s => s.tx === recent[k].tx && s.ty === recent[k].ty);
+      }
+      return focus[(shown + 1) % focus.length];
+    }
+    spots = others;
+  }
   const lately = recent.slice(-TOUR_MEMORY);
   let pool = spots.filter(s => !lately.some(r => near(s, r)) && (!last || s.kind !== last.kind));
   if (pool.length === 0) pool = spots.filter(s => !lately.some(r => near(s, r)));

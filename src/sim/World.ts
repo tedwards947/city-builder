@@ -2,6 +2,7 @@
 // Each named layer is a flat Uint8Array of length width*height.
 // Adding a new simulation concern = adding a new layer, not restructuring.
 
+import type { Marker } from './markers';
 import { Grid } from './Grid';
 import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
@@ -217,6 +218,8 @@ export class World {
    * nothing draws it.
    */
   developedSince: Uint16Array;
+  /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
+  markers: Marker[] = [];
   /**
    * Running total of what passive regeneration has added to (or drained
    * from) political capital. Undo compares it with its value when a command

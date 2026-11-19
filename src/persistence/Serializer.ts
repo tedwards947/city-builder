@@ -4,6 +4,7 @@
 import { World } from '../sim/World';
 import { upgradeLoadedRequests } from '../sim/requests';
 import { startCountingFromNow } from '../sim/established';
+import { cleanMarkers } from '../sim/markers';
 import type { WorldSnapshot } from './SaveFormat';
 
 /**
@@ -34,6 +35,7 @@ export function serialize(world: World): WorldSnapshot {
       requests: world.politics.requests.map(r => ({ ...r, ...(r.homes ? { homes: [...r.homes] } : {}), ...(r.samples ? { samples: [...r.samples] } : {}) })),
     },
     buildings: world.buildings.map(b => ({ ...b })),
+    ...(world.markers.length > 0 ? { markers: world.markers.map(m => ({ ...m })) } : {}),
     layers: {
       terrain:   new Uint8Array(l.terrain),
       zone:      new Uint8Array(l.zone),
@@ -94,6 +96,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.politics.requestNotBefore = { ...(snapshot.politics.requestNotBefore ?? {}) };
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
+  world.markers = cleanMarkers(snapshot.markers, snapshot.width, snapshot.height);
 
   // Overwrite every layer in-place so array references inside world stay valid.
   const l = world.layers;

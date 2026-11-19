@@ -66,6 +66,8 @@ import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
 import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
+import { MarkerPanel, markerZoomOf } from './ui/MarkerPanel';
+import { drawMarkerPins } from './render/markerPins';
 import { TitleScreen } from './ui/TitleScreen';
 import { CameraTour } from './title/CameraTour';
 import { findTourSpots } from './title/tourSpots';
@@ -209,6 +211,8 @@ if (titleUp) {
   titleScreen.show();           // at once: the city loads behind it
   markTitleSeen(titleStore, new Date());
 }
+/** ?debug=true only: the tour is running over the city in play, as a preview (ui/MarkerPanel.ts). */
+let tourPreview = false;
 function closeTitle(): void {
   titleUp = false;
   tour.stop();
@@ -219,6 +223,7 @@ function closeTitle(): void {
 /** Start playing `world`. `behindTitle`: it is only the backdrop of the title screen, which stays up. */
 function startGame(world: World, behindTitle = false): void {
   if (titleUp && !behindTitle) closeTitle();
+  if (tourPreview) { tourPreview = false; tour.stop(); }
   state.world     = world;
   state.history   = new CommandHistory(world);
   // Systems carry per-game state, so every new or loaded world gets a fresh set.
@@ -298,6 +303,26 @@ const input = new InputController(
   () => roadMode,
   () => zoneMode,
 );
+// Focus markers (sim/markers.ts), ?debug=true only: the Focus tool and the bulldozer edit them,
+// a panel lists them, and the tour can be previewed. A press or a scroll on the map stops the preview.
+const markerPanel = DEBUG ? new MarkerPanel({
+  getWorld: () => state.world,
+  getHistory: () => state.history,
+  camera,
+  placing: () => currentTool === 'focus',
+  setPlacing: (on) => setTool(on ? 'focus' : 'none'),
+  touring: () => tourPreview,
+  setTouring: (on) => {
+    tourPreview = on;
+    if (on) tour.start(performance.now()); else tour.stop();
+  },
+}) : null;
+if (DEBUG) {
+  input.markerZoom = () => markerZoomOf(camera);
+  const stopPreview = (): void => { if (tourPreview) { tourPreview = false; tour.stop(); } };
+  canvas.addEventListener('pointerdown', stopPreview, true);
+  canvas.addEventListener('wheel', stopPreview, { capture: true, passive: true });
+}
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
 
@@ -597,8 +622,8 @@ function frame(now: number): void {
   state.scheduler.update(now);
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
-  if (titleUp) tour.update(now);
-  else autosave.tick(now, state.scheduler.speed === 0);
+  if (titleUp || tourPreview) tour.update(now);
+  if (!titleUp) autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
     ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
@@ -705,6 +730,8 @@ function frame(now: number): void {
     underground,
   });
   if (overlay === 'traffic') trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
+  if (DEBUG) drawMarkerPins(renderer.ctx, state.world, camera);
+  markerPanel?.update();
   trafficTuning?.update();
   politicsTuning?.update();
   economyTuning?.update();

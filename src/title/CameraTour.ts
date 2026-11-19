@@ -52,6 +52,11 @@ export function flightPose(a: Pose, b: Pose, t: number, viewport: number): Pose 
   return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, zoom: straight * (1 - (1 - back) * bump) };
 }
 
+/** A small window shows less, so the tour pulls back there: what a spot's zoom is multiplied by. `viewport` is the view's smaller side in pixels. */
+export function viewScale(viewport: number): number {
+  return Math.max(0.55, Math.min(1.25, viewport / 800));
+}
+
 export class CameraTour {
   private readonly camera: Camera;
   private readonly findSpots: () => TourSpot[];
@@ -122,9 +127,7 @@ export class CameraTour {
     this.recent.push(spot);
     if (this.recent.length > 8) this.recent.shift();
     const at = Projection.tileToWorld(spot.tx + 0.5, spot.ty + 0.5);
-    // A small window shows less: pull back so a spot still fits.
-    const scale = Math.max(0.55, Math.min(1.25, this.viewport() / 800));
-    const zoom = Math.max(this.camera.minZoom, Math.min(this.camera.maxZoom, spot.zoom * scale));
+    const zoom = Math.max(this.camera.minZoom, Math.min(this.camera.maxZoom, spot.zoom * viewScale(this.viewport())));
     return { x: at.x, y: at.y, zoom };
   }
 

@@ -75,6 +75,8 @@ export interface WorldSnapshot {
     requestNotBefore?: Record<string, number>;
   };
   buildings: { tx: number; ty: number; kind: number; rot?: number }[];
+  /** Added without a version bump: written only when the city has markers (sim/markers.ts). */
+  markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
   layers: {
