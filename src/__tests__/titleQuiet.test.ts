@@ -80,7 +80,7 @@ describe('smooth zoom: the tile size a gliding camera is drawn at', () => {
     expect(changes).toBeLessThanOrEqual(SMOOTH_TILES.length);
   });
 
-  it('holds its size while the zoom hovers around one value (the slow push while the tour rests)', () => {
+  it('holds its size while the zoom hovers around one value (a rest, or a flight between two like zooms)', () => {
     const tile = pickTile(47.5, 0);
     expect(tile).toBe(48);
     // A 5 % push in, across 48, and back.
