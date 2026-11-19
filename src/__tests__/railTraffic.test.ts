@@ -6,7 +6,7 @@ import { routeFrom, routeTile } from '../render/TrafficOverlay';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
-import { railVolume, railLoad, trafficVolume } from '../sim/TrafficData';
+import { railVolume, railLoad, trafficVolume, roadCapacity, shownRoadLoad } from '../sim/TrafficData';
 import { railFareIncome, stationBusiestTile } from '../sim/rail';
 import { BUILDING_STATION, ROAD_STREET, ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 import { BALANCE } from '../data/balance';
@@ -16,7 +16,7 @@ const T = BALANCE.transit as unknown as { flowInterval: number; buildings: Recor
 const RL = BALANCE.rail as unknown as {
   speedMult: number; capacity: number; boardTime: number; fare: number; congestionDelay: number;
   jam: { from: number; delay: number; power: number };
-  junction3: { delay: number; capacityMult: number }; junction4: { delay: number; capacityMult: number }; crossing: { delay: number };
+  junction3: { delay: number; capacityMult: number }; junction4: { delay: number; capacityMult: number }; crossing: { carDelay: number; trainDelay: number; overlayCut: number };
 };
 const shipped = structuredClone({ ...RL, track: undefined });
 const shippedRows = T.buildings;
@@ -294,7 +294,7 @@ describe('level crossings', () => {
     const t = traffic();
     expect(trafficVolume(t, idx(30, 12))).toBeGreaterThan(0);
     expect(t.jobs.field.dist[HOME_ROAD()]).toBeGreaterThan(quiet + 0.2);
-    expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThanOrEqual(quiet + RL.crossing.delay + 1e-3);
+    expect(t.jobs.field.dist[HOME_ROAD()]).toBeLessThanOrEqual(quiet + RL.crossing.trainDelay + 1e-3);
   });
 
   it('trains at the crossing slow the cars', () => {
@@ -308,5 +308,50 @@ describe('level crossings', () => {
     for (let x = 4; x <= 9; x++) w.layers.devLevel[idx(x, 9)] = 0;        // the suburb empties: no riders
     const without = traffic().shopping.field.dist[idx(30, 6)];
     expect(withTrains).toBeGreaterThan(without + 0.5);
+  });
+
+  // The cars wait carDelay × rail load × road load (each up to 1): a quiet street barely
+  // notices a full line, a busy one waits the whole carDelay.
+  function carWait(homesPerSide: number): { wait: number; road: number; rail: number } {
+    suburbAndTown(false);
+    station(4); station(50);
+    localStreet();
+    track(12, 8, 49);
+    for (let y = 4; y < 4 + homesPerSide; y++) { zone(29, y, ZONE_R, 3); zone(31, y, ZONE_R, 3); }
+    for (let y = 19; y <= 22; y++) { zone(29, y, ZONE_C, 3); zone(31, y, ZONE_C, 3); }
+    RL.capacity = 4;                                                      // the commuters fill the line
+    const t = traffic();
+    const withTrains = t.shopping.field.dist[idx(30, 4)];
+    const road = trafficVolume(t, idx(30, 12)) / roadCapacity(ROAD_STREET), rail = railLoad(t, idx(30, 12));
+    for (let x = 4; x <= 9; x++) w.layers.devLevel[idx(x, 9)] = 0;        // the suburb empties: no riders
+    const without = traffic().shopping.field.dist[idx(30, 4)];
+    return { wait: withTrains - without, road, rail };
+  }
+
+  it('cars wait carDelay × rail load × road load', () => {
+    const quiet = carWait(1);
+    expect(quiet.rail).toBeGreaterThanOrEqual(1);
+    expect(quiet.road).toBeLessThan(1);
+    expect(quiet.wait).toBeCloseTo(RL.crossing.carDelay * quiet.road, 1);
+    w = landWorld(64); transit = new TransitSystem(); pass = 0;
+    const busy = carWait(4);
+    expect(busy.road).toBeGreaterThan(quiet.road);
+    expect(busy.wait).toBeGreaterThan(quiet.wait);
+    expect(busy.wait).toBeCloseTo(RL.crossing.carDelay * Math.min(1, busy.road), 1);
+  });
+
+  it('the overlay shows a crossing\'s road with its capacity cut by overlayCut × rail load (looks only)', () => {
+    suburbAndTown(false);
+    station(4); station(50);
+    localStreet();
+    track(12, 8, 49);
+    localTraffic();
+    RL.capacity = 4;
+    const t = traffic();
+    const i = idx(30, 12), vol = trafficVolume(t, i), cap = roadCapacity(ROAD_STREET);
+    expect(railLoad(t, i)).toBeGreaterThanOrEqual(1);
+    expect(shownRoadLoad(t, i, ROAD_STREET, true)).toBeCloseTo(vol / (cap * (1 - RL.crossing.overlayCut)), 5);
+    expect(shownRoadLoad(t, i, ROAD_STREET, false)).toBeCloseTo(vol / cap, 5);
+    expect(w.layers.congestion[i]).toBe(Math.min(255, Math.round(vol / cap * 255)));   // the sim's layer is untouched
   });
 });

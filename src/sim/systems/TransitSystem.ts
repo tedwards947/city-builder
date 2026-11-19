@@ -367,7 +367,7 @@ export class TransitSystem {
       this._classCost[k] = 1 / rc.speedMult;
     }
     const RL = BALANCE.rail;
-    tuning += `,${RL.speedMult},${RL.capacity},${RL.congestionDelay},${RL.jam.from},${RL.jam.delay},${RL.jam.power},${RL.rampTime},${RL.boardTime},${RL.junction3.delay},${RL.junction3.capacityMult},${RL.junction4.delay},${RL.junction4.capacityMult},${RL.crossing.delay}`;
+    tuning += `,${RL.speedMult},${RL.capacity},${RL.congestionDelay},${RL.jam.from},${RL.jam.delay},${RL.jam.power},${RL.rampTime},${RL.boardTime},${RL.junction3.delay},${RL.junction3.capacityMult},${RL.junction4.delay},${RL.junction4.capacityMult},${RL.crossing.carDelay},${RL.crossing.trainDelay}`;
     const changed = force || world.traffic !== data || h !== this._lastInputHash || tuning !== this._lastTuning;
     if (!changed && data.settled) return;
     if (changed) {
@@ -656,8 +656,10 @@ export class TransitSystem {
    * Travel cost per track tile: 1 / rail speed, more when loaded past free
    * flow, much more when jammed (past BALANCE.rail.jam.from of capacity),
    * plus the delay of a junction (which also carries less). At a level
-   * crossing the cars wait longer the fuller the track is and the trains the
-   * fuller the road is, up to BALANCE.rail.crossing.delay each.
+   * crossing (BALANCE.rail.crossing) the cars wait carDelay × rail load ×
+   * road load (each counted up to 1): the gates are down in proportion to the
+   * trains, and only a busy road queues behind them. The trains wait
+   * trainDelay × road load.
    */
   private _updateRailCosts(world: World): void {
     const n = this._n;
@@ -670,15 +672,16 @@ export class TransitSystem {
     this._boardTime = RL.boardTime > 0 ? RL.boardTime : 0;
 
     const crossings = this._crossings, saved = this._crossSaved;
-    const wait = RL.crossing.delay > 0 ? RL.crossing.delay : 0;
+    const carWait = RL.crossing.carDelay > 0 ? RL.crossing.carDelay : 0;
+    const trainWait = RL.crossing.trainDelay > 0 ? RL.crossing.trainDelay : 0;
     let easing = false;
     for (let q = 0; q < crossings.length; q++) {
       const i = crossings[q], rc = roadClass[i];
       const roadRatio = trafficVolume(data, i) / roadCapacity(rc);
       const railRatio = cap[i] > 0 ? trafficVolume(data, n + i) / cap[i] : 0;
-      extra[i] = wait * Math.min(1, roadRatio);
+      extra[i] = trainWait * Math.min(1, roadRatio);
       const over = Math.min(roadRatio, CONGESTION_CAP) - T.freeFlow;
-      const target = this._classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1) + wait * Math.min(1, railRatio);
+      const target = this._classCost[rc] * (over > 0 ? 1 + T.congestionDelay * over : 1) + carWait * Math.min(1, railRatio) * Math.min(1, roadRatio);
       const was = saved[q];
       cost[i] = was === 0 || first ? target : was + (target - was) * COST_EASE;
       if (Math.abs(target - cost[i]) > RAIL_COST_SETTLED) easing = true;

@@ -14,7 +14,7 @@ import { BALANCE } from '../data/balance';
 import { landWorld } from './pcTestWorld';
 
 const T = BALANCE.transit as unknown as { flowInterval: number; buildings: Record<number, unknown> };
-const RL = BALANCE.rail as unknown as { speedMult: number; capacity: number; boardTime: number; fare: number; rampTime: number; junction3: { capacityMult: number }; crossing: { delay: number } };
+const RL = BALANCE.rail as unknown as { speedMult: number; capacity: number; boardTime: number; fare: number; rampTime: number; junction3: { capacityMult: number }; crossing: { carDelay: number; trainDelay: number } };
 const shipped = structuredClone({ ...RL, track: undefined });
 const shippedRows = T.buildings;
 

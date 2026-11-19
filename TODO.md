@@ -120,9 +120,10 @@ Approved by the owner (2026-11-19, proposals in #305):
 
 - Station prices after the resize (owner-approved 2026-11-19): 27,500 / 20 (were 30,000 / 25); rail.early 2.03, rail.pays 1.06–1.18. rail.stationGrowth probe reworked (every home the bonus reaches round both stations, gated homes left out, mean over 100 seeds): testcity1 15%, gen-suburban 18%, gen-s1 9%, which fails (band 15–30%). Rail suite 29/30.
 - Station growth ×1.4 (owner OK'd raising it, 2026-11-19): ×1.25 gave only ~15% sooner. rail.stationGrowth testcity1 24%, gen-s1 17%, gen-suburban 26%; rail suite 30/30. Swept 1.35 (gen-s1 14%, fails), 1.45 (passes, but rail.suburb access on gen-s1 fell to 29.8%) and 1.5 (29 / 23 / 29%).
+- Level crossings (owner-approved 2026-11-19): `crossing.delay` split into carDelay 8 / trainDelay 2; car wait = carDelay × rail load × road load; overlay shows a crossing at (1 − ½ × rail load) capacity (looks only). Target rail.crossing: busy +12%, quiet +0.9%.
 
 Next:
-1. Nothing queued. Watch: rail.suburb access on gen-s1 is right at its 30% floor (72 / 239) since the station resize.
+1. For the owner: rail.suburb access on gen-s1 has sat at its 30% floor since the station resize (72 / 239) and the crossing change tipped it to 29.8% (71 / 238), so it fails. Lower the floor (say 25%) or accept it.
 
 ## DESIGN
 

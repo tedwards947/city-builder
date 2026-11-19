@@ -461,6 +461,10 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => {
       if (c.cityKind === 'fresh') { const f = c.railFresh; if (!f) return NA('not run'); return { ...range(f.starterCost / Math.max(1, f.bank360), 0, 0.4), note: `${f.starterCost} vs ${f.bank360}` }; }
       const o = railOf(c); if (!('r' in o)) return o; return o.r.lineCostDays === null ? NA('the city runs at a loss') : range(o.r.lineCostDays, 7, 30); } },
+  { id: 'rail.crossing', metric: 'On a bare map: how much longer a level crossing makes the trips through it. A full line across a busy avenue (road load ≥ 1); a quarter-full line across a quiet street (road load ≤ 0.5)', target: 'busy ≥ 10%; quiet ≤ 1%', persona: 'probe', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-19): a level crossing should hurt the road in proportion to the trains. A full line across a busy avenue jams it, so an elevated hop pays off; a quiet line across a quiet street barely matters. Jams stay fun to resolve: bridge, subway, a second line, or move the road.',
+    evaluate: c => { if (c.cityKind !== 'fresh') return NA('fresh map only'); const x = c.railFresh?.crossing; if (!x) return NA('not run');
+      return all({ busy: range(x.busy, 0.1), busyRoad: range(x.busyRoad, 1), quiet: range(x.quiet, 0, 0.01), quietRoad: range(x.quietRoad, 0, 0.5) }); } },
   { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ the upkeep of a starter line (two stations and 60 tiles of track)', target: '0.8–2.0', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line. Owner (2026-11-18): graded on a fixed 60-tile line, as the probe\'s own line length depends on the map. Owner (2026-11-18): band 0.8–2.0; a rich suburb more than paying for its line is fine.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 2.0); } },
