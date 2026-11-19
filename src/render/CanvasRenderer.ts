@@ -9,7 +9,7 @@
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
 import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
-import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, DECK_HEIGHT } from './clay/rail';
+import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade, DECK_HEIGHT } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
@@ -239,6 +239,7 @@ export class CanvasRenderer {
     {
       const ox = camera.worldToScreenX(Projection.tileToWorldX(0)), oy = camera.worldToScreenY(Projection.tileToWorldY(0)), b = bounds;
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1);
+      this._drawSubwayRampShades(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED, DECK_HEIGHT * ts);
       if (underground) {
@@ -285,6 +286,17 @@ export class CanvasRenderer {
    * and its tint, the overlay tint and traffic cars; then, above all of those,
    * smoke and fire. Also queues the lots that `_drawBadges` will look at.
    */
+  /** Over the ground trains: each subway ramp's dark wash and kerb in view (clay/rail.ts drawSubwayRampShade). */
+  private _drawSubwayRampShades(ctx: CanvasRenderingContext2D, world: World, ox: number, oy: number, ts: number, x0: number, y0: number, x1: number, y1: number): void {
+    const { width, height } = world.grid, B = world.layers.building, T = Math.ceil(ts);
+    for (let ty = Math.max(0, y0 - 1); ty <= Math.min(height - 1, y1 + 1); ty++) for (let tx = Math.max(0, x0 - 1); tx <= Math.min(width - 1, x1 + 1); tx++) {
+      const i = ty * width + tx;
+      if (B[i] !== BUILDING_RAMP_SUBWAY || world.buildingAnchorAt(i) !== i) continue;
+      const r = world.buildingRotAt(i) & 3, lx = r === 2 ? tx - 1 : tx, ly = r === 3 ? ty - 1 : ty;
+      drawSubwayRampShade(ctx, r, ox + lx * ts, oy + ly * ts, T);
+    }
+  }
+
   private _drawLots(ctx: CanvasRenderingContext2D, world: World, camera: Camera, bounds: TileBounds, ts: number, overlay: MapOverlay, now: number): void {
     const p = resolvePalette(world.character, BALANCE.character.axisMax);
     const tsi = Math.ceil(ts) + 1;
