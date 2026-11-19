@@ -93,13 +93,13 @@ const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
 interface Pt { x: number; y: number }
 
 /** The tiles just beyond a straight station's platform ends (rotation 0), west then east, as tile indices. */
-function stationEnds(w: World, p: Pt): { west: number; east: number } {
+export function stationEnds(w: World, p: Pt): { west: number; east: number } {
   const e = platformEnds(BUILDING_STATION, 0).slice().sort((a, b) => a[0] - b[0]);
   return { west: w.grid.idx(p.x + e[0][0], p.y + e[0][1]), east: w.grid.idx(p.x + e[e.length - 1][0], p.y + e[e.length - 1][1]) };
 }
 
 /** Straight stations (rotation 0) on free land with a street along the north side, nearest the jobs first. */
-function cityStations(w: World): Pt[] {
+export function cityStations(w: World): Pt[] {
   const { width, height } = w.grid;
   let sx = 0, sy = 0, n = 0;
   for (let k = 0; k < w.layers.zone.length; k++) {

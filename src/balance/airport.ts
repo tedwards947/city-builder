@@ -87,6 +87,14 @@ function lay(w: World, s: Site): void {
   for (const i of [...s.front, ...s.path]) if (!isStreet(w, i)) w.setRoad(i % w.grid.width, Math.floor(i / w.grid.width), ROAD_STREET);
 }
 
+/** Build the airport at the site nearest the middle of the homes, with its streets; false if there is none (src/gen/showcase.ts). */
+export function placeAirport(w: World): boolean {
+  const s = bestSite(w);
+  if (!s) return false;
+  lay(w, s);
+  return w.placeBuilding(s.x, s.y, BUILDING_AIRPORT, 0);
+}
+
 /** The airport probe on a copy of `world`, under the BALANCE numbers in force. */
 export function airportResult(world: World, days = 60): AirportResult {
   const reward = BALANCE.politicalCapital.requests.kinds.airport?.reward ?? 0;
