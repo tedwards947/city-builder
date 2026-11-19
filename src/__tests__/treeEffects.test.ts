@@ -28,8 +28,9 @@ function settled(trees: [number, number][]): World {
 const at = (w: World, x: number, y: number) => w.layers.landValue[w.grid.idx(x, y)];
 
 describe('trees and land value', () => {
-  it('ships switched off: trees change no land value', () => {
-    expect(shipped.lv.treeBonus).toBe(0);
+  it('ships at the lab-tuned numbers (owner 2026-11-19); at treeBonus 0 trees change no land value', () => {
+    expect([shipped.lv.treeBonus, shipped.lv.treeRadius, shipped.lv.treeBonusMax]).toEqual([3, 2, 16]);
+    LV.treeBonus = 0;
     const bare = settled([]), wooded = settled([[10, 9], [11, 9], [9, 8]]);
     expect(Array.from(wooded.layers.landValue)).toEqual(Array.from(bare.layers.landValue));
   });
@@ -60,9 +61,10 @@ describe('trees and the green vibe', () => {
     return { w, green: (x, y) => w.layers.vibeGreen[w.grid.idx(x, y)] };
   }
 
-  it('ships switched off: planting and clearing move no vibe', () => {
-    expect(shipped.green.treePlanted).toBe(0);
-    expect(shipped.green.treeCleared).toBe(0);
+  it('ships at ±0.05 a tree (owner 2026-11-19); at 0 planting and clearing move no vibe', () => {
+    expect(shipped.green.treePlanted).toBe(0.05);
+    expect(shipped.green.treeCleared).toBe(-0.05);
+    GREEN.treePlanted = 0; GREEN.treeCleared = 0;
     const { w, green } = world();
     const before = green(5, 5);
     new PlantTreesCommand([w.grid.idx(5, 5)], 2).execute(w);

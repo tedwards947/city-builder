@@ -71,8 +71,34 @@ A landscaping tool for planting trees of a chosen species and for adding and rem
 - Tree price, and how strong each effect is (lab).
 - Water price per tile (lab). Possibly a PC cost later.
 
-## Proposed lab targets and numbers (ENGINEER 3, 2026-11-19; waiting on the owner)
-Nothing below is shipped. Every landscaping number is still 0. Once the owner OKs the targets, the lab builds a `landscape` suite and tunes the numbers to them.
+## Shipped numbers (landscape suite, owner 2026-11-19)
+The owner approved the eight targets and the starting numbers below. The `landscape` lab suite (`src/balance/landscape.ts`) tuned them as follows:
+
+| Number | Start | Shipped | Why it moved |
+|---|---|---|---|
+| `landValue.treeBonus` / `treeBonusMax` | 2 / 16 | **3 / 16** | Land value eases toward its target in whole steps and stops short, so a +2 gain mostly rounded away and one tree took 160–340 days to pay. At 3 it takes 97–130. |
+| `costs.tree` / `treeClear` | 200 / 5 | **200 / 5** | |
+| `costs.water` | 750 | **750** | |
+| `character.nudges.green.treePlanted` / `treeCleared` | 0.1 / −0.1 | **0.05 / −0.05** | Every nudge moves its tile at least 1 step, and a park's 5 points are capped at 60 steps. At 0.1 (3 steps a tree), 50 trees were 2.5 parks; at 0.05 (1 step) they are 0.83. |
+| `pollution.vegDecayMult` | 0.95 | **0.98** | At 0.95 a 3-tile belt cut the pollution behind it by 59%; at 0.98, by 26.5%. |
+
+**Grades** (saved cities; testcity1 runs at a loss over 10 days, so the surplus-based checks are n/a there):
+
+| Target | gen-s1 | gen-suburban | testcity1 |
+|---|---|---|---|
+| land.treeHome (+12–20) | +13 | +13 | +13 |
+| land.treePayback (60–180 days) | 97 | 112 | 130 |
+| land.treeShock (≤ 3%) | +0.3% | +0.6% | +0.8% |
+| land.treeSpam (gain ≤ 10%; price ≥ 30 days) | 0.8%; **2.0 days** | 1.0%; **2.3 days** | 2.4%; n/a |
+| vibe.treeGreen (0.75–1.25 parks) | 0.83 | 0.83 | 0.83 |
+| water.canal (1–5 days) | 2.5 | 1.7 | n/a |
+| water.reclaim (25–100%) | 42% | 29% | n/a |
+| land.treeBuffer (15–35%, made-up map) | 26.5% | | |
+
+**land.treeSpam's price check fails, and no tree price fixes it.** Mature cities have few free tiles near homes (60–345), so planting all of them costs about 2 days of surplus at 200 a tree. That is a 15× gap. A price that passes (about 3,000 a tree) would put one tree's payback at about 1,500 days and break land.treePayback. The spam gain is 1–2.4%, far under its 10% cap, so trees are no money printer either way. **For the owner:** drop the price half of land.treeSpam, or replace it with "carpeting pays back no faster than one well-placed tree".
+
+## Proposed lab targets and numbers (ENGINEER 3, 2026-11-19; approved by the owner the same day)
+The proposal as approved. The shipped numbers are in the section above.
 
 **Measured first, on the three saves:**
 - Wild trees within 2 tiles of a home are rare: 5% of homes on gen-s1, 16% on gen-suburban, 21% on testcity1. Where there are any, it's usually 1 or 2.

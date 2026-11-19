@@ -33,12 +33,16 @@ export const BALANCE = {
     zoneI: 0,
     bulldoze: 5,
     // Landscaping (sim/landscaping.ts): per tree planted with the tree brush,
-    // and per tree removed with the eraser. 0 until the lab sets them.
-    tree: 0,
-    treeClear: 0,
+    // and per tree removed with the eraser. Balance Lab, owner 2026-11-19
+    // (landscape suite): a tree beside level-3 homes repays 200 in about
+    // 100–130 days; clearing costs what bulldozing does.
+    tree: 200,
+    treeClear: 5,
     // Per tile turned to water or to land with the water tools. Flooding a
     // building or zoned lot also costs `bulldoze` and its displacement PC.
-    water: 0,
+    // 750 (landscape suite): a 20-tile canal is about 2 days of a 10k city's
+    // surplus; filling a 10×10 block of water about a third of its month.
+    water: 750,
   },
   // Placement cost and per-tick maintenance for every BUILDING_* kind.
   // Keyed by the numeric constant (1=power plant, 2=water tower, …, 8=park).
@@ -242,11 +246,12 @@ export const BALANCE = {
     // Trees nearby raise land value (LANDSCAPING_DESIGN.md): treeBonus per
     // tree tile within treeRadius tiles (a square, the tile itself included),
     // up to treeBonusMax in all. Wild and planted trees count alike. Applied
-    // within reach of the built-up area only. SWITCHED OFF at treeBonus 0
-    // until the lab sets it.
-    treeBonus: 0,
+    // within reach of the built-up area only. Balance Lab, owner 2026-11-19
+    // (landscape suite): 3 a tree, at most 16, so 6 trees max out a lot (+13
+    // once land value settles; it eases in whole steps).
+    treeBonus: 3,
     treeRadius: 2,
-    treeBonusMax: 20,
+    treeBonusMax: 16,
     smoothing: 0.25,      // blend rate toward target per LandValueSystem tick
   },
   demand: {
@@ -277,7 +282,9 @@ export const BALANCE = {
     growthThreshold: 20, // 0-255: R/C zones above this can't grow
     // Vegetation pollution reduction — fraction of the current decay rate.
     // e.g. if decayRate is 0.94 and vegDecayMult is 0.9, the effective decay on that tile is 0.846.
-    vegDecayMult: 0.95,       // single tree / sparse
+    // 0.98 (landscape suite, owner 2026-11-19): a 3-tile tree belt cuts the
+    // pollution at the homes behind it by about a quarter (0.95 cut 59%).
+    vegDecayMult: 0.98,       // single tree / sparse
     vegDecayMultForest: 0.88,  // dense forest (species 1-6 are currently all treated same, but could differentiate)
   },
   growth: {
@@ -459,10 +466,12 @@ export const BALANCE = {
         parkBuilt:             5.0,
         // Per tree planted with the tree brush, and per tree removed with the
         // eraser (a negative number makes clearing un-green). On the tree's
-        // own tile; it spreads like any other nudge. SWITCHED OFF at 0 until
-        // the lab sets them.
-        treePlanted:           0,
-        treeCleared:           0,
+        // own tile; it spreads like any other nudge. Every nudge moves its
+        // tile at least 1 step, and a park's 5 points are capped at 60, so
+        // 0.05 a tree makes 50 trees about 0.8 of a park (landscape suite,
+        // owner 2026-11-19).
+        treePlanted:           0.05,
+        treeCleared:          -0.05,
         industrialZone:       -3.0,  // per I zone painted
         powerPlantBuilt:      -2.0,
         residentialZone:       0.2,

@@ -19,9 +19,10 @@ import type { TradeResult } from './trade';
 import type { TaxDebtResult, LevelRun } from './taxdebt';
 import type { AirportResult } from './airport';
 import type { RailResult, RailFresh } from './rail';
+import type { LandscapeResult } from './landscape';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape';
 
 export interface Outcome {
   value: unknown;
@@ -51,6 +52,10 @@ export interface EvalCtx {
   /** Rail suite: the suburb probes on a saved city, or the real-money Planner's bank on a fresh map. */
   rail?: RailResult | null;
   railFresh?: RailFresh | null;
+  /** Landscape suite: tree, vibe and water probes on a saved city. */
+  landscape?: LandscapeResult | null;
+  /** Landscape suite: the tree-belt probe (a made-up map, the same for every city; graded on fresh maps). */
+  treeBuffer?: number | null;
 }
 
 export interface Target {
@@ -460,6 +465,40 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 2.0); } },
 ];
 
+// Landscaping (approved by the owner 2026-11-19, LANDSCAPING_DESIGN.md). Probes on each saved city
+// (src/balance/landscape.ts); the tree-belt probe is a made-up map, graded on fresh maps.
+const landOf = (c: EvalCtx): { l: LandscapeResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  return c.landscape ? { l: c.landscape } : NA('no landscape probe');
+};
+const LANDSCAPE_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'land.treeHome', metric: 'Land value gained by a level-3 home with 8 trees within 2 tiles', target: '+12–20', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): a tree belt is worth having, but it isn\'t a service (about half the service bonus of 35).',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; return o.l.treeHome === null ? NA(o.l.note ?? 'no bare level-3 home') : range(o.l.treeHome, 12, 20); } },
+  { id: 'land.treePayback', metric: 'Days for one tree, on the free tile that reaches the most level-3 homes, to repay its price in extra home tax', target: '60–180 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): trees beside homes pay off; trees in the wild never do (decoration).',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; const p = o.l.payback; if (p.homes === 0) return NA('no free tile near a level-3 home'); return { ...(p.days === null ? { value: null, pass: false, miss: 1 } : range(p.days, 60, 180)), note: `${p.homes} homes in reach` }; } },
+  { id: 'land.treeShock', metric: 'Change in a mature save\'s income when the tree bonus is switched on (wild trees count too)', target: '≤ 3%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): no windfall for maps that happen to be wooded.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; return range(o.l.shock, -0.03, 0.03); } },
+  { id: 'land.treeSpam', metric: 'Every free tile within 2 of a home planted: income gain, and the price in days of the city\'s surplus', target: 'gain ≤ 10%; price ≥ 30 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): no money printer.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; const s = o.l.spam;
+      return all({ gain: range(s.gain, 0, 0.1), price: s.priceDays === null ? NA('the city runs at a loss') : range(s.priceDays, 30) }); } },
+  { id: 'land.treeBuffer', metric: 'Pollution at the nearest homes behind a 3-tile tree belt from level-3 industry, against bare land (a made-up map)', target: '15–35% lower', persona: 'probe', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-19): tree belts buffer industry from homes. Tunes pollution.vegDecayMult.',
+    evaluate: c => c.cityKind !== 'fresh' ? NA('graded on fresh maps (the probe is a made-up map)') : range(c.treeBuffer, 0.15, 0.35) },
+  { id: 'vibe.treeGreen', metric: 'Green vibe from 50 trees planted near homes ÷ one park; share left after clearing them', target: '0.75–1.25 parks; ≤ 10% left after clearing', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): trees are a small, steady green push; clearing them takes it back.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; const g = o.l.green; return g.parks === null ? NA('fewer than 50 free tiles near homes') : all({ parks: range(g.parks, 0.75, 1.25), left: range(g.left, -0.1, 0.1) }); } },
+  { id: 'water.canal', metric: 'A 20-tile canal\'s price in days of the city\'s surplus', target: '1–5 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): reconnecting a cut-off port is worth doing.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; if (o.l.surplus <= 0) return NA('the city runs at a loss'); return o.l.canalDays === null ? NA('no 20-tile site') : range(o.l.canalDays, 1, 5); } },
+  { id: 'water.reclaim', metric: 'Filling a 10×10 block of water: share of 30 days of the city\'s surplus', target: '25–100%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): reclaiming land is a project, not a whim.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; if (o.l.surplus <= 0) return NA('the city runs at a loss'); return o.l.reclaimShare === null ? NA('no 10×10 block of water') : range(o.l.reclaimShare, 0.25, 1); } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
@@ -468,4 +507,5 @@ export const TARGETS: Target[] = [
   ...TAXDEBT_TARGETS.map(t => ({ ...t, suite: 'taxdebt' as const })),
   ...AIRPORT_TARGETS.map(t => ({ ...t, suite: 'airport' as const })),
   ...RAIL_TARGETS.map(t => ({ ...t, suite: 'rail' as const })),
+  ...LANDSCAPE_TARGETS.map(t => ({ ...t, suite: 'landscape' as const })),
 ];
