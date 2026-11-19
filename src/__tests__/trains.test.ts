@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRuns, trainAt, headway, CARS, CAR_LEN, CAR_GAP } from '../render/clay/trains';
+import { buildRuns, trainAt, headway, legAt, LEG, CARS, CAR_LEN, CAR_GAP } from '../render/clay/trains';
 import { BUILDING_STATION } from '../sim/constants';
 import { landWorld } from './pcTestWorld';
 
@@ -46,5 +46,14 @@ describe('a train', () => {
     expect(headway(0)).toBe(60);
     expect(headway(1)).toBeLessThan(headway(0.3));
     expect(headway(5)).toBe(headway(1));
+  });
+
+  it('a passing train runs a short leg and fades at both ends', () => {
+    expect(legAt(0)!.a).toBe(0);
+    expect(legAt(-0.1)).toBeNull();
+    let maxS = 0, t = 0;
+    for (; legAt(t); t += 0.05) maxS = Math.max(maxS, legAt(t)!.s);
+    expect(maxS).toBeLessThanOrEqual(LEG + 1e-9); expect(maxS).toBeGreaterThan(LEG - 0.2);
+    expect(legAt(t - 0.05)!.a).toBeLessThan(0.1);
   });
 });
