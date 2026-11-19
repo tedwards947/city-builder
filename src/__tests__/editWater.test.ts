@@ -28,7 +28,7 @@ beforeEach(() => { w = landWorld(); w.budget.money = 1000; w.budget.politicalCap
 afterEach(() => { C.water = 0; C.bulldoze = bulldoze; });
 
 describe('adding water', () => {
-  it('ships free', () => expect(BALANCE.costs.water).toBe(0));
+  it('ships at the lab-tuned 750 a tile (owner 2026-11-19)', () => expect(BALANCE.costs.water).toBe(750));
 
   it('floods land, lays a beach round it, removes trees, and undoes all of it', () => {
     w.layers.vegetation[idx(5, 5)] = 3;

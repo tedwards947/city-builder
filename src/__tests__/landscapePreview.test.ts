@@ -74,6 +74,7 @@ describe('the tag', () => {
 
   it('a port cut off from the sea, then reconnected by a canal', () => {
     expect(w.placeBuilding(10, 10, BUILDING_SEAPORT)).toBe(true);
+    w.budget.money = 1e9;                                   // the fills are big; their price isn't what this tests
     // Fill in everything but a pond in front of the docks and a canal from it to the top edge.
     const fill: number[] = [];
     for (let y = 0; y <= 9; y++) for (let x = 0; x < 32; x++) if (!(y >= 8 && x >= 9 && x <= 15) && !(x === 12 && y <= 7)) fill.push(idx(x, y));   // a one-tile canal up to the edge stays

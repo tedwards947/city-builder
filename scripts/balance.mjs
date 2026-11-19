@@ -17,11 +17,13 @@
 // tax-level targets per preset; "airport" the airport targets under the shipped numbers (the
 // airport built on each saved city, 60 days against a twin without it); "rail" the rail targets
 // under the shipped numbers (a suburb joined to each saved city by a long street and one line,
-// 180 days against a street-only twin; a real-money Planner's bank on fresh maps).
+// 180 days against a street-only twin; a real-money Planner's bank on fresh maps); "landscape"
+// the landscaping targets under the shipped numbers (tree, green-vibe and water probes on each
+// saved city; a tree-belt probe on a made-up map, graded on fresh maps).
 // Cities above 20k residents only run the econ suite (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ|svc|trade|taxdebt|airport|rail  one suite only (default all seven)
+//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape  one suite only (default all eight)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
@@ -106,6 +108,7 @@ try {
   for (const [v, s] of Object.entries(report.taxDebtSummary ?? {})) console.log(`taxdebt ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.airportSummary ?? {})) console.log(`airport ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.railSummary ?? {})) console.log(`rail    ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.landscapeSummary ?? {})) console.log(`landscape ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -128,7 +131,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;
