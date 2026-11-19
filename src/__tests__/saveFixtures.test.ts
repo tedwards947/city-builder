@@ -10,7 +10,11 @@ import { deserialize, serialize } from '../persistence/Serializer';
 import { Scheduler } from '../sim/Scheduler';
 import { createSystems } from '../sim/createSystems';
 import { VibeSystem } from '../sim/systems/VibeSystem';
-import { BUILDING_POWER_PLANT, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R } from '../sim/constants';
+import { railLinks } from '../sim/rail';
+import {
+  BUILDING_POWER_PLANT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION,
+  RAIL_GROUND, RAIL_SUBWAY, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R,
+} from '../sim/constants';
 
 const files = import.meta.glob('./fixtures/saves/v*.citysave.json', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const fixtures = Object.entries(files)
@@ -56,4 +60,20 @@ describe('a saved city from every save version', () => {
       expect(Number.isFinite(w.budget.money)).toBe(true);
     });
   }
+
+  it('the rail city (v9 and later): both train stations at the new size on one line, each with a road, and the subway station', () => {
+    for (const f of fixtures.filter(x => x.version >= 9)) {
+      const w = load(f.text);
+      const at = (x: number, y: number) => w.grid.idx(x, y);
+      const straight = w.buildings.find(b => b.kind === BUILDING_STATION)!, curved = w.buildings.find(b => b.kind === BUILDING_STATION_L)!;
+      expect(w.buildingTilesAt(straight.tx, straight.ty).length).toBe(3);
+      expect(w.buildingTilesAt(curved.tx, curved.ty).length).toBe(4);
+      expect(w.buildingAccessRoads(straight.tx, straight.ty).length).toBeGreaterThan(0);
+      for (let x = 5; x <= 15; x++) { expect(w.layers.rail[at(x, 13)] & RAIL_GROUND).toBe(RAIL_GROUND); expect(railLinks(w, at(x, 13))).not.toBe(0); }
+      expect(w.buildings.some(b => b.kind === BUILDING_SUBWAY_STATION && b.tx === 20 && b.ty === 14)).toBe(true);
+      for (let x = 19; x <= 21; x++) expect(w.layers.rail[at(x, 14)] & RAIL_SUBWAY).toBe(RAIL_SUBWAY);
+      // Only the save from before the resize says so.
+      expect(w.loadNotes.stationsRebuilt).toBe(f.version === 9 ? 3 : undefined);
+    }
+  });
 });

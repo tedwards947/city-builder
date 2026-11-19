@@ -134,48 +134,106 @@ export function railArtReady(): boolean {
   return Object.values(s).every(l => l.img.complete && l.img.naturalWidth > 0);
 }
 
-// Where the empty track strip lies in each raw picture (measured on the cut sprites).
-// Straight, east–west: the strip's centre row; north–south: its centre column; L: the west arm's centre row.
-// The soil band's height at the front of each baked picture (measured: public/sprites/clay/rail, image px).
-const SOIL: Record<string, number> = { 'station-h': 26, 'station-v': 21, 'station-l-up': 26, 'station-l-down': 28, 'subway-entrance': 13 };
-const STRIP_RAW: Record<string, number> = { 'station-h': 349, 'station-v': 217, 'station-l-up': 164, 'station-l-down': 187 };
+// The soil band's height at the front of the subway entrance's baked picture (measured: public/sprites/clay/rail, image px).
+const SOIL: Record<string, number> = { 'subway-entrance': 13 };
+
+// ── Stations (owner's picks S2 and C1 in art/clay-set/station.html) ──
+// A straight station is three tiles in a row, all platform: the two tracks spread apart inside it round an island
+// platform with the station house in the middle (painted: island-h, island-v). A curved one is 2×2: the house fills
+// the corner tile inside the curve (painted: corner-se, corner-ne, mirrored for the other two corners), and the track
+// round the curve is the plain track, drawn by the caller.
+
+/** How far each track's centre sits from the row's middle along a straight station, in tiles. */
+export const ISLAND_OFFSET = 0.4;
+/** Track offset at distance u along a straight station (0..3 from one end): eased out from TRACK_OFFSET over each end tile. */
+export function islandOffset(u: number): number {
+  const e = (f: number): number => f * f * (3 - 2 * f);
+  const f = u <= 0 || u >= 3 ? 0 : u < 0.7 ? e(u / 0.7) : u > 2.3 ? e((3 - u) / 0.7) : 1;
+  return TRACK_OFFSET + (ISLAND_OFFSET - TRACK_OFFSET) * f;
+}
+// Where the painted island lies across the row (from its top or left edge), in tiles: the pictures came out at
+// different depths, so each is fitted to its own band, clear of the rails.
+const ISLAND_ACROSS: Record<string, [number, number]> = { 'island-h': [0.2, 0.8], 'island-v': [0.26, 0.74] };
 
 /** The station picture for a kind and rotation, and whether it is mirrored (sim/buildingShapes.ts: quarter turns clockwise). */
 export function stationArt(kind: number, rot: number): { name: string; flip: boolean } | null {
   const r = rot & 3;
-  if (kind === BUILDING_STATION) return r % 2 === 0 ? { name: 'station-h', flip: false } : { name: 'station-v', flip: r === 3 };
-  // The elbow at rotation 0 joins west and north; 1: north and east; 2: east and south; 3: south and west.
-  if (kind === BUILDING_STATION_L) return r === 0 ? { name: 'station-l-up', flip: false } : r === 1 ? { name: 'station-l-up', flip: true } : r === 2 ? { name: 'station-l-down', flip: true } : { name: 'station-l-down', flip: false };
+  if (kind === BUILDING_STATION) return { name: r % 2 === 0 ? 'island-h' : 'island-v', flip: false };
+  // The house sits at the curve's inside corner. Rotation 0: the track passes south and east of it; 1: south and west;
+  // 2: north and west; 3: north and east.
+  if (kind === BUILDING_STATION_L) return r === 0 ? { name: 'corner-se', flip: false } : r === 1 ? { name: 'corner-se', flip: true } : r === 2 ? { name: 'corner-ne', flip: true } : { name: 'corner-ne', flip: false };
   return null;
 }
 
+/** The two tracks along a straight station, spread round its island (islandOffset); the row's top-left at (L, Tp). */
+function drawIslandTrack(ctx: Ctx, horizontal: boolean, L: number, Tp: number, T: number): void {
+  const N = 30, pt = (u: number, d: number): [number, number] => horizontal ? [L + u * T, Tp + (0.5 + d) * T] : [L + (0.5 - d) * T, Tp + u * T];
+  const line = (d: (u: number) => number, dy = 0): void => {
+    ctx.beginPath();
+    for (let k = 0; k <= N; k++) { const u = 3 * k / N, [x, y] = pt(u, d(u)); if (k) ctx.lineTo(x, y + dy); else ctx.moveTo(x, y + dy); }
+    ctx.stroke();
+  };
+  ctx.save(); ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.rect(L, Tp, (horizontal ? 3 : 1) * T, (horizontal ? 1 : 3) * T); ctx.clip();
+  ctx.fillStyle = BED;
+  if (horizontal) ctx.fillRect(L, Tp + 0.09 * T, 3 * T, 0.82 * T); else ctx.fillRect(L + 0.09 * T, Tp, 0.82 * T, 3 * T);
+  ctx.strokeStyle = BED; ctx.lineWidth = T * 0.3;
+  for (const sg of [-1, 1]) line(u => sg * islandOffset(u));
+  if (T >= 12) {
+    ctx.strokeStyle = SLEEPER; ctx.lineWidth = Math.max(1, T * 0.055); ctx.beginPath();
+    for (let k = 0; k < 25; k++) {
+      const u = (k + 0.5) * 3 / 25, o = islandOffset(u);
+      for (const sg of [-1, 1]) { const [x0, y0] = pt(u, sg * o - 0.13), [x1, y1] = pt(u, sg * o + 0.13); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+    }
+    ctx.stroke();
+  }
+  const rw = Math.max(1, T * 0.033);
+  for (const [col, w, dy] of [[RAIL_UNDER, rw + Math.max(1, T * 0.02), Math.max(0.5, T * 0.012)], [RAIL, rw, 0]] as const) {
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    for (const sg of [-1, 1]) for (const g of [-HALF_GAUGE, HALF_GAUGE]) line(u => sg * islandOffset(u) + g, dy);
+  }
+  ctx.restore();
+}
+
 /**
- * A station picture over its footprint, whose top-left corner is at screen (L, Tp) and which is
- * `w` × `h` tiles, T pixels a tile. The caller then draws the platform track over it.
+ * A station over its footprint, whose top-left corner is at screen (L, Tp) and which is `w` × `h` tiles, T pixels a
+ * tile. A straight station draws its own track (spread round the island); for a curved one the caller draws the
+ * platform track after this. Everything stays inside the footprint: the tiles beside it may hold roads or buildings.
  */
 export function drawStation(ctx: Ctx, kind: number, rot: number, L: number, Tp: number, w: number, h: number, T: number): void {
   const art = stationArt(kind, rot); if (!art) return;
   const s = load()[art.name], m = RAIL_SPRITES[art.name];
-  if (!s || !m || !s.img.complete || !s.img.naturalWidth) return;
-  const solid = m.right - m.left, strip = STRIP_RAW[art.name] * m.k;
-  // The pictures stand on a clay slab with a soil edge in front and a shadow round it, which looked raised in the game
-  // (owner). Fit the platform's front edge (the top of the soil band) to the footprint's, and clip away the soil band
-  // and the shadow: only what stands on the footprint, and anything rising above it, is drawn.
-  const front = m.footY - (SOIL[art.name] ?? 0);
-  // Screen px per image px across (qx) and down (qy), and where the image's top-left goes. The straight pictures came out
-  // deeper than their footprints, so they are fitted down the page: east–west with the strip on the middle row and the
-  // front edge on the footprint's; north–south from the footprint's top to its front edge, with the strip on the middle column.
-  const qx = w * T / solid;
-  let qy = qx, x = L - m.left * qx, y = Tp + 1.5 * T - strip * qy;
-  if (art.name === 'station-h') { qy = 1.5 * T / (front - strip); y = Tp + h * T - front * qy; }
-  else if (art.name === 'station-v') { qy = h * T / (front - m.top); x = L + 1.5 * T - strip * qx; y = Tp - m.top * qy; }
-  ctx.save();
-  ctx.beginPath(); ctx.rect(L, Tp - 4 * T, w * T, (h + 4) * T); ctx.clip();
-  if (art.flip) {   // mirror about the footprint's centre (for the north–south straight: about the track)
-    const axis = art.name === 'station-v' ? L + 1.5 * T : L + w * T / 2;
-    ctx.translate(2 * axis, 0); ctx.scale(-1, 1);
+  const ready = !!s && !!m && s.img.complete && s.img.naturalWidth > 0;
+  if (kind === BUILDING_STATION) {
+    const horizontal = w >= h;
+    drawIslandTrack(ctx, horizontal, L, Tp, T);
+    if (!ready) return;
+    // The painted island's solid box (slab and its front edge) fitted to 0.35..2.65 along the row and its band across.
+    const [a0, a1] = ISLAND_ACROSS[art.name], solidW = m.right - m.left, solidH = m.footY - m.top;
+    const bx = horizontal ? L + 0.35 * T : L + a0 * T, by = horizontal ? Tp + a0 * T : Tp + 0.35 * T;
+    const bw = (horizontal ? 2.3 : a1 - a0) * T, bh = (horizontal ? a1 - a0 : 2.3) * T, qx = bw / solidW, qy = bh / solidH;
+    ctx.drawImage(s.img, bx - m.left * qx, by - m.top * qy, m.w * qx, m.h * qy);
+    return;
   }
-  ctx.drawImage(s.img, x, y, m.w * qx, m.h * qy);
+  if (!ready) return;
+  // Curved: the house tile is the footprint corner on the inside of the curve (the anchor). Thin paving along the two
+  // platform tiles' edges next to it, then the house picture fitted to its tile (its slab's front edge clipped off).
+  const r = rot & 3, hx = r === 1 || r === 2 ? L + T : L, hy = r >= 2 ? Tp + T : Tp;
+  const east = r === 0 || r === 3, south = r <= 1;   // which sides of the house face the track
+  ctx.save();
+  ctx.fillStyle = '#d9d4c8';
+  const e = 0.09 * T;
+  if (south) ctx.fillRect(hx, hy + T, T, e); else ctx.fillRect(hx, hy - e, T, e);
+  if (east) ctx.fillRect(hx + T, hy, e, T); else ctx.fillRect(hx - e, hy, e, T);
+  ctx.fillStyle = '#f2e7c9';
+  const lw = Math.max(1, T * 0.025);
+  if (south) ctx.fillRect(hx, hy + T + e - lw, T, lw); else ctx.fillRect(hx, hy - e, T, lw);
+  if (east) ctx.fillRect(hx + T + e - lw, hy, lw, T); else ctx.fillRect(hx - e, hy, lw, T);
+  ctx.beginPath(); ctx.rect(hx, hy, T, T); ctx.clip();
+  const solid = m.right - m.left, front = m.footY - m.top, edge = front * (16 / 316);   // the template's slab edge: 16 of 316 px
+  const qx = T / solid, qy = T / (front - edge);
+  if (art.flip) { ctx.translate(2 * hx + T, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(s.img, hx - m.left * qx, hy - m.top * qy, m.w * qx, m.h * qy);
   ctx.restore();
 }
 
@@ -309,9 +367,11 @@ export function drawSubwayLayer(ctx: Ctx, world: World, sx: number, sy: number, 
 export function drawSubwayEntrance(ctx: Ctx, px: number, py: number, T: number): void {
   const s = load()['subway-entrance'], m = RAIL_SPRITES['subway-entrance'];
   if (!s || !m || !s.img.complete || !s.img.naturalWidth) return;
-  const q = T / (m.right - m.left), front = m.footY - (SOIL['subway-entrance'] ?? 0);
-  ctx.save(); ctx.beginPath(); ctx.rect(px, py - T, T, 2 * T); ctx.clip();   // flush with the ground, as the stations
-  ctx.drawImage(s.img, px - m.left * q, py + T - front * q, m.w * q, m.h * q);
+  // Drawn at 0.6 of the tile on paving that fills it (owner: the full-tile entrance was far too big).
+  const S = 0.6, q = S * T / (m.right - m.left), front = m.footY - (SOIL['subway-entrance'] ?? 0);
+  ctx.save(); ctx.fillStyle = '#d9d6cf'; ctx.fillRect(px, py, T, T);
+  ctx.beginPath(); ctx.rect(px, py - T, T, 2 * T); ctx.clip();   // flush with the ground, as the stations
+  ctx.drawImage(s.img, px + (1 - S) / 2 * T - m.left * q, py + (1 - (1 - S) / 2) * T - front * q, m.w * q, m.h * q);
   ctx.restore();
 }
 

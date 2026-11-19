@@ -42,10 +42,16 @@ function suburbAndTown(): void {
   street(10, 48, 60);
   for (let x = 55; x <= 58; x++) zone(x, 9, ZONE_I, 3);
 }
-/** Train stations at both ends (platforms along y = 12: x 4–7 and x 50–53). */
+/** A train station: platform x..x+2 on y = 12, a tile of plain track after it (x+3), and a one-tile street (x+1, 11) up to the street along y = 10. */
+function trainStation(x: number): void {
+  expect(w.placeBuilding(x, 12, BUILDING_STATION)).toBe(true);
+  expect(w.layTrack(x + 3, 12)).toBe(true);
+  expect(w.setRoad(x + 1, 11, ROAD_STREET)).toBe(true);
+}
+/** Train stations at both ends (platforms along y = 12: x 4–6 and x 50–52). */
 function trainStations(): void {
-  expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
-  expect(w.placeBuilding(50, 11, BUILDING_STATION)).toBe(true);
+  trainStation(4);
+  trainStation(50);
 }
 /** Ground out of each station, a ramp up, elevated in between (x 15–43), a ramp down. */
 function elevatedLine(): void {
@@ -58,9 +64,9 @@ function elevatedLine(): void {
 }
 /** Subway stations at both ends (entrances at (6, 11) and (52, 11), platforms along y = 11) and a tunnel between. */
 function subwayLine(): void {
-  expect(w.placeBuilding(6, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true);  // platform x 5–8
-  expect(w.placeBuilding(52, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true); // platform x 51–54
-  track(11, 9, 50, RAIL_SUBWAY);
+  expect(w.placeBuilding(6, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true);  // platform x 5–7
+  expect(w.placeBuilding(52, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true); // platform x 51–53
+  track(11, 8, 50, RAIL_SUBWAY);
 }
 
 beforeEach(() => {
@@ -199,7 +205,7 @@ describe('a subway between two subway stations', () => {
     suburbAndTown();
     expect(w.placeBuilding(6, 13, BUILDING_SUBWAY_STATION, 0)).toBe(true); // two tiles from the street
     expect(w.placeBuilding(52, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true);
-    track(13, 9, 50, RAIL_SUBWAY);
+    track(13, 8, 50, RAIL_SUBWAY);
     for (let y = 11; y <= 13; y++) w.layTrack(50, y, RAIL_SUBWAY);
     const t = traffic();
     expect(t.rail.stations[0].roads).toEqual([]);
@@ -221,12 +227,12 @@ describe('a subway between two subway stations', () => {
 describe('levels joined by ramps', () => {
   it('a train station at one end, a subway station at the other, a subway ramp between', () => {
     suburbAndTown();
-    expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);          // platform y 12, x 4–7
+    trainStation(4);                                                      // platform y 12, x 4–6
     track(12, 8, 19);
     expect(w.placeBuilding(20, 12, BUILDING_RAMP_SUBWAY, 0)).toBe(true);  // low end x 20, deep end x 21
-    track(12, 22, 52, RAIL_SUBWAY);
-    expect(w.layTrack(52, 11, RAIL_SUBWAY)).toBe(true);                   // up to the station's platform
-    expect(w.placeBuilding(52, 11, BUILDING_SUBWAY_STATION, 1)).toBe(true); // platform x 52, y 10–13
+    track(12, 22, 50, RAIL_SUBWAY);
+    expect(w.layTrack(50, 11, RAIL_SUBWAY)).toBe(true);                   // up to the end of the station's platform
+    expect(w.placeBuilding(52, 11, BUILDING_SUBWAY_STATION, 0)).toBe(true); // platform y 11, x 51–53
     const t = traffic();
     expect(t.jobs.field.stranded).toBe(0);
     expect(railVolume(t, idx(15, 12))).toBeCloseTo(TRIPS(), 3);

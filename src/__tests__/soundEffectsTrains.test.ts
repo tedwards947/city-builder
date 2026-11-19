@@ -16,8 +16,8 @@ class Recorder extends SoundEffects {
 describe('rail sounds with real trains', () => {
   it('rumbles as trains come into view, then sighs and rings the bell as one stops at the platform', () => {
     const w = landWorld(40); w.budget.money = 1_000_000;
-    for (let x = 2; x <= 30; x++) if (x < 14 || x > 17) expect(w.layTrack(x, 10)).toBe(true);
-    expect(w.placeBuilding(14, 9, BUILDING_STATION, 0)).toBe(true);
+    for (let x = 2; x <= 30; x++) if (x < 14 || x > 16) expect(w.layTrack(x, 10)).toBe(true);
+    expect(w.placeBuilding(14, 10, BUILDING_STATION, 0)).toBe(true);
     const camera = new Camera(800, 600);
     camera.zoom = 2;
     camera.centerOnTile(16, 10);

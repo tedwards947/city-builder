@@ -98,7 +98,7 @@ export function stationEnds(w: World, p: Pt): { west: number; east: number } {
   return { west: w.grid.idx(p.x + e[0][0], p.y + e[0][1]), east: w.grid.idx(p.x + e[e.length - 1][0], p.y + e[e.length - 1][1]) };
 }
 
-/** Straight stations (rotation 0) on free land with a street along the north side, nearest the jobs first. */
+/** Straight stations (rotation 0: three platform tiles east from the anchor) on free land with a street along the north side, nearest the jobs first. */
 export function cityStations(w: World): Pt[] {
   const { width, height } = w.grid;
   let sx = 0, sy = 0, n = 0;
@@ -111,11 +111,11 @@ export function cityStations(w: World): Pt[] {
   const out: (Pt & { d: number })[] = [];
   for (let y = 1; y < height - 4; y++) for (let x = 2; x < width - 6; x++) {
     let ok = true;
-    // the station and a free tile at each platform end
-    for (let dy = 0; dy < 3 && ok; dy++) for (let dx = -1; dx < 5 && ok; dx++) if (!free(w, w.grid.idx(x + dx, y + dy))) ok = false;
+    // the platform, a free tile at each of its ends, and the row south of it
+    for (let dy = 0; dy < 2 && ok; dy++) for (let dx = -1; dx < 4 && ok; dx++) if (!free(w, w.grid.idx(x + dx, y + dy))) ok = false;
     if (!ok) continue;
     let road = false;
-    for (let dx = 0; dx < 4; dx++) if (isStreet(w, w.grid.idx(x + dx, y - 1))) road = true;
+    for (let dx = 0; dx < 3; dx++) if (isStreet(w, w.grid.idx(x + dx, y - 1))) road = true;
     if (!road || !w.checkPlacement(x, y, BUILDING_STATION, 0).ok) continue;
     out.push({ x, y, d: Math.abs(x - cx) + Math.abs(y - cy) });
   }
@@ -127,9 +127,9 @@ export function cityStations(w: World): Pt[] {
 // Layout, from its corner (x, y), with `rows` streets and `homes` home tiles a side:
 //   streets along y+2, y+5, … from x−5 to x+homes+5, joined at both ends;
 //   homes on both sides of each street, x … x+homes−1;
-//   police, fire and school north of the first street at x+homes+1 … +3;
-//   the east station south of the last street at x+homes+1 (its platform's west end at x+homes);
-//   the hospital beside it at x+homes; a west station (for a second line) at x−5 (platform end west, x−6).
+//   police, fire, school and hospital north of the first street at x+homes+1 … +4;
+//   the east station's platform along the south side of the last street, x+homes+1 … +3 (track joins its west end at x+homes);
+//   a west station (for a second line) the same way at x−5 … x−3 (track joins its west end at x−6).
 interface Suburb { x: number; y: number; homes: number[]; streets: Set<number>; reserved: Set<number>; east: Pt; west: Pt; eastEnd: number; westEnd: number }
 const subW = (homes: number) => homes + 13;               // x−7 … x+homes+5
 const subH = (rows: number) => 3 * rows + 4;
@@ -156,11 +156,10 @@ function buildSuburb(w: World, x: number, y: number, homes: number, rows: number
   }
   // The streets are joined at both ends, so every home reaches both stations.
   for (const cx of [x - 5, x + homes + 5]) for (let yy = y + 2; yy <= last; yy++) if (!streets.has(g.idx(cx, yy))) { if (!w.setRoad(cx, yy, ROAD_STREET)) return null; streets.add(g.idx(cx, yy)); }
-  const svc: [number, number][] = [[BUILDING_POLICE, 1], [BUILDING_FIRE, 2], [BUILDING_SCHOOL, 3]];
+  const svc: [number, number][] = [[BUILDING_POLICE, 1], [BUILDING_FIRE, 2], [BUILDING_SCHOOL, 3], [BUILDING_HOSPITAL, 4]];
   for (const [b, dx] of svc) if (!w.placeBuilding(x + homes + dx, y + 1, b)) return null;
   const east = { x: x + homes + 1, y: last + 1 };
   if (!w.placeBuilding(east.x, east.y, BUILDING_STATION, 0)) return null;
-  if (!w.placeBuilding(x + homes, last + 1, BUILDING_HOSPITAL)) return null;
   const west = { x: x - 5, y: last + 1 };
   // Kept free for the west station, its platform ends and a tile beyond each: track
   // laid there first would join the second line or the platform and make a junction.

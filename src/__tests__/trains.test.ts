@@ -19,11 +19,11 @@ describe('train runs', () => {
 
   it('knows where a station platform lies along its run', () => {
     const w = landWorld(40);
-    for (let x = 2; x <= 20; x++) if (x < 8 || x > 11) expect(w.layTrack(x, 10)).toBe(true);
-    expect(w.placeBuilding(8, 9, BUILDING_STATION, 0)).toBe(true);   // platform on row 10, x 8–11
+    for (let x = 2; x <= 20; x++) if (x < 8 || x > 10) expect(w.layTrack(x, 10)).toBe(true);
+    expect(w.placeBuilding(8, 10, BUILDING_STATION, 0)).toBe(true);   // platform on row 10, x 8–10
     const runs = buildRuns(w);
     expect(runs.length).toBe(1);
-    expect(runs[0].stop).toBeCloseTo(7.5, 0);   // the platform's middle, 7.5 tiles from the west end's centre
+    expect(runs[0].stop).toBeCloseTo(7, 0);   // the platform's middle, 7 tiles from the west end's centre
   });
 });
 
@@ -68,8 +68,8 @@ describe('trains for the sound', () => {
 
   it('lists the trains in view with a stable id through one station visit', () => {
     const w = landWorld(40); w.budget.money = 1_000_000;
-    for (let x = 2; x <= 30; x++) if (x < 14 || x > 17) expect(w.layTrack(x, 10)).toBe(true);
-    expect(w.placeBuilding(14, 9, BUILDING_STATION, 0)).toBe(true);
+    for (let x = 2; x <= 30; x++) if (x < 14 || x > 16) expect(w.layTrack(x, 10)).toBe(true);
+    expect(w.placeBuilding(14, 10, BUILDING_STATION, 0)).toBe(true);
     let t = 0, first = null as ReturnType<typeof trainsInView>[number] | null;
     for (; t < 130_000 && !first; t += 250) first = trainsInView(w, t, 0, 0, 39, 39).find(v => v.phase === 'in' && v.a < 0.5) ?? null;   // one just appearing
     expect(first).not.toBeNull();

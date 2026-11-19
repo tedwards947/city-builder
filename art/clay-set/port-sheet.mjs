@@ -123,8 +123,10 @@ const AIR_GAME = {
 // The rail props (art/clay-set/rail.html, the owner's picks): the Victorian stations, scaled so the base spans its footprint's width.
 // The straight ones and the subway entrance come from the template sheet (raw-rail/tpl-stations.png → victorian-straight.png).
 const RAIL_GAME = {
-  'victorian-straight-1': ['station-h', 4 * 128 / 444], 'victorian-straight-2': ['station-v', 3 * 128 / 387], 'victorian-straight-3': ['subway-entrance', 128 / 223],
-  'l-stations-1': ['station-l-up', 3 * 128 / 305], 'l-stations-4': ['station-l-down', 3 * 128 / 304],
+  'victorian-straight-3': ['subway-entrance', 128 / 223],
+  // The resized stations (owner's S2 and C1, art/clay-set/station.html), from raw-rail/tpl-stations2.png at 300 px a tile:
+  // the island platform both ways, and the corner house with the curve round its south and east, or its north and east.
+  'stations2-1': ['island-v', 0.43], 'stations2-2': ['island-h', 0.43], 'stations2-3': ['corner-se', 0.43], 'stations2-4': ['corner-ne', 0.43],
   // Brick ramps and portals for the R5 deck (¼ tile up), from colour-blocked templates at 160 px a tile (raw-rail/tpl-*-r5.png).
   'ramps-r5-1': ['ramp-ew', 0.8], 'ramps-r5-2': ['ramp-ns-away', 0.8], 'ramps-r5-3': ['ramp-ns-toward', 0.8],
   'portals-r5-1': ['portal-ew', 0.8], 'portals-r5-2': ['portal-ns-away', 0.8], 'portals-r5-3': ['portal-ns-toward', 0.8],

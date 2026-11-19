@@ -415,7 +415,7 @@ describe('Migration', () => {
       snapshot: v8Snapshot,
     };
     const migrated = migrate(v8);
-    expect(migrated.version).toBe(9);
+    expect(migrated.version).toBe(SAVE_VERSION);
     expect(migrated.snapshot.politics).toEqual({ peakPopulation: 12_345, regen: 0 });
     const loaded = deserialize(migrated.snapshot);
     expect(loaded.politics.peakPopulation).toBe(12_345);

@@ -10,8 +10,11 @@
 //   7 — unified powerPlants/waterTowers/sewagePlants/serviceBuildings into buildings[]
 //   8 — added visualVariant layer (Lot ID for persistent graphics)
 //   9 — added politics (peak population for milestones, last PC regeneration)
+//  10 — train stations shrank (persistence/stationResize.ts)
 
-export const SAVE_VERSION = 9;
+import { shrinkStations } from './stationResize';
+
+export const SAVE_VERSION = 10;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -77,6 +80,11 @@ export interface WorldSnapshot {
   buildings: { tx: number; ty: number; kind: number; rot?: number }[];
   /** Added without a version bump: written only when the city has markers (sim/markers.ts). */
   markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
+  /**
+   * Never saved: set by an upgrade step (migrate) that changed something the
+   * player should be told about, and shown once after the load (World.loadNotes).
+   */
+  upgradeNotes?: { stationsRebuilt?: number };
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
   layers: {
@@ -120,7 +128,7 @@ export interface WorldSnapshot {
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -175,7 +183,8 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 6) rec = upgradeV6toV7(rec);
   if ((rec as { version: number }).version === 7) rec = upgradeV7toV8(rec);
   if ((rec as { version: number }).version === 8) rec = upgradeV8toV9(rec);
-  if ((rec as { version: number }).version === 9) return rec;
+  if ((rec as { version: number }).version === 9) rec = { ...rec, version: 10, snapshot: shrinkStations(rec.snapshot) };
+  if ((rec as { version: number }).version === 10) return rec;
   if ((rec as { version: number }).version > SAVE_VERSION) throw new NewerSaveError((rec as { version: number }).version);
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }

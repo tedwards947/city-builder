@@ -30,9 +30,9 @@ A trip that uses rail goes **home → car traffic → station → rail → stati
 ## Buildings
 | Building | Footprint | Orientations |
 |---|---|---|
-| Train station, straight | 4×3 | horizontal, vertical |
-| Train station, L-shaped (elbow) | 3×3 | 4 |
-| Subway station | 1×1 entrance on the surface; 4-tile platform underground (the same length as the straight station's platform) | underground platform at 0° or 90° |
+| Train station, straight | 3×1, all platform (the station house is drawn beside the track and takes no tile) | 4 (the rotation picks the side the house is drawn on) |
+| Train station, curved (L) | 2×2: three platform tiles round the corner, the house on the fourth | 4 |
+| Subway station | 1×1 entrance on the surface; 3-tile platform underground (the same length as the straight station's platform) | underground platform at 0° or 90° |
 | Transition ramp (ground↔elevated, ground↔subway) | 2×1 | 4 each |
 
 Stations have a road door (car traffic in and out) and track at the platform ends.
@@ -59,7 +59,8 @@ Stations have a road door (car traffic in and out) and track at the platform end
 - **Elevated track** runs over roads, empty land, water and ground track, never over buildings.
 - **Water:** subway may run under water; ground track crosses water on bridges.
 - **Transfers:** none. A rider boards once; junction penalties do the job. Heavy rail and subway have the same speed and capacity at first.
-- **Station doors:** any street or avenue touching a non-track side connects the station (no single door tile).
+- **Station doors:** any street or avenue beside any tile of a station connects it (no single door tile).
+- **No track beside a platform:** track of a platform's own level cannot run alongside it (side-on), and a station cannot be placed where it would. Track joins a platform only at its ends.
 - **No walking:** both ends of a rail trip need a road; a station without one warns.
 - **Level crossings** are allowed on streets and avenues; the slowdown grows with the other side's traffic.
 - **Later than phase 1:** PC nuisance for track and the station growth bonus.

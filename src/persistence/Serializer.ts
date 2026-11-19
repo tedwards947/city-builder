@@ -97,6 +97,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
 
   world.buildings = snapshot.buildings.map(b => ({ ...b }));
   world.markers = cleanMarkers(snapshot.markers, snapshot.width, snapshot.height);
+  world.loadNotes = { ...snapshot.upgradeNotes };
 
   // Overwrite every layer in-place so array references inside world stay valid.
   const l = world.layers;

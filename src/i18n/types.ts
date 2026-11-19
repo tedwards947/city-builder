@@ -143,6 +143,8 @@ export interface TranslationSchema {
       water: string;
     };
     toast: {
+      stationsRebuiltTitle: string;
+      stationsRebuilt: string;
       newerSaveTitle: string;
       newerSave: string;
       savedCityUnreadableTitle: string;

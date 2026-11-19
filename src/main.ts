@@ -207,7 +207,7 @@ const titleScreen = new TitleScreen({
   onContinue: () => {
     if (!savedWorld) return;
     // With no showcase the title sits over the player's own city, paused: just carry on in it.
-    if (state.world === savedWorld) { closeTitle(); setSpeed(1); }
+    if (state.world === savedWorld) { closeTitle(); setSpeed(1); showLoadNotes(savedWorld); }
     else startGame(savedWorld);
   },
   onNew: () => newGameDialog.show(),
@@ -251,6 +251,15 @@ function startGame(world: World, behindTitle = false): void {
   requestFeedback.setWorld(world);
   camera.centerOnTile(world.grid.width / 2, world.grid.height / 2);
   document.getElementById('hint')?.classList.remove('hidden');
+  if (!behindTitle) showLoadNotes(world);
+}
+
+/** Tell the player, once, what upgrading their old save changed (never for the title's showcase). */
+function showLoadNotes(world: World): void {
+  if (world.loadNotes.stationsRebuilt) {
+    toastPanel.showToast(t('ui.toast.stationsRebuiltTitle'), t('ui.toast.stationsRebuilt', { n: world.loadNotes.stationsRebuilt }), 'info');
+  }
+  world.loadNotes = {};
 }
 
 const saveLoadPanel = new SaveLoadPanel(

@@ -38,9 +38,12 @@ describe('station hints', () => {
     for (let x = 4; x <= 9; x++) zone(x, 9, ZONE_R, 2);
     street(10, 48, 60);
     for (let x = 55; x <= 58; x++) zone(x, 9, ZONE_I, 3);
-    expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
-    expect(w.placeBuilding(50, 11, BUILDING_STATION)).toBe(true);
-    for (let x = 8; x <= 49; x++) expect(w.layTrack(x, 12)).toBe(true);
+    // Platforms on y 12 (x 4–6 and x 50–52), each with a one-tile street up to its street.
+    expect(w.placeBuilding(4, 12, BUILDING_STATION)).toBe(true);
+    expect(w.placeBuilding(50, 12, BUILDING_STATION)).toBe(true);
+    expect(w.setRoad(5, 11, ROAD_STREET)).toBe(true);
+    expect(w.setRoad(51, 11, ROAD_STREET)).toBe(true);
+    for (let x = 7; x <= 49; x++) expect(w.layTrack(x, 12)).toBe(true);
     const t = traffic();
 
     const trace = buildingTrace(w, t, idx(5, 12))!;     // the suburb's station
@@ -65,7 +68,7 @@ describe('station hints', () => {
 
   it('a station nobody uses, and an empty tile, give no hints', () => {
     street(10, 2, 12);
-    expect(w.placeBuilding(4, 11, BUILDING_STATION)).toBe(true);
+    expect(w.placeBuilding(4, 12, BUILDING_STATION)).toBe(true);
     const t = traffic();
     expect(buildingTrace(w, t, idx(5, 12))).toBeNull();
     expect(buildingTrace(w, t, idx(30, 30))).toBeNull();
