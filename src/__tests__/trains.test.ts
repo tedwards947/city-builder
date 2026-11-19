@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRuns, trainAt, headway, legAt, LEG, CARS, CAR_LEN, CAR_GAP } from '../render/clay/trains';
+import { buildRuns, trainAt, headway, legAt, trainsInView, LEG, CARS, CAR_LEN, CAR_GAP } from '../render/clay/trains';
 import { BUILDING_STATION } from '../sim/constants';
 import { landWorld } from './pcTestWorld';
 
@@ -57,3 +57,25 @@ describe('a train', () => {
     expect(legAt(t - 0.05)!.a).toBeLessThan(0.1);
   });
 });
+
+describe('trains for the sound', () => {
+  it('tells its phase: slowing in, stopped, pulling out, in that order', () => {
+    const seen: string[] = [];
+    for (let u = 0; u < 60; u += 0.05) { const p = trainAt(u, 20, 10); if (!p) break; if (seen[seen.length - 1] !== p.phase) seen.push(p.phase); }
+    expect(seen).toEqual(['in', 'dwell', 'out']);
+    expect(trainAt(1, 20, null)!.phase).toBe('run');
+  });
+
+  it('lists the trains in view with a stable id through one station visit', () => {
+    const w = landWorld(40); w.budget.money = 1_000_000;
+    for (let x = 2; x <= 30; x++) if (x < 14 || x > 17) expect(w.layTrack(x, 10)).toBe(true);
+    expect(w.placeBuilding(14, 9, BUILDING_STATION, 0)).toBe(true);
+    let t = 0, first = null as ReturnType<typeof trainsInView>[number] | null;
+    for (; t < 130_000 && !first; t += 250) first = trainsInView(w, t, 0, 0, 39, 39).find(v => v.phase === 'in' && v.a < 0.5) ?? null;   // one just appearing
+    expect(first).not.toBeNull();
+    const phases = new Set<string>();
+    for (let u = t; u < t + 12_000; u += 250) { const same = trainsInView(w, u, 0, 0, 39, 39).find(v => v.key === first!.key); if (same) { phases.add(same.phase); expect(same.y).toBeCloseTo(10.5, 0); } }
+    expect(phases.has('dwell')).toBe(true);
+  });
+});
+
