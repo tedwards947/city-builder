@@ -92,6 +92,7 @@ export interface TranslationSchema {
     /** Labels on the trip drawn when a lot is inspected. */
     route: { jobs: string; shops: string; customers: string; workers: string; none: string; noCustomers: string; noWorkers: string };
     airport: { noRoad: string; roadHere: string };
+    rail: { offMap: string; blocked: string; hasTrack: string; crossing: string };
     econ: {
       title: string;
       taxLevel: string;
@@ -291,12 +292,16 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      track: string;
+      station: string;
+      stationL: string;
       police: string;
       fireStation: string;
       school: string;
       hospital: string;
       park: string;
       landscape: string;
+      rail: string;
       trees: string;
       addWater: string;
       removeWater: string;
@@ -385,6 +390,9 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      track: string;
+      station: string;
+      stationL: string;
       police: string;
       fireStation: string;
       school: string;

@@ -6,6 +6,7 @@ import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
 import type { RoadPreview, ZonePreview } from './render/CanvasRenderer';
 import { localizeHTML, t, tArray } from './i18n';
+import { trackBlocker, trackBuildCost } from './sim/rail';
 import type { FailReason } from './commands/Command';
 
 localizeHTML();
@@ -563,6 +564,13 @@ function frame(now: number): void {
     const plan = planAutoRoad(state.world, autoRoadPath(roadStart, hoverTile), roadClass);
     roadPreview = { tiles: plan.tiles, ok: plan.affordable, label: '$' + plan.cost.toLocaleString('en-US'), pc: pcTag(plan.pc) };
     pcPreview = planPcPreview(hoverTile, plan.pc);
+  }
+  // Track (clay/rail.ts): the tile under the pointer, with its price or why track can't go there.
+  if (!roadPreview && hoverTile && currentTool === 'rail') {
+    const why = trackBlocker(state.world, hoverTile.tx, hoverTile.ty), cost = trackBuildCost(state.world, hoverTile.tx, hoverTile.ty);
+    roadPreview = why || cost === null
+      ? { tiles: [hoverTile], ok: false, label: t(`ui.rail.${why ?? 'blocked'}`) }
+      : { tiles: [hoverTile], ok: state.world.budget.money >= cost, label: '$' + cost.toLocaleString('en-US') };
   }
   if (!zonePreview && !roadPreview && hoverTile) {
     pcPreview = hoverPcPreview(state.world, currentTool, hoverTile);

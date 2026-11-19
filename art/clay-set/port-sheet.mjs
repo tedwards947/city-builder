@@ -120,9 +120,14 @@ const AIR_GAME = {
   'vehicles-side-1': ['fuel', 0.8 * 128 / 396], 'vehicles-side-2': ['bags', 128 / 447], 'vehicles-side-3': ['tug', 0.45 * 128 / 312],
   'vehicles-side-4': ['catering', 0.6 * 128 / 292], 'vehicles-side-5': ['stairs', 0.6 * 128 / 280], 'vehicles-side-6': ['fire', 0.7 * 128 / 331],
 };
-const AIR = set === 'airport';
-const GAME_OUT = join(here, AIR ? '../../public/sprites/clay/airport' : '../../public/sprites/clay/port');
-const GAME_DATA = join(here, AIR ? '../../src/render/clay/airportSpriteData.ts' : '../../src/render/clay/portSpriteData.ts');
+// The rail props (art/clay-set/rail.html, the owner's picks): the Victorian stations, scaled so the base spans its footprint's width.
+const RAIL_GAME = {
+  'victorian-1': ['station-h', 4 * 128 / 548], 'victorian-2': ['station-v', 3 * 128 / 520],
+  'l-stations-1': ['station-l-up', 3 * 128 / 305], 'l-stations-4': ['station-l-down', 3 * 128 / 304],
+};
+const RAIL = set === 'rail', AIR = set === 'airport' || RAIL;   // both write the same sprite data shape
+const GAME_OUT = join(here, '../../public/sprites/clay/' + (RAIL ? 'rail' : AIR ? 'airport' : 'port'));
+const GAME_DATA = join(here, '../../src/render/clay/' + (RAIL ? 'railSpriteData.ts' : AIR ? 'airportSpriteData.ts' : 'portSpriteData.ts'));
 // Area-average resample with premultiplied alpha.
 function resample(px, W, H, k) {
   const W2 = Math.round(W * k), H2 = Math.round(H * k), out = new Uint8Array(W2 * H2 * 4);
@@ -176,7 +181,7 @@ blobs.forEach((bl, k) => {
   png(join(OUT, file), W, H, px);
   // foot: where the prop's base sits in the crop (bottom of its solid pixels).
   meta.push({ file, w: W, h: H, footY: bl.y1 - y0, left: bl.x0 - x0, right: bl.x1 - x0 });
-  const g = (AIR ? AIR_GAME : set === 'port' ? GAME : {})[`${name}-${k + 1}`];
+  const g = (RAIL ? RAIL_GAME : AIR ? AIR_GAME : set === 'port' ? GAME : {})[`${name}-${k + 1}`];
   if (g) {
     mkdirSync(GAME_OUT, { recursive: true });
     const [id, kk] = g, r = resample(px, W, H, kk);
@@ -191,7 +196,11 @@ if (Object.keys(game).length) {
   let prev = {};
   try { prev = JSON.parse(/\/\* json \*\/([\s\S]*?)\/\* end \*\//.exec(readFileSync(GAME_DATA, 'utf8'))[1]); } catch {}
   const all = { ...prev, ...game };
-  writeFileSync(GAME_DATA, AIR ? `// Made by art/clay-set/port-sheet.mjs (… airport): the airport's painted props in public/sprites/clay/airport, at 128 px a tile.
+  writeFileSync(GAME_DATA, RAIL ? `// Made by art/clay-set/port-sheet.mjs (… rail): the stations' painted props in public/sprites/clay/rail, at 128 px a tile.
+// w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
+export interface RailSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number }
+export const RAIL_SPRITES: Record<string, RailSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;
+` : AIR ? `// Made by art/clay-set/port-sheet.mjs (… airport): the airport's painted props in public/sprites/clay/airport, at 128 px a tile.
 // w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
 export interface AirportSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number }
 export const AIRPORT_SPRITES: Record<string, AirportSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;

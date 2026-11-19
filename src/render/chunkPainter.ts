@@ -7,6 +7,8 @@ import type { World } from '../sim/World';
 import { CHUNK_SIZE } from '../sim/Grid';
 import { resolveTilePalette } from './CharacterPalette';
 import { drawClayRoad } from './clay/roads';
+import { drawRailTile } from './clay/rail';
+import { railLinks } from '../sim/rail';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { drawFlatTree, drawFlatZoneBuilding, drawFlatBuilding } from './flatTiles';
 import { BALANCE } from '../data/balance';
@@ -14,7 +16,7 @@ import { isLargeBuilding } from '../sim/buildingShapes';
 import { BIG_SLAB } from './clay/bigBuildings';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
-  ZONE_NONE, ROAD_NONE, VEG_NONE, BUILDING_NONE,
+  ZONE_NONE, ROAD_NONE, VEG_NONE, BUILDING_NONE, RAIL_GROUND, BUILDING_STATION, BUILDING_STATION_L,
 } from '../sim/constants';
 import type { ChunkPainter } from './ChunkCache';
 
@@ -55,7 +57,7 @@ export function chunkSignature(world: World, cx: number, cy: number): number {
       const pollution = L.pollution[i] > 8 && terrain !== TERRAIN_WATER ? L.pollution[i] : 0;
       // Crime, sickness and deaths are not drawn into chunks any more (they
       // are per-frame badges and pins), so they are not part of the signature.
-      const c = pollution;
+      const c = pollution | (L.rail[i] << 8);
       h = Math.imul(h ^ a, 0x9e3779b1); h ^= h >>> 15;
       h = Math.imul(h ^ b, 0x85ebca6b); h ^= h >>> 13;
       h = Math.imul(h ^ c, 0xc2b2ae35); h ^= h >>> 16;
@@ -65,8 +67,9 @@ export function chunkSignature(world: World, cx: number, cy: number): number {
   // A road tile is drawn from its neighbours' classes, and a neighbour's
   // drawn class depends on its own neighbours (see drawnRoadClass), so the
   // two rings of tiles just outside the chunk matter too.
-  const R = L.roadClass;
-  const at = (tx: number, ty: number): number => (tx >= 0 && ty >= 0 && tx < width && ty < height ? R[ty * width + tx] : 0);
+  // Track joins its neighbours the same way (sim/rail.ts railLinks), so their track counts too.
+  const R = L.roadClass, RL = L.rail;
+  const at = (tx: number, ty: number): number => (tx >= 0 && ty >= 0 && tx < width && ty < height ? R[ty * width + tx] | (RL[ty * width + tx] << 4) : 0);
   let ring = 0;
   for (let d = 1; d <= 2; d++) {
     for (let tx = x0 - 1; tx <= x1; tx++) ring = (Math.imul(ring, 31) + (at(tx, y0 - d) | at(tx, y1 + d - 1) << 2)) | 0;
@@ -168,12 +171,18 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
         drawClayRoad(chunkCtx, drawnRoadAt(world, tx, ty), drawnRoadsAround(world, tx, ty), terrain === TERRAIN_WATER, sxi, syi, Math.ceil(ts));
       }
 
+      // Ground track (clay/rail.ts); a station's platform track is drawn over its picture instead.
+      if ((world.layers.rail[i] & RAIL_GROUND) !== 0 && building === BUILDING_NONE) {
+        drawRailTile(chunkCtx, railLinks(world, i), sxi, syi, Math.ceil(ts), road !== ROAD_NONE, terrain === TERRAIN_WATER);
+      }
+
       if (building !== BUILDING_NONE) {
         // A big building's tiles are each a slice of one plain slab; the live
         // layer draws its outline and shapes on top (clay/bigBuildings.ts).
         if (isLargeBuilding(building)) {
           // A dock stands over the water: leave the water showing under it.
-          if (world.buildingPartRoleAt(tx, ty) !== 'dock') { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
+          // A station's picture brings its own ground (clay/rail.ts), so it gets none.
+          if (world.buildingPartRoleAt(tx, ty) !== 'dock' && building !== BUILDING_STATION && building !== BUILDING_STATION_L) { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
         }
         else drawFlatBuilding(chunkCtx, building, sxi, syi, tsi, ts, localP, visualVariant);
       }

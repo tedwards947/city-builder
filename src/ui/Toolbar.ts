@@ -6,7 +6,7 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
 import { BRUSH_RADII, landscapeBrush, setLandscapeBrush, treeChoice, setTreeChoice } from '../input/landscape';
 import { TREE_SPECIES_MAX } from '../sim/landscaping';
 import { WILD_SPECIES, drawTreeIcon, loadWildTrees } from '../render/clay/wildTrees';
@@ -101,6 +101,12 @@ export const TOOLBAR: ToolbarEntry[] = [
   { key: 'seaport', icon: 'port', tool: 'seaport' },
   // Airport (art/clay-set/airport3.html): one per city, 12×5, never turned.
   { key: 'airport', icon: 'plane', tool: 'airport' },
+  // Rail (RAIL_DESIGN.md): ground track, dragged straight like a road, and the two stations.
+  { family: 'rail', icon: 'track', items: [
+    { key: 'track', icon: 'track', tool: 'rail' },
+    { key: 'station', icon: 'station', tool: 'station' },
+    { key: 'stationL', icon: 'stationL', tool: 'stationL' },
+  ] },
   'sep',
   { family: 'overlays', icon: 'layers', items: [
     { key: 'traffic', icon: 'traffic', overlay: 'traffic', hotkey: 't' },
@@ -124,7 +130,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
-  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT,
+  largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT, station: BUILDING_STATION, stationL: BUILDING_STATION_L,
   police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL,
   hospital: BUILDING_HOSPITAL, park: BUILDING_PARK,
 };
@@ -132,7 +138,7 @@ const BUILDING_KIND: Partial<Record<Tool, number>> = {
 function flatCost(tool: Tool): number | undefined {
   const c = BALANCE.costs;
   return tool === 'zoneR' ? c.zoneR : tool === 'zoneC' ? c.zoneC : tool === 'zoneI' ? c.zoneI : tool === 'bulldoze' ? c.bulldoze
-    : tool === 'trees' ? c.tree : tool === 'addWater' || tool === 'removeWater' ? c.water : undefined;
+    : tool === 'trees' ? c.tree : tool === 'addWater' || tool === 'removeWater' ? c.water : tool === 'rail' ? BALANCE.rail.track[1].cost : undefined;
 }
 
 /** The building a tool places, if it places one. */

@@ -8,7 +8,9 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
-import { TERRAIN_WATER, BUILDING_AIRPORT } from '../sim/constants';
+import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
+import { drawRailTile, drawStation, railArtReady } from './clay/rail';
+import { railLinks } from '../sim/rail';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
@@ -561,6 +563,19 @@ export class CanvasRenderer {
     }
     const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
     const box = shapeBox(kind, rot), n = box.maxX - box.minX + 1;
+    // A station (clay/rail.ts): its picture, then the game's own track over the empty strip down its platform.
+    if (kind === BUILDING_STATION || kind === BUILDING_STATION_L) {
+      const tile = Math.ceil(camera.zoom * TILE_SIZE), w = box.maxX - box.minX + 1, h = box.maxY - box.minY + 1;
+      if (railArtReady()) drawStation(ctx, kind, rot, X(ax + box.minX), Y(ay + box.minY), w, h, tile);
+      else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
+      const roles = shapeRoles(kind);
+      buildingShape(kind, rot).forEach(([dx, dy], k) => {
+        if (roles[k] !== 'platform') return;
+        const i = anchor + dx + dy * width;
+        drawRailTile(ctx, railLinks(world, i), X(ax + dx), Y(ay + dy), tile);
+      });
+      return;
+    }
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
     if (!sprite) {
       drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, this._portWork.get(anchor) ?? -1);
