@@ -1,6 +1,7 @@
 // Zone growth. Eligible tiles (zoned + powered + road access) develop
 // gradually at a low random probability per tick.
 
+import { stationGrowthMask } from '../rail';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -70,6 +71,7 @@ export class ZoneGrowthSystem {
     // Randomize scan order with a prime step to prevent top-left always growing first.
     const n = width * height;
     const step = 97;
+    const nearStation = stationGrowthMask(world);
     let idx = Math.floor(world.rng() * n);
     // Only zoned tiles can grow, so visit just those — in the order the
     // stepped scan would reach them, which keeps the random rolls identical.
@@ -134,7 +136,9 @@ export class ZoneGrowthSystem {
       }
       const ordinance = zone[i] === ZONE_I ? growthIndustry : growthAll;
       const baseP = zone[i] === ZONE_R ? (BALANCE.growth.homeProbabilityByLevel[dev[i]] ?? BALANCE.growth.probability) : BALANCE.growth.probability;
-      if (world.rng() < baseP * demandMult * congestionMult * accessMult * shortagePenalty * ordinance) {
+      // Homes and shops near a station with a road and riders grow faster (sim/rail.ts).
+      const station = nearStation !== null && nearStation[i] === 1 && zone[i] !== ZONE_I ? BALANCE.rail.stationGrowth.mult : 1;
+      if (world.rng() < baseP * demandMult * congestionMult * accessMult * shortagePenalty * ordinance * station) {
         dev[i]++;
         if (dev[i] === 1) markDeveloped(world, i);   // built up from empty: its years start now
         world.grid.markDirty(x, y);

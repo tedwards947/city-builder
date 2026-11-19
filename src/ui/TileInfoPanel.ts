@@ -3,7 +3,7 @@
 // breakdown of what's blocking the next level of growth.
 
 import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_SURFACE } from '../sim/constants';
-import { railLinks, stationPeak } from '../sim/rail';
+import { railLinks, stationGrowthMask, stationPeak } from '../sim/rail';
 import { railCapacity, railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
@@ -667,6 +667,10 @@ export class TileInfoPanel {
     // Track on the other levels of the tile, whatever stands on it: elevated overhead, a subway underneath.
     {
       const L = world.layers;
+      // A home or shop near a station that has a road and riders grows faster.
+      if ((L.zone[i] === ZONE_R || L.zone[i] === ZONE_C) && stationGrowthMask(world)?.[i] === 1) {
+        html += `<div class="ti-detail" style="color:#5c5">${t("ui.tileInfo.nearStation", {pct: Math.round((BALANCE.rail.stationGrowth.mult - 1) * 100)})}</div>`;
+      }
       const elevatedIsHeading = L.building[i] === 0 && L.roadClass[i] === 0 && (L.rail[i] & RAIL_SURFACE) === RAIL_ELEVATED;
       // A subway station's own rows already show its platform's riders.
       if (L.building[i] !== BUILDING_SUBWAY_STATION) html += otherLevelRows(world, i, elevatedIsHeading);

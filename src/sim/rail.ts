@@ -262,6 +262,45 @@ export function stationPeak(world: World, tx: number, ty: number): { tile: numbe
   return best < 0 ? null : { tile: best, level, riders: most };
 }
 
+const boostCache = new WeakMap<World, { key: string; mask: Uint8Array | null }>();
+
+/**
+ * Where homes and shops grow faster for being near a station
+ * (BALANCE.rail.stationGrowth): 1 on every tile within `radius` (manhattan)
+ * of any tile of a station that has a road and riders, 0 elsewhere. Null when
+ * there is no such station or the bonus is off (`mult` 1 or less). Worked out
+ * again only after a traffic pass or a change of track.
+ */
+export function stationGrowthMask(world: World): Uint8Array | null {
+  const d = world.traffic;
+  const cfg = BALANCE.rail.stationGrowth;
+  if (!d || d.rail.stations.length === 0 || !(cfg.mult > 1) || !(cfg.radius > 0)) return null;
+  const key = `${d.version}:${world.railVersion}:${cfg.radius}`;
+  const hit = boostCache.get(world);
+  if (hit && hit.key === key) return hit.mask;
+  const { width, height } = world.grid;
+  const radius = Math.floor(cfg.radius);
+  let mask: Uint8Array | null = null;
+  for (const s of d.rail.stations) {
+    if (s.roads.length === 0) continue;
+    const ax = s.anchor % width, ay = (s.anchor - ax) / width;
+    const peak = stationPeak(world, ax, ay);
+    if (!peak || !(peak.riders > 0.5)) continue;
+    mask ??= new Uint8Array(width * height);
+    for (const i of world.buildingTilesAt(ax, ay)) {
+      const x = i % width, y = (i - x) / width;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= height) continue;
+        const reach = radius - Math.abs(dy);
+        for (let xx = Math.max(0, x - reach); xx <= Math.min(width - 1, x + reach); xx++) mask[yy * width + xx] = 1;
+      }
+    }
+  }
+  boostCache.set(world, { key, mask });
+  return mask;
+}
+
 /** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare. */
 export function railFareIncome(world: World): number {
   const boardings = world.traffic?.rail.boardings ?? 0;

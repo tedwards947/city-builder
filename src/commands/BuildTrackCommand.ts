@@ -5,12 +5,16 @@ import type { World } from '../sim/World';
 import { RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { trackBuildCost } from '../sim/rail';
+import type { PcCharges } from '../sim/politics';
+import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 // Lays rail track of one level (ground, elevated or subway) on one tile
 // (sim/rail.ts for where each may go). Costs BALANCE.rail.track[level].cost;
 // ground track on water is a bridge and costs that times the bridge
-// multiplier. No political capital yet: track near homes becomes a nuisance
-// later (RAIL_DESIGN.md).
+// multiplier. Ground and elevated track near homes is a nuisance and costs
+// political capital, like an industrial zone or a power plant (the quote's
+// 'track' action; BALANCE.politicalCapital.nuisance.trackPerResident); a
+// subway costs none.
 
 export class BuildTrackCommand extends Command {
   private readonly tx: number;
@@ -18,6 +22,7 @@ export class BuildTrackCommand extends Command {
   private readonly level: number;
   private snap: TileSnapshot | null = null;
   private cost = 0;
+  private pcCharges: PcCharges = NO_PC_CHARGES;
 
   constructor(tx: number, ty: number, level: number = RAIL_GROUND) {
     super();
@@ -30,10 +35,13 @@ export class BuildTrackCommand extends Command {
     const cost = trackBuildCost(world, this.tx, this.ty, this.level);
     if (cost === null) return false;
     if (world.budget.money < cost) { this.failReason = 'funds'; return false; }
+    const quote = pcQuote(world, { type: 'track', tx: this.tx, ty: this.ty, level: this.level });
+    if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
     this.snap = snapshotTile(world, this.tx, this.ty);
     if (!world.layTrack(this.tx, this.ty, this.level)) { this.snap = null; return false; }
     this.cost = cost;
     world.budget.money -= cost;
+    this.pcCharges = chargeQuote(world, quote, this.tx, this.ty);
     world.events.emit('trackBuilt', { tx: this.tx, ty: this.ty, cost });
     return true;
   }
@@ -41,6 +49,8 @@ export class BuildTrackCommand extends Command {
   undo(world: World): void {
     if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
     world.budget.money += this.cost;
+    refundCharges(world, this.pcCharges, this.tx, this.ty);
+    this.pcCharges = NO_PC_CHARGES;
   }
 }
 

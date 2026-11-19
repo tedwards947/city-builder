@@ -11,6 +11,7 @@
 //   - changePc: one cost or reward;
 //   - regenPc:  the passive per-tick change from PoliticsSystem.
 
+import { trackBlocker } from './rail';
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
@@ -319,6 +320,8 @@ export interface NuisanceConfig {
   industrialPerResident: number;
   /** PC per resident at weight 1, by building kind. Missing or 0 = off. */
   buildingPerResident: Readonly<Record<number, number>>;
+  /** PC per resident at weight 1 for each tile of rail track laid, by level (a RAIL_ bit). Missing or 0 = off. */
+  trackPerResident?: Readonly<Record<number, number>>;
 }
 
 /** What is being placed, for nuisance purposes: a zone or a building kind. */
@@ -349,7 +352,8 @@ export type PcQuoteAction =
   | { type: 'bulldoze'; tx: number; ty: number }
   | { type: 'zone'; tx: number; ty: number; zone: number }
   | { type: 'building'; tx: number; ty: number; kind: number; rot?: number }
-  | { type: 'road'; tx: number; ty: number; roadClass: number };
+  | { type: 'road'; tx: number; ty: number; roadClass: number }
+  | { type: 'track'; tx: number; ty: number; level: number };
 
 /** One contribution to a quote: who objects (or is pleased), and by how much. */
 export interface PcPart {
@@ -491,6 +495,10 @@ export function pcQuote(
         addPart(q, 'serviceOpened', p.tx, p.ty, p.amount, p.strength);
       }
       break;
+    case 'track':
+      // Track goes on no zone, so it displaces nobody; the homes nearby object (below).
+      if (trackBlocker(world, tx, ty, action.level) !== null) return q;
+      break;
     case 'road': {
       if (!world.isBuildable(tx, ty, true) || layers.roadClass[i] >= action.roadClass) return q;
       addPart(q, 'displacement', tx, ty, -d.pcCost);
@@ -514,6 +522,7 @@ export function pcQuote(
   // Homes nearby object to a nuisance. Land that is already industrial is not a new one.
   const rate = action.type === 'zone' ? nuisanceRate({ zone: action.zone }, nuisance)
              : action.type === 'building' ? nuisanceRate({ kind: action.kind }, nuisance)
+             : action.type === 'track' ? (nuisance.trackPerResident?.[action.level] ?? 0)
              : 0;
   const alreadyIndustrial = action.type === 'zone' && layers.zone[i] === ZONE_I;
   if (rate > 0 && !alreadyIndustrial && nuisance.bands.length > 0) {
