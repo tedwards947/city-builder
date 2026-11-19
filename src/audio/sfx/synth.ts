@@ -41,6 +41,9 @@ function buffers(ac: Ctx): { white: AudioBuffer; brown: AudioBuffer } {
   return b;
 }
 
+/** The shared brown-noise buffer, for sounds that shape their own noise. */
+export function brownNoise(ac: Ctx): AudioBuffer { return buffers(ac).brown; }
+
 /** Gain envelope: attack to `peak`, an optional hold (sagging to 75%), then an exponential decay. */
 function env(ac: Ctx, out: Out, t: number, a: number, peak: number, d: number, hold = 0): GainNode {
   const g = ac.createGain();
