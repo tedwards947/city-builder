@@ -65,8 +65,21 @@ Stations have a road door (car traffic in and out) and track at the platform end
 - **Later than phase 1:** PC nuisance for track and the station growth bonus.
 - **Phase 1 = four engine PRs:** track layer and tool → stations → rail traffic → tests and lab hooks. Numbers live in `BALANCE.rail`.
 
-## Proposed numbers for the later rail pieces (ENGINEER 3, 2026-11-19; waiting on the owner)
-Nothing below is built or shipped. These are starting numbers for ENGINE to build against, with the lab targets to check them by.
+## Phase 2 numbers (ENGINEER 3, 2026-11-19)
+**Shipped (owner-approved 2026-11-19):** elevated track 1,200 a tile (3× ground), subway 10,000 a tile (25×), subway upkeep 2 a tile a tick (4×). New lab targets:
+- **rail.subwayCost:** 60 tiles of subway cost 60–120 days of a 10–25k city's surplus, and ≤ 30 days at 40k or more. Today: 105 days on gen-s1, 70 on gen-suburban. testcity1 is n/a (it runs at a loss), and there is no 40k save yet.
+- **rail.elevatedCost:** elevated costs 2.5–4× ground. Today: 3×.
+
+**Proposed, waiting on the owner** (all of these are today's placeholders, kept as they are):
+| Number | Proposed | Why |
+|---|---|---|
+| Elevated upkeep | **1.5 a tile a tick** (3× ground) | Same multiple as its build cost. A 60-tile elevated line costs about 720 a day to keep, under a subway's 960. |
+| Subway station | **60,000, upkeep 40** | 2× a train station: the hole is the cost. |
+| Ramps | **elevated 5,000 / upkeep 5; subway 15,000 / upkeep 10** | One ramp is about 4 tiles of elevated track, or 1.5 tiles of subway. A line has two, so ramps are small next to the track. |
+| `rail.rampTime` | **1** (street tiles a ramp adds) | A pair of ramps then costs about what one level crossing does on a busy road (`crossing.delay` 2), which elevated track never has. Going up pays off in time once the line skips more than one busy crossing. |
+
+## Proposed numbers for the later rail pieces (ENGINEER 3, 2026-11-19; approved by the owner the same day)
+The proposal as approved. ENGINE builds track nuisance and station growth in phase 2; the phase 2 prices are in the section above. These are starting numbers for ENGINE to build against, with the lab targets to check them by.
 
 ### Track nuisance near homes (PC)
 - It works like today's nuisance: a one-off PC cost when track is laid, per resident within the shared bands (within 2 tiles ×1, within 4 ×0.6, within 6 ×0.3).

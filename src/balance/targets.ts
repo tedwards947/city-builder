@@ -12,6 +12,7 @@
 
 import { BALANCE } from '../data/balance';
 import { ORDINANCE_IDS } from '../sim/ordinances';
+import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
 import type { RunSummary } from './lab';
 import type { StaticProbes } from './probes';
 import type { SvcResult, SvcKindStats, SvcPcProbes } from './services';
@@ -463,6 +464,17 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ the upkeep of a starter line (two stations and 60 tiles of track)', target: '0.8–2.0', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line. Owner (2026-11-18): graded on a fixed 60-tile line, as the probe\'s own line length depends on the map. Owner (2026-11-18): band 0.8–2.0; a rich suburb more than paying for its line is fine.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 2.0); } },
+  { id: 'rail.subwayCost', metric: '60 tiles of subway track: price in days of the city\'s surplus (the street-only twin)', target: '60–120 days at 10–25k residents; ≤ 30 days at 40k or more', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): subway at 25× ground build cost is a big-city project, really, really expensive (RAIL_DESIGN.md).',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const r = o.r;
+      if (!r.surplusPerDay || r.surplusPerDay <= 0) return NA('the city runs at a loss');
+      const days = 60 * BALANCE.rail.track[RAIL_SUBWAY].cost / r.surplusPerDay;
+      if (r.population >= 40000) return range(days, 0, 30);
+      if (r.population < 10000 || r.population >= 25000) return NA(`${r.population} residents: outside both bands`);
+      return range(days, 60, 120); } },
+  { id: 'rail.elevatedCost', metric: 'Elevated track\'s build cost ÷ ground track\'s, for the same line', target: '2.5–4×', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): elevated at 3× ground buys no level crossings and passing over roads.',
+    evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const t = BALANCE.rail.track; return range(t[RAIL_ELEVATED].cost / t[RAIL_GROUND].cost, 2.5, 4); } },
 ];
 
 // Landscaping (approved by the owner 2026-11-19, LANDSCAPING_DESIGN.md). Probes on each saved city
@@ -481,10 +493,9 @@ const LANDSCAPE_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'land.treeShock', metric: 'Change in a mature save\'s income when the tree bonus is switched on (wild trees count too)', target: '≤ 3%', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-19): no windfall for maps that happen to be wooded.',
     evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; return range(o.l.shock, -0.03, 0.03); } },
-  { id: 'land.treeSpam', metric: 'Every free tile within 2 of a home planted: income gain, and the price in days of the city\'s surplus', target: 'gain ≤ 10%; price ≥ 30 days', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-19): no money printer.',
-    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; const s = o.l.spam;
-      return all({ gain: range(s.gain, 0, 0.1), price: s.priceDays === null ? NA('the city runs at a loss') : range(s.priceDays, 30) }); } },
+  { id: 'land.treeSpam', metric: 'Every free tile within 2 of a home planted: income gain', target: 'gain ≤ 10%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): no money printer. Owner (2026-11-19): the price half (≥ 30 days of surplus) is dropped; mature cities have too few free tiles near homes for any price that keeps land.treePayback.',
+    evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; const s = o.l.spam; return { ...range(s.gain, 0, 0.1), note: s.priceDays === null ? `${s.trees} trees` : `${s.trees} trees, ${s.priceDays} days of surplus` }; } },
   { id: 'land.treeBuffer', metric: 'Pollution at the nearest homes behind a 3-tile tree belt from level-3 industry, against bare land (a made-up map)', target: '15–35% lower', persona: 'probe', cities: 'fresh', status: 'graded',
     why: 'Owner (2026-11-19): tree belts buffer industry from homes. Tunes pollution.vegDecayMult.',
     evaluate: c => c.cityKind !== 'fresh' ? NA('graded on fresh maps (the probe is a made-up map)') : range(c.treeBuffer, 0.15, 0.35) },
