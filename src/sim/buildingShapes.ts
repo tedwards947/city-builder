@@ -169,16 +169,17 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
   setBuildingShape(BUILDING_AIRPORT, shape, shape.map(([dx, dy]) => (dy === 0 && dx >= 2 && dx <= 9 ? 'frontage' : 'body')));
 }
 // The train stations (RAIL_DESIGN.md). Straight: a 4×3 block, anchor at its
-// top-left; at rotation 0 the building is the two north rows and the platform
-// the south row, with track joining at its west and east ends. Elbow: a 3×3
-// block with a 2×2 building in the north-west corner and the platform round
-// its south and east sides (five tiles), track joining from the west at the
-// south row and from the north at the east column. Both turn four ways.
+// top-left; at rotation 0 the track runs through the MIDDLE row (dy 1), the
+// platform, joining at its west and east ends, with building on the rows
+// north and south of it. Elbow: a 3×3 block; the track comes in from the west
+// along the middle row, turns on the centre tile and leaves to the north, so
+// the platform is (0,1), (1,1), (1,0) and the other six tiles are building.
+// Both turn four ways. A road beside any building tile reaches the station.
 {
   const straight = block(4, 3);
-  setBuildingShape(BUILDING_STATION, straight, straight.map(([, dy]) => (dy === 2 ? 'platform' : 'body')));
+  setBuildingShape(BUILDING_STATION, straight, straight.map(([, dy]) => (dy === 1 ? 'platform' : 'body')));
   const elbow = block(3, 3);
-  setBuildingShape(BUILDING_STATION_L, elbow, elbow.map(([dx, dy]) => (dx === 2 || dy === 2 ? 'platform' : 'body')));
+  setBuildingShape(BUILDING_STATION_L, elbow, elbow.map(([dx, dy]) => ((dy === 1 && dx <= 1) || (dx === 1 && dy === 0) ? 'platform' : 'body')));
 }
 
 // ── Where a kind may stand ───────────────────────────────────────────────────
