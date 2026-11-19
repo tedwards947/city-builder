@@ -27,8 +27,49 @@
 </head>
 <body>
 <h1>Rail workshop</h1>
-<p>Rail as agreed in RAIL_DESIGN.md: one track network on three levels (ground, elevated, subway). Track, pillars, tunnels and junctions are <b>drawn in code</b>, and this page shows how they could look, at the game's scale, next to the game's own houses and shops. The stations, subway entrance, ramps and train cars will be <b>paintings</b>. Until those are made, they show here as dashed boxes and plain code trains.</p>
+<p>Rail as agreed in RAIL_DESIGN.md: one track network on three levels (ground, elevated, subway). Track, pillars, tunnels and junctions are <b>drawn in code</b>, and this page shows how they could look, at the game's scale, next to the game's own houses and shops. The stations, subway entrance, ramps and train cars are <b>paintings</b>: 8 paid images, as you agreed (3 station styles, a redo of the L stations from an exact template, entrances, ramps, and two sheets of cars). In the track scenes further down, stations still show as dashed boxes and trains as plain code stand-ins.</p>
 <p>Mark <b>Yes</b> or <b>No</b>, then <b>Copy feedback</b> and paste it to Claude. You can say yes to more than one in a section.</p>
+
+<h2>S. Station style</h2>
+<p>Three styles, each shown as all three stations: the straight 4×3 station both ways round, and the L-shaped 3×3 station on a corner. As you asked, <b>no track is painted into the stations</b>. Each one has an empty strip down the middle, and the game draws its own track over it (here, the T2 track), so a station's track is exactly the track everywhere else. The L stations were made from an exact template, so they fit their 3×3 tiles and the game's curve precisely. The straight ones came out shallower than their 4×3 footprint. They're lined up on the track here, but once you pick a style I'd redraw them from a template the same way.</p>
+<div class="rowf">
+  <figure><canvas width="960" height="384" data-scene="stations" data-style="victorian" data-l="0" data-track="modern"></canvas><figcaption><span class="code">S1</span>Victorian: red brick, cream stone, slate roofs, green cast iron, white fretwork canopy edges.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="stations" data-style="brutalist" data-l="1" data-track="modern" data-off="6"></canvas><figcaption><span class="code">S2</span>Brutalist: board-marked concrete, a folded zigzag roof, a waffle canopy on tapered piers, orange benches.</figcaption></figure>
+  <figure><canvas width="960" height="384" data-scene="stations" data-style="timber" data-l="2" data-track="modern" data-off="12"></canvas><figcaption><span class="code">S3</span>Timber: honey wood slats, slim white columns, wavy planted roofs, planters and bike racks.</figcaption></figure>
+</div>
+
+<h2>N. Subway entrance (1×1)</h2>
+<p>Six entrances on a street corner at the game's scale, with a house beside each for size. 1–3 came out at a slight angle, while the game's camera is straight on. Whichever you pick, I'd redraw it straight on.</p>
+<div class="rowf">
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-1"></canvas><figcaption><span class="code">N1</span>Art Nouveau, Paris-style ironwork.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-2"></canvas><figcaption><span class="code">N2</span>Green railings and globe lamps, New York-style.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-3"></canvas><figcaption><span class="code">N3</span>Glass canopy.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-4"></canvas><figcaption><span class="code">N4</span>Victorian brick kiosk (goes with S1).</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-5"></canvas><figcaption><span class="code">N5</span>Concrete box (goes with S2).</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="entrance" data-n="entrances-6"></canvas><figcaption><span class="code">N6</span>Timber pavilion (goes with S3).</figcaption></figure>
+</div>
+
+<h2>R. Ramps (2×1)</h2>
+<p>Here are the east–west ramps in three materials. These also have an empty strip, so the game's own track runs up or down them. They came out at an angle. For the material you pick, I'd redraw them straight on and add the north–south versions, as the four turns need.</p>
+<div class="rowf">
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-1"></canvas><figcaption><span class="code">R1</span>Up to elevated: concrete.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-2"></canvas><figcaption><span class="code">R2</span>Up to elevated: brick.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-3"></canvas><figcaption><span class="code">R3</span>Up to elevated: steel girders.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-4"></canvas><figcaption><span class="code">R4</span>Down to subway: concrete portal.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-5"></canvas><figcaption><span class="code">R5</span>Down to subway: brick arch.</figcaption></figure>
+  <figure><canvas width="300" height="200" data-scene="ramp" data-n="ramps-6"></canvas><figcaption><span class="code">R6</span>Down to subway: grassy banks, round portal.</figcaption></figure>
+</div>
+
+<h2>C. Train cars</h2>
+<p>Each car comes in two pictures: side-on for east–west track and front-on for north–south track. On north–south track the cars behind the first show only their roofs. Each scene shows a 3-car train on each kind of track.</p>
+<div class="rowf">
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="heavy" data-i="1"></canvas><figcaption><span class="code">C1</span>Heavy rail: red with a cream band.</figcaption></figure>
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="heavy" data-i="2"></canvas><figcaption><span class="code">C2</span>Heavy rail: green with a yellow front.</figcaption></figure>
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="heavy" data-i="3"></canvas><figcaption><span class="code">C3</span>Heavy rail: white with a blue stripe.</figcaption></figure>
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="metro" data-i="1"></canvas><figcaption><span class="code">C4</span>Subway: silver with a blue stripe.</figcaption></figure>
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="metro" data-i="2"></canvas><figcaption><span class="code">C5</span>Subway: yellow.</figcaption></figure>
+  <figure><canvas width="460" height="260" data-scene="cars" data-k="metro" data-i="3"></canvas><figcaption><span class="code">C6</span>Subway: silver with an orange stripe.</figcaption></figure>
+</div>
 
 <h2>T. Ground track</h2>
 <p>A main line through a straight station, a branch off a 3-way junction, a 4-way crossing and two level crossings where roads cross the track. At a level crossing the barriers come down and cars wait while a train passes.</p>
@@ -65,6 +106,9 @@
 
 <div class="fbar"><span id="tally"></span><button id="copy">Copy feedback</button><span id="copied"></span></div>
 
+<!-- sprites/rail is not in git: make it with
+  for s in victorian brutalist timber entrances; do node art/clay-set/port-sheet.mjs $s rail split; done; for s in l-stations ramps heavy metro; do node art/clay-set/port-sheet.mjs $s rail; done -->
+<script src="sprites/rail/meta.js"></script>
 <script>
 // ── Helpers ──
 const lerp = (a, b, f) => a + (b - a) * f, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -364,7 +408,73 @@ function sceneJunction(ctx, t, d) {
   label(ctx, +d.sig ? '4-way: the train from the north waits at red' : '4-way crossing', 5.2, 4.3);
   ctx.restore();
 }
-const SCENES = { ground: sceneGround, elevated: sceneElevated, subway: sceneSubway, junction: sceneJunction };
+
+// ── Painted sprites (sprites/rail, cut by port-sheet.mjs; meta = [w, h, left, right, footY] in raw pixels) ──
+const M = window.AIR_META || {}, IMG = {};
+const img = n => IMG[n] || (IMG[n] = Object.assign(new Image(), { src: `sprites/rail/${n}.png` }));
+const ready = n => { const im = img(n); return M[n] && im.complete && im.naturalWidth; };
+// Draw so the solid box's left edge is at px x and its foot at px y; q = screen px per raw px; sy stretches y.
+function sprAt(ctx, n, x, y, q, o = {}) {
+  if (!ready(n)) return; const [w, h, l, r, f] = M[n], im = img(n), sy = o.sy || 1;
+  ctx.save(); ctx.globalAlpha *= o.a ?? 1;
+  if (o.flip) { ctx.translate(2 * x + (r - l) * q, 0); ctx.scale(-1, 1); }
+  if (o.clipH) { ctx.beginPath(); ctx.rect(x - l * q - 2, y - f * q * sy, w * q + 4, o.clipH * q * sy); ctx.clip(); }
+  ctx.drawImage(im, x - l * q, y - f * q * sy, w * q, h * q * sy); ctx.restore();
+}
+// The empty track strip's centre in each straight station picture (raw px: a row for east–west, a column for north–south),
+// measured from the cut sprites (a file:// page can't read pixels back). Re-measure if the sprites are re-cut.
+const STRIP = { 'victorian-1': 237, 'victorian-2': 292, 'brutalist-1': 235, 'brutalist-2': 292, 'timber-1': 225, 'timber-2': 293 };
+const strip = n => STRIP[n];
+// Painted cars: side-on ('-1'…'-3') and front-on ('-4'…'-6'); L = car length in tiles.
+const CAR_L = 1.2;
+function carsH(ctx, k, i, x, y, n, dir, a = 1) {   // x: the front's tile x; y: the rail tile y
+  const name = `${k}-${i}`; if (!ready(name)) return; const [w, h, l, r] = M[name], T = ctx.T, q = CAR_L * T / (r - l);
+  for (let j = 0; j < n; j++) { const x0 = dir > 0 ? x - (j + 1) * CAR_L : x + j * CAR_L; sprAt(ctx, name, x0 * T, (y + 0.12) * T, q, { flip: dir < 0, a }); }
+}
+function carsV(ctx, k, i, x, y, n, a = 1) {   // heading south (toward us); x: the track's tile x centre; y: the front's tile y
+  const name = `${k}-${i + 3}`; if (!ready(name)) return; const [w, h, l, r, f] = M[name], T = ctx.T, q = 0.5 * T / (r - l), len = f * q / T;
+  for (let j = n - 1; j >= 0; j--) sprAt(ctx, name, (x - 0.25) * T, (y + 0.1 - j * len * 0.78) * T, q, { a, clipH: j ? f * 0.52 : 0 });
+}
+
+// ── Stations scene: the three stations of one style on real track ──
+const STN = (() => { const m = net();
+  line(m, -1, 5, 20, 5, 'g');                       // main line through the straight station (x 2–5, rows 4–6)
+  line(m, -1, 1, 9, 1, 'g'); line(m, 9, 1, 9, -1, 'g');   // into the L station (x 8–10, rows 0–2) and out north
+  line(m, 17, -1, 17, 8, 'g');                      // through the vertical station (x 16–18, rows 1–4)
+  return [...m.values()]; })();
+function sceneStations(ctx, t, d) {
+  const T = ctx.T, st = TRACK[d.track], sty = d.style;
+  grass(ctx, 20, 8); road(ctx, 0, 7, 19, 7); road(ctx, 7, 2, 7, 4); road(ctx, 8, 3, 15, 3); road(ctx, 15, 0, 15, 2);
+  lot(ctx, 'res-1', 11, 0); lot(ctx, 'res-1', 12, 0); lot(ctx, 'com-1', 10, 4); lot(ctx, 'com-3', 11, 4); lot(ctx, 'res-1', 0, 2); lot(ctx, 'res-1', 13, 5);
+  // Straight station, east–west: 4 tiles wide, strip on row 5.
+  const nh = `${sty}-1`, nv = `${sty}-2`, nl = `l-stations-${+d.l + 1}`;
+  if (ready(nh)) { const [w, h, l, r, f] = M[nh], q = 4 * T / (r - l), sy = strip(nh); if (sy != null) sprAt(ctx, nh, 2 * T, 5.5 * T + (f - sy) * q, q); }
+  if (ready(nv)) { const [w, h, l, r, f] = M[nv], q = 3 * T / (r - l), sx = strip(nv); if (sx != null) sprAt(ctx, nv, 17.5 * T - (sx - l) * q, 5 * T, q); }
+  if (ready(nl)) { const [w, h, l, r, f] = M[nl], q = 3 * T / (r - l); sprAt(ctx, nl, 8 * T, 3 * T + 16 * q, q); }
+  drawTrack(ctx, STN, st);
+  const hT = stopAndGo(t, -4, 5.4, 25, 24, 6, 4); if (hT.on) carsH(ctx, 'heavy', 1, hT.x, 5.5, 3, 1, fadeAt(hT.x, 0, 24));
+  const vT = stopAndGo(t + 8, -3, 4.6, 12, 24, 5, 4); if (vT.on) carsV(ctx, 'heavy', 3, 17.5, vT.x, 3, fadeAt(vT.x, -1, 9));
+  label(ctx, 'straight, east–west', 4, 7.35 - 0.02); label(ctx, 'L, 3×3', 9.5, 3.5 - 0.02); label(ctx, 'straight, north–south', 17.5, 5.35);
+}
+function sceneEntrance(ctx, t, d) {
+  const T = ctx.T = 64; grass(ctx, 5, 4); road(ctx, 0, 2, 4, 2); road(ctx, 3, 0, 3, 1);
+  ctx.fillStyle = '#c9c4ba'; ctx.fillRect(1 * T, 1 * T, T, T);
+  const n = d.n; if (ready(n)) { const [w, h, l, r] = M[n]; sprAt(ctx, n, 1.02 * T, 2 * T, 0.96 * T / (r - l)); }
+  lot(ctx, 'res-1', 0, 1); lot(ctx, 'res-1', 2, 1); lot(ctx, 'com-1', 4, 1);
+}
+function sceneRamp(ctx, t, d) {
+  const T = ctx.T = 64, st = TRACK.modern, down = +d.n.slice(-1) > 3; grass(ctx, 5, 4);
+  const m = net(); line(m, -1, 1, 3, 1, 'g'); ctx.save(); ctx.translate(0, 0.62 * T); drawTrack(ctx, [...m.values()], st); ctx.restore();   // the ground track runs into the ramp's low end
+  const n = d.n; if (ready(n)) { const [w, h, l, r] = M[n]; sprAt(ctx, n, 1.5 * T, 2.45 * T, 2 * T / (r - l)); }
+  label(ctx, down ? 'ground → subway' : 'ground → elevated', 2.5, 3.6);
+}
+function sceneCars(ctx, t, d) {
+  const T = ctx.T = 64, st = TRACK.modern; grass(ctx, 8, 5);
+  const m = net(); line(m, -1, 3, 8, 3, 'g'); line(m, 6, -1, 6, 5, 'g'); drawTrack(ctx, [...m.values()], st);
+  const h = pass(t, -0.5, 11, 9, 6); if (h.on) carsH(ctx, d.k, +d.i, h.x, 3.5, 3, 1, fadeAt(h.x, 0, 8.5));
+  const v = pass(t + 3, -0.5, 6, 9, 5); if (v.on) carsV(ctx, d.k, +d.i, 6.5, v.x, 3, fadeAt(v.x, 0, 5));
+}
+const SCENES = { ground: sceneGround, elevated: sceneElevated, subway: sceneSubway, junction: sceneJunction, stations: sceneStations, entrance: sceneEntrance, ramp: sceneRamp, cars: sceneCars };
 
 function scene(cv, t) {
   const ctx = cv.getContext('2d'), d = cv.dataset; ctx.T = d.scene === 'junction' ? 64 : 48;
