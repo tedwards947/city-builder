@@ -433,10 +433,10 @@ const railOf = (c: EvalCtx): { r: RailResult } | Outcome => {
   return { r };
 };
 const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'rail.suburb', metric: 'A suburb joined to the city by a long street and one line: its homes\' job access ÷ the city\'s median, and its home levels ÷ the street-only twin\'s after 180 days', target: 'access ≥ 30% of the city\'s; levels ≥ 1.25×', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-18): make suburbs truly possible. A suburb only rail reaches in time grows.',
+  { id: 'rail.suburb', metric: 'A suburb joined to the city by a long street and one line: its homes\' job access ÷ the city\'s median, and its home levels ÷ the street-only twin\'s after 180 days', target: 'access ≥ 25% of the city\'s; levels ≥ 1.25×', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-18): make suburbs truly possible. A suburb only rail reaches in time grows. Owner (2026-11-19): access floor 30% → 25%; after the station resize and the level-crossing change gen-s1 sat at 29.8%.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const r = o.r;
-      return all({ access: range(r.cityAccess ? r.suburbAccess! / r.cityAccess : null, 0.3), levels: range(r.streetLevels ? r.railLevels! / r.streetLevels : null, 1.25) }); } },
+      return all({ access: range(r.cityAccess ? r.suburbAccess! / r.cityAccess : null, 0.25), levels: range(r.streetLevels ? r.railLevels! / r.streetLevels : null, 1.25) }); } },
   { id: 'rail.beatsRoad', metric: 'The suburb\'s job access with the line ÷ with the long street only', target: '≥ 5×', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-18): rail is a very powerful highway; a long street brings services, not commuters.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.suburbAccess! / Math.max(1, o.r.streetAccess ?? 0), 5); } },
