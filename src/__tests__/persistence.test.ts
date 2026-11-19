@@ -3,7 +3,7 @@ import { World } from '../sim/World';
 import { serialize, deserialize } from '../persistence/Serializer';
 import { SaveManager, DEFAULT_USER_ID } from '../persistence/SaveManager';
 import type { IStore, SaveMeta, SaveRecord, SlotInfo, WorldSnapshot } from '../persistence/SaveFormat';
-import { SAVE_VERSION } from '../persistence/SaveFormat';
+import { SAVE_VERSION, NewerSaveError } from '../persistence/SaveFormat';
 import { ZONE_R, ROAD_STREET, BUILDING_POWER_PLANT } from '../sim/constants';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -50,6 +50,12 @@ class MemoryStore implements IStore {
   async load(userId: string, slot: number): Promise<SaveRecord | null> {
     return this.records.get(this.key(userId, slot)) ?? null;
   }
+  async copy(userId: string, from: number, to: number): Promise<void> {
+    const r = this.records.get(this.key(userId, from));
+    if (r) this.records.set(this.key(userId, to), { ...r, slot: to });
+  }
+  /** Put a record in as it is, whatever its version (a save from another build). */
+  put(record: SaveRecord): void { this.records.set(this.key(record.userId, record.slot), record); }
   async list(userId: string): Promise<SlotInfo[]> {
     return [...this.records.values()]
       .filter(r => r.userId === userId)
@@ -160,6 +166,70 @@ describe('SaveManager', () => {
 
   it('loadGame returns null for a slot that was never saved', async () => {
     expect(await manager.loadGame(99)).toBeNull();
+  });
+
+  // ── Save compatibility: the autosave is kept before an upgrade can overwrite it ──
+  const BACKUP = -1;
+  /** The stored record of slot 0 as an older (or newer) build would have left it. */
+  const storeAs = async (version: number, change: (r: SaveRecord) => SaveRecord = r => r): Promise<SaveRecord> => {
+    await manager.saveGame(makeWorld(), 0);
+    const rec = change({ ...(await store.load(DEFAULT_USER_ID, 0))!, version: version as SaveRecord['version'] });
+    store.put(rec);
+    return rec;
+  };
+
+  it('a save of the current version is loaded with no backup made', async () => {
+    await manager.saveGame(makeWorld(), 0);
+    expect(await manager.loadGame(0, BACKUP)).not.toBeNull();
+    expect(await store.load(DEFAULT_USER_ID, BACKUP)).toBeNull();
+  });
+
+  it('an older save is copied to the backup slot as it was, before the upgraded city can be saved over it', async () => {
+    const old = await storeAs(SAVE_VERSION - 1);
+    const loaded = await manager.loadGame(0, BACKUP);
+    expect(loaded).not.toBeNull();
+    const backup = (await store.load(DEFAULT_USER_ID, BACKUP))!;
+    expect(backup.version).toBe(SAVE_VERSION - 1);                 // still the old version: it upgrades again when loaded
+    expect(backup.snapshot).toBe(old.snapshot);
+    expect(backup.slot).toBe(BACKUP);
+    // The autosave then overwrites slot 0; the backup still loads as the city.
+    loaded!.budget.money = 1;
+    await manager.saveGame(loaded!, 0);
+    expect((await manager.loadGame(BACKUP))!.budget.money).toBe(makeWorld().budget.money);
+    expect((await manager.listSlots()).map(sl => sl.slot)).toEqual([BACKUP, 0]);
+  });
+
+  it('with no backup slot named (a slot the player saves to by hand) nothing is copied', async () => {
+    await storeAs(SAVE_VERSION - 1);
+    await manager.loadGame(0);
+    expect(await store.load(DEFAULT_USER_ID, BACKUP)).toBeNull();
+  });
+
+  it('a save from a newer build is refused with a clear message, never half-loaded, and is kept', async () => {
+    await storeAs(SAVE_VERSION + 1);
+    await expect(manager.loadGame(0, BACKUP)).rejects.toBeInstanceOf(NewerSaveError);
+    await expect(manager.loadGame(0)).rejects.toThrow(/newer version of the game.*Reload the page/);
+    expect((await store.load(DEFAULT_USER_ID, BACKUP))!.version).toBe(SAVE_VERSION + 1);
+  });
+
+  it('the backup of a newer city is not replaced by a later, older autosave', async () => {
+    await storeAs(SAVE_VERSION + 1);
+    await expect(manager.loadGame(0, BACKUP)).rejects.toBeInstanceOf(NewerSaveError);
+    await storeAs(SAVE_VERSION - 1);                               // the player started again on the old build; then an update
+    expect(await manager.loadGame(0, BACKUP)).not.toBeNull();
+    expect((await store.load(DEFAULT_USER_ID, BACKUP))!.version).toBe(SAVE_VERSION + 1);
+  });
+
+  it('a save that cannot be read is kept too', async () => {
+    await storeAs(SAVE_VERSION, r => ({ ...r, snapshot: { ...r.snapshot, layers: undefined as never } }));
+    await expect(manager.loadGame(0, BACKUP)).rejects.toThrow();
+    expect(await store.load(DEFAULT_USER_ID, BACKUP)).not.toBeNull();
+  });
+
+  it('a backup that cannot be written does not stop the load', async () => {
+    await storeAs(SAVE_VERSION - 1);
+    store.copy = async () => { throw new Error('disk full'); };
+    expect(await manager.loadGame(0, BACKUP)).not.toBeNull();
   });
 
   it('listSlots returns saved slots sorted by slot number', async () => {
