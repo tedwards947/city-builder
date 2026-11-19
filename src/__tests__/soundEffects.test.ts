@@ -179,6 +179,15 @@ describe('SoundEffects', () => {
       expect(fx.played.find(p => p.name === 'railRumble')!.gain).toBe(1);
     });
 
+    it('rumbles again every 25 s for a train that keeps running on screen', () => {
+      const clock = vi.spyOn(performance, 'now');
+      try {
+        rail.trains = [train('t1', 'run')];
+        for (let t = 0; t <= 60_000; t += 250) { clock.mockReturnValue(t); listen(t); }
+        expect(fx.names().filter(n => n === 'railRumble')).toHaveLength(3);   // at 0, 25 and 50 s
+      } finally { clock.mockRestore(); }
+    });
+
     it('sighs as a station train slows in and rings the bell as it stops', () => {
       rail.trains = [train('s', 'in')];
       listen(10_000); listen(11_000);
