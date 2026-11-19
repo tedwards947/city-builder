@@ -138,6 +138,8 @@ export const METRO_LIVERIES: Livery[] = [
   { body: '#3e4349', band: '#a6d64a', roof: '#8d939a', nose: '#a6d64a' },
   { body: '#7a2834', band: '#d9b45a', roof: '#c9bfb2', nose: '#7a2834' },
 ];
+/** Below this many pixels a tile no trains are drawn (the sound reads it too, to stay quiet when none show). */
+export const TRAIN_MIN_TILE = 6;
 export const CAR_LEN = 0.75, CAR_WID = 0.2, CARS = 3, CAR_GAP = 0.05;
 const SPEED = 2.4, DWELL = 3, FADE = 0.8;
 
@@ -244,7 +246,7 @@ export function forEachTrain(world: World, now: number, bx0: number, by0: number
  * tile size in pixels; the view covers tiles [bx0, bx1] × [by0, by1]; `lift` raises elevated trains onto the deck.
  */
 export function drawTrains(ctx: Ctx, world: World, sx: number, sy: number, T: number, now: number, bx0: number, by0: number, bx1: number, by1: number, level: number = RAIL_GROUND, lift = 0): void {
-  if (T < 6) return;
+  if (T < TRAIN_MIN_TILE) return;
   const liveries = level === RAIL_SUBWAY ? METRO_LIVERIES : HEAVY_LIVERIES;
   forEachTrain(world, now, bx0, by0, bx1, by1, level, (r, dir, front, a, k) => {
     drawTrain(ctx, r, dir, front, a, liveries[Math.floor(hash(r.seed, k, dir) * liveries.length)], sx, sy - lift, T);
