@@ -132,9 +132,9 @@ export function railArtReady(): boolean {
   return Object.values(s).every(l => l.img.complete && l.img.naturalWidth > 0);
 }
 
-// Where the empty track strip lies in each raw picture (measured on the cut sprites: art/clay-set/rail.html).
+// Where the empty track strip lies in each raw picture (measured on the cut sprites).
 // Straight, east–west: the strip's centre row; north–south: its centre column; L: the west arm's centre row.
-const STRIP_RAW: Record<string, number> = { 'station-h': 237, 'station-v': 292, 'station-l-up': 164, 'station-l-down': 187 };
+const STRIP_RAW: Record<string, number> = { 'station-h': 349, 'station-v': 217, 'station-l-up': 164, 'station-l-down': 187 };
 
 /** The station picture for a kind and rotation, and whether it is mirrored (sim/buildingShapes.ts: quarter turns clockwise). */
 export function stationArt(kind: number, rot: number): { name: string; flip: boolean } | null {
@@ -154,15 +154,18 @@ export function drawStation(ctx: Ctx, kind: number, rot: number, L: number, Tp: 
   const s = load()[art.name], m = RAIL_SPRITES[art.name];
   if (!s || !m || !s.img.complete || !s.img.naturalWidth) return;
   const solid = m.right - m.left, strip = STRIP_RAW[art.name] * m.k;
-  let q: number, x: number, y: number;   // screen px per image px; where the image's top-left goes
-  if (art.name === 'station-h') { q = w * T / solid; x = L - m.left * q; y = Tp + 1.5 * T - strip * q; }
-  else if (art.name === 'station-v') { q = w * T / solid; x = L + 1.5 * T - strip * q; y = Tp + h * T - m.footY * q; }
-  else { q = w * T / solid; x = L - m.left * q; y = Tp + 1.5 * T - strip * q; }
+  // Screen px per image px across (qx) and down (qy), and where the image's top-left goes. The straight pictures came out
+  // deeper than their footprints, so they are fitted down the page: east–west with the strip on the middle row and the
+  // front edge on the footprint's; north–south from the footprint's top to its bottom, with the strip on the middle column.
+  const qx = w * T / solid;
+  let qy = qx, x = L - m.left * qx, y = Tp + 1.5 * T - strip * qy;
+  if (art.name === 'station-h') { qy = 1.5 * T / (m.footY - strip); y = Tp + h * T - m.footY * qy; }
+  else if (art.name === 'station-v') { qy = h * T / (m.footY - m.top); x = L + 1.5 * T - strip * qx; y = Tp - m.top * qy; }
   ctx.save();
   if (art.flip) {   // mirror about the footprint's centre (for the north–south straight: about the track)
     const axis = art.name === 'station-v' ? L + 1.5 * T : L + w * T / 2;
     ctx.translate(2 * axis, 0); ctx.scale(-1, 1);
   }
-  ctx.drawImage(s.img, x, y, m.w * q, m.h * q);
+  ctx.drawImage(s.img, x, y, m.w * qx, m.h * qy);
   ctx.restore();
 }

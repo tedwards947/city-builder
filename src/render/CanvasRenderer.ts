@@ -11,6 +11,7 @@
 import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L } from '../sim/constants';
 import { drawRailTile, drawStation, railArtReady } from './clay/rail';
 import { railLinks } from '../sim/rail';
+import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
@@ -231,6 +232,8 @@ export class CanvasRenderer {
 
     // 2. Trees, sprites, overlay tints, cars, then smoke and fire above them.
     this._drawLots(ctx, world, camera, bounds, ts, overlay, now);
+    // Trains (clay/trains.ts), over the track and the stations.
+    drawTrains(ctx, world, camera.worldToScreenX(Projection.tileToWorldX(0)), camera.worldToScreenY(Projection.tileToWorldY(0)), ts, now, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
 
     // 3. Problem badges and district pins.
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
