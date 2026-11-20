@@ -236,6 +236,29 @@ describe('the event jam', () => {
   });
 });
 
+describe('settling the crowd without a hitch', () => {
+  it('the extra rounds an event day needs are spread over the next ticks, not run in one', () => {
+    town(40);
+    EV.fansPerLevel = 0.5;
+    at(saturday() - TPD);                                            // Friday: settled, nothing owed
+    const friday = w.traffic!.version;
+    at(saturday() - TPD + 1);
+    expect(w.traffic!.version).toBe(friday);                         // an ordinary mid-day tick does no traffic work
+    at(saturday());
+    const start = w.traffic!.version;
+    for (let k = 1; k < TPD; k++) at(saturday() + k);              // a small town settles at once; a big one uses the next ticks
+    const settled = w.traffic!.version;
+    expect(settled - start).toBeLessThanOrEqual(3);                  // at most three catch-up passes
+    // The same again when the crowd leaves on Sunday.
+    at(saturday() + TPD);
+    const sunday = w.traffic!.version;
+    at(saturday() + TPD + 1);
+    expect(w.traffic!.version).toBeGreaterThanOrEqual(sunday);
+    for (let k = 2; k < TPD; k++) at(saturday() + TPD + k);
+    expect(sum(w.traffic!.event.volume)).toBe(0);
+  });
+});
+
 describe('event days in the running game', () => {
   it('the whole simulation judges each Saturday once, and strain and the last result survive a save', () => {
     town(40);

@@ -126,6 +126,7 @@ export class TransitSystem {
   private _unstable: Uint8Array[] = [];
   private _firstIteration = true;   // nothing to compare against yet
   private _room!: Float32Array;     // capacity left at each door
+  private _catchUp = 0;              // extra passes still owed on the coming ticks (see update)
   private _wasOpen: boolean[] = [];  // per market: whether buildings gave it doors on the last pass (see MarketDef.occasional)
   private _bldCap!: Float32Array;   // the part of each door's capacity that buildings added, this market
   private _doorStart!: Float32Array; // the handicap of each building door, this market (see DoorProvider)
@@ -214,7 +215,12 @@ export class TransitSystem {
   private readonly _candSt = new Int32Array(16);
 
   update(world: World): void {
-    if (world.tick % BALANCE.transit.flowInterval !== 0) return;
+    if (world.tick % BALANCE.transit.flowInterval !== 0) {
+      // Catching up after an occasional market started or stopped (see _run): a few rounds on
+      // each of the next ticks, so the work is spread over frames instead of landing in one.
+      if (this._catchUp > 0) { this._catchUp--; this._run(world, ITERATIONS_PER_PASS, false); }
+      return;
+    }
     this._run(world, ITERATIONS_PER_PASS, false);
   }
 
@@ -393,12 +399,13 @@ export class TransitSystem {
     }
 
     // An occasional market (an event day) started or stopped: a whole crowd joined or left the
-    // roads at once, so settle as after a road edit instead of over the coming days.
+    // roads at once, so settle with as many rounds as after a road edit instead of over the
+    // coming days. The rounds are spread over the next ticks (update), not run in this one.
     for (let k = 0; k < data.markets.length; k++) {
       const open = this._extraDoorCount[k] > 0;
       if (open !== this._wasOpen[k]) {
         this._wasOpen[k] = open;
-        if (data.markets[k].def.occasional && rounds < ITERATIONS_AFTER_EDIT) rounds = ITERATIONS_AFTER_EDIT;
+        if (data.markets[k].def.occasional && rounds < ITERATIONS_AFTER_EDIT) this._catchUp = Math.ceil(ITERATIONS_AFTER_EDIT / ITERATIONS_PER_PASS) - 1;
       }
     }
     const budget = this._fresh ? ITERATIONS_FIRST_PASS : rounds;
