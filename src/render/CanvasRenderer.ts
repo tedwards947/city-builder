@@ -716,7 +716,7 @@ export class CanvasRenderer {
     // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
     if (isLeisureKind(kind)) {
       const tile = Math.ceil(camera.zoom * TILE_SIZE), status = kind === BUILDING_STADIUM ? eventStatus(world) : null;
-      if (drawLeisureBuilding(ctx, kind, world.layers.visualVariant[anchor], X(ax + box.minX), Y(ay + box.minY), tile, now, status, world.tick)) return;
+      if (drawLeisureBuilding(ctx, kind, world.layers.visualVariant[anchor], X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, now, status, world.tick)) return;
     }
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
     if (!sprite) {

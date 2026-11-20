@@ -1051,5 +1051,33 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "left": 25,
     "right": 226,
     "bottom": 219
+  },
+  "leisure/beach-a-wide": {
+    "w": 384,
+    "h": 345,
+    "left": 38,
+    "right": 340,
+    "bottom": 297
+  },
+  "leisure/beach-a-tall": {
+    "w": 384,
+    "h": 384,
+    "left": 89,
+    "right": 290,
+    "bottom": 330
+  },
+  "leisure/beach-b-wide": {
+    "w": 384,
+    "h": 313,
+    "left": 38,
+    "right": 340,
+    "bottom": 269
+  },
+  "leisure/beach-b-tall": {
+    "w": 463,
+    "h": 396,
+    "left": 130,
+    "right": 330,
+    "bottom": 341
   }
 };

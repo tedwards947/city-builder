@@ -1,12 +1,12 @@
 // Beach life near a beach park (owner's idea, LEISURE_DESIGN.md Q7): clay
 // umbrellas, towels and the odd sandcastle on the free sand and shore tiles
-// around each park (sim/leisure.ts beachTilesNear), plus one lifeguard tower.
+// around each beach park and lido (sim/leisure.ts beachTilesNear), plus one lifeguard tower.
 // They come and go: each spot has its own cycle, so umbrellas pop up and fold
 // away over a minute or so. Painted props from art/clay-set/raw-leisure, cut by
 // art/clay-set/port-sheet.mjs (… leisure) at 128 px a tile.
 
 import type { World } from '../../sim/World';
-import { BUILDING_BEACH_PARK } from '../../sim/constants';
+import { BUILDING_BEACH_PARK, BUILDING_LIDO } from '../../sim/constants';
 import { beachTilesNear } from '../../sim/leisure';
 import { LEISURE_SPRITES } from './leisureSpriteData';
 
@@ -50,7 +50,7 @@ const beach = new Map<number, number>();
 export function beginBeachFrame(world: World): Map<number, number> {
   beach.clear();
   for (const b of world.buildings) {
-    if (b.kind !== BUILDING_BEACH_PARK) continue;
+    if (b.kind !== BUILDING_BEACH_PARK && b.kind !== BUILDING_LIDO) continue;
     load();
     const tiles = beachTilesNear(world, b);
     tiles.forEach((i, k) => beach.set(i, (beach.get(i) ?? 0) | (k === tiles.length >> 1 ? LIFEGUARD : 0)));

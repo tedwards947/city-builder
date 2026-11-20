@@ -11,7 +11,7 @@
 // walk the streets (owner: it would clash with the traffic).
 
 import {
-  BUILDING_BIG_PARK, BUILDING_MID_PARK, BUILDING_MUSEUM, BUILDING_PLAZA, BUILDING_STADIUM,
+  BUILDING_BIG_PARK, BUILDING_MID_PARK, BUILDING_MUSEUM, BUILDING_PLAZA, BUILDING_STADIUM, BUILDING_BEACH_PARK, BUILDING_LIDO,
 } from '../../sim/constants';
 import type { EventStatus } from '../../sim/eventDays';
 import { BALANCE } from '../../data/balance';
@@ -26,9 +26,15 @@ const DESIGNS: Record<number, readonly string[]> = {
   [BUILDING_MID_PARK]: ['midpark-a', 'midpark-b'],
   [BUILDING_PLAZA]: ['plaza-a', 'plaza-b'],
 };
+/** Kinds drawn wide (3×2) or tall (2×3) by how they are turned: `<name>-wide` / `<name>-tall`. */
+const TURNED: Record<number, string> = {
+  [BUILDING_BEACH_PARK]: 'beach-a',
+  [BUILDING_LIDO]: 'beach-b',
+};
 
 /** Whether `kind` has leisure art, and its sprite has loaded (`variant`: the anchor tile's visualVariant picks the design). */
-export function leisureSprite(kind: number, variant: number) {
+export function leisureSprite(kind: number, variant: number, wide = true) {
+  if (TURNED[kind]) return leisureClaySprite(`${TURNED[kind]}-${wide ? 'wide' : 'tall'}`);
   const list = DESIGNS[kind];
   return list ? leisureClaySprite(list[variant % list.length]) : undefined;
 }
@@ -67,14 +73,19 @@ const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca
 const ease = (f: number): number => f * f * (3 - 2 * f);
 
 /**
- * Draws a leisure building whose footprint's top-left tile is at (L, T), `tile`
- * pixels a tile. Returns false (draw the stand-in) until its art has loaded.
+ * Draws a leisure building whose footprint's top-left tile is at (L, T), w × d
+ * tiles, `tile` pixels a tile. Returns false (draw the stand-in) until its art has loaded.
  * `status` is the city's event status (stadium only), `tick` the world tick.
  */
-export function drawLeisureBuilding(ctx: CanvasRenderingContext2D, kind: number, variant: number, L: number, T: number, tile: number,
+export function drawLeisureBuilding(ctx: CanvasRenderingContext2D, kind: number, variant: number, L: number, T: number, w: number, d: number, tile: number,
   now: number, status: EventStatus | null, tick: number): boolean {
-  const sprite = leisureSprite(kind, variant);
+  const sprite = leisureSprite(kind, variant, w >= d);
   if (!sprite) return false;
+  if (TURNED[kind]) {
+    // Like a shop pair: the sprite's plot is w tiles wide and d deep, drawn as if square and w wide.
+    drawClaySprite(ctx, sprite, L, T + (d - w) * tile, w * tile);
+    return true;
+  }
   if (kind !== BUILDING_STADIUM) {
     const n = kind === BUILDING_BIG_PARK ? 3 : 2;
     drawClaySprite(ctx, sprite, L, T, n * tile);

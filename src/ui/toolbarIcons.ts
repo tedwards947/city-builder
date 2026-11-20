@@ -27,6 +27,8 @@ const ICONS = {
   monument: p('M10.5 18l.8-13L12 3l.7 2 .8 13zM7 18h10v2H7zM5 20h14v2H5z'),
   // A beach umbrella over the waves.
   beach: p('M4 11a8 6 0 0116 0zM12 11v8M8 5.5c1.5 1 1.5 4 0 5.5M16 5.5c-1.5 1-1.5 4 0 5.5M2 21c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5'),
+  // A pool with its ladder.
+  lido: '<rect x="3" y="7" width="18" height="12" rx="2"/>' + p('M6 12c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0M6 15.5c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0M16 3v6M19 3v6M16 5h3'),
   hospital: p('M9 3h6v6h6v6h-6v6H9v-6H3V9h6z'),
   // An anchor.
   port: p('M12 8v13M12 21c-4 0-7-3-7-7h3M12 21c4 0 7-3 7-7h-3M9 12h6') + '<circle cx="12" cy="5.5" r="2.5"/>',
