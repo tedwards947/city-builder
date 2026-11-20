@@ -579,7 +579,7 @@ export function generateCity(opts: GenOptions): GenResult {
       if (z === ZONE_R) {
         zonedR++;
         if (L.devLevel[i] === 0) emptyR++;
-        homes += top - (BALANCE.growth.popPerLevel[L.devLevel[i]] ?? 0);
+        homes += Math.max(0, top - (BALANCE.growth.popPerLevel[L.devLevel[i]] ?? 0));
       } else if (z === ZONE_C && L.devLevel[i] === 0) emptyC++;
       else if (z === ZONE_I) { zonedI++; if (L.devLevel[i] === 0) emptyI++; }
     }

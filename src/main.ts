@@ -67,7 +67,7 @@ import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
 import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
-import { mergeLot, nearestMergeable } from './sim/lots';
+import { mergeLot, mergeReport, nearestMergeable } from './sim/lots';
 import { MarkerPanel, markerZoomOf } from './ui/MarkerPanel';
 import { drawMarkerPins } from './render/markerPins';
 import { TitleScreen } from './ui/TitleScreen';
@@ -353,6 +353,8 @@ startGame(new World(256, 256, 42, { vegAmount: 'low' }), true);
 
 let currentTool: Tool = 'none';
 let hoverTile: { tx: number; ty: number } | null = null;
+/** The last tile the pointer was over on the map (it stays when the pointer leaves for a button). */
+let lastMapTile: { tx: number; ty: number } | null = null;
 // At most one overlay is shown at a time.
 type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
 let overlay: Overlay = 'none';
@@ -386,7 +388,7 @@ const input = new InputController(
   () => state.world,
   () => state.history,
   () => currentTool,
-  (tile) => { hoverTile = tile; },
+  (tile) => { hoverTile = tile; if (tile) lastMapTile = tile; },
   (reason) => notifyRejected(reason),
   () => roadMode,
   () => zoneMode,
@@ -689,15 +691,18 @@ if (DEBUG) {
   ship.textContent = 'Send ship';
   ship.addEventListener('click', () => renderer.sendShips());
   more.after(ship);
-  // 2×2 lots (sim/lots.ts): merge the zoned block nearest the middle of the view, whatever its level.
+  // 2×2 lots (sim/lots.ts): merge the zoned block nearest where the pointer last was on the map, whatever its level.
   const merge = document.createElement('button');
   merge.id = 'debug-merge';
   merge.type = 'button';
   merge.textContent = 'Merge 2×2';
   merge.addEventListener('click', () => {
+    // Nearest the last place the pointer was on the map; failing that, the middle of the view.
     const c = camera.screenToTile(camera.viewportW / 2, camera.viewportH / 2);
-    const at = nearestMergeable(state.world, c.tx, c.ty, true);
+    const at = (lastMapTile && nearestMergeable(state.world, lastMapTile.tx, lastMapTile.ty, true, 24)) ?? nearestMergeable(state.world, c.tx, c.ty, true, 24);
+    // A merge shows its own toast (lotMerged); say so when there is nothing to merge.
     if (at) mergeLot(state.world, at.tx, at.ty, true);
+    else toastPanel.showToast('Merge 2×2 (debug)', 'Nothing to merge: no 2×2 square of one zone (two lots by two, no road or building in it) within 24 tiles of where the pointer last was on the map, or of the middle of the view.', 'warning');
   });
   ship.after(merge);
   // Merging is off in the shipped numbers (BALANCE.lots.chancePerDay 0): try it with a quick chance.
@@ -706,7 +711,17 @@ if (DEBUG) {
   auto.type = 'button';
   const label = () => { auto.textContent = (BALANCE.lots.chancePerDay as number) > 0 ? 'Merging: on' : 'Merging: off'; };
   const knobs = BALANCE.lots as { chancePerDay: number };   // BALANCE is edited live by the debug tools, never saved
-  auto.addEventListener('click', () => { knobs.chancePerDay = knobs.chancePerDay > 0 ? 0 : 0.25; label(); });
+  auto.addEventListener('click', () => {
+    knobs.chancePerDay = knobs.chancePerDay > 0 ? 0 : 0.25;
+    label();
+    if (knobs.chancePerDay <= 0) { toastPanel.showToast('Merging off (debug)', 'Lots no longer merge on their own.', 'info'); return; }
+    // Say where the city stands, so "nothing happened" can be told from "nothing qualifies".
+    const w = state.world, r = mergeReport(w), need = BALANCE.lots.streakDays;
+    const sat = Math.round(w.stats.satisfaction * 100), satNeed = Math.round(BALANCE.lots.minSatisfaction * 100);
+    toastPanel.showToast('Merging on (debug)', `A ready block has a 25% chance a day. Level-3 lots: ${r.topLots}; in a 2×2 square of one zone: ${r.squares} squares. `
+      + `Thriving today: ${r.happyToday} lots (needs no problems, high land value, and city satisfaction ${satNeed}%; it is ${sat}%). `
+      + `Longest streak: ${r.bestStreak} of ${need} days. Blocks ready now: ${r.ready}. Streaks start counting from now.`, 'info');
+  });
   label();
   merge.after(auto);
 }

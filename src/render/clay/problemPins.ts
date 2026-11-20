@@ -10,6 +10,7 @@
  *               or dry, see ClaySprites)
  * `findProblemClusters` is pure and tested; `drawProblemBadge` needs a canvas.
  */
+import { doorTile } from '../../sim/lots';
 import type { World } from '../../sim/World';
 import { ZONE_NONE, ZONE_R, BUILDING_NONE, ROAD_NONE, ROAD_HIGHWAY } from '../../sim/constants';
 
@@ -74,6 +75,7 @@ export function cutOffProblem(world: World, i: number): boolean {
 export function roadProblem(world: World, i: number): boolean {
   const L = world.layers;
   if (L.zone[i] === ZONE_NONE || L.building[i] !== BUILDING_NONE || L.abandoned[i] !== 0) return false;
+  if (L.lot[i] !== 0) i = doorTile(world, i);           // a merged 2×2 lot has a road if any of its tiles has (sim/lots.ts)
   const { width, height } = world.grid, road = L.roadClass, x = i % width;
   const ok = (j: number): boolean => road[j] !== ROAD_NONE && road[j] !== ROAD_HIGHWAY;
   return !((x > 0 && ok(i - 1)) || (x < width - 1 && ok(i + 1)) || (i >= width && ok(i - width)) || (i < width * (height - 1) && ok(i + width)));

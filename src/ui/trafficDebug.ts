@@ -2,6 +2,7 @@
 // inspector and city-wide totals for the tuning panel. English only on
 // purpose — this is a balancing tool, not player-facing UI.
 
+import { doorTile } from '../sim/lots';
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R } from '../sim/constants';
 import { BALANCE } from '../data/balance';
@@ -78,8 +79,9 @@ export function trafficDebugHtml(world: World, i: number): string {
   // The growth multipliers ZoneGrowthSystem applies from traffic.
   const { width, height } = world.grid;
   let maxCong = 0, hasRoad = false;
+  const door = doorTile(world, i);                       // a merged 2×2 lot's tile may use its building's road (sim/lots.ts)
   for (let k = 0; k < 4; k++) {
-    const ri = neighbourIndex(i, k, width, height);
+    const ri = neighbourIndex(door, k, width, height);
     if (ri < 0) continue;
     const rc = L.roadClass[ri];
     if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;

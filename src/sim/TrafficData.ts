@@ -2,6 +2,7 @@
 // the tile inspector and the tuning panel. Read-only outside TransitSystem,
 // never saved: it is rebuilt from the layers on the first pass after a load.
 
+import { doorTile } from './lots';
 import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I } from './constants';
@@ -338,6 +339,8 @@ export function neighbourIndex(i: number, k: number, width: number, height: numb
 export function bestAccessRoad(world: World, zoneIdx: number, field: TrafficField): number {
   const { width, height } = world.grid;
   const roadClass = world.layers.roadClass;
+  // A tile of a merged 2×2 lot with no road of its own goes out through its building's (sim/lots.ts).
+  if (world.layers.lot[zoneIdx] !== 0) zoneIdx = doorTile(world, zoneIdx);
   let best = -1, bestDist = Infinity;
   for (let k = 0; k < 4; k++) {
     const ri = neighbourIndex(zoneIdx, k, width, height);

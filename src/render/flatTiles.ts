@@ -128,7 +128,7 @@ export function drawFlatZoneBuilding(ctx: CanvasRenderingContext2D, zone: number
   else { ctx.fillStyle = zoneColor; ctx.fillRect(sxi + 1, syi + 1, tsi - 2, tsi - 2); }
   if (dev === 0) return;
   const bldPalette = zone === ZONE_R ? p.buildingR : zone === ZONE_C ? p.buildingC : p.buildingI;
-  const bodyColor = isAbandoned ? '#2a2a2a' : bldPalette[dev - 1];
+  const bodyColor = isAbandoned ? '#2a2a2a' : bldPalette[Math.min(dev, bldPalette.length) - 1];   // a merged lot's level 4 has no colour of its own
   if (zone === ZONE_R) drawResidential(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);
   else if (zone === ZONE_C) drawCommercial(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);
   else if (zone === ZONE_I) drawIndustrial(ctx, dev, sxi, syi, tsi, ts, bodyColor, isAbandoned, variant);

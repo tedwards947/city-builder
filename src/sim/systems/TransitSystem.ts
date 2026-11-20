@@ -77,7 +77,7 @@
 // Runs every transit.flowInterval ticks while its inputs change or traffic is
 // still settling, and at once when the road layer changes.
 
-import { levelWeight } from '../lots';
+import { doorTile, levelWeight } from '../lots';
 import { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
@@ -442,13 +442,16 @@ export class TransitSystem {
     const commuteMax = T.commuteMax;
 
     accessibility.fill(0);
+    const lotLayer = world.layers.lot;
     for (let q = 0; q < zonedCount; q++) {
       const zi = zoned[q];
       const zoneType = zone[zi];
 
+      // A tile of a merged 2×2 lot with no road of its own is reached through its building's (sim/lots.ts).
+      const door = lotLayer[zi] !== 0 ? doorTile(world, zi) : zi;
       let best = Infinity;
       for (let k = 0; k < 4; k++) {
-        const ri = neighbourIndex(zi, k, width, height);
+        const ri = neighbourIndex(door, k, width, height);
         if (ri < 0) continue;
         const rc = roadClass[ri];
         if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) continue;
@@ -808,9 +811,11 @@ export class TransitSystem {
     for (let q = 0; q < lotCount; q++) {
       const i = lots[q];
       if (zone[i] !== zoneType) continue;
+      // A tile of a merged 2×2 lot with no road of its own takes its trips in through its building's (sim/lots.ts).
+      const door = world.layers.lot[i] !== 0 ? doorTile(world, i) : i;
       let doors = 0;
       for (let k = 0; k < 4; k++) {
-        const ri = neighbourIndex(i, k, width, height);
+        const ri = neighbourIndex(door, k, width, height);
         if (ri < 0) continue;
         const rc = roadClass[ri];
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doors++;
@@ -818,7 +823,7 @@ export class TransitSystem {
       if (doors === 0) continue;
       const share = levelWeight(dev[i]) * capPerLevel / doors;
       for (let k = 0; k < 4; k++) {
-        const ri = neighbourIndex(i, k, width, height);
+        const ri = neighbourIndex(door, k, width, height);
         if (ri < 0) continue;
         const rc = roadClass[ri];
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += share;
