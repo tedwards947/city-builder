@@ -138,8 +138,8 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
     { key: 'schoolMap', icon: 'school', overlay: 'school', hotkey: 'g' },
     { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
-    { key: 'policeMap', icon: 'police', overlay: 'police' },
-    { key: 'fireMap', icon: 'fire', overlay: 'fireCover' },
+    { key: 'policeMap', icon: 'police', overlay: 'police', hotkey: 'p' },
+    { key: 'fireMap', icon: 'fire', overlay: 'fireCover', hotkey: 'j' },
     // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
     { key: 'undergroundView', icon: 'underground', action: 'underground', sepBefore: true },
     { key: 'lowBuildings', icon: 'lowBuildings', action: 'lowBuildings' },
