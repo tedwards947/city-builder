@@ -33,7 +33,7 @@ import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { PlantTreesCommand, ClearTreesCommand } from '../commands/TreeCommands';
 import { EditWaterCommand } from '../commands/EditWaterCommand';
 import { brushTiles, landscapeBrush, speciesGroups, treeChoice } from './landscape';
-import { BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
+import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, VEG_NONE, BUILDING_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK } from '../sim/constants';
 import { tilesBetween, dominantAxis, axisLockedLine } from './dragPath';
 import type { Axis, TilePos } from './dragPath';
@@ -46,7 +46,7 @@ import type { ZoneMode } from './zoneFill';
 /** How the road tools lay roads: by dragging, or click a start then click an end. */
 export type RoadMode = 'manual' | 'auto';
 
-export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'rail' | 'railElevated' | 'railSubway' | 'station' | 'stationL' | 'rampElevated' | 'rampSubway' | 'subwayStation' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'bigPark' | 'beachPark' | 'plaza' | 'museum' | 'stadium' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater' | 'focus';
+export type Tool = 'none' | 'inspect' | 'road' | 'avenue' | 'highway' | 'zoneR' | 'zoneC' | 'zoneI' | 'power' | 'water' | 'sewage' | 'largePower' | 'largeWater' | 'largeSewage' | 'seaport' | 'airport' | 'rail' | 'railElevated' | 'railSubway' | 'station' | 'stationL' | 'rampElevated' | 'rampSubway' | 'subwayStation' | 'police' | 'fire' | 'school' | 'hospital' | 'park' | 'midPark' | 'bigPark' | 'beachPark' | 'plaza' | 'museum' | 'stadium' | 'bulldoze' | 'trees' | 'addWater' | 'removeWater' | 'focus';
 
 const ROAD_TOOL_CLASS: Partial<Record<Tool, number>> = {
   road: ROAD_STREET, avenue: ROAD_AVENUE, highway: ROAD_HIGHWAY,
@@ -55,7 +55,7 @@ const ZONE_TOOL_ZONE: Partial<Record<Tool, number>> = {
   zoneR: ZONE_R, zoneC: ZONE_C, zoneI: ZONE_I,
 };
 const BUILDING_TOOL_KIND: Partial<Record<Tool, number>> = {
-  bigPark: BUILDING_BIG_PARK, beachPark: BUILDING_BEACH_PARK, plaza: BUILDING_PLAZA, museum: BUILDING_MUSEUM, stadium: BUILDING_STADIUM,
+  midPark: BUILDING_MID_PARK, bigPark: BUILDING_BIG_PARK, beachPark: BUILDING_BEACH_PARK, plaza: BUILDING_PLAZA, museum: BUILDING_MUSEUM, stadium: BUILDING_STADIUM,
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
   largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT,
   station: BUILDING_STATION, stationL: BUILDING_STATION_L,

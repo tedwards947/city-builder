@@ -322,6 +322,7 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      midPark: string;
       bigPark: string;
       beachPark: string;
       plaza: string;
@@ -442,6 +443,7 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      midPark: string;
       bigPark: string;
       beachPark: string;
       plaza: string;
@@ -493,6 +495,7 @@ export interface TranslationSchema {
     largeSewagePlant: string;
     seaport: string;
     airport: string;
+    midPark: string;
     bigPark: string;
     beachPark: string;
     plaza: string;

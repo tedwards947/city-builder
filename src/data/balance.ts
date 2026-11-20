@@ -2,7 +2,7 @@
 // No magic numbers in game code.
 
 /** A kind of trip in the traffic system (sim/TrafficData.ts MARKET_DEFS). */
-export type TrafficMarketKey = 'shopping' | 'jobs' | 'goods' | 'exports' | 'visitors';
+export type TrafficMarketKey = 'shopping' | 'jobs' | 'goods' | 'exports' | 'visitors' | 'leisure';
 
 /**
  * What one building kind does in the traffic system (sim/buildingTraffic.ts).
@@ -28,6 +28,16 @@ export interface LeisureRow {
   pcCost: number;
   landValue: { bonus: number; radius: number };
   countsAsPark: boolean;
+  /** Leisure trips a tick it can take (residents and tourists together). 0 or missing: it is not a destination yet. */
+  capacity?: number;
+  /** Its head start over other attractions, in street tiles of travel time: people go this much further for it. */
+  appeal?: number;
+  /** Tourists a tick it draws to the city while a road reaches it (the city's pull is the sum). */
+  pull?: number;
+  /** Money per leisure trip it takes, per tick. 0 or missing: free entry. */
+  ticket?: number;
+  /** Share of its arrivals that go on to the shops from its doors (free attractions: "they spend nearby"). */
+  shopShare?: number;
 }
 
 export const BALANCE = {
@@ -97,6 +107,7 @@ export const BALANCE = {
     21: { cost: 4000,   maintenance: 15 },  // BUILDING_PLAZA (2×2)
     22: { cost: 60000,  maintenance: 60 },  // BUILDING_MUSEUM (2×2, one per city)
     23: { cost: 400000, maintenance: 200 }, // BUILDING_STADIUM (4×4 + plaza, one per city)
+    24: { cost: 2500,   maintenance: 14 },  // BUILDING_MID_PARK (2×2)
   } as Record<number, { cost: number; maintenance: number }>,
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
@@ -109,12 +120,26 @@ export const BALANCE = {
   leisure: {
     kinds: {
       8:  { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 0,  radius: 0 }, countsAsPark: true  }, // the park: its land value comes from its service coverage
-      19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true  }, // big park
-      20: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true  }, // beach park
-      21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 4 }, countsAsPark: false }, // plaza / monument: the biggest lift
-      22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false }, // museum
-      23: { category: 'unique', unlockPopulation: 10000, pcCost: 200, landValue: { bonus: 5,  radius: 3 }, countsAsPark: false }, // stadium: only a little
+      19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 30,  appeal: 20, pull: 4,  ticket: 0, shopShare: 0.5 }, // big park
+      20: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 40,  appeal: 35, pull: 10, ticket: 0, shopShare: 0.5 }, // beach park
+      21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 4 }, countsAsPark: false, capacity: 20,  appeal: 15, pull: 6,  ticket: 0, shopShare: 0.5 }, // plaza / monument: the biggest lift
+      22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false, capacity: 60,  appeal: 50, pull: 20, ticket: 6, shopShare: 0   }, // museum
+      23: { category: 'unique', unlockPopulation: 10000, pcCost: 200, landValue: { bonus: 5,  radius: 3 }, countsAsPark: false }, // stadium: only a little; it is a destination on event days only (part 4)
+      24: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 14, radius: 4 }, countsAsPark: true,  capacity: 14,  appeal: 12, pull: 2,  ticket: 0, shopShare: 0.5 }, // 2×2 park
     } as Record<number, LeisureRow>,
+    // Leisure trips a home sends per level, per tick (the `leisure` traffic market). Residents go
+    // less often than they shop (transit.tripsRtoC is 0.33). The market runs only while an
+    // attraction with a capacity stands on a road. PLACEHOLDER.
+    tripsPerLevel: 0.04,
+    // The furthest anyone travels for leisure: travel time in street tiles (like transit.commuteMax,
+    // which is 48), counted AFTER the attraction's head start: the best attraction is reached from
+    // `reach` tiles away, one with 30 less appeal from 30 tiles nearer. Tourists and residents
+    // share it. PLACEHOLDER.
+    reach: 96,
+    // Gateways: tourists a tick each building of the kind can bring in while a road reaches it.
+    // Tourists = the city's pull (the sum of its attractions' `pull`), capped by the gateways'
+    // total. Only the airport for now (border connections later). PLACEHOLDER.
+    gateways: { 13: 60 } as Record<number, number>,
   },
   tax: {
     // Per developed level per sim tick.

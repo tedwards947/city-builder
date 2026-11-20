@@ -38,7 +38,7 @@ function rich(size = 40, population = 0): World {
 
 describe('leisure kinds', () => {
   it('are in two groups: parks (repeatable) and unique (one per city)', () => {
-    expect(leisureKinds('parks')).toEqual([BUILDING_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA]);
+    expect(leisureKinds('parks')).toEqual([BUILDING_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, 24]);   // 24: the 2×2 park
     expect(leisureKinds('unique')).toEqual([BUILDING_MUSEUM, BUILDING_STADIUM]);
     for (const k of leisureKinds('unique')) expect(placementRules(k).onePerCity).toBe(true);
     for (const k of leisureKinds('parks')) expect(placementRules(k).onePerCity).toBeFalsy();

@@ -10,6 +10,7 @@ import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
 import { goodsIncomeMult } from '../goods';
 import { exportIncome } from '../seaport';
 import { buildingTripIncome } from '../buildingTraffic';
+import { leisureTicketIncome } from '../leisureTraffic';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -71,6 +72,8 @@ export class EconomySystem {
     income += exportIncome(world);
     // Nor what buildings earn per trip they take (an airport's passengers).
     income += buildingTripIncome(world);
+    // Tickets at the attractions (sim/leisureTraffic.ts).
+    income += leisureTicketIncome(world);
     // Nor the fares riders pay at the stations.
     income += railFareIncome(world);
     for (let k = 0; k < roadCount; k++) {
