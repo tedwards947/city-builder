@@ -21,9 +21,10 @@ import type { TaxDebtResult, LevelRun } from './taxdebt';
 import type { AirportResult } from './airport';
 import type { RailResult, RailFresh } from './rail';
 import type { LandscapeResult } from './landscape';
+import type { LotsResult } from './lots';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots';
 
 export interface Outcome {
   value: unknown;
@@ -57,6 +58,8 @@ export interface EvalCtx {
   landscape?: LandscapeResult | null;
   /** Landscape suite: the tree-belt probe (a made-up map, the same for every city; graded on fresh maps). */
   treeBuffer?: number | null;
+  /** 2×2 lots suite: merge runs and the capacity probe on a saved city (src/balance/lots.ts). */
+  lots?: LotsResult | null;
 }
 
 export interface Target {
@@ -523,6 +526,40 @@ const LANDSCAPE_TARGETS: Omit<Target, 'suite'>[] = [
     evaluate: c => { const o = landOf(c); if (!('l' in o)) return o; if (o.l.surplus <= 0) return NA('the city runs at a loss'); return o.l.reclaimShare === null ? NA('no 10×10 block of water') : range(o.l.reclaimShare, 0.25, 1); } },
 ];
 
+// 2×2 merged lots (owner-approved 2026-11-20, BIG_LOTS_DESIGN.md). Merge runs under the shipped
+// BALANCE.lots, 3 seeds × 360 days, each saved city with its own merged lots undone first
+// (src/balance/lots.ts). "Homes and shops" = 2×2s of either; industry 2×2s and pairs of shops (#400)
+// are reported, not graded.
+const lotsOf = (c: EvalCtx): { l: LotsResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  return c.lots ? { l: c.lots } : NA('no lots probe');
+};
+const ZONE_NAMES = ['', 'homes', 'shops', 'industry'];
+const LOTS_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'lots.first', metric: 'Day of the first home or shop 2×2, mean over seeds (a run with none counts as day 361)', target: '≤ day 120', persona: 'probe', cities: 'golden-1, testcity1', status: 'graded',
+    why: 'Owner (2026-11-20): a mature, happy city sees its first tower within a few months. Generated cities are n/a: too uniform to have a real downtown.',
+    evaluate: c => { const o = lotsOf(c); if (!('l' in o)) return o; if (c.city.startsWith('gen-')) return NA('generated cities: too uniform');
+      const g = o.l.homesShops; return { ...(g.firstMean === null ? { value: null, pass: false, miss: 1 } : range(g.firstMean, 0, 120)), note: `per seed ${g.first.map(d => d ?? '-').join('/')}` }; } },
+  { id: 'lots.edge', metric: 'Share of home and shop merges in the outer third of the city (distance from the middle ÷ its 95th percentile ≥ 0.66)', target: '≤ 20%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): towers belong downtown and by parks and water, not at the edge of town.',
+    evaluate: c => { const o = lotsOf(c); if (!('l' in o)) return o; const g = o.l.homesShops; return g.edgeShare === null ? NA('no home or shop merges') : { ...range(g.edgeShare, 0, 0.2), note: `industry ${o.l.industry.edgeShare ?? '-'}` }; } },
+  { id: 'lots.rare', metric: 'Home and shop merges per city, mean over seeds: by day 90 and by day 360; most in one 16×16 square (worst seed)', target: '≤ 6 by day 90, ≤ 15 by day 360, ≤ 4 in a 16×16', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): a 2×2 is a reward, a landmark of a thriving spot, not a district of towers.',
+    evaluate: c => { const o = lotsOf(c); if (!('l' in o)) return o; const g = o.l.homesShops, i = o.l.industry;
+      return { ...all({ by90: range(g.by90, 0, 6), by360: range(g.byEnd, 0, 15), window: range(g.maxWindow, 0, 4) }), note: `industry ${i.by90} by day 90, ${i.byEnd} by day 360; shop pairs ${o.l.pairs.by90} by day 90, ${o.l.pairs.byEnd} by day 360${o.l.undone ? `; ${o.l.undone} merged lots in the save undone first` : ''}` }; } },
+  { id: 'lots.capacity', metric: 'The most central home, shop and industry 2×2 merged: residents (homes) and weight (taxes, jobs) ÷ the same four lots', target: '1.5× ± 5%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-19): a merged lot is worth about one and a half times its four lots.',
+    evaluate: c => { const o = lotsOf(c); if (!('l' in o)) return o; if (!o.l.capacity.length) return NA('no 2×2 that could merge');
+      const parts: Record<string, Outcome> = {};
+      for (const k of o.l.capacity) { if (k.shape !== 'square') continue; parts[`${ZONE_NAMES[k.zone]}Weight`] = range(k.weight, 1.425, 1.575); if (k.residents !== null) parts.residents = range(k.residents, 1.425, 1.575); }
+      return all(parts); } },
+  { id: 'lots.traffic', metric: 'Trips the same merged blocks send (every market from their zone, on the traffic pass) ÷ unmerged', target: 'about +50% (1.4–1.6×)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): a tower brings traffic to match its size. Road volume nearby is too noisy to grade (+2%, +11% and −0.3% on three cities).',
+    evaluate: c => { const o = lotsOf(c); if (!('l' in o)) return o; const parts: Record<string, Outcome> = {};
+      for (const k of o.l.capacity) if (k.shape === 'square' && k.trips !== null) parts[ZONE_NAMES[k.zone]] = range(k.trips, 1.4, 1.6);
+      return all(parts); } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
@@ -532,4 +569,5 @@ export const TARGETS: Target[] = [
   ...AIRPORT_TARGETS.map(t => ({ ...t, suite: 'airport' as const })),
   ...RAIL_TARGETS.map(t => ({ ...t, suite: 'rail' as const })),
   ...LANDSCAPE_TARGETS.map(t => ({ ...t, suite: 'landscape' as const })),
+  ...LOTS_TARGETS.map(t => ({ ...t, suite: 'lots' as const })),
 ];
