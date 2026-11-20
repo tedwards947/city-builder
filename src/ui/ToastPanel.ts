@@ -3,7 +3,7 @@ import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
 import { BUILDING_NAME } from './TileInfoPanel';
-import { PC_SYMBOL, pcAmount } from './pcFormat';
+import { pcAmount } from './pcFormat';
 import { drawsTourists, hasGateway } from '../sim/leisureTraffic';
 
 export type ToastType = 'info' | 'warning' | 'alert';
