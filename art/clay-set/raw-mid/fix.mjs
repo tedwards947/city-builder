@@ -1,4 +1,4 @@
-// Copies the mid-rise raws (raw-mid/*.png) into raw/, repairing two faults of
+// Copies the mid-rise raws and later 1×1 additions (raw-mid/*.png) into raw/, repairing two faults of
 // the generated images first:
 // - SHORT: the plot came back shorter, its back corners missing. They are filled
 //   from the anchor the image was edited from (plain lawn or paving there).
@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RAW = join(here, '../raw');
-const SHORT = new Set(['res-3-communal', 'res-3-wealthy', 'com-3', 'com-3-gritty']);
-const GLASS = new Set(['com-3-j']);
+const SHORT = new Set(['res-3-communal', 'res-3-wealthy', 'com-3', 'com-3-gritty', 'res-2-f']);
+const GLASS = new Set(['com-3-j', 'ind-2-e']);
 const ANCHOR = { res: join(here, '../ref/anchor.png'), com: join(here, '../raw/com-1.png') };
 
 function readBmp(path) {
