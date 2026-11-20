@@ -53,6 +53,8 @@ export type CityEvents = {
   // `level` is the level it has now (0 = an empty lot again).
   tileDeclined:     { tx: number; ty: number; zone: number; level: number; reason: 'tax' | 'event' };
   /** An event day ended and was judged (sim/eventDays.ts EventResult). */
+  /** A stadium event began (sim/eventDays.ts); `duration` in sim ticks. `eventDayEnded` is its end. */
+  eventStarted:     { tick: number; tx: number; ty: number; duration: number };
   eventDayEnded:    { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number };
   // Political capital changed by one command (emitted by changePc in
   // sim/politics.ts; passive regeneration does not emit). `delta` is signed.

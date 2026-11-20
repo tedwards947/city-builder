@@ -1,64 +1,109 @@
-// Event days (LEISURE_DESIGN.md Q6): once a week the stadium fills.
+// Stadium events (LEISURE_DESIGN.md Q6; owner 2026-11-20: timed, not tied to
+// the calendar, long enough to fix the jam while it lasts).
 //
-//   WHEN     On BALANCE.leisure.event.weekday (Saturday; sim/calendar.ts),
-//            for the whole game day, if the city has a stadium that a street
-//            or avenue reaches.
-//   THE CROWD  The `event` traffic market runs for that day only: every home
-//            sends fans (fansPerLevel per level), and tourist fans arrive at
-//            the gateways (touristFans, capped by what the gateways bring).
-//            They all drive to the stadium, whose doors take `seats` in all.
-//            That day's traffic pass carries them on top of everything else.
-//            On other days the market has no doors, holds nothing and costs
-//            nothing.
+//   WHEN     Events run on a clock of their own, in sim ticks (world.eventClock).
+//            The first starts `firstGap` ticks after the city gets a stadium.
+//            Each lasts `duration` ticks; the gap to the next is drawn between
+//            `gapMin` and `gapMax` from the city's seed (eventGap: short gaps
+//            are likelier, and the same city always gets the same gaps). The
+//            weekday plays no part.
+//   THE CROWD  While an event is on, the `event` traffic market runs: every
+//            home sends fans (fansPerLevel per level) and tourist fans arrive
+//            at the gateways (touristFans, capped by what the gateways bring),
+//            all bound for the stadium, whose doors take `seats` in all. The
+//            crowd is scaled by eventIntensity: it grows from nothing over the
+//            first `ramp` ticks, holds, and drains over the last `drain`. Each
+//            traffic pass carries the crowd of that moment on top of everything
+//            else. Between events the market has no doors and costs nothing.
 //   TURNOUT  Fans further than `reach` of travel time send nobody, and a jam
 //            makes every road tile longer, so a city that seizes up strands
 //            its own fans. Tickets are paid only by the fans who arrive, up
-//            to the seats (eventTicketIncome, every tick of the event day).
-//   THE JAM  At the end of the event day (judgeEventDay): a home is STUCK if
-//            a street or avenue beside it is at or over `jam.load` of its
-//            capacity AND the crowd is at least `jam.eventShare` of that
-//            capacity on it, so the jam is the crowd's and not an everyday
-//            one. Stuck residents cost political capital
-//            (pcPerStuckResident each, reason 'eventJam'). A stuck home's
-//            STRAIN (world.eventStrain) goes up by one; a home that was not
-//            stuck loses one. A home whose strain reaches `dropAfter` loses a
-//            level and starts again from 0: a few bad event days in a row
-//            empty the streets round the stadium. (A merged lot is one
-//            building and never drops a level; its residents still count.)
+//            to the seats (eventTicketIncome, every tick of the event).
+//   THE JAM  A home is STUCK while a street or avenue beside it is at or over
+//            `jam.load` of its capacity AND the crowd is at least
+//            `jam.eventShare` of that capacity on it, so the jam is the
+//            crowd's and not an everyday one.
+//   DAMAGE BUILDS  After every traffic pass of the event (judgeEventPass) the
+//            stuck residents cost political capital: `pcPerStuckResident` each
+//            for a whole event stuck, charged a share at a time in whole
+//            points (reason 'eventJam'), and each stuck home's count for this
+//            event (world.eventStuck) goes up. Fix the jam mid-event and both
+//            stop.
+//   THE END  When the event ends (endEvent): a home stuck for `stuckShare` or
+//            more of the event had a BAD EVENT and its STRAIN
+//            (world.eventStrain) goes up by one; any other home loses one. A
+//            home whose strain reaches `dropAfter` loses a level and starts
+//            again from 0: a few bad events in a row empty the streets round
+//            the stadium. (A merged lot is one building and never drops a
+//            level; its residents still count.) The result is kept in
+//            world.lastEvent and announced (`eventDayEnded`).
 //
-// world.lastEvent keeps the last event day's result, for the venue's pin and
-// the toast. Strain and the last result are saved. No random numbers are
-// drawn. Nothing happens in the tutorial city.
+// The clock, this event's counts, strain and the last result are saved.
+// world.rng is not drawn from. Nothing happens in the tutorial city.
 
 import type { World, BuildingEntity } from './World';
 import { BALANCE } from '../data/balance';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
-import { addDoorProvider, addTripProvider, servedAtDoors, roadCapacity, trafficVolume } from './TrafficData';
-import { weekday, daysUntil } from './calendar';
+import { addDoorProvider, addTripProvider, setMarketScale, servedAtDoors, roadCapacity, trafficVolume } from './TrafficData';
 import { gatewayRoads } from './leisureTraffic';
 import { doorTile } from './lots';
 import { changePc } from './politics';
+import { mulberry32 } from './rng';
 
 const cfg = () => BALANCE.leisure.event;
 
-/** What happened on an event day. Trips are per tick. */
+/** What happened at an event. Trips are per tick. */
 export interface EventResult {
-  /** The tick it was judged on (the last tick of the event day). */
+  /** The tick it ended on. */
   tick: number;
   /** The venue's anchor tile. */
   tx: number;
   ty: number;
-  /** Fans who wanted to come (those with no way there in time included). */
+  /** Fans who wanted to come at the height of the event (those with no way there in time included). */
   wanted: number;
-  /** Fans who got in: those who arrived, up to the seats. */
+  /** Fans in the seats at the best moment: those who arrived, up to the seats. */
   arrived: number;
   seats: number;
-  /** Residents of homes stuck in the event's jam. */
+  /** Residents of homes that had a bad event (stuck in its jam for `stuckShare` of it or more). */
   stuckResidents: number;
-  /** Political capital the jam cost (0 or more). */
+  /** Political capital the jam cost over the event (0 or more). */
   pc: number;
-  /** Homes that lost a level for being stuck once too often. */
+  /** Homes that lost a level for one bad event too many. */
   declined: number;
+}
+
+/** When the next event is, and the running counts of the one that is on. Saved. */
+export interface EventClock {
+  /** The tick the next event starts, or the one that is on started. */
+  start: number;
+  /** How many events the venue has held before this one (picks the gap, eventGap). */
+  n: number;
+  /** Traffic passes judged so far in this event. */
+  judged: number;
+  /** The most fans who wanted to come, and who were in the seats, on any pass so far. */
+  wanted: number;
+  arrived: number;
+  /** Residents stuck on the last pass judged. */
+  stuckNow: number;
+  /** Political capital charged so far in this event, and the part of a point not yet charged. */
+  pc: number;
+  pcOwed: number;
+}
+
+export function newEventClock(start: number, n = 0): EventClock {
+  return { start, n, judged: 0, wanted: 0, arrived: 0, stuckNow: 0, pc: 0, pcOwed: 0 };
+}
+
+/**
+ * Ticks between the end of event `n − 1` and the start of event `n` (n ≥ 1):
+ * between gapMin and gapMax, short gaps likelier (the middle draw is a quarter
+ * of the way up). From the city's seed and `n` only, so it never changes for a
+ * city and does not disturb world.rng.
+ */
+export function eventGap(world: World, n: number): number {
+  const c = cfg();
+  const u = mulberry32((world.seed ^ 0x57AD10) + Math.imul(n, 0x9e3779b1))();
+  return Math.round(c.gapMin + Math.max(0, c.gapMax - c.gapMin) * u * u);
 }
 
 const roadCache = new WeakMap<World, { edits: number; venue: BuildingEntity | null; roads: number[] }>();
@@ -74,56 +119,94 @@ export function eventVenue(world: World): { venue: BuildingEntity | null; roads:
   return c;
 }
 
-/** Whether today is an event day in this city: the right weekday, a venue with a road, seats to fill, not the tutorial. */
-export function eventToday(world: World): boolean {
-  if (world.tutorial || !(cfg().seats > 0) || weekday(world.tick) !== cfg().weekday) return false;
+/** Ticks into the event that is on by the clock, or −1 between events. */
+function elapsed(world: World): number {
+  const clock = world.eventClock;
+  if (!clock) return -1;
+  const t = world.tick - clock.start;
+  return t >= 0 && t < cfg().duration ? t : -1;
+}
+
+/** Whether an event is on right now: inside its time, a venue with a road, seats to fill, not the tutorial. */
+export function eventOn(world: World): boolean {
+  if (world.tutorial || !(cfg().seats > 0) || elapsed(world) < 0) return false;
   return eventVenue(world).roads.length > 0;
 }
 
-// The venue's doors exist on event days only.
+/** The crowd's size at `t` ticks into an event, 0–1: up over `ramp`, level, down over `drain`. */
+export function intensityAt(t: number): number {
+  const c = cfg();
+  if (t < 0 || t >= c.duration) return 0;
+  const up = c.ramp > 0 ? (t + 1) / c.ramp : 1;
+  const down = c.drain > 0 ? (c.duration - t) / c.drain : 1;
+  return Math.min(1, up, down);
+}
+
+/** The crowd's size right now, 0–1 (0 between events). */
+export function eventIntensity(world: World): number {
+  return eventOn(world) ? intensityAt(elapsed(world)) : 0;
+}
+
+// The venue's doors exist during events only.
 addDoorProvider((world, market, add) => {
-  if (market !== 'event' || !eventToday(world)) return;
+  if (market !== 'event' || !eventOn(world)) return;
   const { roads } = eventVenue(world);
   for (const ri of roads) add(ri, cfg().seats / roads.length);
 });
 
-// Tourist fans arrive at the gateways.
+// The fans homes send grow and drain with the event.
+setMarketScale('event', eventIntensity);
+
+// Tourist fans arrive at the gateways, likewise.
 addTripProvider((world, market, add) => {
-  if (market !== 'event' || !(cfg().touristFans > 0) || !eventToday(world)) return;
+  if (market !== 'event' || !(cfg().touristFans > 0)) return;
+  const scale = eventIntensity(world);
+  if (!(scale > 0)) return;
   const gates = gatewayRoads(world);
   let total = 0;
   for (const g of gates) total += g.capacity;
   if (!(total > 0)) return;
-  const fans = Math.min(total, cfg().touristFans);
+  const fans = Math.min(total, cfg().touristFans) * scale;
   for (const g of gates) for (const ri of g.roads) add(ri, fans * g.capacity / total / g.roads.length);
 });
 
-/** Fans in the seats on the last traffic pass (0 off event days). */
+/** Fans in the seats on the last traffic pass (0 between events). */
 function fansArrived(world: World): number {
-  if (!world.traffic || !eventToday(world)) return 0;
+  if (!world.traffic || !eventOn(world)) return 0;
   return servedAtDoors(eventVenue(world).roads, world.traffic.event.field, cfg().seats);
 }
 
-/** Money per tick from event tickets: `ticket` for every fan in the seats. 0 off event days. */
+/** Money per tick from event tickets: `ticket` for every fan in the seats. 0 between events. */
 export function eventTicketIncome(world: World): number {
   const ticket = cfg().ticket;
   return ticket > 0 ? fansArrived(world) * ticket : 0;
 }
 
-/** For the venue's pin and its animation. */
+/** For the venue's pin, its animation and Inspect. */
 export interface EventStatus {
-  /** Whole days until the next event day; 0 = today. */
-  daysToEvent: number;
-  /** An event is on now (false on the weekday if no road reaches the venue). */
+  /** Sim ticks until the next event starts; 0 while one is on. */
+  ticksToEvent: number;
+  /** While one is on: ticks until it ends. 0 between events. */
+  ticksLeft: number;
+  /** An event is on now (false inside its time if no road reaches the venue). */
   eventToday: boolean;
-  /** How far through today we are, 0–1 (by tick; add the fraction of the current tick for smooth motion). */
+  /** Where in the event we are: 'ramp' (crowd arriving), 'peak', 'drain' (leaving); 'waiting' between events. */
+  stage: 'waiting' | 'ramp' | 'peak' | 'drain';
+  /** How far through the event we are, 0–1 (by tick; add the fraction of the current tick for smooth motion). 0 between events. */
   phase: number;
-  /** Fans in the seats right now, and the seats (0 fans off event days). */
+  /** The crowd's size now, 0–1. */
+  intensity: number;
+  /** Whole game days until the next event (ticksToEvent in days, rounded up); 0 while one is on. */
+  daysToEvent: number;
+  /** Fans in the seats right now, and the seats (0 fans between events). */
   fans: number;
   seats: number;
+  /** While one is on: residents stuck in its jam on the last traffic pass, and the political capital it has cost so far. */
+  stuckResidents: number;
+  pc: number;
   /** Whether a street or avenue reaches the venue. */
   connected: boolean;
-  /** The last event day's result, if there has been one. */
+  /** The last event's result, if there has been one. */
   last: EventResult | null;
 }
 
@@ -131,12 +214,21 @@ export interface EventStatus {
 export function eventStatus(world: World): EventStatus | null {
   const { venue, roads } = eventVenue(world);
   if (!venue) return null;
-  const tpd = BALANCE.ticksPerDay;
+  const c = cfg(), clock = world.eventClock;
+  const t = elapsed(world);
+  const ticksToEvent = t >= 0 ? 0 : clock ? Math.max(0, clock.start - world.tick) : c.firstGap;
+  const on = eventOn(world);
   return {
-    daysToEvent: daysUntil(world.tick, cfg().weekday),
-    eventToday: eventToday(world),
-    phase: (((world.tick % tpd) + tpd) % tpd) / tpd,
-    fans: fansArrived(world), seats: cfg().seats,
+    ticksToEvent,
+    ticksLeft: t >= 0 ? c.duration - t : 0,
+    eventToday: on,
+    stage: t < 0 ? 'waiting' : t < c.ramp ? 'ramp' : t >= c.duration - c.drain ? 'drain' : 'peak',
+    phase: t >= 0 ? t / c.duration : 0,
+    intensity: on ? intensityAt(t) : 0,
+    daysToEvent: Math.ceil(ticksToEvent / BALANCE.ticksPerDay),
+    fans: fansArrived(world), seats: c.seats,
+    stuckResidents: on && clock ? clock.stuckNow : 0,
+    pc: t >= 0 && clock ? clock.pc : 0,
     connected: roads.length > 0,
     last: world.lastEvent,
   };
@@ -162,46 +254,117 @@ export function stuckInEventJam(world: World, i: number): boolean {
   return false;
 }
 
+/** Traffic passes in a whole event (the times it is judged). */
+function passesPerEvent(): number {
+  return Math.max(1, cfg().duration / BALANCE.transit.flowInterval);
+}
+
 /**
- * Judge the event day that is ending: count the turnout, charge political
- * capital for the residents stuck in its jam, and move every home's strain
- * (see the top of this file). Records and returns the result, and emits
- * `eventDayEnded`. Null, and nothing changes, if today is no event day.
+ * Judge the event as it stands after a traffic pass: note the turnout, count
+ * every stuck home once more for this event, and charge political capital for
+ * the stuck residents (a pass's share of pcPerStuckResident each, in whole
+ * points as they add up). Returns the residents stuck now. Does nothing
+ * between events.
  */
-export function judgeEventDay(world: World): EventResult | null {
-  if (!eventToday(world) || !world.traffic) return null;
+export function judgeEventPass(world: World): number {
+  const clock = world.eventClock;
+  if (!clock || !world.traffic || !eventOn(world)) return 0;
   const { venue } = eventVenue(world);
   const field = world.traffic.event.field;
   const c = cfg();
-  const zone = world.layers.zone, dev = world.layers.devLevel, abandoned = world.layers.abandoned, lot = world.layers.lot;
-  const strain = world.eventStrain;
+  const zone = world.layers.zone, dev = world.layers.devLevel, abandoned = world.layers.abandoned;
+  const stuckCount = world.eventStuck;
   const pop = BALANCE.growth.popPerLevel;
-  const { width } = world.grid;
-  let stuckResidents = 0, declined = 0;
+  let stuck = 0;
   const { zoned, zonedCount } = world.index;
   for (let q = 0; q < zonedCount; q++) {
     const i = zoned[q];
-    if (zone[i] !== ZONE_R || dev[i] === 0 || abandoned[i] !== 0) { strain[i] = 0; continue; }
-    if (!stuckInEventJam(world, i)) { if (strain[i] > 0) strain[i]--; continue; }
-    stuckResidents += pop[dev[i]] ?? 0;
-    if (strain[i] < 255) strain[i]++;
-    if (c.dropAfter > 0 && strain[i] >= c.dropAfter && lot[i] === 0) {
-      dev[i]--;
-      strain[i] = 0;
-      declined++;
-      const x = i % width, y = (i - x) / width;
-      world.grid.markDirty(x, y);
-      world.events.emit('tileDeclined', { tx: x, ty: y, zone: ZONE_R, level: dev[i], reason: 'event' });
-    }
+    if (zone[i] !== ZONE_R || dev[i] === 0 || abandoned[i] !== 0) continue;
+    if (!stuckInEventJam(world, i)) continue;
+    stuck += pop[dev[i]] ?? 0;
+    if (stuckCount[i] < 255) stuckCount[i]++;
   }
-  const cost = stuckResidents * c.pcPerStuckResident;
-  const pc = cost > 0 ? -changePc(world, -cost, 'eventJam', { tx: venue!.tx, ty: venue!.ty }) : 0;
-  const result: EventResult = {
-    tick: world.tick, tx: venue!.tx, ty: venue!.ty,
-    wanted: field.demand + field.stranded, arrived: fansArrived(world), seats: c.seats,
-    stuckResidents, pc, declined,
-  };
-  world.lastEvent = result;
-  world.events.emit('eventDayEnded', { ...result });
+  clock.judged++;
+  clock.stuckNow = stuck;
+  clock.wanted = Math.max(clock.wanted, field.demand + field.stranded);
+  clock.arrived = Math.max(clock.arrived, fansArrived(world));
+  clock.pcOwed += stuck * c.pcPerStuckResident / passesPerEvent();
+  const whole = Math.floor(clock.pcOwed);
+  if (whole >= 1) {
+    clock.pcOwed -= whole;
+    clock.pc -= changePc(world, -whole, 'eventJam', { tx: venue!.tx, ty: venue!.ty });
+  }
+  return stuck;
+}
+
+/**
+ * End the event that is on the clock: charge what is left of the jam's cost,
+ * move every home's strain (see the top of this file), record and announce
+ * the result (`eventDayEnded`), and set the clock for the next event. Returns
+ * the result, or null if the event never ran (no road to the venue all through).
+ */
+export function endEvent(world: World): EventResult | null {
+  const clock = world.eventClock;
+  if (!clock) return null;
+  const { venue } = eventVenue(world);
+  let result: EventResult | null = null;
+  if (clock.judged > 0 && venue) {
+    const c = cfg();
+    if (clock.pcOwed > 0) clock.pc -= changePc(world, -clock.pcOwed, 'eventJam', { tx: venue.tx, ty: venue.ty });
+    const zone = world.layers.zone, dev = world.layers.devLevel, abandoned = world.layers.abandoned, lot = world.layers.lot;
+    const strain = world.eventStrain, stuckCount = world.eventStuck;
+    const pop = BALANCE.growth.popPerLevel;
+    const { width } = world.grid;
+    // Stuck for this many passes or more is a bad event (the count stops at 255).
+    const bad = Math.min(255, Math.max(1, c.stuckShare * clock.judged));
+    let stuckResidents = 0, declined = 0;
+    const { zoned, zonedCount } = world.index;
+    for (let q = 0; q < zonedCount; q++) {
+      const i = zoned[q];
+      if (zone[i] !== ZONE_R || dev[i] === 0 || abandoned[i] !== 0) { strain[i] = 0; continue; }
+      if (stuckCount[i] < bad) { if (strain[i] > 0) strain[i]--; continue; }
+      stuckResidents += pop[dev[i]] ?? 0;
+      if (strain[i] < 255) strain[i]++;
+      if (c.dropAfter > 0 && strain[i] >= c.dropAfter && lot[i] === 0) {
+        dev[i]--;
+        strain[i] = 0;
+        declined++;
+        const x = i % width, y = (i - x) / width;
+        world.grid.markDirty(x, y);
+        world.events.emit('tileDeclined', { tx: x, ty: y, zone: ZONE_R, level: dev[i], reason: 'event' });
+      }
+    }
+    result = {
+      tick: world.tick, tx: venue.tx, ty: venue.ty,
+      wanted: clock.wanted, arrived: clock.arrived, seats: c.seats,
+      stuckResidents, pc: clock.pc, declined,
+    };
+    world.lastEvent = result;
+    world.events.emit('eventDayEnded', { ...result });
+  }
+  world.eventStuck.fill(0);
+  world.eventClock = newEventClock(world.tick + eventGap(world, clock.n + 1), clock.n + 1);
   return result;
+}
+
+/**
+ * One tick of the events clock (EventDaySystem): starts the clock when the
+ * city gets a venue and drops it when the venue goes, announces a start
+ * (`eventStarted`), judges the event after each traffic pass and ends it.
+ */
+export function tickEvents(world: World): void {
+  if (world.tutorial) return;
+  const c = cfg();
+  const { venue } = eventVenue(world);
+  if (!venue || !(c.seats > 0)) {
+    if (world.eventClock) { world.eventClock = null; world.eventStuck.fill(0); }
+    return;
+  }
+  const clock = world.eventClock;
+  if (!clock) { world.eventClock = newEventClock(world.tick + c.firstGap); return; }
+  const t = world.tick - clock.start;
+  if (t < 0) return;
+  if (t >= c.duration) { endEvent(world); return; }
+  if (t === 0 && eventOn(world)) world.events.emit('eventStarted', { tick: world.tick, tx: venue.tx, ty: venue.ty, duration: c.duration });
+  if (world.tick % BALANCE.transit.flowInterval === 0) judgeEventPass(world);
 }

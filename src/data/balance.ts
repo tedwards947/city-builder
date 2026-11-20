@@ -148,22 +148,33 @@ export const BALANCE = {
     // multiplied by `growthMult`. Lower levels are not affected. growthMult 1 = off.
     // PLACEHOLDER: slows, does not stop, so cities built before leisure do not freeze.
     need: { fromLevel: 3, growthMult: 0.5, minReach: 0 } as { fromLevel: number; growthMult: number; minReach: number },
-    // Event days (sim/eventDays.ts): once a week the venue (the stadium) fills. ALL PLACEHOLDERS.
-    //   weekday            0 = Monday … 5 = Saturday (sim/calendar.ts).
+    // Stadium events (sim/eventDays.ts): timed, not tied to the calendar. Times are sim ticks
+    // (500 ms each at 1× speed: 120 ticks = 1 minute). ALL PLACEHOLDERS.
+    //   duration           Length of an event (600 = 5 min at 1×).
+    //   ramp, drain        Ticks at the start over which the crowd grows from nothing, and at the
+    //                      end over which it drains (120 each = 1 min; the 3 min between is the peak).
+    //   gapMin, gapMax     Ticks from the end of one event to the start of the next, drawn from the
+    //                      city's seed with short gaps likelier (840–2400 = 7–20 min, middle draw ≈ 10).
+    //   firstGap           Ticks from building the stadium to its first event.
     //   seats              Fans a tick the venue takes. 0 = no events.
-    //   fansPerLevel       Fans each home level sends on event day (shopping is transit.tripsRtoC, 0.33).
-    //   touristFans        Fans arriving at the gateways, capped by what the gateways bring.
-    //   ticket             Money per fan in the seats, per tick of the event day.
+    //   fansPerLevel       Fans each home level sends at the peak (shopping is transit.tripsRtoC, 0.33).
+    //   touristFans        Fans arriving at the gateways at the peak, capped by what the gateways bring.
+    //   ticket             Money per fan in the seats, per tick of the event.
     //   reach              Travel time (street tiles) beyond which fans do not come; jams make roads longer.
     //   jam                A home is stuck when a road beside it is at `load` × capacity or more and the
     //                      crowd alone is `eventShare` × capacity or more of that.
-    //   pcPerStuckResident Political capital each stuck resident costs, per event day.
-    //   dropAfter          Event days stuck (net of good ones) after which a home loses a level. 0 = never.
+    //   pcPerStuckResident Political capital a resident costs if stuck for the whole event; charged
+    //                      pass by pass while they are stuck, so fixing the jam mid-event stops it.
+    //   stuckShare         Share of the event's traffic passes a home must be stuck for it to count
+    //                      as a bad event for that home.
+    //   dropAfter          Bad events (net of good ones) after which a home loses a level. 0 = never.
     event: {
-      kind: 23, weekday: 5, seats: 400, fansPerLevel: 0.15, touristFans: 40, ticket: 4, reach: 120,
-      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.01, dropAfter: 3,
-    } as { kind: number; weekday: number; seats: number; fansPerLevel: number; touristFans: number; ticket: number; reach: number;
-      jam: { load: number; eventShare: number }; pcPerStuckResident: number; dropAfter: number },
+      kind: 23, duration: 600, ramp: 120, drain: 120, gapMin: 840, gapMax: 2400, firstGap: 600,
+      seats: 400, fansPerLevel: 0.15, touristFans: 40, ticket: 0.25, reach: 120,
+      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.03, stuckShare: 0.25, dropAfter: 3,
+    } as { kind: number; duration: number; ramp: number; drain: number; gapMin: number; gapMax: number; firstGap: number;
+      seats: number; fansPerLevel: number; touristFans: number; ticket: number; reach: number;
+      jam: { load: number; eventShare: number }; pcPerStuckResident: number; stuckShare: number; dropAfter: number },
   },
   tax: {
     // Per developed level per sim tick.
