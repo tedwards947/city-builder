@@ -29,7 +29,7 @@ import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
 export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
-export type ToolbarAction = 'new' | 'save' | 'load' | 'tutorial' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground';
+export type ToolbarAction = 'new' | 'save' | 'load' | 'tutorial' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground' | 'lowBuildings';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
 export interface ToolbarItem {
@@ -126,6 +126,7 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
     // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
     { key: 'undergroundView', icon: 'underground', action: 'underground', sepBefore: true },
+    { key: 'lowBuildings', icon: 'lowBuildings', action: 'lowBuildings' },
   ] },
   { key: 'econ', icon: 'budget', action: 'budget' },
   { key: 'ordinances', icon: 'ordinances', action: 'ordinances', hotkey: 'o', shown: ordinancesShown },

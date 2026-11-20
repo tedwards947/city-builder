@@ -322,6 +322,7 @@ export interface TranslationSchema {
       rampSubway: string;
       subwayStation: string;
       undergroundView: string;
+      lowBuildings: string;
       police: string;
       fireStation: string;
       school: string;
@@ -435,6 +436,7 @@ export interface TranslationSchema {
       rampSubway: string;
       subwayStation: string;
       undergroundView: string;
+      lowBuildings: string;
       police: string;
       fireStation: string;
       school: string;

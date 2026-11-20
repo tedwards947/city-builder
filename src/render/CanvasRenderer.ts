@@ -40,13 +40,22 @@ import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { loadClaySprites, beginClayFrame, pickClaySprite, bigClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
+import { drawBigLot, beginBigLotFrame, planBigLot, bigLotRise } from './clay/bigLots';
 import { trafficVolume, shownRoadLoad } from '../sim/TrafficData';
 import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
 import { drawCommuteRoutes } from './clay/commuteRoute';
 import { BALANCE } from '../data/balance';
 import { ZONE_NONE, ZONE_R, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, VEG_NONE, BUILDING_NONE } from '../sim/constants';
 
+/** The most a merged lot's building reaches above its back edge, in tiles (a 20-floor tower). */
+const MAX_LOT_RISE = 2.6;
+/** A tall merged-lot building's opacity while the pointer is on a tile behind it. */
+const LOT_FADED_ALPHA = 0.22;
+
 /** A whole-map tint the renderer can draw over the tiles. */
+/** Zone and dezone tools: they act on a whole merged lot. */
+const isZoneTool = (tool: string): boolean => tool.startsWith('zone');
+
 export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
 
 /** Everything about a frame besides the world and the camera. All optional. */
@@ -82,6 +91,8 @@ export interface RenderOptions {
   areaHighlights?: readonly AreaHighlight[];
   /** The title screen: the city alone. No problem badges, district pins, request marks, tile grid or other guides. */
   bare?: boolean;
+  /** Views › Low buildings: towers on merged 2×2 lots are drawn a few floors high, so the city behind them shows. */
+  lowBuildings?: boolean;
   /**
    * The camera is zooming by itself (the title tour): draw the frame at a whole
    * tile size and scale the finished picture to the camera's zoom
@@ -191,6 +202,9 @@ export class CanvasRenderer {
   private _requestBadges: RequestBadge[] = [];
   private _trafficCars: TrafficCar[] = [];
   private _vibe: VibeState = { egalitarian: 0, green: 0, planned: 0, isNight: false };
+  /** This frame's pointer tile and Low buildings switch, for the merged lots (hover-to-hide). */
+  private _lotHover: { tx: number; ty: number } | null = null;
+  private _lowBuildings = false;
   /** When each visible tile was last seen burning (ms), for the smoulder afterwards. Render-only. */
   private _lastBurn = new Map<number, number>();
   private _lastBurnWorld: World | null = null;
@@ -255,6 +269,7 @@ export class CanvasRenderer {
     this._drawShips(ctx, world, camera, bounds, now);
 
     // 2. Trees, sprites, overlay tints, cars, then smoke and fire above them.
+    this._lotHover = hoverTile; this._lowBuildings = options.lowBuildings === true;
     this._drawLots(ctx, world, camera, bounds, ts, overlay, now);
     // Trains (clay/trains.ts), over the track and the stations; then elevated track (cars pass under
     // it) and its trains; then, in the underground view, the dimmed surface, subway track and its trains.
@@ -329,6 +344,7 @@ export class CanvasRenderer {
     beginClayFrame(clayTile, now);
     beginWildTreeFrame(clayTile, now);
     beginTrafficFrame(clayTile, now);
+    beginBigLotFrame(clayTile, now);
     const clayEffects = this._clayEffects;
     clayEffects.length = 0;
     const markerQueue = this._markerQueue;
@@ -399,7 +415,8 @@ export class CanvasRenderer {
         }
         // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
-        // A merged 2×2 lot has no art yet: the chunk layer's placeholder slab shows (sim/lots.ts).
+        // A merged 2×2 lot (sim/lots.ts) is drawn once, from its bottom-left quarter, so rows behind it are already drawn.
+        if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
         const clay = big || world.layers.lot[i] !== 0 || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
@@ -472,6 +489,17 @@ export class CanvasRenderer {
         }
       }
 
+    }
+
+    // Merged lots whose bottom-left quarter is off screen but whose building is not (a tower reaches up).
+    {
+      const W = world.grid.width, H = world.grid.height;
+      const yMax = Math.min(H - 1, bounds.y1 + Math.ceil(MAX_LOT_RISE) + 2);
+      for (let ty = Math.max(0, bounds.y0); ty <= yMax; ty++) for (let tx = Math.max(0, bounds.x0 - 1); tx <= Math.min(W - 1, bounds.x1); tx++) {
+        if (tx >= bounds.x0 && ty <= bounds.y1) continue;   // drawn in the loop
+        const i = ty * W + tx;
+        if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
+      }
     }
 
     // Big buildings whose draw tile is off screen but whose body is not.
@@ -593,6 +621,27 @@ export class CanvasRenderer {
    * sprite across the whole footprint with what moves drawn over it, or the
    * code-drawn stand-in while it has no art or the art has not loaded.
    */
+  /**
+   * A merged 2×2 lot's building (clay/bigLots.ts). A tall one fades while the
+   * pointer is on a tile it stands in front of (hover-to-hide; on a phone, the
+   * tapped tile), so the lots behind it can be seen and clicked.
+   */
+  private _drawMergedLot(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number): void {
+    if (anchor < 0) return;
+    const W = world.grid.width, ax = anchor % W, ay = (anchor - ax) / W;
+    const zone = world.layers.zone[anchor], variant = world.layers.visualVariant[anchor];
+    const low = this._lowBuildings;
+    let alpha = 1;
+    const h = this._lotHover;
+    if (h && h.tx >= ax && h.tx <= ax + 1 && h.ty < ay) {
+      const rise = bigLotRise(planBigLot(zone, variant), low);
+      if (h.ty >= ay - Math.ceil(rise)) alpha = LOT_FADED_ALPHA;
+    }
+    const tile = Math.ceil(camera.zoom * TILE_SIZE);
+    drawBigLot(ctx, zone, variant, world.layers.abandoned[anchor] !== 0,
+      Math.floor(camera.worldToScreenX(Projection.tileToWorldX(ax))), Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ay))), tile, alpha, low);
+  }
+
   private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
     const width = world.grid.width, ax = anchor % width, ay = (anchor - ax) / width;
     const rot = world.buildingRotAt(anchor);
@@ -1086,9 +1135,11 @@ export class CanvasRenderer {
     ctx.lineWidth = 2;
     // Looking at or bulldozing a building on several tiles: outline all of it, whichever tile is under the pointer.
     const i = world.grid.idx(hoverTile.tx, hoverTile.ty), kind = world.layers.building[i];
-    if ((tool === 'inspect' || tool === 'bulldoze') && kind !== BUILDING_NONE && isLargeBuilding(kind)) {
+    const merged = world.layers.lot[i] !== 0 && (tool === 'inspect' || tool === 'bulldoze' || isZoneTool(tool));
+    if (merged || ((tool === 'inspect' || tool === 'bulldoze') && kind !== BUILDING_NONE && isLargeBuilding(kind))) {
       const width = world.grid.width;
-      const tiles = world.buildingTilesAt(hoverTile.tx, hoverTile.ty).map(k => ({ x: k % width, y: Math.floor(k / width) }));
+      // A merged 2×2 lot comes down (or is rezoned) as one building.
+      const tiles = (merged ? world.lotTilesAt(i) : world.buildingTilesAt(hoverTile.tx, hoverTile.ty)).map(k => ({ x: k % width, y: Math.floor(k / width) }));
       const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
       if (refused) {
         ctx.fillStyle = 'rgba(224,112,112,0.3)';

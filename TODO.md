@@ -10,6 +10,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
+**2×2 lots drawn (2026-11-20):** merged lots (engine #386) now draw code-drawn clay massing from `render/clay/bigLots.ts` until the clay art exists: towers of 8–20 floors at true height (homes, offices), courtyard blocks and slabs (homes), malls (shops), works (industry); `visualVariant` picks. Hover-to-hide fades a tower while the pointer (or a tap) is on a tile behind it; Views › Low buildings caps them at 3 floors; bulldoze, inspect and zone outlines cover all four tiles. Next: clay art for the 2×2 set (paid: ask first), after the 1×1 mid-rise pilot is approved.
+
 **Scale pass, round 1 decided (owner, 2026-11-20):** 1 tile = 17 m (`docs/SCALE.md`). Towers only on 2×2, at true height (the houses' metre), 20 floors at most; heights vary below that, and some 2×2 buildings are low (a shopping mall). The 1×1 level 3 is a 4-floor mid-rise about 12 m square (redraw: paid, ask first). Trucks go to real length (9 m); parked cars and garden trees go to full size. Cars and train cars stay as they are; buses later. Feeds TODO h (2×2 level-up buildings).
 
 **No-road warning is in (owner, 2026-11-19):** when a bulldoze or a highway upgrade leaves a police or fire station, school, hospital, train or subway station, seaport or airport with no street or avenue, a toast names it (click goes there) and the drag outlines it in red before release (`sim/roadCutoff.ts`, hooked into `CommandHistory`). Undo brings it back silently. Parks (decorative) and utilities (need no road) are left out.
