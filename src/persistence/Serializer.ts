@@ -38,6 +38,7 @@ export function serialize(world: World): WorldSnapshot {
     buildings: world.buildings.map(b => ({ ...b })),
     ...(world.markers.length > 0 ? { markers: world.markers.map(m => ({ ...m })) } : {}),
     ...(world.tutorial ? { tutorial: { ...world.tutorial } } : {}),
+    ...(world.eventClock ? { eventClock: { ...world.eventClock } } : {}),
     ...(world.lastEvent ? { lastEvent: { ...world.lastEvent } } : {}),
     layers: {
       terrain:   new Uint8Array(l.terrain),
@@ -76,6 +77,7 @@ export function serialize(world: World): WorldSnapshot {
       developedSince:  new Uint16Array(world.developedSince),
       lotStreak:       new Uint8Array(world.lotStreak),
       eventStrain:     new Uint8Array(world.eventStrain),
+      eventStuck:      new Uint8Array(world.eventStuck),
     },
   };
 }
@@ -123,6 +125,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   if (snapshot.layers.lot) l.lot.set(snapshot.layers.lot);
   if (snapshot.layers.lotStreak) world.lotStreak.set(snapshot.layers.lotStreak);
   if (snapshot.layers.eventStrain) world.eventStrain.set(snapshot.layers.eventStrain);
+  if (snapshot.layers.eventStuck) world.eventStuck.set(snapshot.layers.eventStuck);
+  world.eventClock = snapshot.eventClock ? { ...snapshot.eventClock } : null;
   world.lastEvent = snapshot.lastEvent ? { ...snapshot.lastEvent } : null;
   cleanLots(world);
   l.power.set(snapshot.layers.power);

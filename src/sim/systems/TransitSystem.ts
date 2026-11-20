@@ -88,7 +88,7 @@ import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
   type TrafficData, type TrafficField, type MarketKey,
-  makeTrafficData, makeTrafficField, marketRate, marketCapacity, marketWeight, marketReach, NO_ZONE,
+  makeTrafficData, makeTrafficField, marketRate, marketScale, marketCapacity, marketWeight, marketReach, NO_ZONE,
   bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
   hasDoorProviders, extraDoors, hasTripProviders, extraTrips, NODES_PER_TILE, railSlot } from '../TrafficData';
 import '../seaport';   // registers the seaports' doors with the markets
@@ -356,6 +356,11 @@ export class TransitSystem {
           h ^= h >>> 15;
         });
       }
+    }
+    // So is a scale on a market's trips (a stadium event's crowd growing and draining).
+    for (let k = 0; k < data.markets.length; k++) {
+      const s = marketScale(world, data.markets[k].def.key);
+      if (s !== 1) { h = Math.imul(h ^ (Math.round(s * 1000) * 8 + k), 0x9e3779b1); h ^= h >>> 15; }
     }
     // So are the trips buildings send (arrivals at an airport).
     if (hasTripProviders()) {
@@ -761,7 +766,7 @@ export class TransitSystem {
       const { def, field } = m;
       // Road units per trip: a building's trips are scaled like a zone's.
       const scale = marketWeight(def) * this._tripsScale;
-      const rate = marketRate(def) * scale;
+      const rate = marketRate(def) * scale * marketScale(world, def.key);
       if (def.dest === NO_ZONE && (this._extraDoorCount[k] === 0 || (rate === 0 && this._extraTripCount[k] === 0))) {
         // Nowhere to go, or nothing to send: the market holds nothing and costs nothing.
         if (!this._idle[k]) { this._emptyMarket(k); this._idle[k] = true; }

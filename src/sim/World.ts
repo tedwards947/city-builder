@@ -2,7 +2,7 @@
 // Each named layer is a flat Uint8Array of length width*height.
 // Adding a new simulation concern = adding a new layer, not restructuring.
 
-import type { EventResult } from './eventDays';
+import type { EventResult, EventClock } from './eventDays';
 import type { Marker } from './markers';
 import type { TutorialState } from '../tutorial/types';
 import { Grid } from './Grid';
@@ -235,11 +235,15 @@ export class World {
    */
   lotStreak: Uint8Array;
   /**
-   * Per tile: how many event days (net of good ones) the home has been stuck in the stadium's
+   * Per tile: how many events (net of good ones) the home has been stuck in the stadium's
    * jam (sim/eventDays.ts). Saved. Outside `layers` because nothing draws it.
    */
   eventStrain: Uint8Array;
-  /** The last event day's result (sim/eventDays.ts), or null if there has been none. Saved. */
+  /** Per tile: traffic passes of the event that is on for which the home was stuck in its jam (sim/eventDays.ts). Saved. */
+  eventStuck: Uint8Array;
+  /** When the stadium's next event is, and the counts of the one that is on (sim/eventDays.ts); null with no stadium. Saved. */
+  eventClock: EventClock | null = null;
+  /** The last event's result (sim/eventDays.ts), or null if there has been none. Saved. */
   lastEvent: EventResult | null = null;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
@@ -340,6 +344,7 @@ export class World {
     this.developedSince = new Uint16Array(n);
     this.lotStreak = new Uint8Array(n);
     this.eventStrain = new Uint8Array(n);
+    this.eventStuck = new Uint8Array(n);
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requestNotBefore: {}, requests: [], nextRequestId: 1 };
     this.buildings = [];
     this.buildingId = new Uint32Array(n);

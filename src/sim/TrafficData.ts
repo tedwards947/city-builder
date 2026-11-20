@@ -65,7 +65,7 @@ export interface MarketDef {
   reach?: () => number;
   /** The trips are people, who take a train when that is faster. Freight never rides. */
   rides?: boolean;
-  /** Its doors come and go by themselves (an event day): when they do, the pass settles as it does after a road edit. */
+  /** Its doors come and go by themselves (a stadium event): when they do, the pass settles as it does after a road edit. */
   occasional?: boolean;
 }
 
@@ -88,8 +88,9 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   // An attraction's appeal is a head start (a door handicap), so people weigh appeal against travel time.
   { key: 'leisure', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.leisure.tripsPerLevel, capacity: () => 0,
     reach: () => BALANCE.leisure.reach, rides: true },
-  // Event days (sim/eventDays.ts): fans go to the stadium. Its doors exist on event days only,
-  // so on every other day this market holds nothing and costs nothing.
+  // Stadium events (sim/eventDays.ts): fans go to the stadium. Its doors exist during an event only,
+  // so between events this market holds nothing and costs nothing. The crowd is scaled over the
+  // event (setMarketScale).
   { key: 'event', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.leisure.event.fansPerLevel, capacity: () => 0,
     reach: () => BALANCE.leisure.event.reach, rides: true, occasional: true },
 ];
@@ -192,6 +193,16 @@ export function servedAtDoors(roads: readonly number[], field: { doorLoad: Float
 
 /** Trips each origin level sends in this market. */
 export function marketRate(def: MarketDef): number { return def.rate(); }
+
+// A market's origin rate can be scaled by the state of the city (a stadium event's crowd grows
+// and drains: sim/eventDays.ts). The owner of the market registers the scale; 1 if none.
+const marketScales = new Map<MarketKey, (world: World) => number>();
+export function setMarketScale(key: MarketKey, scale: (world: World) => number): void { marketScales.set(key, scale); }
+/** What the trips this market's zones send are multiplied by right now (0 or more; 1 for most markets). */
+export function marketScale(world: World, key: MarketKey): number {
+  const f = marketScales.get(key);
+  return f ? Math.max(0, f(world)) : 1;
+}
 /** Trips each destination level can take in this market. */
 export function marketCapacity(def: MarketDef): number { return def.capacity(); }
 /** Road each trip of this market takes up (1 unless the market says otherwise). */

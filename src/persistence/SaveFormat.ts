@@ -85,7 +85,9 @@ export interface WorldSnapshot {
   markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
   /** Added without a version bump: written only while the city is the tutorial city (tutorial/rules.ts). */
   tutorial?: { step: number; service?: string; forHome?: boolean };
-  /** The last event day's result (sim/eventDays.ts). Added without a version bump: missing = none yet. */
+  /** world.eventClock (sim/eventDays.ts). Added without a version bump: missing = the first event is set from the load. */
+  eventClock?: { start: number; n: number; judged: number; wanted: number; arrived: number; stuckNow: number; pc: number; pcOwed: number };
+  /** The last event's result (sim/eventDays.ts). Added without a version bump: missing = none yet. */
   lastEvent?: { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number };
   /**
    * Never saved: set by an upgrade step (migrate) that changed something the
@@ -137,6 +139,8 @@ export interface WorldSnapshot {
     lotStreak?:       Uint8Array;
     /** world.eventStrain (sim/eventDays.ts). Added without a version bump: missing = no strain anywhere. */
     eventStrain?:     Uint8Array;
+    /** world.eventStuck (sim/eventDays.ts). Added without a version bump: missing = nobody stuck yet. */
+    eventStuck?:      Uint8Array;
   };
 }
 
