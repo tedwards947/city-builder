@@ -338,7 +338,7 @@ tutorialModal.addEventListener('click', (e) => { if (e.target === tutorialModal)
 const newGameDialog = new NewGameDialog((opts) => {
   startGame(opts.blank
     ? blankWorld(opts.width, opts.height, opts.seed)
-    : new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount }));
+    : new World(opts.width, opts.height, opts.seed, { waterAmount: opts.waterAmount, vegAmount: opts.vegAmount, mapType: opts.mapType }));
 });
 
 // Start with the default world so everything below has a world to point at.

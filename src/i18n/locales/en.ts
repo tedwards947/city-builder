@@ -292,6 +292,13 @@ export const en: TranslationSchema = {
     newGame: {
       title: "New Game",
       mapSize: "Map Size",
+      mapType: "Map",
+      mapRandom: "Random",
+      mapRiver: "River",
+      mapCoastal: "Coastal",
+      mapLakes: "Lakes",
+      mapBay: "Bay",
+      mapClassic: "Classic",
       small: "Small",
       medium: "Medium",
       large: "Large",
