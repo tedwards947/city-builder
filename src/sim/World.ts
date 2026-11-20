@@ -8,6 +8,7 @@ import { Grid } from './Grid';
 import type { OpenRequest } from './requests';
 import { EventBus } from './EventBus';
 import { mulberry32 } from './rng';
+import { generateForests, generateTerrain, mapKindFor, type MapType } from './terrainGen';
 import {
   TERRAIN_GRASS, TERRAIN_WATER, TERRAIN_SAND, RAIL_GROUND, RAIL_SUBWAY, RAIL_SURFACE,
   ZONE_NONE,
@@ -153,6 +154,12 @@ export type VegAmount   = 'low' | 'medium' | 'high';
 export interface TerrainOptions {
   waterAmount?: WaterAmount;
   vegAmount?:   VegAmount;
+  /**
+   * The kind of map (sim/terrainGen.ts). Left out, or 'classic': the original
+   * generator below (one north–south river, one round lake, trees scattered
+   * evenly), which the Balance Lab, the tests and the golden baseline rely on.
+   */
+  mapType?: MapType;
 }
 
 const WATER_PARAMS: Record<WaterAmount, { riverHalfWidth: number; lakeRadius: number }> = {
@@ -322,8 +329,15 @@ export class World {
     this.events = new EventBus();
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
-    this._generateTerrain();
-    this._generateVegetation();
+    const kind = mapKindFor(terrainOptions.mapType ?? 'classic', seed);
+    if (kind === null) {
+      this._generateTerrain();
+      this._generateVegetation();
+    } else {
+      generateTerrain(this.layers.terrain, width, height, seed, kind, terrainOptions.waterAmount ?? 'medium');
+      generateForests(this.layers.vegetation, this.layers.terrain, width, height, seed, terrainOptions.vegAmount ?? 'low');
+      this.grid.markAllDirty();
+    }
   }
 
   private _generateTerrain(): void {

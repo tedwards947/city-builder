@@ -222,6 +222,7 @@ export interface TranslationSchema {
     newGame: {
       title: string;
       mapSize: string;
+      mapType: string; mapRandom: string; mapRiver: string; mapCoastal: string; mapLakes: string; mapBay: string; mapClassic: string;
       small: string;
       medium: string;
       large: string;

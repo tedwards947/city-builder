@@ -1,4 +1,5 @@
 import type { WaterAmount, VegAmount } from '../sim/World';
+import type { MapType } from '../sim/terrainGen';
 import { DEBUG } from '../debug';
 import { TUTORIAL_MAP_SIZE } from '../gen/tutorialMap';
 
@@ -8,6 +9,7 @@ export interface NewGameOptions {
   seed: number;
   waterAmount: WaterAmount;
   vegAmount:   VegAmount;
+  mapType:     MapType;
   /** Bare land: no water, no trees (the map for a hand-built tutorial city; ?debug=true only). */
   blank?: boolean;
 }
@@ -24,6 +26,7 @@ export class NewGameDialog {
   private selectedSize = 'medium';
   private selectedWater: WaterAmount = 'medium';
   private selectedVeg: VegAmount = 'low';
+  private selectedMap: MapType = 'random';
 
   private readonly onStart: (opts: NewGameOptions) => void;
 
@@ -51,6 +54,15 @@ export class NewGameDialog {
       btn.addEventListener('click', () => {
         this.selectedSize = btn.dataset.size!;
         this.el.querySelectorAll('[data-size]').forEach(b =>
+          b.classList.toggle('active', b === btn));
+      });
+    });
+
+    // Map type
+    this.el.querySelectorAll<HTMLButtonElement>('[data-map]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectedMap = btn.dataset.map as MapType;
+        this.el.querySelectorAll('[data-map]').forEach(b =>
           b.classList.toggle('active', b === btn));
       });
     });
@@ -87,7 +99,7 @@ export class NewGameDialog {
       const seed = seedInput ? (parseInt(seedInput, 10) >>> 0) : (Math.random() * 0xFFFFFFFF) >>> 0;
       const { width, height } = SIZE_MAP[this.selectedSize];
       this.hide();
-      this.onStart({ width, height, seed, waterAmount: this.selectedWater, vegAmount: this.selectedVeg, ...(this.selectedSize === 'tutorial' ? { blank: true } : {}) });
+      this.onStart({ width, height, seed, waterAmount: this.selectedWater, vegAmount: this.selectedVeg, mapType: this.selectedMap, ...(this.selectedSize === 'tutorial' ? { blank: true } : {}) });
     });
   }
 }
