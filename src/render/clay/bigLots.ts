@@ -4,7 +4,7 @@
  * Until the clay art exists these are code-drawn massing models in the clay
  * look, at the scale in docs/SCALE.md: 1 tile = 17 m, a 3 m floor = 0.12 tile
  * of screen height. The owner's picks (round 1): towers only on 2×2, at true
- * height, 20 floors at most and varied below that; some 2×2 buildings are low
+ * height, 26 floors at most and varied below that; some 2×2 buildings are low
  * (a shopping mall, a courtyard block, a factory).
  *
  * `planBigLot` is pure (tested in src/__tests__/bigLots.test.ts): zone and the
@@ -13,11 +13,14 @@
  */
 import { ZONE_R, ZONE_C, ZONE_I } from '../../sim/constants';
 import { RebakeBudget } from '../RebakeBudget';
+import { lotClaySprite, drawClaySprite } from './ClaySprites';
 
 /** Screen height of one 3 m floor, in tiles (docs/SCALE.md). */
 export const FLOOR_TILES = 0.12;
-/** The tallest tower, in floors (owner, 2026-11-20). */
-export const MAX_FLOORS = 20;
+/** The tallest tower, in floors (owner, 2026-11-20: 26). */
+export const MAX_FLOORS = 26;
+/** The most a merged lot's building reaches above its back edge, in tiles (the tallest tower). */
+export const MAX_LOT_RISE = MAX_FLOORS * 0.12 + 0.2;
 /** With "Low buildings" on, nothing stands taller than this. */
 export const LOW_VIEW_FLOORS = 3;
 
@@ -30,7 +33,19 @@ export interface BigLotPlan {
   /** A low podium or wing in front of the body (towers, malls), or null. */
   podium: { x: number; y: number; w: number; d: number; floors: number } | null;
   palette: number;
+  /** The clay sprite for it (public/sprites/clay/lots/<art>.png); the massing above shows until it loads. */
+  art: string;
 }
+
+/**
+ * The clay art (art/clay-set/raw-lots), with the floors each was drawn at.
+ * Towers by zone, then the low buildings. Industry builds low works only.
+ */
+const ART: Record<number, { tall: readonly (readonly [string, number])[]; low: readonly (readonly [string, number])[] }> = {
+  [ZONE_R]: { tall: [['r-tower-a', 26], ['r-tower-b', 20], ['r-tower-c', 15], ['r-tower-d', 11]], low: [['r-court-a', 5], ['r-slab-a', 7]] },
+  [ZONE_C]: { tall: [['c-tower-a', 26], ['c-tower-b', 18], ['c-tower-c', 13]], low: [['c-mall-a', 2]] },
+  [ZONE_I]: { tall: [], low: [['i-works-a', 3], ['i-works-b', 2], ['i-works-c', 4]] },
+};
 
 /** Share of merged lots that grow a tower, by zone. Industry builds low works. */
 const TALL_SHARE: Record<number, number> = { [ZONE_R]: 0.6, [ZONE_C]: 0.6, [ZONE_I]: 0 };
@@ -45,22 +60,25 @@ const hash = (v: number, k: number): number => {
 export function planBigLot(zone: number, variant: number): BigLotPlan {
   const tall = hash(variant, 1) < (TALL_SHARE[zone] ?? 0);
   const palette = Math.floor(hash(variant, 2) * 3);
+  const art = ART[zone] ?? ART[ZONE_R];
   if (tall) {
-    // 8 to 20 floors, leaning low: most towers are mid-height, a few reach the top.
-    const floors = 8 + Math.floor(Math.pow(hash(variant, 3), 1.6) * (MAX_FLOORS - 8 + 1));
+    const [name, floors] = art.tall[Math.floor(hash(variant, 3) * art.tall.length)];
     const w = 1.0 + hash(variant, 4) * 0.4, d = 0.8 + hash(variant, 5) * 0.3;
     return {
-      form: 'tower', floors, palette,
+      form: 'tower', floors, palette, art: name,
       x: 1 - w / 2, y: 0.5, w, d,
       podium: zone === ZONE_C || hash(variant, 6) < 0.5 ? { x: 0.15, y: 1.25, w: 1.7, d: 0.5, floors: zone === ZONE_C ? 2 : 1 } : null,
     };
   }
-  if (zone === ZONE_I) return { form: 'works', x: 0.15, y: 0.35, w: 1.7, d: 1.25, floors: 3, podium: { x: 0.2, y: 1.6, w: 0.7, d: 0.25, floors: 1 }, palette };
-  if (zone === ZONE_C) return { form: 'mall', x: 0.12, y: 0.3, w: 1.76, d: 1.35, floors: 2, podium: { x: 0.7, y: 1.65, w: 0.6, d: 0.15, floors: 1 }, palette };
+  if (zone === ZONE_I) {
+    const [name, floors] = art.low[Math.floor(hash(variant, 9) * art.low.length)];
+    return { form: 'works', x: 0.15, y: 0.35, w: 1.7, d: 1.25, floors, podium: { x: 0.2, y: 1.6, w: 0.7, d: 0.25, floors: 1 }, palette, art: name };
+  }
+  if (zone === ZONE_C) return { form: 'mall', x: 0.12, y: 0.3, w: 1.76, d: 1.35, floors: 2, podium: { x: 0.7, y: 1.65, w: 0.6, d: 0.15, floors: 1 }, palette, art: 'c-mall-a' };
   // Homes: a perimeter block round a garden, or a long slab.
   return hash(variant, 7) < 0.6
-    ? { form: 'courtyard', x: 0.15, y: 0.25, w: 1.7, d: 1.5, floors: 4 + Math.floor(hash(variant, 8) * 2), podium: null, palette }
-    : { form: 'slab', x: 0.15, y: 0.6, w: 1.7, d: 0.65, floors: 5 + Math.floor(hash(variant, 8) * 3), podium: null, palette };
+    ? { form: 'courtyard', x: 0.15, y: 0.25, w: 1.7, d: 1.5, floors: 5, podium: null, palette, art: 'r-court-a' }
+    : { form: 'slab', x: 0.15, y: 0.6, w: 1.7, d: 0.65, floors: 7, podium: null, palette, art: 'r-slab-a' };
 }
 
 /** How far the building rises above the lot's back edge, in tiles (for hover-to-hide and off-screen drawing). */
@@ -195,6 +213,15 @@ function bake(zone: number, plan: BigLotPlan, T: number, low: boolean, abandoned
  */
 export function drawBigLot(ctx: Ctx, zone: number, variant: number, abandoned: boolean, sx: number, sy: number, T: number, alpha = 1, low = false): void {
   const plan = planBigLot(zone, variant);
+  // The clay art, once loaded. With Low buildings on, a tower shows as its low massing instead.
+  const clay = low && plan.form === 'tower' ? undefined : lotClaySprite(plan.art);
+  if (clay) {
+    if (alpha < 1) ctx.globalAlpha = alpha;
+    drawClaySprite(ctx, clay, sx, sy, 2 * T);
+    if (abandoned) { ctx.fillStyle = 'rgba(24,18,12,0.38)'; ctx.fillRect(sx, sy, 2 * T, 2 * T); }
+    if (alpha < 1) ctx.globalAlpha = 1;
+    return;
+  }
   const key = `${zone}|${variant}|${low ? 1 : 0}|${abandoned ? 1 : 0}`;
   let b = baked.get(key);
   if (!b) { b = bake(zone, plan, T, low, abandoned); baked.set(key, b); if (baked.size > 400) baked.delete(baked.keys().next().value as string); }

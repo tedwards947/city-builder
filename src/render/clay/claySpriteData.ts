@@ -652,5 +652,96 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "left": 25,
     "right": 226,
     "bottom": 220
+  },
+  "lots/c-mall-a": {
+    "w": 256,
+    "h": 256,
+    "left": 26,
+    "right": 227,
+    "bottom": 220
+  },
+  "lots/c-tower-a": {
+    "w": 257,
+    "h": 460,
+    "left": 28,
+    "right": 229,
+    "bottom": 434
+  },
+  "lots/c-tower-b": {
+    "w": 257,
+    "h": 460,
+    "left": 28,
+    "right": 229,
+    "bottom": 434
+  },
+  "lots/c-tower-c": {
+    "w": 238,
+    "h": 426,
+    "left": 18,
+    "right": 219,
+    "bottom": 402
+  },
+  "lots/i-works-a": {
+    "w": 256,
+    "h": 256,
+    "left": 26,
+    "right": 226,
+    "bottom": 220
+  },
+  "lots/i-works-b": {
+    "w": 256,
+    "h": 256,
+    "left": 25,
+    "right": 227,
+    "bottom": 220
+  },
+  "lots/i-works-c": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "lots/r-court-a": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "lots/r-slab-a": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "lots/r-tower-a": {
+    "w": 257,
+    "h": 461,
+    "left": 28,
+    "right": 228,
+    "bottom": 435
+  },
+  "lots/r-tower-b": {
+    "w": 291,
+    "h": 521,
+    "left": 45,
+    "right": 245,
+    "bottom": 493
+  },
+  "lots/r-tower-c": {
+    "w": 231,
+    "h": 414,
+    "left": 15,
+    "right": 216,
+    "bottom": 390
+  },
+  "lots/r-tower-d": {
+    "w": 285,
+    "h": 511,
+    "left": 41,
+    "right": 242,
+    "bottom": 484
   }
 };

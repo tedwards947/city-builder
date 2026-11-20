@@ -40,15 +40,13 @@ import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { loadClaySprites, beginClayFrame, pickClaySprite, bigClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
-import { drawBigLot, beginBigLotFrame, planBigLot, bigLotRise } from './clay/bigLots';
+import { drawBigLot, beginBigLotFrame, planBigLot, bigLotRise, MAX_LOT_RISE } from './clay/bigLots';
 import { trafficVolume, shownRoadLoad } from '../sim/TrafficData';
 import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
 import { drawCommuteRoutes } from './clay/commuteRoute';
 import { BALANCE } from '../data/balance';
 import { ZONE_NONE, ZONE_R, ROAD_NONE, ROAD_STREET, ROAD_AVENUE, VEG_NONE, BUILDING_NONE } from '../sim/constants';
 
-/** The most a merged lot's building reaches above its back edge, in tiles (a 20-floor tower). */
-const MAX_LOT_RISE = 2.6;
 /** A tall merged-lot building's opacity while the pointer is on a tile behind it. */
 const LOT_FADED_ALPHA = 0.22;
 

@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><canvas id="c" width="1024" height="1820"></canvas>
+<script>
+// Makes ref/anchor-2x2-tall.png: the 2×2 anchor at 70%, bottom-centred on a 9:16 magenta canvas (room for a 26-floor tower).
+const c = document.getElementById('c'), x = c.getContext('2d'), im = new Image();
+im.onload = () => { x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1024, 1820); const k = 0.7, w = 1024 * k; x.drawImage(im, (1024 - w) / 2, 1820 - w, w, w); window.__png = c.toDataURL('image/png'); };
+im.src = '/art/clay-set/ref/anchor-2x2.png';
+</script>
