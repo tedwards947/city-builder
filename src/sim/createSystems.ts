@@ -23,6 +23,7 @@ import { PoliticsSystem } from './systems/PoliticsSystem';
 import { OrdinanceSystem } from './systems/OrdinanceSystem';
 import { RequestSystem } from './systems/RequestSystem';
 import { LotMergeSystem } from './systems/LotMergeSystem';
+import { EventDaySystem } from './systems/EventDaySystem';
 import { TutorialSystem } from '../tutorial/TutorialSystem';
 
 export interface SimSystems {
@@ -77,6 +78,7 @@ export function createSystems(): SimSystems {
       new OrdinanceSystem(),
       new RequestSystem(),
       new LotMergeSystem(),
+      new EventDaySystem(),
       new TutorialSystem(),
     ],
   };

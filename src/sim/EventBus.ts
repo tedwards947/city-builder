@@ -51,7 +51,9 @@ export type CityEvents = {
   lotMerged:        { tx: number; ty: number; zone: number; shape: 'square' | 'wide' | 'tall' };
   // Tax exodus: a home lost one level because the tax level is above neutral.
   // `level` is the level it has now (0 = an empty lot again).
-  tileDeclined:     { tx: number; ty: number; zone: number; level: number; reason: 'tax' };
+  tileDeclined:     { tx: number; ty: number; zone: number; level: number; reason: 'tax' | 'event' };
+  /** An event day ended and was judged (sim/eventDays.ts EventResult). */
+  eventDayEnded:    { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number };
   // Political capital changed by one command (emitted by changePc in
   // sim/politics.ts; passive regeneration does not emit). `delta` is signed.
   // `undo` is true when the command is being undone. A drag emits one per

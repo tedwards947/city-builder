@@ -35,6 +35,7 @@ export type PcReason =
   | 'requestMet'       // a resident request was met (src/sim/requests.ts)
   | 'requestFailed'    // a resident request ran past its deadline
   | 'bigProject'       // a big project was built: a unique building costs political capital (sim/leisure.ts)
+  | 'eventJam'         // residents were stuck in an event day's jam (sim/eventDays.ts)
   | 'debt';            // a day with the city's money below zero (src/sim/debt.ts)
 
 /**
@@ -43,7 +44,7 @@ export type PcReason =
  * them out of pcAction. (Enacting an ordinance is a player action, but it is
  * not a command, so it is left out too.)
  */
-export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep', 'requestMet', 'requestFailed', 'debt'];
+export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep', 'requestMet', 'requestFailed', 'debt', 'eventJam'];
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */

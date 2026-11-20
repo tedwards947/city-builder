@@ -85,6 +85,8 @@ export interface WorldSnapshot {
   markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
   /** Added without a version bump: written only while the city is the tutorial city (tutorial/rules.ts). */
   tutorial?: { step: number; service?: string; forHome?: boolean };
+  /** The last event day's result (sim/eventDays.ts). Added without a version bump: missing = none yet. */
+  lastEvent?: { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number };
   /**
    * Never saved: set by an upgrade step (migrate) that changed something the
    * player should be told about, and shown once after the load (World.loadNotes).
@@ -133,6 +135,8 @@ export interface WorldSnapshot {
     developedSince?:  Uint16Array;
     /** world.lotStreak (sim/lots.ts). Added without a version bump: missing = every streak starts from 0. */
     lotStreak?:       Uint8Array;
+    /** world.eventStrain (sim/eventDays.ts). Added without a version bump: missing = no strain anywhere. */
+    eventStrain?:     Uint8Array;
   };
 }
 

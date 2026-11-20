@@ -98,6 +98,18 @@ export function gatewayCapacity(world: World): number {
   return cap;
 }
 
+/** Every gateway a road reaches: what it can bring in (tourists a tick) and its access roads. */
+export function gatewayRoads(world: World): { capacity: number; roads: number[] }[] {
+  const g = gateways();
+  const out: { capacity: number; roads: number[] }[] = [];
+  for (const b of world.buildings) {
+    if (!(g[b.kind] > 0)) continue;
+    const roads = accessRoads(world, b);
+    if (roads.length > 0) out.push({ capacity: g[b.kind], roads });
+  }
+  return out;
+}
+
 /** Whether the city has a gateway that a road reaches: without one, attractions are for residents only. */
 export function hasGateway(world: World): boolean {
   return gatewayCapacity(world) > 0;

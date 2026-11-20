@@ -2,7 +2,7 @@
 // No magic numbers in game code.
 
 /** A kind of trip in the traffic system (sim/TrafficData.ts MARKET_DEFS). */
-export type TrafficMarketKey = 'shopping' | 'jobs' | 'goods' | 'exports' | 'visitors' | 'leisure';
+export type TrafficMarketKey = 'shopping' | 'jobs' | 'goods' | 'exports' | 'visitors' | 'leisure' | 'event';
 
 /**
  * What one building kind does in the traffic system (sim/buildingTraffic.ts).
@@ -146,6 +146,22 @@ export const BALANCE = {
     // multiplied by `growthMult`. Lower levels are not affected. growthMult 1 = off.
     // PLACEHOLDER: slows, does not stop, so cities built before leisure do not freeze.
     need: { fromLevel: 3, growthMult: 0.5, minReach: 0 } as { fromLevel: number; growthMult: number; minReach: number },
+    // Event days (sim/eventDays.ts): once a week the venue (the stadium) fills. ALL PLACEHOLDERS.
+    //   weekday            0 = Monday … 5 = Saturday (sim/calendar.ts).
+    //   seats              Fans a tick the venue takes. 0 = no events.
+    //   fansPerLevel       Fans each home level sends on event day (shopping is transit.tripsRtoC, 0.33).
+    //   touristFans        Fans arriving at the gateways, capped by what the gateways bring.
+    //   ticket             Money per fan in the seats, per tick of the event day.
+    //   reach              Travel time (street tiles) beyond which fans do not come; jams make roads longer.
+    //   jam                A home is stuck when a road beside it is at `load` × capacity or more and the
+    //                      crowd alone is `eventShare` × capacity or more of that.
+    //   pcPerStuckResident Political capital each stuck resident costs, per event day.
+    //   dropAfter          Event days stuck (net of good ones) after which a home loses a level. 0 = never.
+    event: {
+      kind: 23, weekday: 5, seats: 400, fansPerLevel: 0.15, touristFans: 40, ticket: 4, reach: 120,
+      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.01, dropAfter: 3,
+    } as { kind: number; weekday: number; seats: number; fansPerLevel: number; touristFans: number; ticket: number; reach: number;
+      jam: { load: number; eventShare: number }; pcPerStuckResident: number; dropAfter: number },
   },
   tax: {
     // Per developed level per sim tick.
