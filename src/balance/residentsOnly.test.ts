@@ -33,12 +33,12 @@ describe('game-day toast', () => {
   it('info when it went well', () => {
     const r = eventDayToast({ wanted: 50, arrived: 48, stuckResidents: 0, pc: 0, declined: 0 })!;
     expect(r.type).toBe('info');
-    expect(r.text).toBe('48 of 50 fans made kick-off.');
+    expect(r.text).toBe('48 of 50 fans made the game.');
   });
   it('warning with stuck residents and declined homes', () => {
     const r = eventDayToast({ wanted: 50, arrived: 30, stuckResidents: 120, pc: 1.2, declined: 2 })!;
     expect(r.type).toBe('warning');
-    expect(r.text).toBe('30 of 50 fans made kick-off. 120 residents were stuck in the traffic (−◆1.2). 2 homes lost a level.');
+    expect(r.text).toBe('30 of 50 fans made the game. 120 residents were stuck in the traffic (−◆1.2). 2 homes lost a level.');
   });
 });
 

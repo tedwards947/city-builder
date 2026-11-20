@@ -110,6 +110,9 @@ export class ToastPanel {
         this.showToast(t('ui.toast.residentsOnlyTitle'), t('ui.toast.residentsOnlyMsg'), 'warning', tile(p.tx, p.ty));
       }
     };
+    this.handlers['eventStarted'] = (p: CityEvents['eventStarted']) => {
+      this.showToast(t('ui.toast.eventStartedTitle'), t('ui.toast.eventStartedMsg'), 'info', tile(p.tx, p.ty));
+    };
     this.handlers['eventDayEnded'] = (p: CityEvents['eventDayEnded']) => {
       const toast = eventDayToast(p);
       if (toast) this.showToast(toast.title, toast.text, toast.type, tile(p.tx, p.ty));
