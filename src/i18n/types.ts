@@ -34,6 +34,7 @@ export interface TranslationSchema {
       fireRisk: string;
       demand: string;
       taxRate: string;
+      needsSchool: string;
       growthBlockedAbandoned: string;
       fullyDeveloped: string;
       toReachLevel: string;
@@ -145,6 +146,7 @@ export interface TranslationSchema {
       pop: string;
       water: string;
     };
+    paused: { chip: string; inspect: string };
     toast: {
       stationsRebuiltTitle: string;
       lotMergedTitle: string;

@@ -91,6 +91,8 @@
     #demand-chart { display: block; width: 130px; height: 46px; margin-left: auto; }
 
     /* ── Speed bar ── */
+    #paused-chip { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); padding: 3px 12px; border-radius: 12px; background: rgba(230,170,40,0.92); color: #1a1200; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+    #paused-chip.hidden { display: none; }
     #speedbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: none; }
     .speed { pointer-events: auto; background: rgba(0,0,0,0.7); color: #eee; border: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; backdrop-filter: blur(8px); min-width: 36px; }
     .speed.active { background: #4a7a9a; border-color: #6ba0c0; }
@@ -444,6 +446,7 @@
     <button class="speed" data-speed="2">2×</button>
     <button class="speed" data-speed="3">3×</button>
   </div>
+  <div id="paused-chip" class="hidden"></div>
 
   <!-- <div id="hint">Drag to pan · Pinch or scroll to zoom · Tap a tool then tap the map</div> -->
 </div>
