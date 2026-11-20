@@ -32,7 +32,7 @@ export function progressView(world: World, req: OpenRequest): ProgressView {
   return { text: t('ui.requests.progressBy.' + p.unit, bar) + (why ? ' · ' + t(why) : ''), bar };
 }
 
-const FULL_KINDS = new Set(['school', 'hospital']);
+const FULL_KINDS = new Set(['police', 'fire', 'school', 'hospital']);
 const REACH_KINDS = new Set(['park', 'police', 'fire', 'school', 'hospital']);
 
 /**

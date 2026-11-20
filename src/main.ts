@@ -962,6 +962,7 @@ function frame(now: number): void {
   statMoney.textContent = formatMoney(state.world.budget.money);
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
   debtUi.update();
+  toastPanel.checkFull(state.world);
   statPop.textContent   = state.world.stats.population.toLocaleString();
   // Demand / supply; red while demand outruns supply.
   const utility = (el: HTMLElement, demand: number, supply: number) => {
