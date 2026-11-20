@@ -392,7 +392,8 @@ export class CanvasRenderer {
         const sxi = Math.floor(sx);
         const syi = Math.floor(sy);
         // Zoomed in, every lot is checked for a missing road, power or water, empty ones too.
-        if (ts >= PROBLEM_BADGE_MIN_TILE && zone !== ZONE_NONE) utilityQueue.push(i, sxi, syi);
+        // A merged 2×2 lot gets one set of badges, queued from its anchor (NW quarter).
+        if (ts >= PROBLEM_BADGE_MIN_TILE && zone !== ZONE_NONE && world.layers.lot[i] <= 1) utilityQueue.push(i, sxi, syi);
 
         // 1. Draw Sprite (Buildings/Houses)
         // Localized Vibe for sprite selection
@@ -415,6 +416,7 @@ export class CanvasRenderer {
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
         // A merged 2×2 lot (sim/lots.ts) is drawn once, from its bottom-left quarter, so rows behind it are already drawn.
         if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
+        if (world.layers.lot[i] === 1 && dev > 0) markerQueue.push(i, sxi, syi);
         const clay = big || world.layers.lot[i] !== 0 || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
@@ -715,22 +717,29 @@ export class CanvasRenderer {
     };
     if (ts >= PROBLEM_BADGE_MIN_TILE) {
       const r = ts * 0.16;
+      // A merged 2×2 lot (queued once, from its anchor) is one building: its badges sit
+      // over the whole footprint and show a problem any of its four tiles has.
+      const quarters = (i: number): readonly number[] => (world.layers.lot[i] !== 0 ? world.lotTilesAt(i) : [i]);
       for (let q = 0; q < markerQueue.length; q += 3) {
         const i = markerQueue[q], x = markerQueue[q + 1], y = markerQueue[q + 2];
-        if (crimeProblem(world, i, CRIME_BADGE_MIN)) badge(x + ts * 0.8, y + ts * 0.2, r, 'crime', 1);
-        if (healthProblem(world, i, SICKNESS_BADGE_MIN)) badge(x + ts * 0.2, y + ts * 0.2, r, 'health', 1);
-        if (world.layers.recentDeath[i] > 0 && world.layers.zone[i] === ZONE_R) badge(x + ts * 0.2, y + ts * 0.8, r, 'death', 1);
+        const tiles = quarters(i), S = ts * (tiles.length > 1 ? 2 : 1);
+        if (tiles.some(k => crimeProblem(world, k, CRIME_BADGE_MIN))) badge(x + S * 0.8, y + S * 0.2, r, 'crime', 1);
+        if (tiles.some(k => healthProblem(world, k, SICKNESS_BADGE_MIN))) badge(x + S * 0.2, y + S * 0.2, r, 'health', 1);
+        if (world.layers.zone[i] === ZONE_R && tiles.some(k => world.layers.recentDeath[k] > 0)) badge(x + S * 0.2, y + S * 0.8, r, 'death', 1);
       }
       // No road, no power, no water, commute: along the front of the lot. With
       // no road the rest are symptoms and only the road badge shows.
       for (let q = 0; q < utilityQueue.length; q += 3) {
-        const m = lotProblemMask(world, utilityQueue[q]), x = utilityQueue[q + 1], y = utilityQueue[q + 2];
-        if (m & 64) { badge(x + ts * 0.5, y + ts * 0.8, r, 'road', 1); continue; }
+        const tiles = quarters(utilityQueue[q]), S = ts * (tiles.length > 1 ? 2 : 1), x = utilityQueue[q + 1], y = utilityQueue[q + 2];
+        let m = 0;
+        for (const k of tiles) m |= lotProblemMask(world, k);
+        if (m & 64) { badge(x + S * 0.5, y + S * 0.8, r, 'road', 1); continue; }
+        // Side by side, as far apart as on a 1×1 lot.
         const power = (m & 4) !== 0, water = (m & 8) !== 0;
-        if (power) badge(x + ts * (water ? 0.34 : 0.5), y + ts * 0.8, r, 'power', 1);
-        if (water) badge(x + ts * (power ? 0.62 : 0.5), y + ts * 0.8, r, 'water', 1);
-        if (m & 32) badge(x + ts * 0.85, y + ts * 0.5, r, 'cutoff', 1);
-        else if (m & 16) badge(x + ts * 0.85, y + ts * 0.5, r, 'commute', 1);
+        if (power) badge(x + S * 0.5 - (water ? ts * 0.16 : 0), y + S * 0.8, r, 'power', 1);
+        if (water) badge(x + S * 0.5 + (power ? ts * 0.12 : 0), y + S * 0.8, r, 'water', 1);
+        if (m & 32) badge(x + S * 0.85, y + S * 0.5, r, 'cutoff', 1);
+        else if (m & 16) badge(x + S * 0.85, y + S * 0.5, r, 'commute', 1);
       }
     } else {
       // Districts are regrouped when the sim has ticked, at most a few times a second.
