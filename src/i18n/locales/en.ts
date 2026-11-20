@@ -13,6 +13,7 @@ export const en: TranslationSchema = {
     high: "high",
     yes: "✓",
     no: "✗",
+    weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     months: [
       "Jan",
       "Feb",
