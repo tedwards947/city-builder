@@ -103,11 +103,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   <p>The same block three times. Left to right: the tower at true height (the houses' scale), at 75%, and at 50%. The squeeze applies to the tower and the mid-rise only. The houses stay as they are. Hover or tap a scene to see the tower fade, the way hover-to-hide could work.</p>
   <div class="controls">
     <label for="floors">Tower floors <input id="floors" type="range" min="8" max="32" step="1" value="20"><span class="out" id="floorsOut">20</span></label>
-    <label for="mid">1×1 mid-rise floors <input id="mid" type="range" min="3" max="6" step="1" value="4"><span class="out" id="midOut">4</span></label>
     <span>Cars <span class="seg" role="group" aria-label="Car size"><button id="carsNow" aria-pressed="false">now</button><button id="carsTarget" aria-pressed="true">target</button></span></span>
   </div>
   <div class="scenes" id="scenes"></div>
-  <p class="note">Each scene: street in front, then two rows of lots, and a back row of houses so you can see what the tower covers. From the left: level 1 and 2 houses, today's level 3 tower (the real sprite), a 1×1 mid-rise mock, the 2×2 tower mock, a level 2 shop.</p>
+  <p class="note">Each scene: street in front, then two rows of lots, and a back row of houses so you can see what the tower covers. From the left: level 1 and 2 houses, today's level 3 tower (the real sprite), the new 1×1 mid-rise home (pilot art), the 2×2 tower mock, the new mixed-use shop (pilot art).</p>
+</section>
+
+<section id="pilot">
+  <div class="eyebrow">Redraw · pilot</div>
+  <h2>The new 1×1 level 3, first two designs</h2>
+  <p>Made the same way as every clay sprite: edited from the house anchor, so the camera, the plot and the door size match. Left is today's level 3 tower; the other two are new. Both new ones also stand in the street scenes above.</p>
+  <figure><canvas id="pilotCv" width="960" height="330" aria-label="Today's level 3 tower beside the new mid-rise home and mixed-use shop"></canvas>
+  <figcaption><b>4-floor home · 3-floor shop with flats above</b><span>The home is about 10 m wide, and each floor is close to the 3 m metre. Two things to fix before the full set: the shop's paved plot came out a little short at the back corners (the cutout will show grass there), and both look plain beside the busy current set, so later designs get more variety (balconies, colour, roof gardens).</span></figcaption></figure>
+  <p class="note">The 2×2 tower is next. At true height it is taller than a square image, so it needs a tall canvas, and the game needs a small change to draw a sprite that tall. I'll do that after you're happy with this look.</p>
 </section>
 
 <section>
@@ -130,9 +138,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 <section id="feedback">
   <div class="eyebrow">Your call</div>
-  <h2>Feedback for this round</h2>
-  <p>Pick what looks right and add notes anywhere. The tower and mid-rise floor counts come from the sliders above, so set those first. Press Save when you're done; you can come back and change it.</p>
+  <h2>Feedback</h2>
+  <p>Round 2 is the pilot question at the top. Your round 1 answers are still filled in below; change them if you like. Press Save when you're done.</p>
   <form id="fb" class="qs">
+    <fieldset class="q">
+      <legend><b>Round 2 · The pilot look</b></legend>
+      <p class="note">Is this the right direction for the 1×1 level 3 set (13 homes and 13 shops to replace)?</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="pilotLook" value="go" id="pl-go"> Go ahead</label>
+        <label class="choice"><input type="radio" name="pilotLook" value="tweak" id="pl-tweak"> Go ahead with changes</label>
+        <label class="choice"><input type="radio" name="pilotLook" value="redo" id="pl-redo"> Try again</label>
+      </div>
+      <textarea id="pilotNote" name="pilotNote" rows="3" placeholder="What to change: colours, more detail, balconies, roof gardens, wider, narrower…"></textarea>
+    </fieldset>
     <fieldset class="q">
       <legend><b>1 · Tower height</b></legend>
       <p class="note">A true-height 20-floor tower covers about 2½ tiles behind it, so hover-to-hide matters more the taller we go. You can also press "Pick this" under a scene.</p>
@@ -154,7 +172,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         <label class="choice"><input type="radio" name="midrise" value="shorter" id="mr-shorter"> Shorter</label>
         <label class="choice"><input type="radio" name="midrise" value="wider" id="mr-wider"> Wider or narrower</label>
       </div>
-      <p class="note">Mid-rise: <b class="out" id="fbMid">4</b> floors (the slider above).</p>
+      <p class="note">Mid-rise: <b class="out" id="fbMid">4</b> floors (your round 1 pick).</p>
       <textarea id="midNote" name="midNote" rows="2" placeholder="Notes on the mid-rise"></textarea>
     </fieldset>
     <fieldset class="q">
@@ -201,15 +219,24 @@ const FLOOR = 0.1203;            // tiles of screen per 3 m floor, in the game (
 const M = 1 / 17;                // tiles per metre across
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const imgs = {};
-const loads = Object.entries(IMG).map(([k, src]) => new Promise(r => { const i = new Image(); i.onload = () => { imgs[k] = i; r(); }; i.onerror = r; i.src = src; }));
+// Pilot raws still have their magenta background: key it out (the game's cutout does this properly).
+function keyMagenta(i) {
+  const c = document.createElement('canvas'); c.width = i.width; c.height = i.height;
+  const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+  for (let n = 0; n < p.length; n += 4) { const m = Math.min(p[n], p[n + 2]) - p[n + 1]; if (m > 60) p[n + 3] = Math.max(0, 255 - (m - 60) * 4); }
+  x.putImageData(d, 0, 0); return c;
+}
+const loads = Object.entries(IMG).map(([k, src]) => new Promise(r => { const i = new Image(); i.onload = () => { imgs[k] = k.includes('-mid-') ? keyMagenta(i) : i; r(); }; i.onerror = r; i.src = src; }));
 
 const COL = { grass: '#86bd63', grassLip: '#5e8f45', asphalt: '#63676e', pave: '#b7b1a4', paveLip: '#8f897c', line: '#ece5d2', plaza: '#d8d4cb', plazaLip: '#9d988c' };
 const CAR = ['#e9e6dc', '#d65a4a', '#4f86c6', '#e3b94a', '#5aa868', '#3b4048'];
 
 function sprite(ctx, name, tx, ty, T, span = 1) {
   const im = imgs[name]; if (!im) return;
-  const pw = PLOT.right - PLOT.left + 1, ph = pw * ASPECT, kx = T * span / pw, ky = T * span / ph;
-  ctx.drawImage(im, tx * T - PLOT.left * kx, ty * T - (PLOT.bottom + 1 - ph) * ky, PLOT.w * kx, PLOT.h * ky);
+  const q = (im.width || PLOT.w) / PLOT.w; // pilot previews are 256 px: the same plot, twice the pixels
+  const pw = (PLOT.right - PLOT.left + 1) * q, ph = pw * ASPECT, kx = T * span / pw, ky = T * span / ph;
+  ctx.drawImage(im, tx * T - PLOT.left * q * kx, ty * T - ((PLOT.bottom + 1) * q - ph) * ky, PLOT.w * q * kx, PLOT.h * q * ky);
 }
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
 
@@ -285,14 +312,13 @@ function scene(cv, k, faded) {
   sprite(ctx, 'res-1-c', 0, 1, T); sprite(ctx, 'res-2', 1, 1, T); sprite(ctx, 'res-1', 2, 1, T); sprite(ctx, 'res-2-c', 3, 1, T); sprite(ctx, 'ind-1', 6, 1, T);
   // row 2 (front lots), with the 2×2 tower on x 4–5, y 1–2
   sprite(ctx, 'res-1', 0, 2, T); sprite(ctx, 'res-2-c', 1, 2, T); sprite(ctx, 'res-3', 2, 2, T);
-  slab(ctx, 3, 2, 1, 1, T, COL.plaza, COL.plazaLip);
-  block(ctx, T, { x: 3.14, y: 2.18, w: 0.72, d: 0.62, floors: state.mid, k, wall: '#c9c1b2', wallDark: '#8d8577', glass: '#4d6f86', roof: '#a9a296' });
+  sprite(ctx, 'res-3-mid-a', 3, 2, T);
   slab(ctx, 4, 1, 2, 2, T, COL.plaza, COL.plazaLip);
   const tw = { x: 4.3, y: 1.35, w: 1.4, d: 1.15, floors: state.floors, k, wall: '#bdb8ad', wallDark: '#7d796f', glass: '#3e5d73', roof: '#9e998e' };
   block(ctx, T, { x: 4.12, y: 2.05, w: 1.76, d: 0.78, floors: 2, k: 1, wall: '#a8a397', wallDark: '#6f6b62', glass: '#3e5d73', roof: '#8f8a80', shop: true });
   block(ctx, T, tw, faded ? 0.18 : 1);
   if (faded) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(tw.x * T, tw.y * T, tw.w * T, tw.d * T); ctx.setLineDash([]); }
-  sprite(ctx, 'com-2', 6, 2, T);
+  sprite(ctx, 'com-3-mid-a', 6, 2, T);
   // cars on the street
   const cars = state.carsTarget ? { l: 4.5 * M, w: 1.8 * M } : { l: 0.25, w: 0.15 };
   [[0.6, 3.38, 0, 1], [1.9, 3.62, Math.PI, 2], [3.4, 3.38, 0, 3], [5.3, 3.62, Math.PI, 4], [6.4, 3.38, 0, 0]].forEach(([x, y, h, c]) => car(ctx, x, y, cars.l, cars.w, CAR[c], h, T));
@@ -367,6 +393,18 @@ function fleet() {
   });
 }
 
+function pilot() {
+  const cv = document.getElementById('pilotCv'), ctx = cv.getContext('2d'), T = 240, head = 0.35;
+  cv.width = 4 * T; cv.height = Math.round((1 + head) * T + 10);
+  ctx.fillStyle = css('--panel'); ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.save(); ctx.translate(0, head * T);
+  ctx.fillStyle = COL.grass; ctx.fillRect(0, 0, cv.width, T);
+  sprite(ctx, 'res-3', 0.25, 0, T); sprite(ctx, 'res-3-mid-a', 1.5, 0, T); sprite(ctx, 'com-3-mid-a', 2.75, 0, T);
+  ctx.restore();
+  ctx.fillStyle = css('--muted'); ctx.font = '600 13px Inter, system-ui, sans-serif';
+  [['today', 0.25], ['new home', 1.5], ['new shop', 2.75]].forEach(([t, x]) => ctx.fillText(t, x * T + 6, 18));
+}
+
 const AUDIT = /*AUDIT*/[];
 function audit() {
   const tb = document.getElementById('audit');
@@ -374,25 +412,25 @@ function audit() {
 }
 
 function bind() {
-  const f = document.getElementById('floors'), m = document.getElementById('mid');
+  const f = document.getElementById('floors');
   f.addEventListener('input', () => { state.floors = +f.value; document.getElementById('floorsOut').textContent = f.value; document.getElementById('fbFloors').textContent = f.value; drawScenes(); });
-  m.addEventListener('input', () => { state.mid = +m.value; document.getElementById('midOut').textContent = m.value; document.getElementById('fbMid').textContent = m.value; drawScenes(); });
+
   const now = document.getElementById('carsNow'), tgt = document.getElementById('carsTarget');
   const set = v => { state.carsTarget = v; now.setAttribute('aria-pressed', String(!v)); tgt.setAttribute('aria-pressed', String(v)); drawScenes(); };
   now.addEventListener('click', () => set(false)); tgt.addEventListener('click', () => set(true));
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawScenes(); fleet(); });
-  new MutationObserver(() => { drawScenes(); fleet(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawScenes(); fleet(); pilot(); });
+  new MutationObserver(() => { drawScenes(); fleet(); pilot(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
 // ── Feedback form: one document, feedback/round1, read back by the graphics session ──
-const FIELDS_RADIO = ['towerHeight', 'midrise', 'cars', 'trucks', 'trains', 'props', 'buses', 'ships'];
-const FIELDS_TEXT = ['towerNote', 'midNote', 'notes'];
+const FIELDS_RADIO = ['pilotLook', 'towerHeight', 'midrise', 'cars', 'trucks', 'trains', 'props', 'buses', 'ships'];
+const FIELDS_TEXT = ['pilotNote', 'towerNote', 'midNote', 'notes'];
 function syncPicks() {
   const v = document.querySelector('input[name=towerHeight]:checked')?.value;
   document.querySelectorAll('button.pick').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
 }
 function readForm() {
-  const out = { towerFloors: state.floors, midFloors: state.mid, carsShown: state.carsTarget ? 'target' : 'now' };
+  const out = { towerFloors: state.floors, midFloors: 4, carsShown: state.carsTarget ? 'target' : 'now' };
   for (const n of FIELDS_RADIO) out[n] = document.querySelector(`input[name=${n}]:checked`)?.value ?? null;
   for (const n of FIELDS_TEXT) out[n] = document.getElementById(n).value.trim();
   return out;
@@ -400,9 +438,8 @@ function readForm() {
 function fillForm(d) {
   for (const n of FIELDS_RADIO) { const r = d[n] && document.querySelector(`input[name=${n}][value="${CSS.escape(String(d[n]))}"]`); if (r) r.checked = true; }
   for (const n of FIELDS_TEXT) if (typeof d[n] === 'string') document.getElementById(n).value = d[n];
-  const f = document.getElementById('floors'), m = document.getElementById('mid');
+  const f = document.getElementById('floors');
   if (Number.isFinite(d.towerFloors)) { f.value = d.towerFloors; f.dispatchEvent(new Event('input')); }
-  if (Number.isFinite(d.midFloors)) { m.value = d.midFloors; m.dispatchEvent(new Event('input')); }
   syncPicks();
 }
 const when = t => { try { return new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch { return ''; } };
@@ -435,5 +472,5 @@ async function feedback() {
   });
 }
 audit(); bind(); feedback();
-Promise.all(loads).then(() => (document.fonts?.ready ?? Promise.resolve())).then(() => { drawScenes(); fleet(); });
+Promise.all(loads).then(() => (document.fonts?.ready ?? Promise.resolve())).then(() => { drawScenes(); fleet(); pilot(); });
 </script>
