@@ -42,6 +42,7 @@ import {BALANCE} from "../data/balance";
 import {buildingUpkeep} from "../sim/serviceValue";
 import {taxDemandMult} from "../sim/tax";
 import {t} from "../i18n";
+import {lotSummary} from "../sim/lots";
 import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
@@ -481,9 +482,13 @@ export class TileInfoPanel {
       // ── Zone tile ──────────────────────────────────────────────────────────────
     } else if (zone !== ZONE_NONE) {
       const zoneName = ZONE_NAME[zone] ? t(ZONE_NAME[zone]) : t("zones.zone");
-      const dots = "●".repeat(dev) + "○".repeat(BALANCE.growth.maxLevel - dev);
+      const dots = "●".repeat(dev) + "○".repeat(Math.max(0, BALANCE.growth.maxLevel - dev));
       const isAbandoned = world.layers.abandoned[i] !== 0;
-      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> Lv ${dev}/${BALANCE.growth.maxLevel}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
+      // A merged 2×2 lot is one building: say so, with the residents of all four tiles.
+      const lot = lotSummary(world, i);
+      const levelText = lot ? t("ui.tileInfo.bigLot") : `Lv ${dev}/${BALANCE.growth.maxLevel}`;
+      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> ${levelText}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
+      if (lot && lot.residents > 0) html += `<div class="ti-detail">${t("ui.tileInfo.bigLotResidents", {count: lot.residents})}</div>`;
       html += problemChips(world, i);
       html += establishedRow(world, i);
       html += pcRows(world, tx, ty);

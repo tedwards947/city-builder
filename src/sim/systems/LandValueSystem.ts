@@ -12,6 +12,7 @@
 //
 // Runs every growth.tickInterval ticks (same cadence as ZoneGrowthSystem).
 
+import { levelWeight } from '../lots';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -233,9 +234,9 @@ export class LandValueSystem {
     for (let k = 0; k < zonedCount; k++) {
       const i = zoned[k];
       if (dev[i] === 0) continue;
-      if (zone[i] === ZONE_R) rDev += dev[i];
-      else if (zone[i] === ZONE_C) cDev += dev[i];
-      else if (zone[i] === ZONE_I) iDev += dev[i];
+      if (zone[i] === ZONE_R) rDev += levelWeight(dev[i]);
+      else if (zone[i] === ZONE_C) cDev += levelWeight(dev[i]);
+      else if (zone[i] === ZONE_I) iDev += levelWeight(dev[i]);
     }
 
     // rDemand: R grows fast when there are proportionally more jobs (C+I) than residents.

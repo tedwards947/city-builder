@@ -67,6 +67,7 @@ import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
 import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
+import { mergeLot, nearestMergeable } from './sim/lots';
 import { MarkerPanel, markerZoomOf } from './ui/MarkerPanel';
 import { drawMarkerPins } from './render/markerPins';
 import { TitleScreen } from './ui/TitleScreen';
@@ -139,6 +140,7 @@ if (DEBUG) {
     get world() { return state.world; },
     camera,
     tick: (n = 1) => { for (let k = 0; k < n; k++) state.scheduler.tick(); },
+    mergeLot: (tx: number, ty: number) => mergeLot(state.world, tx, ty, true),
   };
 }
 
@@ -684,6 +686,17 @@ if (DEBUG) {
   ship.textContent = 'Send ship';
   ship.addEventListener('click', () => renderer.sendShips());
   more.after(ship);
+  // 2×2 lots (sim/lots.ts): merge the zoned block nearest the middle of the view, whatever its level.
+  const merge = document.createElement('button');
+  merge.id = 'debug-merge';
+  merge.type = 'button';
+  merge.textContent = 'Merge 2×2';
+  merge.addEventListener('click', () => {
+    const c = camera.screenToTile(camera.viewportW / 2, camera.viewportH / 2);
+    const at = nearestMergeable(state.world, c.tx, c.ty, true);
+    if (at) mergeLot(state.world, at.tx, at.ty, true);
+  });
+  ship.after(merge);
 }
 const debtUi = new DebtUi({
   getWorld: () => state.world, formatMoney,

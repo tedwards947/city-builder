@@ -301,7 +301,13 @@ export const BALANCE = {
     // so level 3 takes about twice as long. Shops and industry use `probability`.
     homeProbabilityByLevel: { 0: 0.08, 1: 0.04, 2: 0.02 } as Record<number, number>,
     maxLevel: 3,
-    popPerLevel: { 1: 4, 2: 10, 3: 20 } as Record<number, number>,
+    // Level 4 is a tile of a merged 2×2 lot (sim/lots.ts, BIG_LOTS_DESIGN.md), which lots do not
+    // grow to (maxLevel stays 3): it holds 1.5× a level 3.
+    popPerLevel: { 1: 4, 2: 10, 3: 20, 4: 30 } as Record<number, number>,
+    // What a lot of each level counts for wherever a system multiplies by the level (taxes, trips,
+    // utility demand, crime, fire risk, pollution, the demand tally). Levels 0–3 count as
+    // themselves; a merged lot's tile as 4.5 = 1.5 × level 3. Keep in step with popPerLevel[4].
+    levelWeight: [0, 1, 2, 3, 4.5] as readonly number[],
   },
   // Per road-class data — keyed by ROAD_STREET/AVENUE/HIGHWAY (1/2/3).
   // upgrade cost = roadClasses[target].cost − roadClasses[current].cost

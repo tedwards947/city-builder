@@ -30,7 +30,8 @@ export interface Layers {
   rail:      Uint8Array; // rail track, one bit per level (RAIL_GROUND, …); see sim/rail.ts
   building:  Uint8Array; // 0=none, 1=power plant, 2=water tower, 3=sewage plant, 4–8=service
   vegetation: Uint8Array; // 0=none, 1-6=tree species
-  devLevel:  Uint8Array; // 0-3: development level
+  devLevel:  Uint8Array; // 0-3: development level; 4 = a tile of a merged 2×2 lot (sim/lots.ts)
+  lot:       Uint8Array; // 0 = an ordinary lot; 1–4 = the NW/NE/SW/SE quarter of a merged 2×2 lot (sim/lots.ts). Saved.
   power:     Uint8Array; // 0=no power, 1=powered this tick
   water:     Uint8Array; // 0=no water, 1=water coverage this tick
   sewage:    Uint8Array; // 0=no sewage, 1=sewage coverage this tick
@@ -284,6 +285,7 @@ export class World {
       water:     new Uint8Array(n),
       sewage:    new Uint8Array(n),
       services:  new Uint8Array(n),
+      lot:       new Uint8Array(n),
       landValue:  new Uint8Array(n),
       roadNet:    new Uint16Array(n),
       pollution:  new Uint8Array(n),
@@ -511,6 +513,7 @@ export class World {
     if (this.layers.building[i] !== BUILDING_NONE) return false;
     if (z !== ZONE_NONE && (this.layers.rail[i] & RAIL_SURFACE) !== 0) return false;   // a zone may stand over a subway
     if (this.layers.zone[i] !== z) {
+      this.razeLot(i);
       this.layers.devLevel[i] = 0;
       this.layers.abandoned[i] = 0;
       this.layers.distress[i] = 0;
@@ -530,6 +533,7 @@ export class World {
     const prev = this.layers.roadClass[i];
     this.layers.roadClass[i] = r;
     if (r !== ROAD_NONE) {
+      this.razeLot(i);
       this.layers.zone[i] = ZONE_NONE;
       this.layers.devLevel[i] = 0;
       this.layers.abandoned[i] = 0;
@@ -694,6 +698,7 @@ export class World {
       // (It stays as plain track if the building is cleared.)
       const bit = partRail(roles[k], b);
       if (bit) { this.layers.rail[i] |= bit; this.railVersion++; }
+      this.razeLot(i);
       this.layers.building[i] = b;
       this.layers.zone[i] = ZONE_NONE;
       this.layers.roadClass[i] = ROAD_NONE;
@@ -712,6 +717,41 @@ export class World {
       this.grid.markDirty(tx + dx, ty + dy);
     }
     this.buildings.push(rot ? { tx, ty, kind: b, rot } : { tx, ty, kind: b });
+    return true;
+  }
+
+  /** Index of the NW tile of the merged 2×2 lot that tile `i` is part of (sim/lots.ts), or -1 for an ordinary tile. An array read. */
+  lotAnchor(i: number): number {
+    const q = this.layers.lot[i];
+    if (q === 0) return -1;
+    return i - ((q - 1) & 1) - ((q - 1) >> 1) * this.grid.width;
+  }
+
+  /** The four tiles (NW, NE, SW, SE) of the merged lot that tile `i` is part of; empty for an ordinary tile. */
+  lotTilesAt(i: number): number[] {
+    const a = this.lotAnchor(i);
+    if (a < 0) return [];
+    const { width } = this.grid;
+    return [a, a + 1, a + width, a + width + 1];
+  }
+
+  /**
+   * Bring down the merged lot that tile `i` is part of: all four tiles become
+   * empty lots, still zoned. It is one building, so whatever changes one of
+   * its tiles (a bulldozer, a rezone, a road, a building, a fire that guts it)
+   * calls this first. False, and nothing changes, for an ordinary tile.
+   */
+  razeLot(i: number): boolean {
+    const tiles = this.lotTilesAt(i);
+    if (tiles.length === 0) return false;
+    const { width } = this.grid;
+    for (const t of tiles) {
+      this.layers.lot[t] = 0;
+      this.layers.devLevel[t] = 0;
+      this.layers.abandoned[t] = 0;
+      this.layers.distress[t] = 0;
+      this.grid.markDirty(t % width, (t - (t % width)) / width);
+    }
     return true;
   }
 
@@ -926,6 +966,7 @@ export class World {
       return true;
     }
     const i = this.grid.idx(tx, ty);
+    this.razeLot(i);
     const hadRoad = this.layers.roadClass[i] !== ROAD_NONE;
     const hadBuilding = this.layers.building[i];
     // Ground and elevated track go with the tile; a subway underneath stays (removeSubway).

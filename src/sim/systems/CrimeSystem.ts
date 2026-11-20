@@ -1,3 +1,4 @@
+import { levelWeight } from '../lots';
 import type { World } from '../World';
 import { ZONE_R, ZONE_C, ZONE_I, ZONE_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -45,7 +46,7 @@ export class CrimeSystem {
       else if (z === ZONE_C) baseRate = b.baseRateC;
       else if (z === ZONE_I) baseRate = b.baseRateI;
 
-      let targetCrime = baseRate * level * 40 * ordinance; // Increased from 20 to 40
+      let targetCrime = baseRate * levelWeight(level) * 40 * ordinance; // Increased from 20 to 40
 
       // Police reduction.
       if (police[i] === 1) {

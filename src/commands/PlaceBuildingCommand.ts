@@ -1,6 +1,6 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTiles, restoreTiles, tileDisruption } from './Command';
+import { snapshotTiles, restoreTiles, withLots, tileDisruption } from './Command';
 import { footprintTiles, subwayPlatform } from '../sim/buildingShapes';
 import { RAIL_SUBWAY } from '../sim/constants';
 import type { PcCharges } from '../sim/politics';
@@ -57,7 +57,7 @@ export class PlaceBuildingCommand extends Command {
     const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind, rot: this.rot });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
-    this.snaps = snapshotTiles(world, footprint);
+    this.snaps = snapshotTiles(world, withLots(world, footprint));
     // The platform of a subway station lies under other tiles: note which of them have no tunnel yet,
     // so undo fills in only what this dug (and never touches what stands on those tiles).
     this.dug = [];

@@ -155,6 +155,7 @@ export class ZoneGrowthSystem {
         const i = zoned[q];
         if (zone[i] !== ZONE_R || dev[i] === 0 || abandoned[i] !== 0) continue;
         if (world.rng() >= exodus) continue;
+        if (world.layers.lot[i] !== 0) continue;        // a merged 2×2 lot never drops a level: it declines as one building (sim/lots.ts)
         dev[i]--;
         const x = i % width;
         world.grid.markDirty(x, (i - x) / width);

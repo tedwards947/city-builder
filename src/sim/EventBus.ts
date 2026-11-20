@@ -47,6 +47,8 @@ export type CityEvents = {
   tileAbandoned:    { tx: number; ty: number; zone: number; level: number };
   // Zone growth (emitted by ZoneGrowthSystem)
   tileDeveloped:    { tx: number; ty: number; zone: number; level: number };
+  // Four top-level lots became one 2×2 building (sim/lots.ts); (tx, ty) is its NW tile.
+  lotMerged:        { tx: number; ty: number; zone: number };
   // Tax exodus: a home lost one level because the tax level is above neutral.
   // `level` is the level it has now (0 = an empty lot again).
   tileDeclined:     { tx: number; ty: number; zone: number; level: number; reason: 'tax' };

@@ -1,6 +1,6 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
-import { snapshotTile, restoreTile, tileDisruption } from './Command';
+import { snapshotTile, snapshotTiles, restoreTile, restoreTiles, tilesClearedWith, tileDisruption } from './Command';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, TERRAIN_WATER } from '../sim/constants';
@@ -43,7 +43,8 @@ export class BuildRoadCommand extends Command {
   private readonly tx: number;
   private readonly ty: number;
   private readonly targetClass: number;
-  private snap: TileSnapshot | null = null;
+  // The tile, and the rest of a merged 2×2 lot it is part of (the whole building comes down).
+  private snaps: { i: number; snap: TileSnapshot }[] | null = null;
   private cost = 0;
   // Political capital changes applied at execute.
   private pcCharges: PcCharges = NO_PC_CHARGES;
@@ -76,7 +77,7 @@ export class BuildRoadCommand extends Command {
     const { displacedPopulation, pcCost: displacementCost } = tileDisruption(world, this.tx, this.ty);
 
     // Snapshot for undo
-    this.snap = snapshotTile(world, this.tx, this.ty);
+    this.snaps = snapshotTiles(world, tilesClearedWith(world, this.tx, this.ty));
     this.cost = cost;
     // Zones a highway leaves with no street or avenue abandon at once.
     this.affectedZones = this.targetClass === ROAD_HIGHWAY
@@ -107,7 +108,7 @@ export class BuildRoadCommand extends Command {
   }
 
   undo(world: World): void {
-    if (this.snap) restoreTile(world, this.tx, this.ty, this.snap);
+    if (this.snaps) restoreTiles(world, this.snaps);
     for (const az of this.affectedZones) {
       restoreTile(world, az.tx, az.ty, az.snap);
     }

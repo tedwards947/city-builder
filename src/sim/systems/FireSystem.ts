@@ -1,3 +1,4 @@
+import { levelWeight } from '../lots';
 import type { World } from '../World';
 import { ZONE_R, ZONE_C, ZONE_I, ZONE_NONE, BUILDING_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -53,7 +54,7 @@ export class FireSystem {
         else if (z === ZONE_C) riskMult = b.riskC;
         else if (z === ZONE_I) riskMult = b.riskI;
 
-        targetRisk = 20 * level * riskMult;
+        targetRisk = 20 * levelWeight(level) * riskMult;
         targetRisk += pollution[i] * b.pollutionRiskMult;
       }
 
@@ -86,7 +87,8 @@ export class FireSystem {
           world.grid.markDirty(tx, ty);
           // Burned out with no fire station in range: the building is damaged.
           if (fireStation[i] === 0 && z !== ZONE_NONE && level > 0) {
-            const newLevel = Math.max(0, level - b.damageLevels);
+            // A merged 2×2 lot is one building: gutted, the whole of it comes down to four empty lots.
+            const newLevel = world.razeLot(i) ? 0 : Math.max(0, level - b.damageLevels);
             dev[i] = newLevel;
             if (newLevel === 0) {
               // Burned to the ground: the lot is empty again (ruins included).

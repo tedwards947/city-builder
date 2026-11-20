@@ -21,6 +21,8 @@ export interface TranslationSchema {
       notConnected: string;
       notBuildable: string;
       abandoned: string;
+      bigLot: string;
+      bigLotResidents: string;
       distress: string;
       landValue: string;
       pollution: string;

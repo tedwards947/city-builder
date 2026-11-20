@@ -10,7 +10,7 @@ import { drawClayRoad } from './clay/roads';
 import { drawRailTile } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
-import { drawFlatTree, drawFlatZoneBuilding, drawFlatBuilding } from './flatTiles';
+import { drawFlatTree, drawFlatZoneBuilding, drawFlatLotSlice, drawFlatBuilding } from './flatTiles';
 import { BALANCE } from '../data/balance';
 import { isLargeBuilding } from '../sim/buildingShapes';
 import { BIG_SLAB } from './clay/bigBuildings';
@@ -57,7 +57,7 @@ export function chunkSignature(world: World, cx: number, cy: number): number {
       const pollution = L.pollution[i] > 8 && terrain !== TERRAIN_WATER ? L.pollution[i] : 0;
       // Crime, sickness and deaths are not drawn into chunks any more (they
       // are per-frame badges and pins), so they are not part of the signature.
-      const c = pollution | (L.rail[i] << 8);
+      const c = pollution | (L.rail[i] << 8) | (L.lot[i] << 16);
       h = Math.imul(h ^ a, 0x9e3779b1); h ^= h >>> 15;
       h = Math.imul(h ^ b, 0x85ebca6b); h ^= h >>> 13;
       h = Math.imul(h ^ c, 0xc2b2ae35); h ^= h >>> 16;
@@ -164,7 +164,9 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
       }
 
       if (zone !== ZONE_NONE && road === ROAD_NONE && building === BUILDING_NONE) {
-        drawFlatZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, localP, isAbandoned, visualVariant % 4);
+        // A merged 2×2 lot: a placeholder slab until its art exists (graphics).
+        if (world.layers.lot[i] !== 0) drawFlatLotSlice(chunkCtx, zone, world.layers.lot[i], sxi, syi, tsi, ts, localP, isAbandoned);
+        else drawFlatZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, localP, isAbandoned, visualVariant % 4);
       }
 
       if (road !== ROAD_NONE) {

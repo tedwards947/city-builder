@@ -6,6 +6,7 @@
 //   city.tick(100);
 //   writeFileSync(out, saveCityText(city.world, 'My city'));
 
+import { levelWeight } from '../sim/lots';
 import type { World } from '../sim/World';
 import type { System } from '../sim/Scheduler';
 import { Scheduler } from '../sim/Scheduler';
@@ -109,7 +110,7 @@ export function cityStats(world: World): CityStats {
     if (name) {
       const e = zones[name];
       e.tiles++;
-      if (L.abandoned[i]) e.abandoned++; else e.levels[L.devLevel[i]]++;
+      if (L.abandoned[i]) e.abandoned++; else e.levels[Math.min(3, L.devLevel[i])]++;   // a merged 2×2 lot's tiles count with level 3
     }
     const r = L.roadClass[i];
     if (r === ROAD_STREET) roadTiles.street++; else if (r === ROAD_AVENUE) roadTiles.avenue++; else if (r === ROAD_HIGHWAY) roadTiles.highway++;
@@ -147,7 +148,7 @@ function trafficStats(world: World): CityStats['traffic'] {
   for (const m of t.markets) {
     let trips = 0, volume = 0;
     for (let i = 0; i < L.zone.length; i++) {
-      if (L.zone[i] === m.def.origin && !L.abandoned[i]) trips += L.devLevel[i] * marketRate(m.def);
+      if (L.zone[i] === m.def.origin && !L.abandoned[i]) trips += levelWeight(L.devLevel[i]) * marketRate(m.def);
       if (L.roadClass[i]) volume += m.volume[i];
     }
     tripLength[m.def.key] = trips > 0 ? round(volume / trips, 1) : 0;

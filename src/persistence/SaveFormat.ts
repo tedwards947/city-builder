@@ -11,10 +11,13 @@
 //   8 — added visualVariant layer (Lot ID for persistent graphics)
 //   9 — added politics (peak population for milestones, last PC regeneration)
 //  10 — train stations shrank (persistence/stationResize.ts)
+//  11 — merged 2×2 lots: devLevel may be 4, with the new `lot` layer (sim/lots.ts). Nothing to upgrade: an
+//       older save has no merged lots. The number went up so that an older build refuses a newer save
+//       rather than misreading level 4.
 
 import { shrinkStations } from './stationResize';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -96,6 +99,8 @@ export interface WorldSnapshot {
     building:  Uint8Array;
     vegetation: Uint8Array;
     devLevel:  Uint8Array;
+    /** Merged 2×2 lots (sim/lots.ts). Optional: saves from before version 11 have none. */
+    lot?:      Uint8Array;
     power:     Uint8Array;
     water:     Uint8Array;
     sewage:    Uint8Array;
@@ -130,7 +135,7 @@ export interface WorldSnapshot {
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -186,7 +191,8 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 7) rec = upgradeV7toV8(rec);
   if ((rec as { version: number }).version === 8) rec = upgradeV8toV9(rec);
   if ((rec as { version: number }).version === 9) rec = { ...rec, version: 10, snapshot: shrinkStations(rec.snapshot) };
-  if ((rec as { version: number }).version === 10) return rec;
+  if ((rec as { version: number }).version === 10) rec = { ...rec, version: 11 };
+  if ((rec as { version: number }).version === 11) return rec;
   if ((rec as { version: number }).version > SAVE_VERSION) throw new NewerSaveError((rec as { version: number }).version);
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }

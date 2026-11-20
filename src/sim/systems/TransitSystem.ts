@@ -77,6 +77,7 @@
 // Runs every transit.flowInterval ticks while its inputs change or traffic is
 // still settling, and at once when the road layer changes.
 
+import { levelWeight } from '../lots';
 import { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
@@ -815,7 +816,7 @@ export class TransitSystem {
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doors++;
       }
       if (doors === 0) continue;
-      const share = dev[i] * capPerLevel / doors;
+      const share = levelWeight(dev[i]) * capPerLevel / doors;
       for (let k = 0; k < 4; k++) {
         const ri = neighbourIndex(i, k, width, height);
         if (ri < 0) continue;
@@ -906,7 +907,7 @@ export class TransitSystem {
       for (let q = 0; q < lotCount; q++) {
         const i = lots[q];
         if (zone[i] !== originZone) continue;
-        const trips = dev[i] * rate;
+        const trips = levelWeight(dev[i]) * rate;
         if (nowhere) { stranded += trips; continue; }
         const road = bestAccessRoad(world, i, field);
         if (road < 0 || !(field.dist[road] < Infinity) || field.dist[road] > reach) { stranded += trips; continue; }
