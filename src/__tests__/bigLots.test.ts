@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { planBigLot, bigLotRise, MAX_FLOORS, LOW_VIEW_FLOORS, FLOOR_TILES, MAX_LOT_RISE } from '../render/clay/bigLots';
+import { planBigLot, bigLotRise, MAX_FLOORS, LOW_VIEW_FLOORS, FLOOR_TILES, MAX_LOT_RISE, planPair, pairRise } from '../render/clay/bigLots';
+import { CLAY_SPRITE_DATA } from '../render/clay/claySpriteData';
 import { ZONE_R, ZONE_C, ZONE_I } from '../sim/constants';
 
 const all = (zone: number) => Array.from({ length: 256 }, (_, v) => planBigLot(zone, v));
@@ -39,5 +40,20 @@ describe('merged 2×2 lot buildings', () => {
     expect(bigLotRise(tallest, false)).toBeCloseTo(MAX_FLOORS * FLOOR_TILES - tallest.y);
     expect(bigLotRise(tallest, true)).toBeCloseTo(Math.max(0, LOW_VIEW_FLOORS * FLOOR_TILES - tallest.y));
     expect(bigLotRise(tallest, false)).toBeLessThanOrEqual(MAX_LOT_RISE);
+  });
+
+  it('gives shop pairs art of their own shape, mid-size, the same every time', () => {
+    for (const shape of ['wide', 'tall'] as const) {
+      const arts = new Set<string>();
+      for (let v = 0; v < 256; v++) {
+        const p = planPair(shape, v);
+        arts.add(p.art);
+        expect(p.art.startsWith('c-' + shape + '-')).toBe(true);
+        expect(CLAY_SPRITE_DATA['pairs/' + p.art]).toBeDefined();
+        expect(pairRise(p)).toBeLessThanOrEqual(MAX_LOT_RISE);
+      }
+      expect(arts.size).toBe(4);
+      expect(planPair(shape, 9)).toEqual(planPair(shape, 9));
+    }
   });
 });

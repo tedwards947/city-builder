@@ -778,5 +778,61 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "left": 41,
     "right": 242,
     "bottom": 484
+  },
+  "pairs/c-tall-a": {
+    "w": 164,
+    "h": 294,
+    "left": 32,
+    "right": 132,
+    "bottom": 270
+  },
+  "pairs/c-tall-b": {
+    "w": 122,
+    "h": 219,
+    "left": 11,
+    "right": 111,
+    "bottom": 201
+  },
+  "pairs/c-tall-c": {
+    "w": 135,
+    "h": 243,
+    "left": 17,
+    "right": 117,
+    "bottom": 223
+  },
+  "pairs/c-tall-d": {
+    "w": 163,
+    "h": 293,
+    "left": 31,
+    "right": 131,
+    "bottom": 269
+  },
+  "pairs/c-wide-a": {
+    "w": 255,
+    "h": 341,
+    "left": 25,
+    "right": 227,
+    "bottom": 305
+  },
+  "pairs/c-wide-b": {
+    "w": 254,
+    "h": 340,
+    "left": 25,
+    "right": 226,
+    "bottom": 304
+  },
+  "pairs/c-wide-c": {
+    "w": 255,
+    "h": 341,
+    "left": 25,
+    "right": 226,
+    "bottom": 304
+  },
+  "pairs/c-wide-d": {
+    "w": 255,
+    "h": 341,
+    "left": 25,
+    "right": 227,
+    "bottom": 304
   }
 };

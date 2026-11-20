@@ -13,7 +13,7 @@
  */
 import { ZONE_R, ZONE_C, ZONE_I } from '../../sim/constants';
 import { RebakeBudget } from '../RebakeBudget';
-import { lotClaySprite, drawClaySprite } from './ClaySprites';
+import { lotClaySprite, pairClaySprite, drawClaySprite } from './ClaySprites';
 
 /** Screen height of one 3 m floor, in tiles (docs/SCALE.md). */
 export const FLOOR_TILES = 0.12;
@@ -233,4 +233,53 @@ export function drawBigLot(ctx: Ctx, zone: number, variant: number, abandoned: b
   if (alpha < 1) ctx.globalAlpha = alpha;
   ctx.drawImage(b.canvas, Math.round(sx), Math.round(sy - b.top * k), b.canvas.width * k, b.canvas.height * k);
   if (alpha < 1) ctx.globalAlpha = 1;
+}
+
+// ── Merged shop pairs ───────────────────────────────────────────────────────
+// Two level-3 shops side by side ('wide', 2×1) or front to back ('tall', 1×2)
+// merged into one mid-size building (sim/lots.ts). Clay art only
+// (art/clay-set/raw-pairs); until it loads, the two tiles keep their own pictures.
+
+export type PairShape = 'wide' | 'tall';
+
+/** The clay art for each pair shape, with the floors each was drawn at. */
+const PAIR_ART: Record<PairShape, readonly (readonly [string, number])[]> = {
+  wide: [['c-wide-a', 10], ['c-wide-b', 7], ['c-wide-c', 2], ['c-wide-d', 5]],
+  tall: [['c-tall-a', 9], ['c-tall-b', 8], ['c-tall-c', 1], ['c-tall-d', 6]],
+};
+
+export interface PairPlan { art: string; floors: number }
+
+/** What stands on a merged pair of `shape` whose anchor has `variant`. */
+export function planPair(shape: PairShape, variant: number): PairPlan {
+  const list = PAIR_ART[shape];
+  const [art, floors] = list[Math.floor(hash(variant, 11) * list.length)];
+  return { art, floors };
+}
+
+/** How far a pair's building may rise above the lot's back edge, in tiles (generous: hover-to-hide and off-screen drawing). */
+export function pairRise(plan: PairPlan): number {
+  return plan.floors * FLOOR_TILES + 0.3;
+}
+
+/** The pair's clay sprite, or undefined while it loads. */
+export function pairSprite(shape: PairShape, variant: number): ReturnType<typeof pairClaySprite> {
+  return pairClaySprite(planPair(shape, variant).art);
+}
+
+/**
+ * Draws the merged pair whose top-left corner is at (sx, sy) on screen, `T`
+ * pixels a tile. Returns false (nothing drawn) while its art has not loaded.
+ */
+export function drawPairLot(ctx: Ctx, shape: PairShape, variant: number, abandoned: boolean, sx: number, sy: number, T: number, alpha = 1): boolean {
+  const clay = pairSprite(shape, variant);
+  if (!clay) return false;
+  const w = shape === 'wide' ? 2 : 1, d = shape === 'wide' ? 1 : 2;
+  if (alpha < 1) ctx.globalAlpha = alpha;
+  // drawClaySprite fits a square plot `tile` wide; a pair's plot is as wide, and
+  // d/w as deep, so shift it to put the plot's front edge on the lot's.
+  drawClaySprite(ctx, clay, sx, sy + (d - w) * T, w * T);
+  if (abandoned) { ctx.fillStyle = 'rgba(24,18,12,0.38)'; ctx.fillRect(sx, sy, w * T, d * T); }
+  if (alpha < 1) ctx.globalAlpha = 1;
+  return true;
 }
