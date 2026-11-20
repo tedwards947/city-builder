@@ -435,7 +435,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (!tutorial.active || !pressAt || currentTool !== 'inspect' || !hoverTile) return;
   if (Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 6) return;
   const w = state.world;
-  if (w.grid.inBounds(hoverTile.tx, hoverTile.ty) && w.layers.zone[w.grid.idx(hoverTile.tx, hoverTile.ty)] === ZONE_R) tutorial.ui.inspectedHome = true;
+  if (w.grid.inBounds(hoverTile.tx, hoverTile.ty) && w.layers.zone[w.grid.idx(hoverTile.tx, hoverTile.ty)] === ZONE_R) { tutorial.ui.inspectedHome = true; tutorial.ui.inspectedTile = w.grid.idx(hoverTile.tx, hoverTile.ty); }
 });
 
 /** The areas to outline this frame: where the camera just jumped (three blinks), and the request under the pointer. */

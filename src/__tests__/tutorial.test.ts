@@ -10,21 +10,19 @@ import { deserialize, serialize } from '../persistence/Serializer';
 import { World } from '../sim/World';
 import { VibeSystem } from '../sim/systems/VibeSystem';
 import {
-  BUILDING_PARK, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER,
+  BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_PARK, BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER,
   ROAD_HIGHWAY, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { pcCap } from '../sim/politics';
 import { startSim } from '../balance/world';
-import { Scheduler } from '../sim/Scheduler';
-import { RequestSystem } from '../sim/systems/RequestSystem';
-import { TutorialSystem } from '../tutorial/TutorialSystem';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { blankWorld, buildTutorialMap } from '../gen/tutorialMap';
-import { GOALS, TUTORIAL_STEPS, homesBesideRoad, newTutorialUi, nextStep, roadTilesOffHighway, streetPath } from '../tutorial/steps';
-import { TUTORIAL, beginTutorial, endTutorial, openScriptedRequest, scriptedRequest } from '../tutorial/rules';
+import { GOALS, SERVICES, TUTORIAL_STEPS, chooseService, homesBesideRoad, newTutorialUi, nextStep, roadTilesOffHighway, streetPath } from '../tutorial/steps';
+import { TUTORIAL, beginTutorial, endTutorial } from '../tutorial/rules';
+import { toolbarItems } from '../ui/Toolbar';
 import type { TutorialUi } from '../tutorial/types';
 
 const step = (id: string) => {
@@ -52,7 +50,7 @@ function zone(w: World, z: number, x0: number, x1: number, y: number): void {
 describe('the tutorial step list', () => {
   it('has the thirteen steps of the design, in order', () => {
     expect(TUTORIAL_STEPS.map((s) => s.id)).toEqual(
-      ['camera', 'street', 'homes', 'roads', 'power', 'water', 'grow', 'jobs', 'inspect', 'park', 'budget', 'views', 'done']);
+      ['camera', 'street', 'homes', 'roads', 'power', 'water', 'grow', 'jobs', 'inspect', 'services', 'budget', 'views', 'done']);
   });
 
   it('camera: the view has been both panned and zoomed', () => {
@@ -201,59 +199,81 @@ describe('the tutorial step list', () => {
     }
   });
 
-  /** A tutorial city with a row of lived-in homes along a street, at the park step. */
-  function parkWorld(): World {
+  /** A tutorial city with a row of homes along a street (x 5..12, y 9), at the services step. */
+  function servicesWorld(): World {
     const w = stubWorld();
     street(w, 5, 16, 10);
     zone(w, ZONE_R, 5, 12, 9);
-    for (let x = 5; x <= 12; x++) w.layers.devLevel[w.grid.idx(x, 9)] = 1;
     beginTutorial(w);
-    w.tutorial!.step = indexOf('park');
+    w.tutorial!.step = indexOf('services');
     return w;
   }
+  const services = step('services');
+  const pointOf = (w: World): string[] => (typeof services.point === 'function' ? services.point(w) : services.point ?? []);
 
-  it('park: entering the step opens one request for a park, and a park in reach meets it', () => {
-    const w = parkWorld();
-    const park = step('park');
-    expect(park.done(w, ui())).toBe(false);
-    park.enter?.(w);
-    park.enter?.(w);                                        // safe to call again
-    expect(w.politics.requests).toHaveLength(1);
-    const req = scriptedRequest(w)!;
-    expect(req.kind).toBe('park');
-    expect(w.tutorial!.request).toBe(req.id);
-    expect(park.target?.(w)).toEqual({ area: { x: req.x0, y: req.y0, w: req.x1 - req.x0 + 1, h: req.y1 - req.y0 + 1 } });
-    expect(park.done(w, ui())).toBe(false);
-    expect(w.placeBuilding(8, 11, BUILDING_PARK)).toBe(true);
-    expect(park.done(w, ui())).toBe(true);
-    // The sim then closes the request and pays its reward, and the step stays met.
-    const sim = startSim(w);
-    sim.tick(BALANCE.ticksPerDay);
-    expect(w.politics.requests).toHaveLength(0);
-    expect(park.done(w, ui())).toBe(true);
+  it('services: any of the five services that reaches a home meets it, wherever it stands', () => {
+    for (const kind of [BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK]) {
+      const w = servicesWorld();
+      expect(services.done(w, ui())).toBe(false);
+      expect(w.placeBuilding(25, 25, kind)).toBe(true);     // off any road: it reaches nobody
+      expect(services.done(w, ui())).toBe(false);
+      expect(w.placeBuilding(14, 11, kind)).toBe(true);     // beside the street, on open land
+      expect(services.done(w, ui())).toBe(true);
+    }
   });
 
-  it('park: homes that already have a park count as met, with no request', () => {
-    const w = parkWorld();
-    expect(w.placeBuilding(8, 11, BUILDING_PARK)).toBe(true);
-    step('park').enter?.(w);
-    expect(w.politics.requests).toHaveLength(0);
-    expect(step('park').done(w, ui())).toBe(true);
+  it('services: no home has to go, even when every lot along the street is zoned', () => {
+    const w = servicesWorld();
+    zone(w, ZONE_R, 5, 16, 11);
+    zone(w, ZONE_R, 13, 16, 9);                             // both sides of the whole street are homes now
+    const homes = homesBesideRoad(w);
+    for (let y = 11; y <= 14; y++) w.setRoad(17, y, ROAD_STREET);   // "draw a short new street"
+    expect(w.placeBuilding(18, 13, BUILDING_SCHOOL)).toBe(true);
+    expect(homesBesideRoad(w)).toBeGreaterThanOrEqual(homes);
+    expect(services.done(w, ui())).toBe(true);
   });
 
-  it('park: with nobody living in the city yet the step waits, and the request opens once somebody is', () => {
+  it('services: asks for what the inspected home is without, and says "this home"', () => {
+    const w = servicesWorld();
+    expect(chooseService(w, w.grid.idx(8, 9))).toEqual({ service: SERVICES[0], forHome: true });   // lacks everything: police first
+    services.enter?.(w, ui({ inspectedHome: true, inspectedTile: w.grid.idx(8, 9) }));
+    expect(w.tutorial).toEqual({ step: indexOf('services'), service: 'police', forHome: true });
+    expect(services.copy?.(w)).toBe('servicesHome');
+    expect(services.vars?.(w)).toEqual({ service: 'police station' });
+    expect(pointOf(w)).toEqual(['police']);
+    // Fixed once chosen: entering again (after a load, say) changes nothing.
+    services.enter?.(w, ui());
+    expect(w.tutorial!.service).toBe('police');
+  });
+
+  it('services: a home that already has police and fire cover is told about the next thing it lacks', () => {
     const w = stubWorld();
     street(w, 5, 16, 10);
     zone(w, ZONE_R, 5, 12, 9);
-    beginTutorial(w);
-    w.tutorial!.step = indexOf('park');
-    step('park').enter?.(w);
-    expect(w.politics.requests).toHaveLength(0);
-    expect(step('park').done(w, ui())).toBe(false);
-    for (let x = 5; x <= 12; x++) w.layers.devLevel[w.grid.idx(x, 9)] = 1;
-    const sim = startSim(w);
-    sim.tick(BALANCE.ticksPerDay);                          // the sim tries again each game day
-    expect(scriptedRequest(w)?.kind).toBe('park');
+    expect(w.placeBuilding(14, 11, BUILDING_POLICE)).toBe(true);
+    expect(w.placeBuilding(15, 11, BUILDING_FIRE)).toBe(true);
+    const picked = chooseService(w, w.grid.idx(8, 9));
+    expect(picked).toEqual({ service: SERVICES[2], forHome: true });
+    expect(picked.service.id).toBe('school');
+    expect(picked.service.key).toBe('school');
+  });
+
+  it('services: with no home inspected (the step was skipped) it falls back to what the town lacks: police', () => {
+    const w = servicesWorld();
+    services.enter?.(w, ui());
+    expect(w.tutorial).toEqual({ step: indexOf('services'), service: 'police' });
+    expect(services.copy?.(w)).toBe('services');
+    expect(pointOf(w)).toEqual(['police']);
+    // Clicking a tile that is not a home is the same as not inspecting.
+    expect(chooseService(w, w.grid.idx(20, 20))).toEqual({ service: SERVICES[0], forHome: false });
+  });
+
+  it('services: the toolbar keys are real toolbar items', () => {
+    const keys = toolbarItems().map((i) => i.key);
+    for (const sv of SERVICES) expect(keys).toContain(sv.key);
+    for (const st of TUTORIAL_STEPS) {
+      if (Array.isArray(st.point)) for (const k of st.point) if (k !== 'speed' && k !== 'demand') expect(keys).toContain(k);
+    }
   });
 
   it('steps already met are passed straight away, but never the last card', () => {
@@ -332,37 +352,31 @@ describe('the tutorial-only rules', () => {
     expect(fires).toBeGreaterThan(0);
   });
 
-  it('the scripted request is never missed, and becomes an ordinary one when the tutorial ends', () => {
+  it('endTutorial ends every rule', () => {
     const w = needyTown();
     beginTutorial(w);
-    const req = openScriptedRequest(w)!;
-    const full = BALANCE.politicalCapital.requests.kinds.park.days * BALANCE.ticksPerDay;
-    // Only the two systems concerned, so the homes stay as they are for the length of the test.
-    const scheduler = new Scheduler(w, [new RequestSystem(), new TutorialSystem()]);
-    const sim = { tick: (n: number): void => { for (let k = 0; k < n; k++) scheduler.tick(); } };
-    sim.tick(3 * full);                                      // three deadlines' worth of time, no park built
-    expect(scriptedRequest(w)).toBe(req);
-    expect(req.deadlineTick).toBe(w.tick + full);            // and it still shows its full time
     endTutorial(w);
     expect(w.tutorial).toBeUndefined();
-    expect(req.deadlineTick).toBe(w.tick + full);
     w.budget.money = 10;
     startSim(w).tick();
     expect(w.budget.money).toBeLessThan(TUTORIAL.minMoney);  // no floor any more
-    sim.tick(full + BALANCE.ticksPerDay);                    // an ordinary request now: it can be missed
-    expect(w.politics.requests).not.toContain(req);
   });
 
-  it('the step and the scripted request survive a save and a load', () => {
+  it('the step and the chosen service survive a save and a load', () => {
     const w = needyTown();
     beginTutorial(w);
-    w.tutorial!.step = indexOf('park');
-    const req = openScriptedRequest(w)!;
+    w.tutorial!.step = indexOf('services');
+    step('services').enter?.(w, ui({ inspectedTile: w.grid.idx(8, 9) }));
     const back = deserialize(serialize(w));
-    expect(back.tutorial).toEqual({ step: indexOf('park'), request: req.id });
-    expect(scriptedRequest(back)?.id).toBe(req.id);
+    expect(back.tutorial).toEqual({ step: indexOf('services'), service: 'police', forHome: true });
     endTutorial(w);
     expect(deserialize(serialize(w)).tutorial).toBeUndefined();
+  });
+
+  it('a tutorial save from before the services step (with a scripted request id) still loads', () => {
+    const snap = serialize(needyTown());
+    (snap as unknown as { tutorial: unknown }).tutorial = { step: 4, request: 7 };
+    expect(deserialize(snap).tutorial).toEqual({ step: 4 });
   });
 });
 
@@ -399,7 +413,7 @@ describe('the tutorial map', () => {
     /** What the runner does a few times a second: move to the first step not yet met. */
     const advance = (): string | undefined => {
       const k = nextStep(w, seen, w.tutorial!.step);
-      if (k !== w.tutorial!.step && k < TUTORIAL_STEPS.length) { w.tutorial!.step = k; TUTORIAL_STEPS[k].enter?.(w); }
+      if (k !== w.tutorial!.step && k < TUTORIAL_STEPS.length) { w.tutorial!.step = k; TUTORIAL_STEPS[k].enter?.(w, seen); }
       else w.tutorial!.step = k;
       return TUTORIAL_STEPS[k]?.id;
     };
@@ -442,11 +456,15 @@ describe('the tutorial map', () => {
     expect(advance()).toBe('inspect');
 
     seen.inspectedHome = true;
-    expect(advance()).toBe('park');
-    const req = scriptedRequest(w);
-    expect(req?.kind).toBe('park');
+    seen.inspectedTile = w.grid.idx(x0, y - 1);
+    expect(advance()).toBe('services');
+    expect(w.tutorial!.service).toBe('police');
+    expect(w.tutorial!.forHome).toBe(true);
 
-    run(new PlaceBuildingCommand(x0 + 6, y - 1, BUILDING_PARK));
+    // Every lot along the first street is free or a home; the station goes on open land by the second street.
+    const zonedBefore = w.layers.zone.reduce((n, z) => n + (z !== 0 ? 1 : 0), 0);
+    run(new PlaceBuildingCommand(x0 + 8, y + 2, BUILDING_POLICE));
+    expect(w.layers.zone.reduce((n, z) => n + (z !== 0 ? 1 : 0), 0)).toBe(zonedBefore);   // nothing was knocked down
     expect(advance()).toBe('budget');
     seen.budgetOpened = true;
     expect(advance()).toBe('views');
@@ -458,9 +476,8 @@ describe('the tutorial map', () => {
 
     endTutorial(w);
     expect(w.tutorial).toBeUndefined();
-    // The city carries on as a normal game: the park request is paid out as usual.
     sim.tick(BALANCE.ticksPerDay);
-    expect(w.politics.requests.some((r) => r.id === req!.id)).toBe(false);
+    expect(w.politics.requests).toHaveLength(0);            // no request was ever opened
     expect(w.stats.population).toBeGreaterThanOrEqual(GOALS.population);
     expect(performance.now() - t0).toBeLessThan(10_000);
   }, 30_000);

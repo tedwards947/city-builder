@@ -465,6 +465,13 @@ export const en: TranslationSchema = {
       askBody: "The tutorial starts a new city. This one will be replaced unless you've saved it.",
       askCancel: "Keep this city",
       askStart: "Start tutorial",
+      service: {
+        police: "police station",
+        fire: "fire station",
+        school: "school",
+        hospital: "hospital",
+        park: "park",
+      },
       progress: {
         streets: "Street tiles",
         homes: "Home tiles",
@@ -485,7 +492,8 @@ export const en: TranslationSchema = {
         grow: "Speed things up and watch your town move in.",
         jobs: "People need jobs. Zone 8 tiles of shops, and 8 of industry away from homes.",
         inspect: "Pick the Inspect tool (I), then click a home to see how it's doing and what it needs.",
-        park: "Families nearby want a park.",
+        services: "Your town has no {service} yet. Build one beside a road. Draw a short new street if you need room.",
+        servicesHome: "This home has no {service} nearby. Build one beside a road. Draw a short new street if you need room.",
         budget: "Services cost upkeep. Check your budget and taxes.",
         views: "Views show what's going on. Try the traffic view.",
         done: "That's the basics. The city is yours now. Have fun!",

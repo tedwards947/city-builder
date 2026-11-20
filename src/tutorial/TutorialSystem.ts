@@ -3,17 +3,10 @@
 
 import type { World } from '../sim/World';
 import type { System } from '../sim/Scheduler';
-import { BALANCE } from '../data/balance';
-import { TUTORIAL, holdScriptedRequest, holdTutorial, openScriptedRequest } from './rules';
-import { TUTORIAL_STEPS } from './steps';
+import { holdTutorial } from './rules';
 
 export class TutorialSystem implements System {
   update(world: World): void {
-    const state = world.tutorial;
-    if (!state) return;
     holdTutorial(world);
-    holdScriptedRequest(world);
-    // The scripted request, in case the step was reached before any home had been lived in.
-    if (world.tick % BALANCE.ticksPerDay === 0 && TUTORIAL_STEPS[state.step]?.id === TUTORIAL.requestStep) openScriptedRequest(world);
   }
 }

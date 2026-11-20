@@ -4,15 +4,16 @@
 
 ## Shape (owner's picks)
 - **Guided first city.** An optional *Tutorial* city started from the title screen. A small card gives one goal at a time and points at the toolbar button for it. The player can skip a step or leave at any time.
-- **Basics only, about 10 minutes:** camera, roads, zones, power, water, sewage, growth and demand, jobs, inspecting, one service request, budget and taxes, overlays. Rail, ports, landscape, ordinances and Political Capital (PC) are left for players to find.
+- **Basics only, about 10 minutes:** camera, roads, zones, power, water, sewage, growth and demand, jobs, inspecting, one service building, budget and taxes, overlays. Rail, ports, landscape, ordinances and Political Capital (PC) are left for players to find.
 - **Small hand-made map.** It's always the same map, so every step works out the same way each time.
 
 ## Principles
 1. **Goals, not scripts.** Each step is met by the **state of the city** ("12 home tiles zoned"), not by one exact click. Any way of reaching it counts, and so does an undo-and-redo. Steps already met (the player ran ahead) are passed straight away.
 2. **Never block.** Every tool stays usable. Highlights point the way; they don't lock anything.
-3. **The city can't fail.** Money has a generous floor and PC is held full, so nothing is refused for PC (PC isn't taught). No random disasters during the tutorial. Requests are off apart from the one scripted request.
+3. **The city can't fail.** Money has a generous floor and PC is held full, so nothing is refused for PC (PC isn't taught). No random disasters during the tutorial. Residents make no requests during the tutorial.
+5. **Nothing has to be knocked down.** No step needs a home or anything else bulldozed. Where a step asks for a building, it says "beside a road", and a short new street always makes room.
 4. **The city is yours afterwards.** After the last step, the card goes away and the same city keeps going as a normal game. Any rules that only applied during the tutorial (money floor, PC hold, requests off) end there.
-5. **One sentence per card.** Short, friendly, no jargon. Rule 3 doesn't get explained; it's just how the tutorial behaves.
+6. **One sentence per card.** Short, friendly, no jargon. Rule 3 doesn't get explained; it's just how the tutorial behaves.
 
 ## Steps (draft)
 | # | Card (draft copy) | Points at | Done when |
@@ -26,7 +27,7 @@
 | 7 | "Speed things up and watch your town move in." | Speed buttons; the demand bars | Population ≥ 40 |
 | 8 | "People need jobs. Zone 8 tiles of shops, and 8 of industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
 | 9 | "Pick the Inspect tool (I), then click a home to see how it's doing and what it needs." | Inspect, until it is picked | A home clicked with Inspect |
-| 10 | *Scripted request:* "Families on {street} want a park nearby." | Services → Park; the request pin | That request met |
+| 10 | "This home has no {service} nearby. Build one beside a road. Draw a short new street if you need room." Follows on from Inspect: {service} is what the inspected home is without (police station, fire station, school, hospital or park; the one most homes lack, police first on a tie). With no home inspected: "Your town has no police station yet. …" | Services → that building | Any police station, fire station, school, hospital or park reaches at least one home |
 | 11 | "Services cost upkeep. Check your budget and taxes." | Budget | The budget panel opened |
 | 12 | "Views show what's going on. Try the traffic view." | Views → Traffic | An overlay switched on |
 | 13 | "That's the basics. The city is yours now. Have fun!" | – | The card is closed |
@@ -38,7 +39,7 @@ Every card has **Skip step** and **Leave tutorial**. Leaving asks once ("Keep pl
 ## The map
 - About 48×48: a highway stub on one edge, a river with a bridge spot, some coast and trees, plus open land near the highway for the first streets.
 - Saved as `public/tutorial/tutorial.citysave.json`, the same way as the showcase. Population 0, generous money (say 100k).
-- Who builds it: the owner by hand (like concretta1), or an engineer as a script plus a hand-checked save. Either way, Focus markers can mark the suggested spots (power plant spot, park area) so steps can point at them.
+- Who builds it: the owner by hand (like concretta1), or an engineer as a script plus a hand-checked save. Either way, Focus markers can mark the suggested spots (the power plant spot) so steps can point at them.
 
 ## How it plugs in
 - **Start:** a *Tutorial* button on the title screen, next to Continue / New city / Load, and in the Menu. On the first ever launch (no saves yet), the button is highlighted.
@@ -47,7 +48,7 @@ Every card has **Skip step** and **Leave tutorial**. Leaving asks once ("Keep pl
 - **Saving:** an additive `world.tutorial = { step }` field that defaults to "not in tutorial", so no SAVE_VERSION bump (AGENT.md save rule). A tutorial city that gets saved and reloaded picks up at its step.
 - **Done flag:** `localStorage` `concretta.tutorialDone`, wrapped in try/catch. It only changes the first-launch highlight. The button is always there.
 - **Strings:** `ui.tutorial.*` in `en.ts`.
-- **Tests:** unit tests for each step's `done`, plus one scripted run that plays the tutorial map from step 1 to 12 through the normal commands and finishes inside a time budget.
+- **Tests:** unit tests for each step's `done`, plus one scripted run that plays the tutorial map from the first step to the last through the normal commands and finishes inside a time budget.
 
 ## Later (not in v1)
 - Short tips the first time a later system shows up (first jam, first rail station, first PC refusal).

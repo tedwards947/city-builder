@@ -100,7 +100,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.markers = cleanMarkers(snapshot.markers, snapshot.width, snapshot.height);
   const tut = snapshot.tutorial;
   if (tut && Number.isInteger(tut.step) && tut.step >= 0) {
-    world.tutorial = { step: tut.step, ...(Number.isInteger(tut.request) ? { request: tut.request } : {}) };
+    world.tutorial = { step: tut.step, ...(typeof tut.service === 'string' ? { service: tut.service } : {}), ...(tut.forHome === true ? { forHome: true } : {}) };
   }
   world.loadNotes = { ...snapshot.upgradeNotes };
 
