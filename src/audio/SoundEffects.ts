@@ -111,6 +111,8 @@ export class SoundEffects {
   private ambience: GainNode | null = null;
   private music: MusicDucker | null = null;
   private volume: number;
+  /** A passing multiplier on top of `volume` (setScale). Never saved. */
+  private scale = 1;
 
   private readonly lastPlayed = new Map<SfxName, number>();
   private toastCoveredUntil = 0;
@@ -159,7 +161,21 @@ export class SoundEffects {
   setVolume(v: number): void {
     this.volume = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0.8));
     save(VOLUME_KEY, String(this.volume));
-    if (this.ctx && this.master) this.master.gain.setTargetAtTime(SFX_BASE * this.volume, this.ctx.currentTime, 0.02);
+    this.applyLevel();
+  }
+  /**
+   * A passing multiplier on the effects, on top of the player's FX slider: the
+   * title screen plays them quieter (main.ts). Not saved, and the slider and
+   * its stored value are untouched; 1 puts the normal level back.
+   */
+  setScale(k: number): void {
+    this.scale = Math.max(0, Math.min(1, Number.isFinite(k) ? k : 1));
+    this.applyLevel();
+  }
+  /** The level the effects play at, 0–1: the player's slider times the passing multiplier. */
+  get level(): number { return this.volume * this.scale; }
+  private applyLevel(): void {
+    if (this.ctx && this.master) this.master.gain.setTargetAtTime(SFX_BASE * this.level, this.ctx.currentTime, 0.02);
   }
   setMusic(music: MusicDucker): void { this.music = music; }
 
@@ -190,7 +206,7 @@ export class SoundEffects {
       if (!AC) return null;
       const ctx = new AC();
       const master = ctx.createGain();
-      master.gain.value = SFX_BASE * this.volume;
+      master.gain.value = SFX_BASE * this.level;
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
       comp.connect(master);
