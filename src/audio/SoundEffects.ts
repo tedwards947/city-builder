@@ -17,6 +17,9 @@
 //   whistle; a train stopping at a platform sighs and rings the hand bell, both
 //   just above the ambience. Subway trains are drawn only in the underground
 //   view and stay silent.
+// - Stadium events (stadium review page): heard only while the stadium is on screen. The
+//   kick-off plays as the event starts, one to three short cheers fall at random through
+//   the peak (never a loop), and the final whistle plays as the crowd starts to leave.
 
 import { LOOPS, SOUNDS } from './sfx/sounds';
 import type { LoopHandle, LoopName, SfxName } from './sfx/sounds';
@@ -26,6 +29,9 @@ import { Projection, TILE_SIZE } from '../render/Projection';
 import type { Tool } from '../input/InputController';
 import { TRAIN_MIN_TILE, trainsInView } from '../render/clay/trains';
 import { RAIL_ELEVATED, RAIL_GROUND } from '../sim/constants';
+import { eventStatus, eventVenue } from '../sim/eventDays';
+import { buildingShape } from '../sim/buildingShapes';
+import { BALANCE } from '../data/balance';
 
 /** Overall level of the effects at full volume, set by ear against the music. */
 const SFX_BASE = 0.45;
@@ -46,6 +52,7 @@ const GAP: Partial<Record<SfxName, number>> = {
   moneyLow: 4000, crime: 8000, health: 8000,
   fireStart: 1500, fireSpread: 1200, fireOut: 1200,
   railRumble: 2500, railWhistle: 60000, trainSigh: 5000, trainBell: 5000,
+  stadiumKickoff: 20000, stadiumCheer: 8000, stadiumFullTime: 20000,
 };
 
 /** Sounds that stand for the toast that comes with them: the toast itself then plays nothing. */
@@ -125,6 +132,8 @@ export class SoundEffects {
   private readonly loops = new Map<string, RunningLoop>();
   /** Trains heard last tick: key -> phase, and when a station train was first seen slowing in. */
   private trains = new Map<string, { phase: string; inSince: number; sighed: boolean; rumbledAt: number }>();
+  /** The stadium event being heard: its clock's start, the stage last seen, cheers still to come (as event phases), the last cheer played. */
+  private stadium: { key: number; stage: string; cheers: number[]; last: number } | null = null;
 
   // A drag: tiles built since the pointer went down, and taps waiting to be counted.
   private dragRoads = 0;
@@ -319,6 +328,8 @@ export class SoundEffects {
     on('fireSpreading', p => this.play('fireSpread', { at: at(p), far: 'skip' }));
     on('fireDamage', p => this.play('fireOut', { at: at(p), far: 'skip' }));
 
+    on('eventStarted', p => this.play('stadiumKickoff', { at: this.venueAt(world) ?? at(p), far: 'skip' }));
+
     this.unsubscribe = () => subs.forEach(([type, fn]) => world.events.off(type, fn));
   }
 
@@ -421,6 +432,46 @@ export class SoundEffects {
     this.runLoop('trafficJam', 'trafficJam', this.ambience, jam > 0.05 ? 0.4 + 0.6 * jam : 0, jam);
 
     this.listenTrains(world, performance.now());
+    this.listenStadium(world);
+  }
+
+  /** The middle of the city's stadium, as a tile spatial() takes, or null if it has none. */
+  private venueAt(world: World): { tx: number; ty: number } | null {
+    const v = eventVenue(world).venue;
+    if (!v) return null;
+    const shape = buildingShape(v.kind, v.rot ?? 0);
+    let dx = 0, dy = 0;
+    for (const [x, y] of shape) { dx += x; dy += y; }
+    return { tx: v.tx + dx / shape.length, ty: v.ty + dy / shape.length };
+  }
+
+  /**
+   * A stadium event (sim/eventDays.ts, read only). The kick-off is the `eventStarted` event. Through
+   * the peak, one to three cheers fall at random, planned by how far through the event it is, so they
+   * keep the same spacing at any speed and wait while the game is paused. The final whistle plays as
+   * the peak turns to the drain.
+   */
+  private listenStadium(world: World): void {
+    const s = eventStatus(world), clock = world.eventClock;
+    if (!s || !clock || s.stage === 'waiting' || !s.eventToday) { this.stadium = null; return; }
+    let st = this.stadium;
+    if (!st || st.key !== clock.start) {
+      const c = BALANCE.leisure.event, p0 = c.ramp / c.duration, p1 = 1 - c.drain / c.duration;
+      const n = 1 + Math.floor(Math.random() * 3);
+      // One cheer somewhere in the middle of each of n equal slots of the peak, so they never bunch up;
+      // any already past (a game loaded mid-event) are dropped.
+      const cheers = Array.from({ length: n }, (_, i) => p0 + (p1 - p0) * (i + 0.3 + 0.4 * Math.random()) / n).filter(p => p > s.phase);
+      st = this.stadium = { key: clock.start, stage: s.stage, cheers, last: -1 };
+    }
+    const at = this.venueAt(world) ?? undefined;
+    if (s.stage === 'peak' && st.cheers.length > 0 && st.cheers[0] <= s.phase) {
+      while (st.cheers.length > 0 && st.cheers[0] <= s.phase) st.cheers.shift();
+      // A different one from the last.
+      const which = st.last < 0 ? Math.floor(Math.random() * 3) : (st.last + 1 + Math.floor(Math.random() * 2)) % 3;
+      if (this.play('stadiumCheer', { at, far: 'skip', arg: which })) st.last = which;
+    }
+    if (s.stage === 'drain' && st.stage === 'peak') this.play('stadiumFullTime', { at, far: 'skip' });
+    st.stage = s.stage;
   }
 
   /**
