@@ -862,7 +862,8 @@ function frame(now: number): void {
   statPC.classList.toggle('over',     pcOver);
   pcBar.classList.toggle('over', pcOver);
   // The passive rate per game day. An unhappy city drains: red figure, striped bar.
-  const pcPerDay = state.world.politics.regen * BALANCE.ticksPerDay;
+  // The tutorial holds PC full (tutorial/rules.ts), so a drain there means nothing: show a calm, full bar.
+  const pcPerDay = state.world.tutorial ? 0 : state.world.politics.regen * BALANCE.ticksPerDay;
   const draining = pcPerDay < -0.05;
   // Political debt (below 0, from closing services): everything that costs PC is refused until it is paid off.
   const inDebt = pc < 0;

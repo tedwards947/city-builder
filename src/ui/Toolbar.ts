@@ -207,6 +207,15 @@ export function hotkeyLabel(hotkey: string, mac: boolean): string {
     : part.toUpperCase()).join(mac ? '' : '+');
 }
 
+/**
+ * Whether the toolbar says which tools cost political capital near homes (the
+ * "◆ near homes" badge in fly-outs, and the "only if homes are within N tiles"
+ * lines in tooltips). Off for now (owner, 2026-11-19): in green it read as if
+ * a power plant GRANTS capital. The charge itself, and its price at the
+ * pointer, are unchanged. Set true to bring the hints back.
+ */
+export const SHOW_PC_NEAR_HOMES = false;
+
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '');
 
 export interface ToolbarHooks {
@@ -381,7 +390,7 @@ export class Toolbar {
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);
-      if (item.tool !== undefined && toolNuisanceRadius(item.tool) > 0) {
+      if (SHOW_PC_NEAR_HOMES && item.tool !== undefined && toolNuisanceRadius(item.tool) > 0) {
         row.appendChild(node('span', 'tb-pc')).textContent = PC_SYMBOL + ' ' + t('ui.toolbar.pcNearHomes');
       }
       const cost = item.tool !== undefined ? toolPrice(item.tool).cost : undefined;
@@ -492,7 +501,7 @@ export class Toolbar {
     const price = item.tool !== undefined ? toolPrice(item.tool) : {};
     const isRoad = item.tool !== undefined && (roadClassForTool(item.tool) !== undefined || trackLevelForTool(item.tool) !== undefined);   // track shares the roads' manual / auto setting
     const isZone = item.tool !== undefined && zoneForTool(item.tool) !== undefined;
-    const radius = item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
+    const radius = SHOW_PC_NEAR_HOMES && item.tool !== undefined ? toolNuisanceRadius(item.tool) : 0;
     const kind = item.tool !== undefined ? BUILDING_KIND[item.tool] : undefined;
     const earns = kind !== undefined && (BALANCE.politicalCapital.service.perResident[kind] ?? 0) > 0;
     return {
