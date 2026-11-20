@@ -48,6 +48,12 @@ export const BUILDING_RAMP_ELEVATED      = 16;  // 2×1 ramp: ground track at th
 export const BUILDING_RAMP_SUBWAY        = 17;  // 2×1 ramp: ground track at the anchor end, subway at the other
 export const BUILDING_SUBWAY_STATION     = 18;  // 1×1 entrance over a 3-tile subway platform (sim/buildingShapes.ts subwayPlatform)
 export const BUILDING_AIRPORT            = 13;  // 12×5, one per city, never turned (shape and rules in sim/buildingShapes.ts)
+// Leisure (LEISURE_DESIGN.md; shapes in sim/buildingShapes.ts, rules and numbers in sim/leisure.ts and BALANCE.leisure).
+export const BUILDING_BIG_PARK   = 19;  // 3×3, repeatable
+export const BUILDING_BEACH_PARK = 20;  // 3×2 on land at the water's edge, repeatable
+export const BUILDING_PLAZA      = 21;  // 2×2 plaza with a monument, repeatable
+export const BUILDING_MUSEUM     = 22;  // 2×2, one per city
+export const BUILDING_STADIUM    = 23;  // 4×4 bowl plus a 2-tile entrance plaza, one per city
 
 
 // Vegetation layer

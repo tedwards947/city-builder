@@ -19,6 +19,7 @@ import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessR
 import { footprintTiles, shapeRoles, hasDocks } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
+import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
 
 /** Why political capital changed. */
@@ -33,6 +34,7 @@ export type PcReason =
   | 'ordinanceUpkeep'  // a day's upkeep for the active ordinances
   | 'requestMet'       // a resident request was met (src/sim/requests.ts)
   | 'requestFailed'    // a resident request ran past its deadline
+  | 'bigProject'       // a big project was built: a unique building costs political capital (sim/leisure.ts)
   | 'debt';            // a day with the city's money below zero (src/sim/debt.ts)
 
 /**
@@ -506,6 +508,8 @@ export function pcQuote(
       // Every home under the building's shape is displaced.
       for (const fi of footprint) displace(fi, false);
       if (isServiceKind(action.kind) && !(footprint.length === 1 ? touchesAccessRoad(world, tx, ty) : shapeTouchesAccessRoad(world, footprint))) q.notConnected = true;
+      // A big project (a unique building) costs political capital outright.
+      addPart(q, 'bigProject', tx, ty, -bigProjectPc(action.kind));
       // Opening a service: the residents it will cover are pleased.
       for (const p of serviceOpeningValue(world, tx, ty, action.kind, service)) {
         addPart(q, 'serviceOpened', p.tx, p.ty, p.amount, p.strength);

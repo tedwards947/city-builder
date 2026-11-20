@@ -203,6 +203,7 @@ export interface TranslationSchema {
       needsOpenWater: string;
       needsDockSite: string;
       onePerCity: string;
+      lockedBuilding: string;
       noPoliticalCapital: string;
     };
     hud: {
@@ -321,6 +322,11 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      bigPark: string;
+      beachPark: string;
+      plaza: string;
+      museum: string;
+      stadium: string;
       track: string;
       station: string;
       stationL: string;
@@ -351,6 +357,7 @@ export interface TranslationSchema {
       utilities: string;
       services: string;
       ports: string;
+      leisure: string;
       views: string;
       menu: string;
       upkeep: string;
@@ -435,6 +442,11 @@ export interface TranslationSchema {
       largeSewage: string;
       seaport: string;
       airport: string;
+      bigPark: string;
+      beachPark: string;
+      plaza: string;
+      museum: string;
+      stadium: string;
       track: string;
       station: string;
       stationL: string;
@@ -481,6 +493,11 @@ export interface TranslationSchema {
     largeSewagePlant: string;
     seaport: string;
     airport: string;
+    bigPark: string;
+    beachPark: string;
+    plaza: string;
+    museum: string;
+    stadium: string;
     station: string;
     rampElevated: string;
     rampSubway: string;

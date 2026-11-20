@@ -22,6 +22,7 @@ import { goodsDemandMult } from '../goods';
 import { portIndustrialDemandMult } from '../seaport';
 import { buildingDemandMult } from '../buildingTraffic';
 import { isEstablished, establishedAfterYears } from '../established';
+import { addLeisureLandValue, leisureLandValueReach } from '../leisure';
 import { FieldBounds, unionRect, growRect, type Rect } from '../FieldBounds';
 
 const LV = BALANCE.landValue;
@@ -31,6 +32,8 @@ const DM = BALANCE.demand;
 // within 2 tiles, industry / neighbours within industryRadius, and coverage
 // layers that reach a tile or so off the roads.
 const REACH = Math.max(2, LV.industryRadius, BALANCE.power.propagationRange, BALANCE.water.propagationRange, 1);
+// Leisure buildings lift land value further out than that (sim/leisure.ts): read when used, the numbers are tuned live.
+const reach = (): number => Math.max(REACH, leisureLandValueReach());
 
 export class LandValueSystem {
   // Land value is defined on every tile, but away from the city it sits at a
@@ -77,7 +80,7 @@ export class LandValueSystem {
     } else {
       this._pollution.scan(poll, width, 0);
       region = unionRect(
-        unionRect(growRect(world.index.area(world), width, height, REACH), this._pollution.rect()),
+        unionRect(growRect(world.index.area(world), width, height, reach()), this._pollution.rect()),
         this._easing,
       );
     }
@@ -87,7 +90,7 @@ export class LandValueSystem {
     // only they need the neighbourhood scans below. Anywhere else those terms
     // are zero (the same reasoning that limits `region` after the first run);
     // this keeps the first run's whole-map pass cheap.
-    const near = growRect(world.index.area(world), width, height, REACH);
+    const near = growRect(world.index.area(world), width, height, reach());
 
     const riseSmoothing = Math.min(1, LV.smoothing * ordinanceModifier(world, 'landValueGrowth'));
     // Heritage Protection scales the land value of established lots. The
@@ -196,6 +199,9 @@ export class LandValueSystem {
         }
       }
     }
+
+    // 3c. Leisure buildings (parks, plazas, a museum) lift the land round them (sim/leisure.ts).
+    addLeisureLandValue(world, acc, Math.max(region.x0, sx0), Math.max(region.y0, sy0), Math.min(region.x1, sx1), Math.min(region.y1, sy1));
 
     // 4. Ease each tile toward its target.
     let delta = 0;

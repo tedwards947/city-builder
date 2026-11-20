@@ -21,7 +21,8 @@
 // (Command.tilesClearedWith / lotSiblings) so one undo puts it back.
 
 import type { World } from './World';
-import { BUILDING_NONE, BUILDING_PARK, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R } from './constants';
+import { countsAsPark } from './leisure';
+import { BUILDING_NONE, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R } from './constants';
 import { BALANCE } from '../data/balance';
 
 /** The devLevel of every tile of a merged lot. */
@@ -274,7 +275,7 @@ export function primeSpot(world: World, i: number, jobs: JobsNearby): boolean {
   const v = jobs.at(i);
   if (v >= jobs.top) return true;
   if (v < jobs.median) return false;
-  return near(world, i, cfg.parkRadius, (j) => Lr.building[j] === BUILDING_PARK) || near(world, i, cfg.waterRadius, (j) => Lr.terrain[j] === TERRAIN_WATER);
+  return near(world, i, cfg.parkRadius, (j) => countsAsPark(Lr.building[j])) || near(world, i, cfg.waterRadius, (j) => Lr.terrain[j] === TERRAIN_WATER);
 }
 
 /**

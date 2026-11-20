@@ -381,7 +381,7 @@ function notifyRejected(reason: FailReason): void {
   lastRejectToast[reason] = now;
   toastPanel.showToast(
     t('ui.toast.cantBuildTitle'),
-    t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : reason === 'notOpenWater' ? 'ui.toast.needsOpenWater' : reason === 'alreadyBuilt' ? 'ui.toast.onePerCity' : 'ui.toast.noPoliticalCapital'),
+    t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : reason === 'notOpenWater' ? 'ui.toast.needsOpenWater' : reason === 'alreadyBuilt' ? 'ui.toast.onePerCity' : reason === 'locked' ? 'ui.toast.lockedBuilding' : 'ui.toast.noPoliticalCapital'),
     'warning',
   );
 }
