@@ -18,7 +18,7 @@ import { landWorld } from './pcTestWorld';
 
 const TOP = BALANCE.growth.maxLevel;
 const cfg = BALANCE.lots as unknown as {
-  chancePerDay: number; approvedChancePerDay: number; streakDays: number; minSatisfaction: number; maxPerDay: number; spacing: number;
+  chancePerDay: number; industryChancePerDay: number; streakDays: number; minSatisfaction: number; maxPerDay: number; spacing: number;
   minLandValue: number; jobsRadius: number; topJobsShare: number; parkRadius: number; waterRadius: number;
 };
 const shipped = { ...cfg };
@@ -47,8 +47,12 @@ function days(w: World, n: number, sys = new LotMergeSystem()): void {
 const mergedAt = (w: World, x: number, y: number): boolean => w.layers.lot[w.grid.idx(x, y)] === 1;
 
 describe('as shipped', () => {
-  it('merging is switched off, and the system then does nothing at all', () => {
-    expect(BALANCE.lots.chancePerDay).toBe(0);
+  it('merging is on at the owner-approved numbers, industry at its own lower chance', () => {
+    expect(BALANCE.lots).toMatchObject({ chancePerDay: 0.003, industryChancePerDay: 0.0006, streakDays: 10, minSatisfaction: 0.9, maxPerDay: 1, spacing: 4, minLandValue: 55, jobsRadius: 8, topJobsShare: 0.1, parkRadius: 2, waterRadius: 3 });
+  });
+
+  it('with both chances at 0 the system does nothing at all', () => {
+    cfg.chancePerDay = cfg.industryChancePerDay = 0;
     const w = city();
     const tiles = block(w, 10, 10);
     let rolls = 0;
@@ -59,8 +63,16 @@ describe('as shipped', () => {
     expect(mergedAt(w, 10, 10)).toBe(false);
   });
 
-  it('the owner-approved numbers are in place, ready to switch on', () => {
-    expect(BALANCE.lots).toMatchObject({ approvedChancePerDay: 0.003, streakDays: 10, minSatisfaction: 0.9, maxPerDay: 1, spacing: 4, minLandValue: 55, jobsRadius: 8, topJobsShare: 0.1, parkRadius: 2, waterRadius: 3 });
+  it('industry rolls its own chance, homes and shops the other', () => {
+    cfg.streakDays = 1;
+    for (const [home, industry, merges] of [[1, 0, false], [0, 1, true]] as const) {
+      cfg.chancePerDay = home; cfg.industryChancePerDay = industry;
+      const w = city();
+      block(w, 10, 10);   // industry: prime anywhere
+      w.rng = () => 0.5;
+      days(w, 3);
+      expect(mergedAt(w, 10, 10)).toBe(merges);
+    }
   });
 
   it('it is one of the simulation\'s systems', () => {
@@ -70,7 +82,7 @@ describe('as shipped', () => {
 
 describe('with merging on', () => {
   it('a block merges once all four lots have counted for the whole streak', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const w = city();
     const tiles = block(w, 10, 10);
     const seen: unknown[] = [];
@@ -87,7 +99,7 @@ describe('with merging on', () => {
   });
 
   it('happens only once a game day', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     cfg.streakDays = 3;
     const w = city();
     const tiles = block(w, 10, 10);
@@ -97,7 +109,7 @@ describe('with merging on', () => {
   });
 
   it('a bad day for one lot starts its streak again, and the block waits for it', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const spoil: [string, (w: World, i: number) => void, (w: World, i: number) => void][] = [
       ['distress', (w, i) => { w.layers.distress[i] = 1; }, (w, i) => { w.layers.distress[i] = 0; }],
       ['an unhappy city', (w) => { w.stats.satisfaction = cfg.minSatisfaction - 0.01; }, (w) => { w.stats.satisfaction = 1; }],
@@ -120,7 +132,7 @@ describe('with merging on', () => {
   });
 
   it('lots below the top level, abandoned lots and mixed zones never start', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const w = city();
     const low = block(w, 4, 4);
     w.layers.devLevel[low[0]] = TOP - 1;
@@ -135,7 +147,7 @@ describe('with merging on', () => {
   });
 
   it('a ready block still has to win its daily roll', () => {
-    cfg.chancePerDay = 0.1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 0.1;
     const w = city();
     block(w, 10, 10);
     w.rng = () => 0.5;
@@ -147,7 +159,7 @@ describe('with merging on', () => {
   });
 
   it('no more than the daily cap merge, however many are ready', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const w = city(48);
     const xs = [2, 12, 22, 32];
     for (const x of xs) block(w, x, 4);
@@ -162,7 +174,7 @@ describe('with merging on', () => {
   });
 
   it('nothing merges in the tutorial city', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const w = city();
     w.tutorial = { step: 0 };
     block(w, 10, 10);
@@ -171,7 +183,7 @@ describe('with merging on', () => {
   });
 
   it('the same seed gives the same merges', () => {
-    cfg.chancePerDay = 0.3;
+    cfg.chancePerDay = cfg.industryChancePerDay = 0.3;
     const run = (): number[] => {
       const w = new World(64, 32, 77);
       w.layers.terrain.fill(0);
@@ -185,7 +197,7 @@ describe('with merging on', () => {
   });
 
   it('streaks are saved', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     const w = city();
     const tiles = block(w, 10, 10);
     days(w, 4);
@@ -200,7 +212,7 @@ describe('with merging on', () => {
 
 describe('spacing', () => {
   it('no block merges within the gap of a merged lot', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     cfg.maxPerDay = 9;
     const w = city(48);
     block(w, 10, 10);
@@ -217,7 +229,7 @@ describe('spacing', () => {
   });
 
   it('a field of ready lots gets merged lots a gap apart, never side by side', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     cfg.maxPerDay = 9;
     const w = city(48);
     for (let y = 4; y < 20; y++) for (let x = 4; x < 20; x++) lot(w, x, y, ZONE_I);
@@ -319,7 +331,7 @@ describe('a prime spot', () => {
   });
 
   it('homes downtown merge; the same homes at the edge of town do not', () => {
-    cfg.chancePerDay = 1;
+    cfg.chancePerDay = cfg.industryChancePerDay = 1;
     cfg.maxPerDay = 9;
     const { w } = town();
     days(w, cfg.streakDays + 5);
