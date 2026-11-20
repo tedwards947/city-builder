@@ -3,6 +3,7 @@ import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
 import { BUILDING_NAME } from './TileInfoPanel';
+import { PC_SYMBOL, pcAmount } from './pcFormat';
 import { drawsTourists, hasGateway } from '../sim/leisureTraffic';
 
 export type ToastType = 'info' | 'warning' | 'alert';
@@ -24,6 +25,15 @@ export function fireReportText(burning: number, damaged: number): string {
 /** True when a just-placed building draws tourists but the city has no airport to bring them. */
 export function residentsOnlyWarning(world: World, kind: number): boolean {
   return drawsTourists(kind) && !hasGateway(world);
+}
+
+/** The game-day toast for an `eventDayEnded` result, or null when nobody wanted to come. */
+export function eventDayToast(p: { wanted: number; arrived: number; stuckResidents: number; pc: number; declined: number }): { title: string; text: string; type: ToastType } | null {
+  if (p.wanted <= 0) return null;
+  let text = t('ui.toast.eventDayFans', { arrived: Math.round(p.arrived), wanted: Math.round(p.wanted) });
+  if (p.stuckResidents > 0) text += t('ui.toast.eventDayStuck', { n: Math.round(p.stuckResidents).toLocaleString('en-US'), pc: pcAmount(p.pc) });
+  if (p.declined > 0) text += t('ui.toast.eventDayDeclined', { n: p.declined });
+  return { title: t('ui.toast.eventDayTitle'), text, type: p.stuckResidents > 0 ? 'warning' : 'info' };
 }
 
 export class ToastPanel {
@@ -65,6 +75,10 @@ export class ToastPanel {
       if (this.world && residentsOnlyWarning(this.world, p.kind)) {
         this.showToast(t('ui.toast.residentsOnlyTitle'), t('ui.toast.residentsOnlyMsg'), 'warning', tile(p.tx, p.ty));
       }
+    };
+    this.handlers['eventDayEnded'] = (p: CityEvents['eventDayEnded']) => {
+      const toast = eventDayToast(p);
+      if (toast) this.showToast(toast.title, toast.text, toast.type, tile(p.tx, p.ty));
     };
     this.handlers['powerShortage'] = (p: CityEvents['powerShortage']) => {
       this.showToast(t('ui.toast.resourceShortage'), t('ui.toast.powerDemandExceeds', { deficit: p.deficit }), 'alert');

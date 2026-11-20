@@ -82,6 +82,13 @@ export interface TranslationSchema {
       railJunction4: string;
       railCrossing: string;
       tripLeisure: string;
+      eventNext: string;
+      eventToday: string;
+      eventInDays: string;
+      eventInOneDay: string;
+      eventFans: string;
+      eventLast: string;
+      eventStrain: string;
       noLeisure: string;
       tripLeisureNone: string;
       attractionVisitors: string;
@@ -158,6 +165,10 @@ export interface TranslationSchema {
     };
     paused: { chip: string; inspect: string };
     toast: {
+      eventDayTitle: string;
+      eventDayFans: string;
+      eventDayStuck: string;
+      eventDayDeclined: string;
       residentsOnlyTitle: string;
       residentsOnlyMsg: string;
       stationsRebuiltTitle: string;
