@@ -180,6 +180,13 @@ k. **Leisure and tourism** (owner, 2026-11-19; after h). A visitor traffic type 
 
 l. **Land value carries little signal (low priority)** (owner, 2026-11-19). ENGINEER 3 found that in the generated lab cities about 80% of lots are within 2 tiles of a max-congestion road, so a flat −89 makes land value nearly constant, highest at quiet edges and slightly lower by parks. On the owner's concretta1 it works better: about 38% of lots are hit and parks raise it clearly (92 within 2 tiles vs 61 farther). Possible fix: soften the saturating congestion penalty (falloff by distance) and add a park/water bonus. It touches taxes and growth everywhere, so golden would move and ENGINEER 3 would re-tune. Check on the owner's golden-1 first. The 2×2 lots trigger no longer depends on land value (the prime-spot rule).
 
+m. **Mid-game gets too easy too fast** (owner, 2026-11-19). The owner's own city: "Oct 25 1990 … a surplus of 2,400/day and 122k$". The pacing was about right at the start, but it got easy quickly. ENGINEER 3 is measuring the surplus curve and proposing options that keep the early game as it is and add mid-game pressure (report first; owner picks). Keep it fun to resolve.
+
+n. **Revisit Political Capital** (owner, 2026-11-19): "political capital is a barnacle". It feels stuck on rather than part of the game. Workshop with the owner: what it should do, what bugs them about it today, and whether to rework it, shrink it or fold it into something else (vibe, requests, ordinances). See PC_DESIGN.md.
+
+o. **Inspect while paused** (small, Sonnet engineer). Coverage only updates while time runs, so a freshly zoned lot in a paused game shows No power / No water with red ✗. The owner hit this and thought it was a bug. Inspect (and maybe the badges) should say "Game paused: coverage updates when time runs".
+
+
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
    - **Focus markers are built** (debug only): the owner places them in the showcase city with `?debug=true` (the "Focus markers" panel), saves to file, and the title tour visits them in order. See AGENT.md, Markers.
