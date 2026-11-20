@@ -25,7 +25,6 @@ import { PC_SYMBOL } from './pcFormat';
 import { ordinancesShown } from './OrdinancePanel';
 import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
-import { DEBUG } from '../debug';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
@@ -111,13 +110,13 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'hospital', icon: 'hospital', tool: 'hospital', hotkey: 'e' },
   ] },
   // Leisure (LEISURE_DESIGN.md), the design's two categories (BALANCE.leisure.kinds[kind].category):
-  // parks and leisure repeat, unique buildings are one a city. The beach park stays ?debug=true until its art is in.
+  // parks and leisure repeat, unique buildings are one a city.
   { family: 'parks', icon: 'park', items: [
     { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
     { key: 'midPark', icon: 'park', tool: 'midPark' },
     { key: 'bigPark', icon: 'park', tool: 'bigPark' },
-    { key: 'beachPark', icon: 'beach', tool: 'beachPark', shown: () => DEBUG },
-    { key: 'lido', icon: 'beach', tool: 'lido', shown: () => DEBUG },   // ?debug=true until its art is in
+    { key: 'beachPark', icon: 'beach', tool: 'beachPark' },
+    { key: 'lido', icon: 'lido', tool: 'lido' },
     { key: 'plaza', icon: 'monument', tool: 'plaza' },
   ] },
   { family: 'unique', icon: 'stadium', items: [

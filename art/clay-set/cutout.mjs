@@ -498,6 +498,41 @@ for (const { src, id: name, n, untint } of LEISURE) {
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
   console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px`);
 }
+// Beach parks (3×2, turned to face the water): the owner's A (boardwalk beach,
+// kind 20) and B (seaside lido, its own kind), each wide (rot 0/2, on
+// ref/anchor-3x2-wide.png) and tall (rot 1/3, ref/anchor-2x3-tall.png).
+// Drawn like the shop pairs: plot w plots wide, w × d tiles deep.
+const BEACH = [
+  { src: 'beach-a-wide', w: 3, d: 2 }, { src: 'beach-a-tall', w: 2, d: 3 },
+  { src: 'beach-b-wide', w: 3, d: 2 }, { src: 'beach-b-tall', w: 2, d: 3 },
+];
+/** The plot's back edge: the first row from the top that is solid across nearly the whole plot. */
+function plotTop(img) {
+  const p = findPlot(img), x0 = p.left + Math.round((p.right - p.left) * 0.03), x1 = p.right - Math.round((p.right - p.left) * 0.03);
+  for (let y = 0; y < p.bottom; y++) {
+    let solid = 0;
+    for (let x = x0; x <= x1; x++) if (img.rgba[(y * img.w + x) * 4 + 3] > 200) solid++;
+    if (solid >= (x1 - x0 + 1) * 0.97) return y;
+  }
+  return 0;
+}
+for (const { src, w, d } of BEACH) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-leisure', src + '.png'), '--out', tmp], { stdio: 'ignore' });
+  let cut = cutout(readBmp(tmp));
+  const thinned = thinLip(cut, w);
+  // A plot that came back too deep for its shape is squashed to fit (the whole picture, so nothing tears).
+  const p0 = findPlot(cut), want = (p0.right - p0.left + 1) * PLOT_ASPECT * d / w, depth = p0.bottom - plotTop(cut);
+  let squash = 1;
+  if (depth > want * 1.02) { squash = want / depth; cut = resample(cut, cut.w, Math.round(cut.h * squash)); }
+  const { grown } = extendSlab(cut, PLOT_ASPECT * d / w);
+  const p = findPlot(cut), k = w * 101 / (p.right - p.left + 1);
+  const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
+  const id = 'leisure/' + src;
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${game.w}×${game.h}, ${w}×${d}, squashed to ${squash.toFixed(2)}, slab grown by ${grown}px, lip thinned ${thinned}px`);
+}
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 // Also as a script, so the review page works when opened straight from disk.
