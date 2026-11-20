@@ -117,6 +117,7 @@ Second engine session: engine tasks the main engine session isn't on, cleanup an
 4. **CI and cleanup proposals** sent to the PM for the owner: perf numbers in CI, Cloudflare Pages PR previews (needs the owner's account), require CI before merging, prune merged branches.
 5. **+$10k cheat** (DESIGN d.7): _Done (#223)._
 6. **Click a toast to focus** (DESIGN d.5): _Done (#224)._
+7. **Inspect while paused** (DESIGN o): _Done (#441)._ While paused, Inspect on a zoned lot still missing power or water says "Game paused: coverage updates when time runs". Badges unchanged.
 
 ## ENGINEER 3
 
@@ -200,7 +201,7 @@ m. **Mid-game gets too easy too fast** (owner, 2026-11-19). The owner's own city
 
 n. **Revisit Political Capital** (owner, 2026-11-19): "political capital is a barnacle". It feels stuck on rather than part of the game. Workshop with the owner: what it should do, what bugs them about it today, and whether to rework it, shrink it or fold it into something else (vibe, requests, ordinances). See PC_DESIGN.md.
 
-o. **Inspect while paused** (small, Sonnet engineer). Coverage only updates while time runs, so a freshly zoned lot in a paused game shows No power / No water with red ✗. The owner hit this and thought it was a bug. Inspect (and maybe the badges) should say "Game paused: coverage updates when time runs".
+o. **Inspect while paused.** Done: see ENGINEER 2 item 7 (#441).
 
 
 
