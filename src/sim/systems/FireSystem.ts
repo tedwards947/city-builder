@@ -14,6 +14,18 @@ import { BALANCE } from '../../data/balance';
  * instead of one per fire. Nothing is emitted while there is no such fire and
  * no damage. The counting changes nothing in the simulation.
  */
+/** Set tile `i` alight for `duration` ticks; if it is part of a merged 2×2 lot, the whole building (the tiles not already burning). */
+function ignite(world: World, i: number, duration: number): void {
+  const { width } = world.grid;
+  const lot = world.lotTilesAt(i);
+  for (const t of lot.length > 0 ? lot : [i]) {
+    if (t !== i && world.layers.fire[t] > 0) continue;
+    const x = t % width;
+    world.setFire(x, (t - x) / width, duration);
+    world.grid.markDirty(x, (t - x) / width);
+  }
+}
+
 export class FireSystem {
   // Since the last fireReport: uncovered fires that started (ignitions and
   // spreads) and buildings that lost a level. Not saved: a loaded game simply
@@ -119,8 +131,7 @@ export class FireSystem {
             if (fire[ni] === 0 && (zone[ni] !== ZONE_NONE || building[ni] !== BUILDING_NONE)) {
               // If fire station covers it, spread is much less likely
               if (fireStation[ni] === 0 || world.rng() < b.fireStationEffectiveness) {
-                world.setFire(ntx, nty, b.burnDuration);
-                world.grid.markDirty(ntx, nty);
+                ignite(world, ni, b.burnDuration);
                 world.events.emit('fireSpreading', { tx: ntx, ty: nty });
                 if (fireStation[ni] === 0) { this._started++; this._reportTile = ni; }
               }
@@ -131,13 +142,13 @@ export class FireSystem {
       }
 
       // 4. Ignition (never in the tutorial city: tutorial/rules.ts)
-      if (z !== ZONE_NONE && level > 0 && !world.tutorial) {
+      // A merged 2×2 lot (sim/lots.ts) is one building: it rolls once, at its anchor, and burns whole.
+      if (z !== ZONE_NONE && level > 0 && !world.tutorial && world.layers.lot[i] <= 1) {
         const ignitionProb = b.baseProbability * (fireRisk[i] / 20);
         if (world.rng() < ignitionProb) {
           const itx = i % width;
           const ity = (i / width) | 0;
-          world.setFire(itx, ity, b.burnDuration);
-          world.grid.markDirty(itx, ity);
+          ignite(world, i, b.burnDuration);
           const covered = fireStation[i] === 1;
           world.events.emit('fireIgnition', { tx: itx, ty: ity, zone: z, devLevel: level, covered });
           if (!covered) { this._started++; this._reportTile = i; burningUncovered++; }
