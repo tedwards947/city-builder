@@ -350,6 +350,31 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
 const PAIR_PURPLE_BG = new Set(['c-tall-d.png']);
 // Magenta that tinted dark windows and glass: pulled back towards grey-blue.
 const PAIR_UNTINT = new Set(['c-wide-a.png', 'c-wide-b.png', 'c-wide-d.png', 'c-tall-b.png', 'c-tall-d.png']);
+// Pairs whose building came back at the very back of the plot, behind a big
+// plaza (owner, 2026-11-20): pull the building forward by this many tiles by
+// taking out plain plaza rows in front of it; extendSlab regrows the back.
+const PAIR_PULL = { 'c-wide-a.png': 0.5, 'c-wide-c.png': 0.3 };
+/** Removes up to `n` plain rows (no props: nearly one colour across the plot) between the building and the plot's front lip. */
+function pullForward(img, n) {
+  const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
+  const lip = Math.round(plotW * 0.07);
+  const plain = (y) => {
+    const x0 = p.left + Math.round(plotW * 0.04), x1 = p.right - Math.round(plotW * 0.04);
+    const lum = []; for (let x = x0; x <= x1; x++) { const d = (y * w + x) * 4; if (rgba[d + 3] < 250) return false; lum.push(rgba[d] + rgba[d + 1] + rgba[d + 2]); }
+    const sorted = [...lum].sort((a, b) => a - b), med = sorted[sorted.length >> 1];
+    return lum.filter((v) => Math.abs(v - med) > 36).length < lum.length * 0.06;
+  };
+  const drop = new Set();
+  for (let y = p.bottom - lip; y > 0 && drop.size < n; y--) {
+    if (plain(y)) drop.add(y);
+    else if (y < p.bottom - plotW * 0.5) break;   // into the building
+  }
+  const out = new Uint8Array(w * h * 4);
+  let dy = h - 1;
+  for (let y = h - 1; y >= 0; y--) { if (drop.has(y)) continue; out.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), dy * w * 4); dy--; }
+  img.rgba.set(out);
+  return drop.size;
+}
 mkdirSync(join(GAME_OUT, 'pairs'), { recursive: true });
 for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.png')).sort()) {
   const wide = f.startsWith('c-wide');
@@ -365,6 +390,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
     if (cut.rgba[d + 3] === 0 || m < 20) continue;
     cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
   }
+  const pulled = PAIR_PULL[f] ? pullForward(cut, Math.round(PAIR_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / (wide ? 2 : 1))) : 0;
   const { grown } = extendSlab(cut, wide ? PLOT_ASPECT / 2 : PLOT_ASPECT * 2);
   const p = findPlot(cut), k = (wide ? 202 : 101) / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
@@ -372,7 +398,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
-  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px`);
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px${pulled ? `, pulled forward ${pulled}px` : ''}`);
 }
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
