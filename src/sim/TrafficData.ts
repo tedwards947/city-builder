@@ -32,6 +32,12 @@ export interface TrafficField {
   demand: number;
   /** Trips that origins wanted to make but could not: no road, no route to any door, or out of reach. */
   stranded: number;
+  /**
+   * True when some door of this map starts at more than 0 (a door provider gave it a handicap):
+   * `dist` then includes the handicap, doors are no longer the first entries of `order`, and a
+   * door on the way to a better one is passed through (its `parent` is not -1).
+   */
+  handicapped: boolean;
 }
 
 /**
@@ -75,6 +81,11 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   // Homes send visitors to buildings that draw them (an airport, a landmark: BALANCE.transit.buildings).
   // No zone receives visitors, so with no such building (or the trips at 0) this market does not run.
   { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0, rides: true },
+  // Leisure (LEISURE_DESIGN.md, sim/leisureTraffic.ts): homes, and tourists arriving at a gateway,
+  // go to attractions. No zone receives them, so with no attraction on a road the market does not run.
+  // An attraction's appeal is a head start (a door handicap), so people weigh appeal against travel time.
+  { key: 'leisure', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.leisure.tripsPerLevel, capacity: () => 0,
+    reach: () => BALANCE.leisure.reach, rides: true },
 ];
 
 // ── Doors that are not zones ────────────────────────────────────────────────
@@ -91,8 +102,14 @@ export const MARKET_DEFS: readonly MarketDef[] = [
  * each extra door: a street or avenue tile (anything else is ignored) and the
  * trips it can take (0 or less is ignored). Must be a pure function of the
  * world and the balance numbers: the pass re-runs only when what it adds changes.
+ *
+ * `handicap` (0 if left out) is travel time, in street tiles, added to every
+ * trip that ends at this door: the map starts there at `handicap` instead of
+ * 0, so a door with a smaller handicap is preferred from further away (an
+ * attraction's appeal is a head start: the best has handicap 0). Where two
+ * buildings share a door tile the smaller handicap counts.
  */
-export type DoorProvider = (world: World, market: MarketKey, add: (roadTile: number, capacity: number) => void) => void;
+export type DoorProvider = (world: World, market: MarketKey, add: (roadTile: number, capacity: number, handicap?: number) => void) => void;
 
 const doorProviders: DoorProvider[] = [];
 
@@ -108,7 +125,7 @@ export function hasDoorProviders(): boolean {
 }
 
 /** Every extra door of `market`, from every provider. */
-export function extraDoors(world: World, market: MarketKey, add: (roadTile: number, capacity: number) => void): void {
+export function extraDoors(world: World, market: MarketKey, add: (roadTile: number, capacity: number, handicap?: number) => void): void {
   for (const provider of doorProviders) provider(world, market, add);
 }
 
@@ -227,6 +244,7 @@ export interface TrafficData {
   goods: TrafficMarket;    // commerce → industry (shops fetching goods)
   exports: TrafficMarket;  // industry → seaport (all zero while no port takes exports)
   visitors: TrafficMarket; // homes → buildings that draw visitors (all zero while none takes them)
+  leisure: TrafficMarket;  // homes and tourists → attractions (all zero while none stands on a road)
   /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
   toR: TrafficField;
   // What accessibility is measured on (TransitSystem). Each is one of the maps above unless a
@@ -263,7 +281,7 @@ export function makeTrafficData(n: number): TrafficData {
   const toR = makeTrafficField(nn);
   return {
     version: 0, markets, tiles: n, rail: { capacity: new Float32Array(nn - n), stations: [], boardings: 0 },
-    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'),
+    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'), leisure: byKey('leisure'),
     toR, toShops: byKey('shopping').field, toJobs: byKey('jobs').field, toCustomers: toR, toWorkers: toR, settled: false,
   };
 }
@@ -271,7 +289,7 @@ export function makeTrafficData(n: number): TrafficData {
 export function makeTrafficField(n: number): TrafficField {
   return {
     dist: new Float32Array(n), parent: new Int32Array(n), order: new Int32Array(n), count: 0,
-    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0, demand: 0, stranded: 0,
+    doorCap: new Float32Array(n), doorLoad: new Float32Array(n), demandRatio: 0, demand: 0, stranded: 0, handicapped: false,
   };
 }
 

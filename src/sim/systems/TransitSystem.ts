@@ -7,6 +7,7 @@
 //     goods:    commerce → industry  (shops fetch goods from industry)
 //     exports:  industry → seaports  (only while a connected port takes them)
 //     visitors: homes → buildings that draw visitors (only while one takes them)
+//     leisure:  homes and tourists → attractions (only while one stands on a road)
 //
 //   Buildings can also take or send trips in any market (BALANCE.transit
 //   .buildings, sim/buildingTraffic.ts): their access roads are extra doors
@@ -91,6 +92,7 @@ import {
   hasDoorProviders, extraDoors, hasTripProviders, extraTrips, NODES_PER_TILE, railSlot } from '../TrafficData';
 import '../seaport';   // registers the seaports' doors with the markets
 import '../buildingTraffic';   // registers the doors and trips of BALANCE.transit.buildings
+import '../leisureTraffic';    // registers the attractions' doors and the tourists (LEISURE_DESIGN.md)
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
 const ITERATIONS_FIRST_PASS = 24;   // first pass of a game, and recompute()
@@ -123,6 +125,7 @@ export class TransitSystem {
   private _firstIteration = true;   // nothing to compare against yet
   private _room!: Float32Array;     // capacity left at each door
   private _bldCap!: Float32Array;   // the part of each door's capacity that buildings added, this market
+  private _doorStart!: Float32Array; // the handicap of each building door, this market (see DoorProvider)
   private _onward!: Float32Array;   // trips leaving full building doors for the zones (see _passOn)
   private _zoneRoute: TrafficField | null = null;   // the way to this market's zone doors only
   private _cost!: Float32Array;     // travel cost per road tile this iteration
@@ -267,6 +270,7 @@ export class TransitSystem {
       this._raw = new Float32Array(nn);
       this._room = new Float32Array(nn);
       this._bldCap = new Float32Array(n);
+      this._doorStart = new Float32Array(n);
       this._onward = new Float32Array(nn);
       this._zoneRoute = null;
       this._cost = new Float32Array(nn);
@@ -334,10 +338,11 @@ export class TransitSystem {
     if (hasDoorProviders()) {
       for (let k = 0; k < data.markets.length; k++) {
         this._extraDoorCount[k] = 0;
-        extraDoors(world, data.markets[k].def.key, (ri, cap) => {
+        extraDoors(world, data.markets[k].def.key, (ri, cap, handicap = 0) => {
           if (cap > 0) this._extraDoorCount[k]++;
           h = Math.imul(h ^ (ri * 4 + k), 0x9e3779b1);
           h = Math.imul(h ^ Math.round(cap * 1000), 0x85ebca6b);
+          if (handicap > 0) h = Math.imul(h ^ Math.round(handicap * 1000), 0x9e3779b1);
           h ^= h >>> 15;
         });
       }
@@ -830,15 +835,29 @@ export class TransitSystem {
       }
     }
 
+    // Building doors may start at more than 0 (a handicap: see DoorProvider). Zone doors never do.
+    let handicapped = false;
+    const doorStart = this._doorStart;
     if (market !== undefined && hasDoorProviders()) {
       const bldCap = this._bldCap;
       for (let k = 0; k < roadCount; k++) bldCap[roads[k]] = 0;
-      extraDoors(world, market, (ri, cap) => {
+      extraDoors(world, market, (ri, cap, handicap = 0) => {
         if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
-        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { doorCap[ri] += cap; bldCap[ri] += cap; }
+        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) return;
+        if (handicap > 0 && !handicapped) {
+          // The first handicap of this flood: every door so far starts at 0.
+          handicapped = true;
+          for (let k = 0; k < roadCount; k++) doorStart[roads[k]] = 0;
+          doorStart[ri] = doorCap[ri] > 0 ? 0 : handicap;
+        } else if (handicapped) {
+          const h = handicap > 0 ? handicap : 0;
+          doorStart[ri] = doorCap[ri] > 0 ? Math.min(doorStart[ri], h) : h;
+        }
+        doorCap[ri] += cap; bldCap[ri] += cap;
       });
     }
+    field.handicapped = handicapped;
 
     if (sendersOf !== undefined) {
       extraTrips(world, sendersOf, (ri, trips) => {
@@ -851,9 +870,10 @@ export class TransitSystem {
     for (let k = 0; k < roadCount; k++) {
       const ri = roads[k];
       if (doorCap[ri] === 0) continue;
-      dist[ri] = 0;
+      const start = handicapped ? doorStart[ri] : 0;
+      dist[ri] = start;
       parent[ri] = -1;
-      this._push(ri, 0);
+      this._push(ri, start);
     }
 
     let count = 0;
@@ -1108,14 +1128,14 @@ export class TransitSystem {
    */
   private _spill(_world: World, field: TrafficField): void {
     const nb = this._nb;
-    const { order, count, parent, doorLoad } = field;
+    const { order, count, parent, doorLoad, doorCap, handicapped } = field;
     const room = this._room;
     const raw = this._raw;
     const queue = this._bfsQueue, from = this._bfsFrom, seen = this._bfsSeen, steps = this._bfsSteps;
 
     for (let k = 0; k < count; k++) {
       const door = order[k];
-      if (parent[door] >= 0) break;          // doors come first in `order` (travel time 0)
+      if (parent[door] >= 0) { if (handicapped) continue; break; }   // doors come first in `order` (travel time 0) unless some have a handicap
       let excess = -room[door];
       if (excess <= 1e-6) continue;
 
@@ -1126,7 +1146,7 @@ export class TransitSystem {
       queue[tail++] = door;
       while (head < tail && excess > 1e-6) {
         const cur = queue[head++];
-        if (cur !== door && room[cur] > 0 && parent[cur] < 0) {
+        if (cur !== door && room[cur] > 0 && (parent[cur] < 0 || (handicapped && doorCap[cur] > 0))) {
           // A door with room: send it what fits, along the way we came.
           const take = excess < room[cur] ? excess : room[cur];
           room[cur] -= take;
