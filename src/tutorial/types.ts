@@ -12,6 +12,7 @@ export interface TutorialUi {
   inspectedHome: boolean;
   /** The home tile last clicked with Inspect (a tile index), or -1. */
   inspectedTile: number;
+  /** The budget panel has been looked at: opened and then closed, or left open for a few seconds. */
   budgetOpened: boolean;
   overlayOn: boolean;
   /** The last card's button was pressed. */
@@ -41,6 +42,8 @@ export interface TutorialStep {
   enter?(world: World, ui: TutorialUi): void;
   /** Values for the copy's {placeholders}. */
   vars?(world: World): Record<string, string | number>;
+  /** Extra lines under the copy that depend on the city (ui.tutorial.note.<key> each), kept up to date. */
+  notes?(world: World): string[];
   /** How far along the step's counted goals are, if it has any. The card shows them and keeps them up to date. */
   progress?(world: World): TutorialProgress[];
   done(world: World, ui: TutorialUi): boolean;
