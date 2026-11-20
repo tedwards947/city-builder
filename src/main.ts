@@ -2,6 +2,7 @@ import { isLargeBuilding } from './sim/buildingShapes';
 import { placementFor, cyclePlacementTurn, resetPlacementTurn } from './input/placement';
 import { hasDocks } from './sim/buildingShapes';
 import { World } from './sim/World';
+import { dayOfWeek } from './sim/calendar';
 import { Camera } from './render/Camera';
 import { CanvasRenderer } from './render/CanvasRenderer';
 import type { RoadPreview, ZonePreview } from './render/CanvasRenderer';
@@ -770,7 +771,8 @@ function formatDate(tick: number): string {
   const month     = Math.floor(dayOfYear / 30) + 1;
   const day       = (dayOfYear % 30) + 1;
   const months    = tArray('common.months');
-  return (months[month - 1] ?? '???') + ' ' + day + ', ' + year;
+  const weekday   = tArray('common.weekdays')[dayOfWeek(totalDays)] ?? '???';
+  return weekday + ' ' + day + ' ' + (months[month - 1] ?? '???') + ' ' + year;
 }
 
 const ZONE_PREVIEW_COLOR: Record<number, string> = {

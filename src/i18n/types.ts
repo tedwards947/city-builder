@@ -11,6 +11,7 @@ export interface TranslationSchema {
     high: string;
     yes: string;
     no: string;
+    weekdays: string[];
     months: string[];
   };
   ordinances: Record<'neighbourhoodWatch' | 'curfew' | 'cleanAirAct' | 'businessIncentives' | 'freeTransit' | 'fastTrackPermits' | 'rentControl' | 'eminentDomain' | 'heritageProtection', { name: string; desc: string }>;
