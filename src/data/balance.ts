@@ -565,14 +565,23 @@ export const BALANCE = {
   },
 
   // When four top-level lots merge into a 2×2 building (sim/lots.ts, systems/LotMergeSystem.ts,
-  // BIG_LOTS_DESIGN.md). PLACEHOLDER numbers, for ENGINEER 3 to tune.
+  // BIG_LOTS_DESIGN.md). The "prime spot" trigger: ENGINEER 3's numbers, approved by the owner 2026-11-19.
   lots: {
-    chancePerDay: 0,       // a ready block's chance to merge, per game day. 0 = no merges: shipped until the owner approves the numbers.
-    streakDays: 10,        // days in a row all four lots must be happy and on valuable land before the block is ready
-    minSatisfaction: 0.8,  // the city's satisfaction (0–1) a day needs to count as happy
-    // Land value (0–255) a lot needs that day, by zone: homes, shops, industry (which sits on cheaper land).
-    minLandValue: { 1: 150, 2: 150, 3: 90 } as Record<number, number>,
+    // A ready block's chance to merge, per game day. 0 = no merges. The approved value is
+    // `approvedChancePerDay`; it is not switched on here yet because it changes the golden
+    // baseline (the test city gets merges), which needs the owner's OK.
+    chancePerDay: 0,
+    approvedChancePerDay: 0.003,
+    streakDays: 10,        // days in a row all four lots must count (happy, in a prime spot) before the block is ready
+    minSatisfaction: 0.9,  // the city's satisfaction (0–1) a day needs to count
     maxPerDay: 1,          // merges per game day, city-wide
+    spacing: 4,            // no merge within this many tiles of a merged lot
+    // A prime spot, for homes and shops (industry merges anywhere):
+    minLandValue: 55,      // land value (0–255) the lot needs: a low bar that screens out blight
+    jobsRadius: 8,         // "jobs nearby" = developed shop and industry tiles within this many tiles
+    topJobsShare: 0.1,     // in the city's top tenth for jobs nearby: prime
+    parkRadius: 2,         // or within this of a park …
+    waterRadius: 3,        // … or this of water, while at or above the city's median for jobs nearby
   },
 
   ticksPerDay: 8,
