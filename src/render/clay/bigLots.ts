@@ -43,7 +43,7 @@ export interface BigLotPlan {
  */
 const ART: Record<number, { tall: readonly (readonly [string, number])[]; low: readonly (readonly [string, number])[] }> = {
   [ZONE_R]: { tall: [['r-tower-a', 26], ['r-tower-b', 20], ['r-tower-c', 15], ['r-tower-d', 11]], low: [['r-court-a', 5], ['r-slab-a', 7]] },
-  [ZONE_C]: { tall: [['c-tower-a', 26], ['c-tower-b', 18], ['c-tower-c', 13]], low: [['c-mall-a', 2]] },
+  [ZONE_C]: { tall: [['c-tower-a', 26], ['c-tower-b', 18], ['c-tower-c', 13], ['c-tower-d', 22], ['c-tower-e', 16], ['c-tower-f', 9], ['c-tower-g', 20]], low: [['c-mall-a', 2], ['c-mall-b', 3]] },
   [ZONE_I]: { tall: [], low: [['i-works-a', 3], ['i-works-b', 2], ['i-works-c', 4]] },
 };
 
@@ -74,7 +74,10 @@ export function planBigLot(zone: number, variant: number): BigLotPlan {
     const [name, floors] = art.low[Math.floor(hash(variant, 9) * art.low.length)];
     return { form: 'works', x: 0.15, y: 0.35, w: 1.7, d: 1.25, floors, podium: { x: 0.2, y: 1.6, w: 0.7, d: 0.25, floors: 1 }, palette, art: name };
   }
-  if (zone === ZONE_C) return { form: 'mall', x: 0.12, y: 0.3, w: 1.76, d: 1.35, floors: 2, podium: { x: 0.7, y: 1.65, w: 0.6, d: 0.15, floors: 1 }, palette, art: 'c-mall-a' };
+  if (zone === ZONE_C) {
+    const [name, floors] = art.low[Math.floor(hash(variant, 9) * art.low.length)];
+    return { form: 'mall', x: 0.12, y: 0.3, w: 1.76, d: 1.35, floors, podium: { x: 0.7, y: 1.65, w: 0.6, d: 0.15, floors: 1 }, palette, art: name };
+  }
   // Homes: a perimeter block round a garden, or a long slab.
   return hash(variant, 7) < 0.6
     ? { form: 'courtyard', x: 0.15, y: 0.25, w: 1.7, d: 1.5, floors: 5, podium: null, palette, art: 'r-court-a' }
