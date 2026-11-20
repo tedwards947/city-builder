@@ -3,6 +3,7 @@ import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
 import { BUILDING_NAME } from './TileInfoPanel';
+import { drawsTourists, hasGateway } from '../sim/leisureTraffic';
 
 export type ToastType = 'info' | 'warning' | 'alert';
 
@@ -18,6 +19,11 @@ export function fireReportText(burning: number, damaged: number): string {
   }
   const fires = burning === 1 ? t('ui.toast.fireBurningOne') : t('ui.toast.fireBurningMany', { n: burning });
   return hurt ? `${fires} · ${hurt}` : fires;
+}
+
+/** True when a just-placed building draws tourists but the city has no airport to bring them. */
+export function residentsOnlyWarning(world: World, kind: number): boolean {
+  return drawsTourists(kind) && !hasGateway(world);
 }
 
 export class ToastPanel {
@@ -55,6 +61,11 @@ export class ToastPanel {
   }
 
   private setupHandlers(): void {
+    this.handlers['buildingPlaced'] = (p: { tx: number; ty: number; kind: number }) => {
+      if (this.world && residentsOnlyWarning(this.world, p.kind)) {
+        this.showToast(t('ui.toast.residentsOnlyTitle'), t('ui.toast.residentsOnlyMsg'), 'warning', tile(p.tx, p.ty));
+      }
+    };
     this.handlers['powerShortage'] = (p: CityEvents['powerShortage']) => {
       this.showToast(t('ui.toast.resourceShortage'), t('ui.toast.powerDemandExceeds', { deficit: p.deficit }), 'alert');
     };

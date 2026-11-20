@@ -9,6 +9,7 @@ import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
+import { attractionAt, hasGateway, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
 import type {World} from "../sim/World";
 import {
@@ -102,6 +103,18 @@ function tripRows(world: World, i: number): string {
     const width = reached ? Math.max(4, Math.round(trip.time / limit * 100)) : 100;
     html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px"><span>${t(label[trip.key])}</span><span style="color:${colour};font-weight:600">${value}</span></div>`
       + `<div style="height:5px;border-radius:3px;background:#3a414d;margin:1px 0 3px"><div style="height:100%;width:${width}%;border-radius:3px;background:${colour}"></div></div>`;
+  }
+  if (world.layers.zone[i] === ZONE_R && world.layers.devLevel[i] > 0) {
+    const label = t("ui.tileInfo.tripLeisure");
+    if ((world.traffic?.leisure.field.count ?? 0) > 0) {
+      const door = world.layers.lot[i] !== 0 ? doorTile(world, i) : i;
+      const reach = Math.max(0, Math.min(1, leisureReachAt(world, i, door)));
+      const colour = TRIP_COLOUR[reach > 0.66 ? 0 : reach > 0.33 ? 1 : 2];
+      html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px"><span>${label}</span><span style="color:${colour};font-weight:600">${Math.round(reach * 100)}%</span></div>`
+        + `<div style="height:5px;border-radius:3px;background:#3a414d;margin:1px 0 3px"><div style="height:100%;width:${Math.max(4, Math.round(reach * 100))}%;border-radius:3px;background:${colour}"></div></div>`;
+    } else {
+      html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px;color:#778"><span>${label}</span><span>${t("ui.tileInfo.tripLeisureNone")}</span></div>`;
+    }
   }
   const T = BALANCE.transit;
   const mult = T.accessFloor + (1 - T.accessFloor) * (world.layers.accessibility[i] / 255);
@@ -268,6 +281,24 @@ function analyzeZone(
  * this tick against its seats, what they earn, the arrivals it sends into the
  * city and the boost to shops; without one, the warning. Upkeep either way.
  */
+/** An attraction: visitors against capacity, ticket income, the shops' share, and the warnings. Upkeep last. */
+function attractionRows(world: World, tx: number, ty: number, kind: number): string {
+  const a = attractionAt(world, tx, ty);
+  if (!a) return "";
+  const n1 = (v: number) => v.toFixed(1);
+  let html = "";
+  if (!a.connected) html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.attractionNoRoad")}</div>`;
+  else {
+    const fill = a.capacity > 0 ? Math.min(1, a.arrivals / a.capacity) : 0;
+    html += `<div class="ti-detail ti-seats"><span>${t("ui.tileInfo.attractionVisitors", {n: n1(a.arrivals), cap: n1(a.capacity)})}</span></div>`;
+    html += `<div class="ti-meter"><span style="width:${(fill * 100).toFixed(1)}%"></span></div>`;
+    if (a.income > 0) html += `<div class="ti-detail">${t("ui.tileInfo.attractionEarns", {amount: Math.round(a.income).toLocaleString("en-US")})}</div>`;
+    if (a.toShops > 0) html += `<div class="ti-detail">${t("ui.tileInfo.attractionToShops", {n: a.toShops})}</div>`;
+  }
+  if (a.pull > 0 && !hasGateway(world)) html += `<div class="ti-detail" style="color:#e8b030">${t("ui.tileInfo.attractionResidentsOnly")}</div>`;
+  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
+}
+
 function airportRows(world: World, tx: number, ty: number): string {
   const trips = buildingTripsAt(world, tx, ty), row = BALANCE.transit.buildings[BUILDING_AIRPORT];
   let html = `<div class="ti-detail">${t("ui.tileInfo.airportAbout")}</div>`;
@@ -416,6 +447,7 @@ export class TileInfoPanel {
       if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
       if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
+      html += attractionRows(world, tx, ty, building);
       if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_SUBWAY_STATION) html += stationRows(world, tx, ty, building);
 
       // Connectivity warning for utilities

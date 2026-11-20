@@ -81,6 +81,13 @@ export interface TranslationSchema {
       railJunction3: string;
       railJunction4: string;
       railCrossing: string;
+      tripLeisure: string;
+      tripLeisureNone: string;
+      attractionVisitors: string;
+      attractionEarns: string;
+      attractionToShops: string;
+      attractionResidentsOnly: string;
+      attractionNoRoad: string;
       airportPassengers: string;
       airportPerTick: string;
       airportEarns: string;
@@ -150,6 +157,8 @@ export interface TranslationSchema {
     };
     paused: { chip: string; inspect: string };
     toast: {
+      residentsOnlyTitle: string;
+      residentsOnlyMsg: string;
       stationsRebuiltTitle: string;
       lotMergedTitle: string;
       lotMergedMsg: string;
