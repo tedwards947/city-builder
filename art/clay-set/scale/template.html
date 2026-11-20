@@ -58,6 +58,23 @@ tr:last-child td { border-bottom: 0; }
 .qs li::before { content: counter(q); position: absolute; left: 14px; top: 11px; font: 700 15px var(--mono); color: var(--accent); }
 .note { font-size: 13px; color: var(--muted); }
 code { font: 13px var(--mono); background: var(--chip); padding: 1px 4px; border-radius: 3px; }
+fieldset.q { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 16px; display: grid; gap: 10px; min-width: 0; }
+fieldset.q legend { padding: 0 6px; margin-left: -6px; font-family: var(--display); font-size: 16px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; background: var(--bg); font-size: 14px; gap: 6px; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--chip); box-shadow: inset 0 0 0 1px var(--accent); }
+.choice input { accent-color: var(--accent); margin: 0; }
+.grid3 { display: grid; grid-template-columns: minmax(0, 15em) 1fr; gap: 8px 16px; align-items: center; font-size: 14px; }
+@media (max-width: 560px) { .grid3 { grid-template-columns: 1fr; } }
+textarea { font: 14px/1.45 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; box-sizing: border-box; resize: vertical; }
+textarea:focus-visible, .choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+button.primary, button.pick { font: 600 14px var(--body); border-radius: 6px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--panel); border: 0; padding: 10px 18px; }
+button.primary:disabled { opacity: 0.5; cursor: default; }
+button.pick { justify-self: start; margin-top: 4px; font-size: 12px; padding: 4px 10px; background: var(--bg); color: var(--accent); border: 1px solid var(--accent); }
+button.pick[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 480px) { h1 { font-size: 27px; } }
 </style>
 
@@ -111,15 +128,69 @@ code { font: 13px var(--mono); background: var(--chip); padding: 1px 4px; border
   <p class="note">Same table in <code>docs/SCALE.md</code>. "Code" fixes are cheap and free. "Redraw" means new image generations, which I'll ask you about before making any.</p>
 </section>
 
-<section>
+<section id="feedback">
   <div class="eyebrow">Your call</div>
-  <h2>Questions for this round</h2>
-  <ol class="qs">
-    <li><b>Tower height.</b> True, 75% or 50%? And how many floors for the tallest 2×2 tower? A true-height 20-floor tower covers about 2½ tiles behind it, so hover-to-hide matters more the taller we go.</li>
-    <li><b>1×1 level 3 mid-rise.</b> Is 4 floors on a block about 12 m square the right look for the top of a 1×1 lot? (Shops 2–4 floors, industry a bigger works, as you said.) This replaces today's thin 6–8 floor towers, which are only about 5 m wide.</li>
-    <li><b>Trucks and trains.</b> Trucks at real length (9 m) take two traffic slots instead of one, and train cars at 20 m make a 3-car train 3½ tiles long. Both are code changes. Go ahead?</li>
-    <li><b>Ships.</b> Real container ships would be 8+ tiles long. Keep the small 2¼-tile ships, go to about 4 tiles, or leave ships for later?</li>
-  </ol>
+  <h2>Feedback for this round</h2>
+  <p>Pick what looks right and add notes anywhere. The tower and mid-rise floor counts come from the sliders above, so set those first. Press Save when you're done; you can come back and change it.</p>
+  <form id="fb" class="qs">
+    <fieldset class="q">
+      <legend><b>1 · Tower height</b></legend>
+      <p class="note">A true-height 20-floor tower covers about 2½ tiles behind it, so hover-to-hide matters more the taller we go. You can also press "Pick this" under a scene.</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="towerHeight" value="true" id="th-true"> True height</label>
+        <label class="choice"><input type="radio" name="towerHeight" value="75" id="th-75"> 75%</label>
+        <label class="choice"><input type="radio" name="towerHeight" value="50" id="th-50"> 50%</label>
+        <label class="choice"><input type="radio" name="towerHeight" value="unsure" id="th-unsure"> Not sure yet</label>
+      </div>
+      <p class="note">Tallest tower: <b class="out" id="fbFloors">20</b> floors (the slider above).</p>
+      <textarea id="towerNote" name="towerNote" rows="2" placeholder="Notes on the tower (shape, podium, hover-to-hide…)"></textarea>
+    </fieldset>
+    <fieldset class="q">
+      <legend><b>2 · The 1×1 level 3 mid-rise</b></legend>
+      <p class="note">A block about 12 m square replaces today's thin towers, which are about 5 m wide. Shops would be 2–4 floors and industry a bigger works, as you said.</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="midrise" value="right" id="mr-right"> Looks right</label>
+        <label class="choice"><input type="radio" name="midrise" value="taller" id="mr-taller"> Taller</label>
+        <label class="choice"><input type="radio" name="midrise" value="shorter" id="mr-shorter"> Shorter</label>
+        <label class="choice"><input type="radio" name="midrise" value="wider" id="mr-wider"> Wider or narrower</label>
+      </div>
+      <p class="note">Mid-rise: <b class="out" id="fbMid">4</b> floors (the slider above).</p>
+      <textarea id="midNote" name="midNote" rows="2" placeholder="Notes on the mid-rise"></textarea>
+    </fieldset>
+    <fieldset class="q">
+      <legend><b>3 · Vehicles</b></legend>
+      <p class="note">All code changes, free. A 9 m truck takes two traffic slots instead of one. 20 m train cars make a 3-car train 3½ tiles long.</p>
+      <div class="grid3">
+        <span>Cars and vans: narrower</span>
+        <div class="choices" role="radiogroup"><label class="choice"><input type="radio" name="cars" value="yes" id="cars-yes"> Yes</label><label class="choice"><input type="radio" name="cars" value="no" id="cars-no"> No</label><label class="choice"><input type="radio" name="cars" value="later" id="cars-later"> Later</label></div>
+        <span>Trucks: real length</span>
+        <div class="choices" role="radiogroup"><label class="choice"><input type="radio" name="trucks" value="yes" id="trucks-yes"> Yes</label><label class="choice"><input type="radio" name="trucks" value="no" id="trucks-no"> No</label><label class="choice"><input type="radio" name="trucks" value="later" id="trucks-later"> Later</label></div>
+        <span>Train cars: 20 m</span>
+        <div class="choices" role="radiogroup"><label class="choice"><input type="radio" name="trains" value="yes" id="trains-yes"> Yes</label><label class="choice"><input type="radio" name="trains" value="no" id="trains-no"> No</label><label class="choice"><input type="radio" name="trains" value="later" id="trains-later"> Later</label></div>
+        <span>Parked cars and garden trees: full size</span>
+        <div class="choices" role="radiogroup"><label class="choice"><input type="radio" name="props" value="yes" id="props-yes"> Yes</label><label class="choice"><input type="radio" name="props" value="no" id="props-no"> No</label><label class="choice"><input type="radio" name="props" value="later" id="props-later"> Later</label></div>
+        <span>Add buses</span>
+        <div class="choices" role="radiogroup"><label class="choice"><input type="radio" name="buses" value="yes" id="buses-yes"> Yes</label><label class="choice"><input type="radio" name="buses" value="no" id="buses-no"> No</label><label class="choice"><input type="radio" name="buses" value="later" id="buses-later"> Later</label></div>
+      </div>
+    </fieldset>
+    <fieldset class="q">
+      <legend><b>4 · Ships</b></legend>
+      <p class="note">Real container ships would be 8+ tiles long. Bigger ships need a bigger seaport and new art.</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="ships" value="keep" id="sh-keep"> Keep 2¼ tiles</label>
+        <label class="choice"><input type="radio" name="ships" value="4" id="sh-4"> About 4 tiles</label>
+        <label class="choice"><input type="radio" name="ships" value="later" id="sh-later"> Leave for later</label>
+      </div>
+    </fieldset>
+    <fieldset class="q">
+      <legend><b>5 · Anything else</b></legend>
+      <textarea id="notes" name="notes" rows="4" placeholder="Anything in the audit you disagree with, assets I missed, what to do first…"></textarea>
+    </fieldset>
+    <div class="actions">
+      <button type="submit" id="save" class="primary">Save feedback</button>
+      <span id="status" class="note" role="status" aria-live="polite">Loading any earlier answers…</span>
+    </div>
+  </form>
 </section>
 </div>
 
@@ -238,7 +309,8 @@ function drawScenes() {
     const f = document.createElement('figure'), cv = document.createElement('canvas');
     cv.setAttribute('aria-label', `Block with a 2×2 tower at ${s.label}`); cv.tabIndex = 0;
     const cap = document.createElement('figcaption');
-    cap.innerHTML = `<b>${s.label}</b><span class="sub"></span>`;
+    cap.innerHTML = `<b>${s.label}</b><span class="sub"></span><button type="button" class="pick" aria-pressed="false" data-v="${['true','75','50'][i]}">Pick this</button>`;
+    cap.querySelector('.pick').addEventListener('click', e => { const r = document.querySelector(`input[name=towerHeight][value="${e.currentTarget.dataset.v}"]`); r.checked = true; syncPicks(); });
     f.append(cv, cap); host.append(f);
     const on = () => { state.hover = i; drawScenes(); }, off = () => { state.hover = -1; drawScenes(); };
     cv.addEventListener('pointerenter', on); cv.addEventListener('pointerleave', off); cv.addEventListener('focus', on); cv.addEventListener('blur', off);
@@ -303,14 +375,65 @@ function audit() {
 
 function bind() {
   const f = document.getElementById('floors'), m = document.getElementById('mid');
-  f.addEventListener('input', () => { state.floors = +f.value; document.getElementById('floorsOut').textContent = f.value; drawScenes(); });
-  m.addEventListener('input', () => { state.mid = +m.value; document.getElementById('midOut').textContent = m.value; drawScenes(); });
+  f.addEventListener('input', () => { state.floors = +f.value; document.getElementById('floorsOut').textContent = f.value; document.getElementById('fbFloors').textContent = f.value; drawScenes(); });
+  m.addEventListener('input', () => { state.mid = +m.value; document.getElementById('midOut').textContent = m.value; document.getElementById('fbMid').textContent = m.value; drawScenes(); });
   const now = document.getElementById('carsNow'), tgt = document.getElementById('carsTarget');
   const set = v => { state.carsTarget = v; now.setAttribute('aria-pressed', String(!v)); tgt.setAttribute('aria-pressed', String(v)); drawScenes(); };
   now.addEventListener('click', () => set(false)); tgt.addEventListener('click', () => set(true));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawScenes(); fleet(); });
   new MutationObserver(() => { drawScenes(); fleet(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
-audit(); bind();
+
+// ── Feedback form: one document, feedback/round1, read back by the graphics session ──
+const FIELDS_RADIO = ['towerHeight', 'midrise', 'cars', 'trucks', 'trains', 'props', 'buses', 'ships'];
+const FIELDS_TEXT = ['towerNote', 'midNote', 'notes'];
+function syncPicks() {
+  const v = document.querySelector('input[name=towerHeight]:checked')?.value;
+  document.querySelectorAll('button.pick').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+function readForm() {
+  const out = { towerFloors: state.floors, midFloors: state.mid, carsShown: state.carsTarget ? 'target' : 'now' };
+  for (const n of FIELDS_RADIO) out[n] = document.querySelector(`input[name=${n}]:checked`)?.value ?? null;
+  for (const n of FIELDS_TEXT) out[n] = document.getElementById(n).value.trim();
+  return out;
+}
+function fillForm(d) {
+  for (const n of FIELDS_RADIO) { const r = d[n] && document.querySelector(`input[name=${n}][value="${CSS.escape(String(d[n]))}"]`); if (r) r.checked = true; }
+  for (const n of FIELDS_TEXT) if (typeof d[n] === 'string') document.getElementById(n).value = d[n];
+  const f = document.getElementById('floors'), m = document.getElementById('mid');
+  if (Number.isFinite(d.towerFloors)) { f.value = d.towerFloors; f.dispatchEvent(new Event('input')); }
+  if (Number.isFinite(d.midFloors)) { m.value = d.midFloors; m.dispatchEvent(new Event('input')); }
+  syncPicks();
+}
+const when = t => { try { return new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch { return ''; } };
+async function feedback() {
+  const form = document.getElementById('fb'), status = document.getElementById('status'), save = document.getElementById('save');
+  document.querySelectorAll('input[name=towerHeight]').forEach(r => r.addEventListener('change', syncPicks));
+  const db = await (window.claude?.use?.('db') ?? Promise.resolve(null));
+  if (!db) { status.textContent = 'Saving isn\'t available in this view. Open the page on claude.ai, signed in, to save answers.'; save.disabled = true; return; }
+  const ref = db.doc('feedback/round1');
+  let loaded = false, dirty = false;
+  form.addEventListener('input', () => { dirty = true; });
+  const timer = setTimeout(() => { if (!loaded) status.textContent = 'Earlier answers can\'t be reached yet. You can still fill this in and save.'; }, 10000);
+  ref.onSnapshot(snap => {
+    if (snap.metadata.fromCache && !loaded) return;
+    clearTimeout(timer);
+    const d = snap.exists ? snap.data() : null;
+    if (!loaded) { loaded = true; if (d && !dirty) fillForm(d); }
+    status.textContent = d?.savedAt ? `Saved ${when(d.savedAt)}.` : 'Nothing saved yet.';
+  }, e => { clearTimeout(timer); status.textContent = 'Earlier answers couldn\'t be loaded. You can still fill this in and save.'; });
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    save.disabled = true; status.textContent = 'Saving…';
+    try {
+      await ref.set({ ...readForm(), savedAt: new Date().toISOString() });
+      dirty = false;
+      status.textContent = `Saved ${when(Date.now())}. Tell the graphics session in chat and it will read your answers.`;
+    } catch (e) {
+      status.textContent = e?.code === 'invalid_argument' ? 'Only the page owner can save answers here.' : 'Couldn\'t save. Check your connection and press Save again.';
+    } finally { save.disabled = false; }
+  });
+}
+audit(); bind(); feedback();
 Promise.all(loads).then(() => (document.fonts?.ready ?? Promise.resolve())).then(() => { drawScenes(); fleet(); });
 </script>
