@@ -1,6 +1,16 @@
 # Scale
 
-One metre for every asset. Draft 1 (2026-11-19); the owner's picks from the review page will be added here.
+One metre for every asset. Set 2026-11-19; the owner's picks from round 1 are below.
+
+## Owner's picks (round 1, 2026-11-20)
+
+- **Towers are 2×2 only, at true height** (the same metre as the houses), **20 floors at most**. Heights vary below that; some 2×2 buildings are low, like a shopping mall.
+- **1×1 level 3: a 4-floor mid-rise**, about 12 m square.
+- **Trucks: real length** (9 m). **Parked cars and garden trees: full size.**
+- **Cars stay as they are**. **Train cars stay** at ¾ tile. **Buses later.**
+- **Ships stay** at 2¼ tiles for now; revisit later (TODO).
+
+Done: trucks are 9 m and take two traffic slots (`TRUCK_LEN`, `isTruck` in roads.ts); garden trees are about 6 m across (`TREE_SIZE` in lotDressing.ts), so small lots fit fewer of them; parked cars are 4.5 × 1.8 m in 2.5 m bays, nose-in beside a tower when side-by-side bays don't fit. Dev previews: `art/clay-set/scale/dress-preview.html` and `truck-preview.html` on the dev server.
 
 Review page: `node art/clay-set/scale/build.mjs out.html` builds it (sprites inlined), from `art/clay-set/scale/template.html` and `audit.json`. `art/clay-set/scale/measure.html` (open it on the dev server) measures every clay sprite.
 

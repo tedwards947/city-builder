@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><canvas id="c"></canvas>
+<script type="module">
+import { roadTrafficCars, drawTrafficCars, beginTrafficFrame } from '/src/render/clay/roads.ts';
+const T = 64, N = 14, cv = document.getElementById('c'); cv.width = N * T; cv.height = 3 * T;
+const ctx = cv.getContext('2d'); ctx.fillStyle = '#86bd63'; ctx.fillRect(0, 0, cv.width, cv.height);
+const out = []; beginTrafficFrame(T, 0);
+[[1, 0], [3, 2]].forEach(([cls, row]) => {
+  const around = [0, cls, 0, cls];
+  ctx.fillStyle = '#63676e'; ctx.fillRect(0, row * T + T * (cls === 1 ? 0.25 : 0.05), cv.width, T * (cls === 1 ? 0.5 : 0.9));
+  for (let tx = 0; tx < N; tx++) { const n = roadTrafficCars(tx, row, cls, around, 1.6, 0.9, 2.3, out); drawTrafficCars(ctx, out, n, tx * T, row * T, T); }
+});
+window.__done = true;
+</script>

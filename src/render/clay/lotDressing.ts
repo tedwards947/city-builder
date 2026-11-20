@@ -24,13 +24,20 @@
 import type { LotField } from './lotGround';
 
 export type TreeName = 'tree' | 'pine' | 'tree-autumn' | 'tree-blossom';
+/**
+ * Garden trees at full size (docs/SCALE.md: a canopy of about 6 m; the plot
+ * is about 202 plan units for 17 m). They were drawn at 3.4 m before.
+ */
+const TREE_SIZE = 1.75;
 /** Drawn width, height/width, footprint radius, and where the trunk meets the ground (fraction of height). */
 export const TREE_SPECS: Record<TreeName, { w: number; aspect: number; R: number; base: number }> = {
-  'tree': { w: 40, aspect: 101 / 81, R: 7, base: 0.93 },
-  'pine': { w: 34, aspect: 106 / 71, R: 7, base: 0.93 },
-  'tree-autumn': { w: 36, aspect: 97 / 72, R: 6, base: 0.95 },
-  'tree-blossom': { w: 40, aspect: 97 / 87, R: 7, base: 0.95 },
+  'tree': { w: 40 * TREE_SIZE, aspect: 101 / 81, R: 7 * TREE_SIZE, base: 0.93 },
+  'pine': { w: 34 * TREE_SIZE, aspect: 106 / 71, R: 7 * TREE_SIZE, base: 0.93 },
+  'tree-autumn': { w: 36 * TREE_SIZE, aspect: 97 / 72, R: 6 * TREE_SIZE, base: 0.95 },
+  'tree-blossom': { w: 40 * TREE_SIZE, aspect: 97 / 87, R: 7 * TREE_SIZE, base: 0.95 },
 };
+/** A parked car, 4.5 × 1.8 m, and the bay pitch, 2.5 m (plan units). */
+const CAR_LEN = 53, CAR_WID = 21, BAY = 30;
 export const TREE_NAMES = Object.keys(TREE_SPECS) as TreeName[];
 
 /** Ground tones a plan can ask for (index into groundTones.GROUND_TONES; 0 is "as painted"). */
@@ -50,7 +57,7 @@ export type GroundItem =
   | { k: 'stones'; pts: number[] }                                      // x, y, w …
   | { k: 'shadow'; x: number; y: number; R: number; h: number }
   | { k: 'pit'; x: number; y: number }
-  | { k: 'parking'; x: number; y: number; w: number; h: number; bays: number }
+  | { k: 'parking'; x: number; y: number; w: number; h: number; bays: number; nose?: boolean }
   | { k: 'court'; kind: 'lawn' | 'plaza'; x: number; y: number; w: number; h: number };
 
 export type PropItem = { y: number } & (
@@ -353,7 +360,7 @@ function addTreeRow(w: Work): boolean {
   const { f, r } = w, H = f.front - f.top;
   const name = pick(r, f.zone === 'res' ? ['tree', 'tree', 'pine', 'tree-blossom', 'tree-autumn'] as const : ['tree', 'tree', 'tree-blossom'] as const);
   const scale = 0.88;
-  const xL = f.left + 23, xR = f.right - 23;
+  const xL = f.left + 34, xR = f.right - 34;
   const col = (x: number, n: number): [number, number][] => {
     const out: [number, number][] = [];
     for (let i = 0; i < n; i++) out.push([x, f.top + H * (n === 3 ? 0.3 + 0.3 * i : 0.45 + 0.42 * i)]);
@@ -392,20 +399,26 @@ function sideBox(w: Work, bw: number, bh: number): [number, number] | null {
   return null;
 }
 
-/** Residential towers: a small car park with painted bays and a car or two. */
+/**
+ * Residential towers: a small car park with painted bays and a car or two.
+ * Side by side across the lot when there is room; otherwise nose-in, a
+ * narrow strip beside the tower (full-size cars are 2½ tower widths long).
+ */
 function addParking(w: Work): boolean {
   const { r } = w;
-  for (const bays of [3, 2]) {
-    const bw = 44, bh = bays * 20 + 4, at = sideBox(w, bw, bh);
+  for (const [bays, nose] of [[3, false], [2, false], [2, true], [1, true]] as const) {
+    const bw = nose ? bays * BAY + 4 : CAR_LEN + 12, bh = nose ? CAR_LEN + 12 : bays * BAY + 4, at = sideBox(w, bw, bh);
     if (!at) continue;
     const [x, y] = at;
-    w.ground.push({ k: 'parking', x, y, w: bw, h: bh, bays });
+    w.ground.push({ k: 'parking', x, y, w: bw, h: bh, bays, nose });
     const used = new Set<number>();
     for (let n = 1 + Math.floor(r() * 2); n > 0; n--) {
       const b = Math.floor(r() * bays);
       if (used.has(b)) continue;
       used.add(b);
-      w.props.push({ k: 'car', x: x + bw / 2, y: y + 2 + b * 20 + 17, w: 30, h: 13, colour: Math.floor(r() * 5), flip: r() < 0.5 });
+      const colour = Math.floor(r() * 5), flip = r() < 0.5;
+      if (nose) w.props.push({ k: 'car', x: x + 2 + b * BAY + BAY / 2, y: y + bh - 6, w: CAR_WID, h: CAR_LEN, colour, flip });
+      else w.props.push({ k: 'car', x: x + bw / 2, y: y + 2 + b * BAY + (BAY + CAR_WID) / 2, w: CAR_LEN, h: CAR_WID, colour, flip });
     }
     reserveRect(w, x, y, bw, bh);
     w.tags.push('parking');

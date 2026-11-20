@@ -10,7 +10,7 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-**Scale pass, round 1 out for the owner (2026-11-19):** `docs/SCALE.md` sets 1 tile = 17 m (from the highway's 4 lanes), the per-pixel numbers, target sizes and an audit; review page built by `art/clay-set/scale/build.mjs`. Waiting on the owner: tower height (true / 75% / 50%) and floors, the 1×1 level 3 mid-rise, longer trucks and train cars, ship size. Feeds TODO h (2×2 towers). Redraws need paid images: ask first.
+**Scale pass, round 1 decided (owner, 2026-11-20):** 1 tile = 17 m (`docs/SCALE.md`). Towers only on 2×2, at true height (the houses' metre), 20 floors at most; heights vary below that, and some 2×2 buildings are low (a shopping mall). The 1×1 level 3 is a 4-floor mid-rise about 12 m square (redraw: paid, ask first). Trucks go to real length (9 m); parked cars and garden trees go to full size. Cars and train cars stay as they are; buses later. Feeds TODO h (2×2 level-up buildings).
 
 **No-road warning is in (owner, 2026-11-19):** when a bulldoze or a highway upgrade leaves a police or fire station, school, hospital, train or subway station, seaport or airport with no street or avenue, a toast names it (click goes there) and the drag outlines it in red before release (`sim/roadCutoff.ts`, hooked into `CommandHistory`). Undo brings it back silently. Parks (decorative) and utilities (need no road) are left out.
 
@@ -35,7 +35,7 @@ Seaport G2 and the seaport art are in (picks A1, B3, D3 → E1 on `art/clay-set/
 ### Waiting on something else
 
 - **Retouch the train station art** (owner, 2026-11-19): the scale doesn't look quite right. Do it after the main rail work (phase 2) is in. Deferred by the owner (2026-11-19); ask what looks off before changing anything.
-- **Tower scaling too small** (owner, 2026-11-19, not urgent): confirm which tower (the airport's control tower, or the level 3 apartment and office towers) before changing it.
+- **Ships at a real scale** (owner, 2026-11-20: revisit later): today's ships are 38 m (2¼ tiles); real container ships are 140 m+ (8+ tiles). Bigger ships need a bigger seaport and new art. Keep the current ships until then.
 - **Terrain in the clay style** (grass, sand, water, rounded shorelines): deferred by the owner.
 - **Vibe versions of the new designs** [paid] (33 × 4 images): waiting on vibe tuning. The vibe mechanic barely shows up in a normal city yet, so the art would not be seen.
 - **Landscaping polish**: on hold. Known issues: identical neighbours (6 variants per sprite), uniform all-tower districts, plazas over shops' painted parking bays, the slate duplex (`res-2-b`) almost never dressed, green-vibe lots too busy.
