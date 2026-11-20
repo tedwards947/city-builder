@@ -82,6 +82,7 @@ export interface TranslationSchema {
       railJunction4: string;
       railCrossing: string;
       tripLeisure: string;
+      noLeisure: string;
       tripLeisureNone: string;
       attractionVisitors: string;
       attractionEarns: string;

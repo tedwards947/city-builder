@@ -104,6 +104,7 @@ export const en: TranslationSchema = {
       tripCustomers: "To customers",
       tripWorkers: "To workers",
       tripLeisure: "To leisure",
+      noLeisure: "No leisure in reach: grows slowly. Build a park nearby.",
       tripLeisureNone: "none in the city",
       attractionVisitors: "Visitors: {n} of {cap} a tick",
       attractionEarns: "Earns ${amount}/tick from tickets",
