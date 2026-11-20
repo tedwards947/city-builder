@@ -29,7 +29,9 @@ concurrency:
 jobs:
   balance:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 150 since the 2×2 lots suite (3 × 360-day runs on each saved city up to 40k residents): the
+    # run was 33 min before it, and the lots suite adds about 10 min per 10k city.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

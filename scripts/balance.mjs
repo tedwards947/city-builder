@@ -19,17 +19,20 @@
 // under the shipped numbers (a suburb joined to each saved city by a long street and one line,
 // 180 days against a street-only twin; a real-money Planner's bank on fresh maps); "landscape"
 // the landscaping targets under the shipped numbers (tree, green-vibe and water probes on each
-// saved city; a tree-belt probe on a made-up map, graded on fresh maps).
+// saved city; a tree-belt probe on a made-up map, graded on fresh maps); "lots" the 2×2 merged-lot
+// targets under the shipped numbers (3 seeds × 360 days of merging on each saved city, its own merged
+// lots undone first, and a capacity probe; saved cities up to 40k residents, --lots-max-pop to change).
 // Cities above 20k residents only run the econ suite (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape  one suite only (default all eight)
+//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots  one suite only (default all nine)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
 //   --trade-presets shipped,.. which seaport / goods presets (src/balance/trade.ts; default all)
 //   --taxdebt-presets shipped,.. which debt-drain / tax-level presets (src/balance/taxdebt.ts; default all)
 //   --pc-max-pop 20000       saved cities above this skip the PC and services suites
+//   --lots-max-pop 40000     saved cities above this skip the 2×2 lots suite
 //   --personas planner,...   which personas (default all)
 //   --days-fresh 300         game days on fresh cities
 //   --days-save 150          game days on saved cities
@@ -87,6 +90,7 @@ try {
     tradePresets: quick ? ['shipped'] : list(opt('--trade-presets')),
     taxDebtPresets: quick ? ['shipped'] : list(opt('--taxdebt-presets')),
     pcMaxPopulation: opt('--pc-max-pop') ? Number(opt('--pc-max-pop')) : undefined,
+    lotsMaxPopulation: opt('--lots-max-pop') ? Number(opt('--lots-max-pop')) : undefined,
     personas: list(opt('--personas')),
     daysFresh: Number(opt('--days-fresh') ?? (quick ? 120 : 300)),
     daysSave: Number(opt('--days-save') ?? 150),
@@ -109,6 +113,7 @@ try {
   for (const [v, s] of Object.entries(report.airportSummary ?? {})) console.log(`airport ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.railSummary ?? {})) console.log(`rail    ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.landscapeSummary ?? {})) console.log(`landscape ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.lotsSummary ?? {})) console.log(`lots ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -131,7 +136,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest) + rows('2×2 lots suite (shipped numbers)', r.lotsSummary ?? {}, r.lotsBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;

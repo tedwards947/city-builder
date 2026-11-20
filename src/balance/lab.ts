@@ -11,6 +11,7 @@ import { TRADE_PRESETS, applyTradeValues, tradeResult, type TradePreset, type Tr
 import { airportResult, type AirportResult } from './airport';
 import { railResult, railFresh, type RailResult, type RailFresh } from './rail';
 import { landscapeResult, treeBufferResult, type LandscapeResult } from './landscape';
+import { lotsResult, type LotsResult } from './lots';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
@@ -93,6 +94,8 @@ export interface LabOptions {
   daysSave?: number;
   /** Saved cities above this population are left out of the PC and services suites (big cities are slow). Default 20k. */
   pcMaxPopulation?: number;
+  /** Saved cities above this population are left out of the 2×2 lots suite (3 × 360-day runs each). Default 40k. */
+  lotsMaxPopulation?: number;
   /** Extra PC number sets by id (e.g. the auto-tuner's 'T'), each a partial BALANCE.politicalCapital tree like a variant's. */
   customVariants?: Record<string, { name: string; desc: string; values: Record<string, unknown> }>;
   /** The previous report, for trends. */
@@ -150,6 +153,10 @@ export interface Report {
   landscapeSummary: Record<string, Summary>;
   landscapeBest: Best | null;
   landscapeRuns: Record<string, Record<string, LandscapeResult | { treeBuffer: number | null }>>;
+  /** 2×2 lots suite: the shipped numbers only (key 'shipped'); saved cities only. */
+  lotsSummary: Record<string, Summary>;
+  lotsBest: Best | null;
+  lotsRuns: Record<string, Record<string, LotsResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -229,7 +236,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -244,6 +251,7 @@ export function runLab(o: LabOptions): Report {
   const airportIds = suites.includes('airport') ? ['shipped'] : [];
   const railIds = suites.includes('rail') ? ['shipped'] : [];
   const landscapeIds = suites.includes('landscape') ? ['shipped'] : [];
+  const lotsIds = suites.includes('lots') ? ['shipped'] : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -253,7 +261,7 @@ export function runLab(o: LabOptions): Report {
   const report: Report = {
     schema: REPORT_SCHEMA,
     generatedAt: new Date().toISOString(),
-    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands; "taxdebt" targets per debt-drain / tax-level preset (results[preset][city]), the real-money Planner at several tax levels plus debt probes under the tuned PC numbers; "airport" targets under the shipped numbers (results.shipped[city]), the airport built on each saved city against a twin without it; "rail" targets under the shipped numbers (results.shipped[city]), a suburb joined to each saved city by a long street and one line against a street-only twin, and a real-money Planner\'s bank on fresh maps; "landscape" targets under the shipped numbers (results.shipped[city]), tree, green-vibe and water probes on each saved city, and a tree-belt probe on a made-up map graded on fresh maps. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
+    about: 'Balance Lab: scripted players on the real sim, graded against the owner-approved targets (src/balance/targets.ts). Three suites: "pc" targets are graded per PC variant (results[variant][city]); "econ" targets per economy preset (results[preset][city]; "shipped" is Tight since 2026-11-17, "original" the numbers before), with PC at the shipped numbers; "svc" targets per school / hospital capacity preset (results[preset][city]), PC and economy as shipped; "trade" targets per seaport / goods preset (results[preset][city]), probes on each saved city as it stands; "taxdebt" targets per debt-drain / tax-level preset (results[preset][city]), the real-money Planner at several tax levels plus debt probes under the tuned PC numbers; "airport" targets under the shipped numbers (results.shipped[city]), the airport built on each saved city against a twin without it; "rail" targets under the shipped numbers (results.shipped[city]), a suburb joined to each saved city by a long street and one line against a street-only twin, and a real-money Planner\'s bank on fresh maps; "landscape" targets under the shipped numbers (results.shipped[city]), tree, green-vibe and water probes on each saved city, and a tree-belt probe on a made-up map graded on fresh maps; "lots" targets under the shipped numbers (results.shipped[city]), 2×2 merge runs (3 seeds × 360 days, the save\'s own merged lots undone first) and a capacity probe on each saved city up to 40k residents. Each result = { value, pass (null = not applicable), miss (distance outside the range), trend vs the previous run }.',
     options: { suites, variants, econPresets: presets, svcPresets: svcIds, tradePresets: tradeIds, taxDebtPresets: taxDebtIds, cities: o.cities.map(c => c.id), personas: personaIds, daysFresh, daysSave, pcMaxPopulation: pcMaxPop },
     variants: variants.map(v => v === 'Off' ? { id: 'Off', name: 'Off (shipped)', desc: 'The shipped numbers: PC as it is on main today.' }
       : o.customVariants?.[v] ? { id: v, name: o.customVariants[v].name, desc: o.customVariants[v].desc }
@@ -287,6 +295,9 @@ export function runLab(o: LabOptions): Report {
     landscapeSummary: {},
     landscapeBest: null,
     landscapeRuns: {},
+    lotsSummary: {},
+    lotsBest: null,
+    lotsRuns: {},
     taxDebtRuns: {},
     runs: {},
     probes: {},
@@ -459,6 +470,21 @@ export function runLab(o: LabOptions): Report {
         }
       }
     }
+    // ── 2×2 lots suite: merge runs and the capacity probe on each saved city ──
+    const lotsMaxPop = o.lotsMaxPopulation ?? 40_000;
+    for (const id of lotsIds) {
+      applyValues(BALANCE.politicalCapital as never, shippedPc);
+      report.lotsRuns[id] = {};
+      for (const city of o.cities) {
+        if (city.kind === 'fresh' || popOf(city) > lotsMaxPop) continue;
+        const t0 = Date.now();
+        const l = lotsResult(loadCity(city));
+        report.lotsRuns[id][city.id] = l;
+        const g = l.homesShops, i = l.industry;
+        log(`lots ${id} ${city.id}: homes+shops first ${g.firstMean ?? '-'} (${g.first.map(d => d ?? '-').join('/')}), by 90 ${g.by90}, by ${l.days} ${g.byEnd}, edge ${g.edgeShare ?? '-'}, 16×16 ${g.maxWindow}; industry by 90 ${i.by90}, by ${l.days} ${i.byEnd}, edge ${i.edgeShare ?? '-'}; shop pairs first ${l.pairs.firstMean ?? '-'}, by 90 ${l.pairs.by90}, by ${l.days} ${l.pairs.byEnd}; capacity ${l.capacity.map(k => `${k.zone}${k.shape === 'square' ? '' : 'p'}:${k.weight}/${k.trips ?? '-'}`).join(' ')}${l.undone ? `; ${l.undone} merged lots undone` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        grade('lots', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, lots: l });
+      }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -492,6 +518,7 @@ export function runLab(o: LabOptions): Report {
   report.airportBest = summarize('airport', airportIds, report.airportSummary);
   report.railBest = summarize('rail', railIds, report.railSummary);
   report.landscapeBest = summarize('landscape', landscapeIds, report.landscapeSummary);
+  report.lotsBest = summarize('lots', lotsIds, report.lotsSummary);
   return report;
 }
 
