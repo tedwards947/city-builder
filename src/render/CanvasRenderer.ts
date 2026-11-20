@@ -92,7 +92,8 @@ export interface RenderOptions {
 }
 
 /** `tiles`, when given, is what gets outlined (a cluster of homes); otherwise the rectangle. */
-export interface AreaHighlight { x0: number; y0: number; x1: number; y1: number; alpha: number; tiles?: readonly TilePoint[] }
+/** `warn`: red, for a building about to stop working (a drag is cutting off its road). */
+export interface AreaHighlight { x0: number; y0: number; x1: number; y1: number; alpha: number; tiles?: readonly TilePoint[]; warn?: boolean }
 
 export interface ZonePreview {
   tiles: ReadonlyArray<{ tx: number; ty: number }>;
@@ -809,10 +810,10 @@ export class CanvasRenderer {
     const w = Math.round((h.x1 - h.x0 + 1) * ts), hh = Math.round((h.y1 - h.y0 + 1) * ts);
     ctx.save();
     ctx.globalAlpha = Math.min(1, h.alpha);
-    ctx.fillStyle = 'rgba(125,216,192,0.14)';
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([9, 6]);
-    ctx.strokeStyle = '#9ff3dc';
+    ctx.fillStyle = h.warn ? 'rgba(255,84,64,0.22)' : 'rgba(125,216,192,0.14)';
+    ctx.lineWidth = h.warn ? 3 : 2.5;
+    ctx.setLineDash(h.warn ? [] : [9, 6]);
+    ctx.strokeStyle = h.warn ? '#ff5a46' : '#9ff3dc';
     if (h.tiles && h.tiles.length > 0) {
       const X = (tx: number) => Math.round(camera.worldToScreenX(tx * TILE_SIZE)), Y = (ty: number) => Math.round(camera.worldToScreenY(ty * TILE_SIZE));
       for (const t of h.tiles) ctx.fillRect(X(t.x), Y(t.y), X(t.x + 1) - X(t.x), Y(t.y + 1) - Y(t.y));

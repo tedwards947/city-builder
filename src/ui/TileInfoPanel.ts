@@ -122,7 +122,7 @@ const ZONE_NAME: Record<number, string> = {
 
 // The seaport is listed here for its upkeep line and its road warning, like the large plants.
 const isLargeUtility = (b: number) => b === BUILDING_LARGE_POWER_PLANT || b === BUILDING_LARGE_WATER_PLANT || b === BUILDING_LARGE_SEWAGE_PLANT || b === BUILDING_SEAPORT;
-const BUILDING_NAME: Record<number, string> = {
+export const BUILDING_NAME: Record<number, string> = {
   [BUILDING_POWER_PLANT]: "buildings.powerPlant",
   [BUILDING_WATER_TOWER]: "buildings.waterTower",
   [BUILDING_SEWAGE_PLANT]: "buildings.sewagePlant",

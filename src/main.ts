@@ -458,6 +458,9 @@ function areaHighlights(now: number): AreaHighlight[] {
     if (b) out.push({ x0: b.request.x0, y0: b.request.y0, x1: b.request.x1, y1: b.request.y1, alpha: 1, tiles: clusterTiles(b.request, state.world.grid.width) ?? undefined });
   }
   out.push(...tutorial.highlights(now));
+  // A bulldoze or highway drag that is cutting buildings off from their road: outline them in red before release.
+  const pulse = 0.65 + 0.35 * Math.abs(Math.sin(now / 260));
+  for (const b of state.history?.cuttingOff ?? []) out.push({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, tiles: b.tiles, alpha: pulse, warn: true });
   return out;
 }
 
