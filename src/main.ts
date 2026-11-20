@@ -198,6 +198,8 @@ const PLAY_ZOOM = camera.zoom;
  * screen) until the player starts or loads a city themselves.
  */
 let autosaveHeld = false;
+/** How loud the sound effects are while the title is up, as a share of the player's own FX level (owner, 2026-11-19). */
+const TITLE_FX = 0.4;
 /** Whether the title screen is up. */
 let titleUp = wantTitle({
   param: new URLSearchParams(location.search).get('title'),
@@ -226,6 +228,7 @@ const afterTitle: Array<() => void> = [];
 if (titleUp) {
   titleScreen.show();           // at once: the city loads behind it
   toastPanel.quiet = true;      // nothing but the title's own panes shows
+  sfx.setScale(TITLE_FX);       // the showcase city's sounds, quieter (the player's FX slider is not touched)
   markTitleSeen(titleStore, new Date());
 }
 /** ?debug=true only: the tour is running over the city in play, as a preview (ui/MarkerPanel.ts). */
@@ -237,6 +240,7 @@ function closeTitle(): void {
   titleScreen.hide();
   camera.zoom = PLAY_ZOOM;      // the tour leaves the zoom wherever it was
   toastPanel.quiet = false;
+  sfx.setScale(1);
 }
 
 /** Start playing `world`. `behindTitle`: it is only the backdrop of the title screen, which stays up. */

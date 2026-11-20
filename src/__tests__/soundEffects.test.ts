@@ -156,6 +156,19 @@ describe('SoundEffects', () => {
     expect(fx.names()).toEqual(['undo']);
   });
 
+  it('a passing multiplier (the title screen) quietens the effects without touching the player\'s FX setting', () => {
+    fx.setVolume(0.5);
+    expect(fx.level).toBeCloseTo(0.5);
+    fx.setScale(0.4);
+    expect(fx.level).toBeCloseTo(0.2);
+    expect(fx.getVolume()).toBe(0.5);                       // the slider's value is as the player left it
+    fx.setVolume(1);                                        // moving the slider while it is on still works
+    expect(fx.level).toBeCloseTo(0.4);
+    fx.setScale(1);
+    expect(fx.level).toBe(1);
+    expect(fx.getVolume()).toBe(1);
+  });
+
   it('follows a new or loaded world and lets go of the old one', () => {
     const old = world;
     world = new World(64, 64, 8);
