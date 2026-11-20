@@ -178,6 +178,9 @@ j. **Title screen** (owner, 2026-11-19). A first-load screen: the logo over a bi
 
 k. **Leisure and tourism** (owner, 2026-11-19; after h). A visitor traffic type (the airport now, maybe border connections later) plus destinations such as attractions. Needs a lot of workshopping with the owner before anything is built. Engine already has a visitors trip type (#265) used by the airport.
 
+l. **Land value carries little signal (low priority)** (owner, 2026-11-19). ENGINEER 3 found that in the generated lab cities about 80% of lots are within 2 tiles of a max-congestion road, so a flat −89 makes land value nearly constant, highest at quiet edges and slightly lower by parks. On the owner's concretta1 it works better: about 38% of lots are hit and parks raise it clearly (92 within 2 tiles vs 61 farther). Possible fix: soften the saturating congestion penalty (falloff by distance) and add a park/water bonus. It touches taxes and growth everywhere, so golden would move and ENGINEER 3 would re-tune. Check on the owner's golden-1 first. The 2×2 lots trigger no longer depends on land value (the prime-spot rule).
+
+
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
    - **Focus markers are built** (debug only): the owner places them in the showcase city with `?debug=true` (the "Focus markers" panel), saves to file, and the title tour visits them in order. See AGENT.md, Markers.
    - **Title polish is built** (owner's notes, 2026-11-19): no wiggle while the tour zooms (smooth zoom), nothing but the title panes on screen (no HUD, toasts, badges, pins or grid), and the showcase cannot fail (funds frozen; restarts from its file if it shrinks). See AGENT.md, Title screen.
