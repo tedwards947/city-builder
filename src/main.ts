@@ -505,6 +505,7 @@ const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneM
       case 'ordinances': togglePanel('ordinances'); break;
       case 'requests':   togglePanel('requests'); break;
       case 'underground': setUnderground(!underground); break;
+      case 'lowBuildings': lowBuildings = !lowBuildings; break;
     }
   },
   onRoadMode: (mode) => {
@@ -560,6 +561,8 @@ function toggleOverlay(which: Exclude<Overlay, 'none'>): void {
 // The underground view: the surface fades and subway tunnels show (drawn by the renderer).
 // While it is on, the bulldozer takes out subway track instead of clearing the surface.
 let underground = false;
+// Views › Low buildings: the towers on merged 2×2 lots drawn a few floors high (render/clay/bigLots.ts).
+let lowBuildings = false;
 function setUnderground(on: boolean): void {
   underground = on;
   input.underground = on;
@@ -856,6 +859,7 @@ function frame(now: number): void {
     hoverTile, tool: currentTool, coveragePreview, now, roadPreview, zonePreview, landscape,
     overlay: overlay === 'traffic' ? 'none' : overlay,   // the traffic overlay is drawn separately, below
     underground,
+    lowBuildings,
   });
   if (overlay === 'traffic' && !titleUp) trafficOverlay.render(renderer.ctx, state.world, camera, hoverTile);
   if (DEBUG && !titleUp) drawMarkerPins(renderer.ctx, state.world, camera);

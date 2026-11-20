@@ -39,6 +39,10 @@ All code-drawn, in `roads.ts` (no images).
 - Traffic is shown per tile, with no vehicles travelling the map (the owner removed the wandering cars): each lane is a conveyor of slots and a slot shows a car only where the tile is busy enough. `roadTrafficCars` (pure, tested in `src/__tests__/roads.test.ts`) takes the tile's load (`trafficVolume / roadCapacity`, not capped) and goods share (vans and trucks); cars brake when the road is over capacity. `drawTrafficCars` draws them from small baked pictures in the per-frame pass, from 12px tiles up.
 - Design mock with the alternatives that were considered: `art/clay-set/roads.html` (the owner chose J2 and T1).
 
+### Merged 2×2 lots
+
+`bigLots.ts` draws a merged lot (BIG_LOTS_DESIGN.md) once, from its bottom-left quarter, over the four tiles: code-drawn massing in the clay look at the docs/SCALE.md metre (towers up to 20 floors, courtyard blocks, slabs, malls, works), baked per look and tile size. `planBigLot` (pure, tested) picks the form from the zone and the anchor's `visualVariant`. A tall one fades while the pointer is on a tile behind it (hover-to-hide), and Views › Low buildings caps everything at 3 floors. Clay image art will replace the massing.
+
 ### Problem indicators
 
 Crime and sickness are shown by `problemPins.ts`, drawn per frame above everything else (never into chunks).
