@@ -12,6 +12,7 @@ import { exportIncome } from '../seaport';
 import { buildingTripIncome } from '../buildingTraffic';
 import { leisureTicketIncome } from '../leisureTraffic';
 import { eventTicketIncome } from '../eventDays';
+import { headcountCost } from '../runningCost';
 
 export class EconomySystem {
   private _inDebt = false;
@@ -89,7 +90,8 @@ export class EconomySystem {
     // Service buildings (police, fire, school, hospital, park) scale by maintenance.serviceMult.
     const buildingMaintenance = world.buildings.reduce(
       (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0) * (isServiceKind(b.kind) ? serviceMult : 1), 0);
-    const expenses = roadMaintenance + buildingMaintenance;
+    // Plus what serving the residents costs: per resident covered, per unit of utility supplied.
+    const expenses = roadMaintenance + buildingMaintenance + headcountCost(world).total;
     world.budget.money += income - expenses;
     world.budget.income = income;
     world.budget.expenses = expenses;

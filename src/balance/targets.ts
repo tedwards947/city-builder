@@ -22,6 +22,7 @@ import type { AirportResult } from './airport';
 import type { RailResult, RailFresh } from './rail';
 import type { LandscapeResult } from './landscape';
 import type { LotsResult } from './lots';
+import type { PaceResult } from './pace';
 
 export type Status = 'graded' | 'later';
 export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots';
@@ -60,6 +61,8 @@ export interface EvalCtx {
   treeBuffer?: number | null;
   /** 2×2 lots suite: merge runs and the capacity probe on a saved city (src/balance/lots.ts). */
   lots?: LotsResult | null;
+  /** Economy suite, saved cities: the neutral-tax surplus and the police / fire fix (src/balance/pace.ts). */
+  pace?: PaceResult | null;
 }
 
 export interface Target {
@@ -265,6 +268,28 @@ const ECON_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'econ.matureSurplus', metric: 'A mature city\'s (income − expenses) ÷ expenses per day, mean of the last 30 days', target: '0.10–0.25', persona: 'planner (own money)', cities: 'saved and generated', status: 'graded',
     why: 'Owner: a mature city should earn, but big projects should still take saving.',
     evaluate: c => { if (c.cityKind === 'fresh') return NA('not a mature city'); const e = econ(c); return e ? { ...range(e.surplusLate, 0.1, 0.25), note: `income ${e.incomeLate}/day, expenses ${e.expensesLate}/day; tax ×${e.taxForMidSurplus} would centre it` } : NA('not run'); } },
+  // Pacing (owner-approved 2026-11-20, option A: running costs that grow with the city, sim/runningCost.ts).
+  { id: 'econ.pace', metric: 'The Planner on its own money, a fresh city: (income − expenses) a day ÷ residents, when it first reaches 1k, 2k, 5k and 10k residents (mean of that sample and the next)', target: '1k 0.2–0.4; 2k 0.13–0.27; 5k 0.08–0.16; 10k 0.06–0.14', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-20): the game got too easy too fast; keep the early game and add mid-game pressure. The curve the owner approved: about 0.3 at 1k, 0.2 at 2k, 0.12 at 5k, 0.10 at 10k. A size the run does not reach is left out.',
+    evaluate: c => {
+      if (c.cityKind === 'save') return NA('fresh cities only'); const r = c.runs.planner; if (!r) return NA('not run');
+      const bands: [number, number, number][] = [[1000, 0.2, 0.4], [2000, 0.13, 0.27], [5000, 0.08, 0.16], [10000, 0.06, 0.14]];
+      const parts: Record<string, Outcome> = {};
+      for (const [pop, lo, hi] of bands) {
+        const k = r.series.findIndex(p => p.pop >= pop); if (k < 0) continue;
+        const pts = r.series.slice(k, k + 2);
+        parts[`${pop / 1000}k`] = range(pts.reduce((sum, p) => sum + (p.inc - p.exp) / Math.max(p.pop, 1), 0) / pts.length, lo, hi);
+      }
+      return Object.keys(parts).length ? all(parts) : NA('under 1k residents');
+    } },
+  { id: 'econ.firstYearBank', metric: 'The Planner on its own money, a fresh city: money on day 300', target: '30k–60k', persona: 'planner (own money)', cities: 'fresh', status: 'graded',
+    why: 'Owner (2026-11-20): by the end of the first year the city had 122k and +2.4k a day, too easy; a careful player should have saved some, not a fortune.',
+    evaluate: c => { if (c.cityKind === 'save') return NA('fresh cities only'); const r = c.runs.planner; if (!r) return NA('not run');
+      const p = r.series.find(x => x.day === 300); return p ? { ...range(p.money, 30_000, 60_000), note: `${p.pop} residents` } : NA('run shorter than 300 days'); } },
+  { id: 'econ.fixCost', metric: 'A saved city at the neutral tax level: surplus a day per resident; and the price of the police and fire stations it has outgrown (residents in reach but turned away), in days of that surplus', target: 'surplus 0.05–0.15 a resident; fix ≤ 30 days', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): the mid-game check, on golden-1. A grown city stays in surplus at the neutral tax, but a thin one, and what it has outgrown is affordable to fix: build another station, not a hidden tax.',
+    evaluate: c => { if (c.cityKind === 'fresh') return NA('saved cities only'); const p = c.pace; if (!p) return NA('not run (shipped preset only)');
+      return { ...all({ surplus: range(p.surplusPerResident, 0.05, 0.15), fix: p.fixDays === null ? { value: null, pass: false, miss: 1, note: 'runs at a loss' } : range(p.fixDays, 0, 30) }), note: `police ${p.police.stations} (+${p.police.more}), fire ${p.fire.stations} (+${p.fire.more}); costs ${p.costShare} of income` }; } },
   { id: 'econ.sink', metric: 'Money gained over the run ÷ expenses per day at the end (days of expenses banked; 300 days fresh, 150 saved)', target: '≤ 40', persona: 'planner (own money)', cities: 'all', status: 'graded',
     why: 'Money must not pile up without limit (v0; the owner may adjust). 40 days over a 150-day run is a surplus of about 0.25, the top of econ.matureSurplus.',
     evaluate: c => { const e = econ(c); return e ? { ...range(e.gainInDaysOfExpenses, -Infinity, 40), note: `money ${e.moneyStart} → ${e.moneyEnd}` } : NA('not run'); } },

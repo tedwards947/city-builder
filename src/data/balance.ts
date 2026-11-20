@@ -228,7 +228,23 @@ export const BALANCE = {
     // it (sim/serviceCapacity.ts). 0 or missing = no limit, reach alone
     // decides. So schools and hospitals scale with population: you add one
     // when the existing ones are full, not when the city sprawls.
-    capacity: { 6: 4000, 7: 8000 } as Record<number, number>,
+    // Police (4) and fire (5) too since the pacing change (owner, 2026-11-20): a growing
+    // district needs another station, not just one in reach.
+    capacity: { 4: 3000, 5: 4000, 6: 4000, 7: 8000 } as Record<number, number>,
+  },
+  // Running costs that grow with the city (sim/runningCost.ts; owner, 2026-11-20, pacing
+  // option A): on top of each building's fixed upkeep, a day's cost per resident a police
+  // station, fire station, school or hospital covers, and per unit of power, water and
+  // sewage supplied. Large plants run at largePlantMult of the per-unit cost.
+  // ENGINEER 3's numbers, tuned to the lab's econ.pace curve.
+  runningCost: {
+    perResident: { 4: 0.03, 5: 0.02, 6: 0.04, 7: 0.04 } as Record<number, number>,
+    perUnit: { power: 0.05, water: 0.06, sewage: 0.04 },
+    largePlantMult: 0.6,
+    // The first this many residents are free: the costs above are scaled by
+    // (population − freeResidents) ÷ population, so a town under it pays only fixed upkeep
+    // and the early game is unchanged.
+    freeResidents: 1000,
   },
   crime: {
     // Base crime added per tick per developed level.
