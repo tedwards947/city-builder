@@ -29,7 +29,7 @@ import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LID
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
-export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
+export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
 export type ToolbarAction = 'new' | 'save' | 'load' | 'tutorial' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground' | 'lowBuildings';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
@@ -138,6 +138,8 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'vibe', icon: 'vibe', overlay: 'vibe', hotkey: 'v' },
     { key: 'schoolMap', icon: 'school', overlay: 'school', hotkey: 'g' },
     { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
+    { key: 'policeMap', icon: 'police', overlay: 'police', hotkey: 'p' },
+    { key: 'fireMap', icon: 'fire', overlay: 'fireCover', hotkey: 'j' },
     // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
     { key: 'undergroundView', icon: 'underground', action: 'underground', sepBefore: true },
     { key: 'lowBuildings', icon: 'lowBuildings', action: 'lowBuildings' },

@@ -367,7 +367,7 @@ let hoverTile: { tx: number; ty: number } | null = null;
 /** The last tile the pointer was over on the map (it stays when the pointer leaves for a button). */
 let lastMapTile: { tx: number; ty: number } | null = null;
 // At most one overlay is shown at a time.
-type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
+type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
 let overlay: Overlay = 'none';
 
 // A refused click or drag says why, at most once every few seconds per reason
@@ -898,6 +898,8 @@ function frame(now: number): void {
   // The school or health map: the same marks, without a tool selected.
   if (seatView === null && overlay === 'school') seatView = { kind: BUILDING_SCHOOL, gained: [] };
   else if (seatView === null && overlay === 'health') seatView = { kind: BUILDING_HOSPITAL, gained: [] };
+  else if (seatView === null && overlay === 'police') seatView = { kind: BUILDING_POLICE, gained: [] };
+  else if (seatView === null && overlay === 'fireCover') seatView = { kind: BUILDING_FIRE, gained: [] };
   // Behind the title: the city alone, with no pointer marks, badges or guides.
   if (titleUp) renderer.render(state.world, camera, { now, bare: true, smooth: tour.active });
   else renderer.render(state.world, camera, {
