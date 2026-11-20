@@ -700,6 +700,15 @@ if (DEBUG) {
     if (at) mergeLot(state.world, at.tx, at.ty, true);
   });
   ship.after(merge);
+  // Merging is off in the shipped numbers (BALANCE.lots.chancePerDay 0): try it with a quick chance.
+  const auto = document.createElement('button');
+  auto.id = 'debug-auto-merge';
+  auto.type = 'button';
+  const label = () => { auto.textContent = (BALANCE.lots.chancePerDay as number) > 0 ? 'Merging: on' : 'Merging: off'; };
+  const knobs = BALANCE.lots as { chancePerDay: number };   // BALANCE is edited live by the debug tools, never saved
+  auto.addEventListener('click', () => { knobs.chancePerDay = knobs.chancePerDay > 0 ? 0 : 0.25; label(); });
+  label();
+  merge.after(auto);
 }
 const debtUi = new DebtUi({
   getWorld: () => state.world, formatMoney,

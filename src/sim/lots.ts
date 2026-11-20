@@ -71,6 +71,7 @@ export function mergeLot(world: World, tx: number, ty: number, force = false): b
     L.lot[i] = q + 1;
     L.abandoned[i] = 0;
     L.distress[i] = 0;
+    world.lotStreak[i] = 0;
     world.grid.markDirty(i % width, (i - (i % width)) / width);
   }
   world.events.emit('lotMerged', { tx, ty, zone: L.zone[tiles[0]] });
@@ -144,4 +145,48 @@ export function nearestMergeable(world: World, tx: number, ty: number, force = f
     if (d < bestD && canMergeLot(world, x, y, force)) { best = { tx: x, ty: y }; bestD = d; }
   }
   return best;
+}
+
+// ── When lots merge (systems/LotMergeSystem.ts) ──────────────────────────────
+
+/**
+ * Whether lot `i` counts as happy and valuable today: an ordinary lot at the
+ * top level, not abandoned, with no distress (nothing wrong with its power,
+ * water, road, crime or fire risk), on land worth at least
+ * BALANCE.lots.minLandValue for its zone, in a city whose satisfaction is at
+ * least BALANCE.lots.minSatisfaction. (Satisfaction is one number for the
+ * whole city; distress and land value are the lot's own.)
+ */
+export function lotIsHappy(world: World, i: number): boolean {
+  const L = world.layers, cfg = BALANCE.lots;
+  return L.lot[i] === 0 && L.devLevel[i] === BALANCE.growth.maxLevel && L.abandoned[i] === 0 && L.distress[i] === 0
+    && L.landValue[i] >= (cfg.minLandValue[L.zone[i]] ?? 255)
+    && world.stats.satisfaction >= cfg.minSatisfaction;
+}
+
+/** One game day passes: every happy, valuable lot adds a day to its streak (world.lotStreak); every other lot starts again from 0. */
+export function updateLotStreaks(world: World): void {
+  const streak = world.lotStreak;
+  const { zoned, zonedCount } = world.index;
+  for (let k = 0; k < zonedCount; k++) {
+    const i = zoned[k];
+    streak[i] = lotIsHappy(world, i) ? Math.min(255, streak[i] + 1) : 0;
+  }
+}
+
+/** The NW tile of every 2×2 that could merge today: canMergeLot, and all four lots happy for BALANCE.lots.streakDays in a row. Blocks may overlap. */
+export function mergeCandidates(world: World): number[] {
+  const streak = world.lotStreak, need = BALANCE.lots.streakDays;
+  const { width, height } = world.grid;
+  const { zoned, zonedCount } = world.index;
+  const out: number[] = [];
+  for (let k = 0; k < zonedCount; k++) {
+    const a = zoned[k];
+    if (streak[a] < need) continue;
+    const x = a % width, y = (a - x) / width;
+    if (x + 1 >= width || y + 1 >= height) continue;
+    if (streak[a + 1] < need || streak[a + width] < need || streak[a + width + 1] < need) continue;
+    if (canMergeLot(world, x, y)) out.push(a);
+  }
+  return out;
 }

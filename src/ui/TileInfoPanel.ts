@@ -488,6 +488,9 @@ export class TileInfoPanel {
       const lot = lotSummary(world, i);
       const levelText = lot ? t("ui.tileInfo.bigLot") : `Lv ${dev}/${BALANCE.growth.maxLevel}`;
       html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> ${levelText}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
+      if (!lot && BALANCE.lots.chancePerDay > 0 && world.lotStreak[i] > 0) {
+        html += `<div class="ti-detail">${t("ui.tileInfo.bigLotStreak", {days: Math.min(world.lotStreak[i], BALANCE.lots.streakDays), need: BALANCE.lots.streakDays})}</div>`;
+      }
       if (lot && lot.residents > 0) html += `<div class="ti-detail">${t("ui.tileInfo.bigLotResidents", {count: lot.residents})}</div>`;
       html += problemChips(world, i);
       html += establishedRow(world, i);

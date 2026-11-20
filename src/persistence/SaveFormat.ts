@@ -131,6 +131,8 @@ export interface WorldSnapshot {
     rail?: Uint8Array;
     // Optional: saves written before lots kept their age lack it (their clocks start at load).
     developedSince?:  Uint16Array;
+    /** world.lotStreak (sim/lots.ts). Added without a version bump: missing = every streak starts from 0. */
+    lotStreak?:       Uint8Array;
   };
 }
 

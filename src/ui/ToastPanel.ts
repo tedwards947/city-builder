@@ -115,6 +115,9 @@ export class ToastPanel {
         this.showToast(t('ui.toast.roadLostManyTitle', { n: list.length }), t('ui.toast.roadLostManyMsg', { names }), 'alert', place);
       }
     };
+    this.handlers['lotMerged'] = (p: CityEvents['lotMerged']) => {
+      this.showToast(t('ui.toast.lotMergedTitle'), t('ui.toast.lotMergedMsg'), 'info', tile(p.tx, p.ty));
+    };
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam
       if (p.level >= 2) {

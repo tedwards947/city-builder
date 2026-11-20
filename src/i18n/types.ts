@@ -23,6 +23,7 @@ export interface TranslationSchema {
       abandoned: string;
       bigLot: string;
       bigLotResidents: string;
+      bigLotStreak: string;
       distress: string;
       landValue: string;
       pollution: string;
@@ -146,6 +147,8 @@ export interface TranslationSchema {
     };
     toast: {
       stationsRebuiltTitle: string;
+      lotMergedTitle: string;
+      lotMergedMsg: string;
       stationsRebuilt: string;
       newerSaveTitle: string;
       newerSave: string;

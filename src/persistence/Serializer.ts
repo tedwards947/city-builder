@@ -73,6 +73,7 @@ export function serialize(world: World): WorldSnapshot {
       vibeGreen:       new Uint8Array(l.vibeGreen),
       vibePlanned:     new Uint8Array(l.vibePlanned),
       developedSince:  new Uint16Array(world.developedSince),
+      lotStreak:       new Uint8Array(world.lotStreak),
     },
   };
 }
@@ -118,6 +119,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   l.vegetation.set(snapshot.layers.vegetation);
   l.devLevel.set(snapshot.layers.devLevel);
   if (snapshot.layers.lot) l.lot.set(snapshot.layers.lot);
+  if (snapshot.layers.lotStreak) world.lotStreak.set(snapshot.layers.lotStreak);
   cleanLots(world);
   l.power.set(snapshot.layers.power);
   l.water.set(snapshot.layers.water);
