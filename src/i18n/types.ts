@@ -336,6 +336,8 @@ export interface TranslationSchema {
       vibe: string;
       schoolMap: string;
       healthMap: string;
+      policeMap: string;
+      fireMap: string;
       view: string;
       inspect: string;
       street: string;
@@ -460,6 +462,8 @@ export interface TranslationSchema {
       vibe: string;
       schoolMap: string;
       healthMap: string;
+      policeMap: string;
+      fireMap: string;
       view: string;
       inspect: string;
       street: string;

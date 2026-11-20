@@ -59,7 +59,7 @@ const LOT_FADED_ALPHA = 0.22;
 /** Zone and dezone tools: they act on a whole merged lot. */
 const isZoneTool = (tool: string): boolean => tool.startsWith('zone');
 
-export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health';
+export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
 
 /** Everything about a frame besides the world and the camera. All optional. */
 export interface RenderOptions {
@@ -159,9 +159,11 @@ const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [s
   crime: [['rgba(255,0,0,0.1)', 'Low'], ['rgba(255,0,0,0.4)', 'Moderate'], ['rgba(255,0,0,0.8)', 'High']],
   fire:  [['#333', 'None'], ['rgba(255,64,0,0.4)', 'Moderate'], ['rgba(255,128,0,0.8)', 'High']],
   vibe:  [['rgba(0,200,0,0.4)', 'Green'], ['rgba(200,100,0,0.4)', 'Industrial'], ['rgba(0,100,200,0.4)', 'Social']],
-  // The marks themselves are drawn by _drawSeatView (main.ts passes seatView for these two).
+  // The marks themselves are drawn by _drawSeatView (main.ts passes seatView for these four).
   school: [['#7db8f0', 'Seats free'], ['#e0b050', 'School full / home without a seat']],
   health: [['#7db8f0', 'Beds free'], ['#e0b050', 'Hospital full / home without a bed']],
+  police: [['#7db8f0', 'Room to cover'], ['#e0b050', 'Station full / home not covered']],
+  fireCover: [['#7db8f0', 'Room to cover'], ['#e0b050', 'Station full / home not covered']],
 };
 
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
