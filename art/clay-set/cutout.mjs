@@ -256,10 +256,10 @@ const PLOT_ASPECT = 0.905;
 // Tall buildings came back on a slab that is too short front to back. Grow the
 // slab backwards to the standard shape, behind whatever stands on it, with
 // slab texture taken from the clear strip along its front.
-function extendSlab(img) {
+function extendSlab(img, aspect = PLOT_ASPECT) {
   const { w, h, rgba } = img;
   const p = findPlot(img), plotW = p.right - p.left + 1;
-  const wantTop = Math.round(p.bottom + 1 - plotW * PLOT_ASPECT);
+  const wantTop = Math.round(p.bottom + 1 - plotW * aspect);
   const colTop = (x) => { for (let y = 0; y < h; y++) if (rgba[(y * w + x) * 4 + 3] > 128) return y; return h; };
   const median = (from, to) => { const v = []; for (let x = from; x <= to; x++) v.push(colTop(x)); v.sort((a, b) => a - b); return v[v.length >> 1]; };
   const inset = Math.round(plotW * 0.03), span = Math.round(plotW * 0.03);
@@ -337,6 +337,38 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'lots/' + f.replace(/\.png$/, '');
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px`);
+}
+// ── Merged shop pairs ───────────────────────────────────────────────────────
+// raw-pairs/c-wide-*.png: two tiles side by side (ref/anchor-2x1-wide.png);
+// c-tall-*.png: two tiles front to back (ref/anchor-2x1-tall.png). Scaled so
+// the plot is 2 or 1 plots wide; the plot is grown back to 2×1 or 1×2 depth.
+// Game ids are `pairs/<name>`. Game output only.
+const PAIR_PURPLE_BG = new Set(['c-tall-d.png']);
+// Magenta that tinted dark windows and glass: pulled back towards grey-blue.
+const PAIR_UNTINT = new Set(['c-wide-a.png', 'c-wide-b.png', 'c-wide-d.png', 'c-tall-b.png', 'c-tall-d.png']);
+mkdirSync(join(GAME_OUT, 'pairs'), { recursive: true });
+for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.png')).sort()) {
+  const wide = f.startsWith('c-wide');
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-pairs', f), '--out', tmp], { stdio: 'ignore' });
+  const bmp = readBmp(tmp);
+  if (PAIR_PURPLE_BG.has(f)) for (let i = 0; i < bmp.w * bmp.h; i++) {
+    const r = bmp.rgb[i * 3], g = bmp.rgb[i * 3 + 1], b = bmp.rgb[i * 3 + 2];
+    if (Math.min(r, b) > 70 && g < Math.min(r, b) * 0.5 && Math.abs(r - b) < 70) { bmp.rgb[i * 3] = 255; bmp.rgb[i * 3 + 1] = 0; bmp.rgb[i * 3 + 2] = 255; }
+  }
+  const cut = cutout(bmp);
+  if (PAIR_UNTINT.has(f)) for (let i = 0; i < cut.w * cut.h; i++) {
+    const d = i * 4, m = Math.min(cut.rgba[d], cut.rgba[d + 2]) - cut.rgba[d + 1];
+    if (cut.rgba[d + 3] === 0 || m < 20) continue;
+    cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
+  }
+  const { grown } = extendSlab(cut, wide ? PLOT_ASPECT / 2 : PLOT_ASPECT * 2);
+  const p = findPlot(cut), k = (wide ? 202 : 101) / (p.right - p.left + 1);
+  const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
+  const id = 'pairs/' + f.replace(/\.png$/, '');
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };

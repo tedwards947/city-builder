@@ -8,7 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
-import { isLotAnchor } from '../sim/lots';
+import { isLotAnchor, lotShape, LOT_SIZE } from '../sim/lots';
 import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
 import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
@@ -41,7 +41,7 @@ import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
 import { loadClaySprites, beginClayFrame, pickClaySprite, bigClaySprite, drawClaySprite, LOOK_NO_POWER, collectClayEffects, drawClayEffects, drawClayFire, drawClaySmolder, type ClayEffect } from './clay/ClaySprites';
 import { loadWildTrees, wildTreesReady, beginWildTreeFrame, drawWildTrees, wildDensity, wildVariant } from './clay/wildTrees';
 import { roadTrafficCars, beginTrafficFrame, drawTrafficCars, type TrafficCar } from './clay/roads';
-import { drawBigLot, beginBigLotFrame, planBigLot, bigLotRise, MAX_LOT_RISE } from './clay/bigLots';
+import { drawBigLot, beginBigLotFrame, planBigLot, bigLotRise, MAX_LOT_RISE, drawPairLot, pairSprite, planPair, pairRise } from './clay/bigLots';
 import { trafficVolume, shownRoadLoad } from '../sim/TrafficData';
 import { findProblemClusters, drawProblemBadge, pinRadius, crimeProblem, healthProblem, lotProblemMask, CRIME_BADGE_MIN, SICKNESS_BADGE_MIN, type ProblemCluster, type BadgeKind } from './clay/problemPins';
 import { drawCommuteRoutes } from './clay/commuteRoute';
@@ -415,12 +415,14 @@ export class CanvasRenderer {
         }
         // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
-        // A merged 2×2 lot (sim/lots.ts) is drawn once, from its bottom-left quarter, so rows behind it are already drawn.
-        if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
-        if (isLotAnchor(world.layers.lot[i]) && dev > 0) markerQueue.push(i, sxi, syi);
-        // A merged pair of shops (lot 5–8) has no art of its own yet: its two tiles keep their level-3 pictures.
+        // A merged lot (sim/lots.ts) is drawn once, from its last tile in draw order
+        // (a 2×2's bottom-left quarter, a pair's east or south tile), so rows behind it are already drawn.
         const lotQ = world.layers.lot[i];
-        const clay = big || (lotQ >= 1 && lotQ <= 4) || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        if (lotQ === 3 || lotQ === 6 || lotQ === 8) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
+        if (isLotAnchor(lotQ) && dev > 0) markerQueue.push(i, sxi, syi);
+        // A pair of shops (lot 5–8) keeps its two level-3 pictures until its own art has loaded.
+        const merged = (lotQ >= 1 && lotQ <= 4) || (lotQ >= 5 && this._pairArt(world, i));
+        const clay = big || merged || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
@@ -498,10 +500,10 @@ export class CanvasRenderer {
     {
       const W = world.grid.width, H = world.grid.height;
       const yMax = Math.min(H - 1, bounds.y1 + Math.ceil(MAX_LOT_RISE) + 2);
-      for (let ty = Math.max(0, bounds.y0); ty <= yMax; ty++) for (let tx = Math.max(0, bounds.x0 - 1); tx <= Math.min(W - 1, bounds.x1); tx++) {
-        if (tx >= bounds.x0 && ty <= bounds.y1) continue;   // drawn in the loop
-        const i = ty * W + tx;
-        if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
+      for (let ty = Math.max(0, bounds.y0); ty <= yMax; ty++) for (let tx = Math.max(0, bounds.x0 - 1); tx <= Math.min(W - 1, bounds.x1 + 1); tx++) {
+        if (tx >= bounds.x0 && tx <= bounds.x1 && ty <= bounds.y1) continue;   // drawn in the loop
+        const i = ty * W + tx, q = world.layers.lot[i];
+        if (q === 3 || q === 6 || q === 8) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
       }
     }
 
@@ -624,25 +626,36 @@ export class CanvasRenderer {
    * sprite across the whole footprint with what moves drawn over it, or the
    * code-drawn stand-in while it has no art or the art has not loaded.
    */
+  /** Whether tile `i` is part of a merged shop pair whose clay art has loaded (so its own picture is not drawn). */
+  private _pairArt(world: World, i: number): boolean {
+    const shape = lotShape(world, i), anchor = world.lotAnchor(i);
+    return (shape === 'wide' || shape === 'tall') && anchor >= 0 && pairSprite(shape, world.layers.visualVariant[anchor]) !== undefined;
+  }
+
   /**
-   * A merged 2×2 lot's building (clay/bigLots.ts). A tall one fades while the
-   * pointer is on a tile it stands in front of (hover-to-hide; on a phone, the
-   * tapped tile), so the lots behind it can be seen and clicked.
+   * A merged lot's building (clay/bigLots.ts): a 2×2, or a pair of shops. A tall
+   * one fades while the pointer is on a tile it stands in front of
+   * (hover-to-hide; on a phone, the tapped tile), so the lots behind it can be
+   * seen and clicked.
    */
   private _drawMergedLot(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number): void {
     if (anchor < 0) return;
+    const shape = lotShape(world, anchor);
+    if (!shape) return;
     const W = world.grid.width, ax = anchor % W, ay = (anchor - ax) / W;
     const zone = world.layers.zone[anchor], variant = world.layers.visualVariant[anchor];
     const low = this._lowBuildings;
     let alpha = 1;
     const h = this._lotHover;
-    if (h && h.tx >= ax && h.tx <= ax + 1 && h.ty < ay) {
-      const rise = bigLotRise(planBigLot(zone, variant), low);
+    if (h && h.tx >= ax && h.tx < ax + LOT_SIZE[shape].w && h.ty < ay) {
+      const rise = shape === 'square' ? bigLotRise(planBigLot(zone, variant), low) : pairRise(planPair(shape, variant));
       if (h.ty >= ay - Math.ceil(rise)) alpha = LOT_FADED_ALPHA;
     }
     const tile = Math.ceil(camera.zoom * TILE_SIZE);
-    drawBigLot(ctx, zone, variant, world.layers.abandoned[anchor] !== 0,
-      Math.floor(camera.worldToScreenX(Projection.tileToWorldX(ax))), Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ay))), tile, alpha, low);
+    const sx = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(ax))), sy = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ay)));
+    const abandoned = world.layers.abandoned[anchor] !== 0;
+    if (shape === 'square') drawBigLot(ctx, zone, variant, abandoned, sx, sy, tile, alpha, low);
+    else drawPairLot(ctx, shape, variant, abandoned, sx, sy, tile, alpha);
   }
 
   private _drawBigBuilding(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number, kind: number, now: number): void {
@@ -720,29 +733,30 @@ export class CanvasRenderer {
     };
     if (ts >= PROBLEM_BADGE_MIN_TILE) {
       const r = ts * 0.16;
-      // A merged 2×2 lot (queued once, from its anchor) is one building: its badges sit
-      // over the whole footprint and show a problem any of its four tiles has.
+      // A merged lot (queued once, from its anchor) is one building: its badges sit
+      // over the whole footprint and show a problem any of its tiles has.
       const quarters = (i: number): readonly number[] => (world.layers.lot[i] !== 0 ? world.lotTilesAt(i) : [i]);
+      const size = (i: number): { w: number; h: number } => { const sh = lotShape(world, i); return sh ? LOT_SIZE[sh] : { w: 1, h: 1 }; };
       for (let q = 0; q < markerQueue.length; q += 3) {
         const i = markerQueue[q], x = markerQueue[q + 1], y = markerQueue[q + 2];
-        const tiles = quarters(i), S = ts * (tiles.length > 1 ? 2 : 1);
-        if (tiles.some(k => crimeProblem(world, k, CRIME_BADGE_MIN))) badge(x + S * 0.8, y + S * 0.2, r, 'crime', 1);
-        if (tiles.some(k => healthProblem(world, k, SICKNESS_BADGE_MIN))) badge(x + S * 0.2, y + S * 0.2, r, 'health', 1);
-        if (world.layers.zone[i] === ZONE_R && tiles.some(k => world.layers.recentDeath[k] > 0)) badge(x + S * 0.2, y + S * 0.8, r, 'death', 1);
+        const tiles = quarters(i), { w, h } = size(i), SX = ts * w, SY = ts * h;
+        if (tiles.some(k => crimeProblem(world, k, CRIME_BADGE_MIN))) badge(x + SX * 0.8, y + SY * 0.2, r, 'crime', 1);
+        if (tiles.some(k => healthProblem(world, k, SICKNESS_BADGE_MIN))) badge(x + SX * 0.2, y + SY * 0.2, r, 'health', 1);
+        if (world.layers.zone[i] === ZONE_R && tiles.some(k => world.layers.recentDeath[k] > 0)) badge(x + SX * 0.2, y + SY * 0.8, r, 'death', 1);
       }
       // No road, no power, no water, commute: along the front of the lot. With
       // no road the rest are symptoms and only the road badge shows.
       for (let q = 0; q < utilityQueue.length; q += 3) {
-        const tiles = quarters(utilityQueue[q]), S = ts * (tiles.length > 1 ? 2 : 1), x = utilityQueue[q + 1], y = utilityQueue[q + 2];
+        const i = utilityQueue[q], tiles = quarters(i), { w, h } = size(i), SX = ts * w, SY = ts * h, x = utilityQueue[q + 1], y = utilityQueue[q + 2];
         let m = 0;
         for (const k of tiles) m |= lotProblemMask(world, k);
-        if (m & 64) { badge(x + S * 0.5, y + S * 0.8, r, 'road', 1); continue; }
+        if (m & 64) { badge(x + SX * 0.5, y + SY * 0.8, r, 'road', 1); continue; }
         // Side by side, as far apart as on a 1×1 lot.
         const power = (m & 4) !== 0, water = (m & 8) !== 0;
-        if (power) badge(x + S * 0.5 - (water ? ts * 0.16 : 0), y + S * 0.8, r, 'power', 1);
-        if (water) badge(x + S * 0.5 + (power ? ts * 0.12 : 0), y + S * 0.8, r, 'water', 1);
-        if (m & 32) badge(x + S * 0.85, y + S * 0.5, r, 'cutoff', 1);
-        else if (m & 16) badge(x + S * 0.85, y + S * 0.5, r, 'commute', 1);
+        if (power) badge(x + SX * 0.5 - (water ? ts * 0.16 : 0), y + SY * 0.8, r, 'power', 1);
+        if (water) badge(x + SX * 0.5 + (power ? ts * 0.12 : 0), y + SY * 0.8, r, 'water', 1);
+        if (m & 32) badge(x + SX * 0.85, y + SY * 0.5, r, 'cutoff', 1);
+        else if (m & 16) badge(x + SX * 0.85, y + SY * 0.5, r, 'commute', 1);
       }
     } else {
       // Districts are regrouped when the sim has ticked, at most a few times a second.

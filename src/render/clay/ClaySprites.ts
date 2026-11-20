@@ -216,12 +216,17 @@ const BIG_ID: Record<number, string> = {
   [BUILDING_LARGE_SEWAGE_PLANT]: 'sewage-large',
 };
 
-/** The sprite for a building on several tiles, or undefined if it has none or it has not loaded. Draw it with `tile` = the footprint's side. */
 /** A merged 2×2 lot's clay sprite (public/sprites/clay/lots/<name>.png), or undefined until it has loaded. Draw it with `tile` = two tiles. */
 export function lotClaySprite(name: string): ClaySprite | undefined {
   return sprites.get('lots/' + name);
 }
 
+/** A merged shop pair's clay sprite (public/sprites/clay/pairs/<name>.png), once loaded. */
+export function pairClaySprite(name: string): ClaySprite | undefined {
+  return sprites.get('pairs/' + name);
+}
+
+/** The sprite for a building on several tiles, or undefined if it has none or it has not loaded. Draw it with `tile` = the footprint's side. */
 export function bigClaySprite(kind: number): ClaySprite | undefined {
   const id = BIG_ID[kind];
   return id ? sprites.get(id) : undefined;
