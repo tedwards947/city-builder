@@ -670,16 +670,16 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   "lots/c-tower-a": {
     "w": 257,
     "h": 460,
-    "left": 28,
+    "left": 27,
     "right": 229,
     "bottom": 434
   },
   "lots/c-tower-b": {
     "w": 257,
-    "h": 460,
+    "h": 461,
     "left": 28,
     "right": 229,
-    "bottom": 434
+    "bottom": 435
   },
   "lots/c-tower-c": {
     "w": 238,
@@ -689,11 +689,11 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "bottom": 402
   },
   "lots/c-tower-d": {
-    "w": 228,
-    "h": 409,
-    "left": 13,
-    "right": 214,
-    "bottom": 386
+    "w": 229,
+    "h": 410,
+    "left": 14,
+    "right": 215,
+    "bottom": 387
   },
   "lots/c-tower-e": {
     "w": 223,
@@ -735,7 +735,7 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "h": 255,
     "left": 25,
     "right": 226,
-    "bottom": 219
+    "bottom": 220
   },
   "lots/r-court-a": {
     "w": 255,
@@ -752,25 +752,25 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "bottom": 219
   },
   "lots/r-tower-a": {
-    "w": 257,
-    "h": 461,
+    "w": 258,
+    "h": 462,
     "left": 28,
-    "right": 228,
-    "bottom": 435
+    "right": 229,
+    "bottom": 436
   },
   "lots/r-tower-b": {
-    "w": 291,
-    "h": 521,
+    "w": 292,
+    "h": 522,
     "left": 45,
-    "right": 245,
-    "bottom": 493
+    "right": 246,
+    "bottom": 494
   },
   "lots/r-tower-c": {
     "w": 231,
-    "h": 414,
+    "h": 413,
     "left": 15,
     "right": 216,
-    "bottom": 390
+    "bottom": 389
   },
   "lots/r-tower-d": {
     "w": 285,
@@ -802,17 +802,17 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   },
   "pairs/c-tall-d": {
     "w": 163,
-    "h": 293,
+    "h": 292,
     "left": 31,
     "right": 131,
-    "bottom": 269
+    "bottom": 268
   },
   "pairs/c-wide-a": {
-    "w": 255,
-    "h": 341,
+    "w": 254,
+    "h": 340,
     "left": 25,
-    "right": 227,
-    "bottom": 305
+    "right": 226,
+    "bottom": 304
   },
   "pairs/c-wide-b": {
     "w": 254,
@@ -826,13 +826,13 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "h": 341,
     "left": 25,
     "right": 226,
-    "bottom": 304
+    "bottom": 305
   },
   "pairs/c-wide-d": {
-    "w": 255,
-    "h": 341,
+    "w": 254,
+    "h": 340,
     "left": 25,
-    "right": 227,
+    "right": 226,
     "bottom": 304
   }
 };

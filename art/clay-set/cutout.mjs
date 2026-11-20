@@ -286,6 +286,41 @@ function extendSlab(img, aspect = PLOT_ASPECT) {
   return { grown: top - wantTop };
 }
 
+// The slab's front edge (the lip under the plot) came back as many pixels thick
+// on a merged lot as on a 1×1, so in the game it was twice as thick and the lot
+// looked raised (owner, 2026-11-20). Thin it to a 1×1's: 4.1% of a tile.
+const LIP_PER_TILE = 0.041;
+function thinLip(img, tilesWide) {
+  const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
+  const lum = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? -1 : (rgba[d] + rgba[d + 1] + rgba[d + 2]) / 3; };
+  const heights = [];
+  // Every column across the plot: the ground a little way in, then how far up from the bottom the lip runs.
+  for (let f = 0.04; f <= 0.96; f += 0.02) {
+    const x = Math.round(p.left + plotW * f);
+    const ground = [];
+    for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) ground.push(lum(x, p.bottom - k));
+    ground.sort((a, b) => a - b);
+    const surf = ground[ground.length >> 1];
+    if (surf < 0) continue;
+    let k = 0;
+    while (k < plotW * 0.08 && Math.abs(lum(x, p.bottom - k) - surf) > surf * 0.06) k++;
+    if (k < plotW * 0.08) heights.push(k);
+  }
+  if (!heights.length) return 0;
+  heights.sort((a, b) => a - b);
+  const face = heights[heights.length >> 1], want = Math.round(LIP_PER_TILE * plotW / tilesWide);
+  const drop = face - want;
+  if (drop <= 0) return 0;
+  // Drop rows spread evenly through the lip, so its shading keeps its order.
+  const gone = new Set();
+  for (let j = 0; j < drop; j++) gone.add(p.bottom - face + 1 + Math.floor((j + 0.5) * face / drop));
+  const out = new Uint8Array(w * h * 4);
+  let dy = h - 1;
+  for (let y = h - 1; y >= 0; y--) { if (gone.has(y)) continue; out.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), dy * w * 4); dy--; }
+  rgba.set(out);
+  return drop;
+}
+
 // Area resample to any size (premultiplied alpha), for scales that are not whole numbers.
 function resample({ w, h, rgba }, W, H) {
   const out = new Uint8Array(W * H * 4), kx = w / W, ky = h / H;
@@ -333,6 +368,7 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
     if (Math.min(r, b) > 70 && g < Math.min(r, b) * 0.5 && Math.abs(r - b) < 70) { bmp.rgb[i * 3] = 255; bmp.rgb[i * 3 + 1] = 0; bmp.rgb[i * 3 + 2] = 255; }
   }
   const cut = cutout(bmp);
+  const thinned = thinLip(cut, 2);
   const { grown } = extendSlab(cut);   // generated plots come back short front to back
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
@@ -340,7 +376,7 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
-  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px`);
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px`);
 }
 // ── Merged shop pairs ───────────────────────────────────────────────────────
 // raw-pairs/c-wide-*.png: two tiles side by side (ref/anchor-2x1-wide.png);
@@ -390,6 +426,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
     if (cut.rgba[d + 3] === 0 || m < 20) continue;
     cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
   }
+  const thinned = thinLip(cut, wide ? 2 : 1);
   const pulled = PAIR_PULL[f] ? pullForward(cut, Math.round(PAIR_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / (wide ? 2 : 1))) : 0;
   const { grown } = extendSlab(cut, wide ? PLOT_ASPECT / 2 : PLOT_ASPECT * 2);
   const p = findPlot(cut), k = (wide ? 202 : 101) / (p.right - p.left + 1);
@@ -398,7 +435,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
-  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px${pulled ? `, pulled forward ${pulled}px` : ''}`);
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px${pulled ? `, pulled forward ${pulled}px` : ''}`);
 }
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
