@@ -57,8 +57,9 @@ export const en: TranslationSchema = {
       notBuildable: "Not buildable",
       abandoned: "ABANDONED",
       bigLot: "2×2 building",
+      bigLotPair: "Double shop",
       bigLotResidents: "{count} residents in the whole building",
-      bigLotStreak: "Thriving in a prime spot for {days} of {need} days toward a 2×2 building",
+      bigLotStreak: "Thriving in a prime spot for {days} of {need} days toward a bigger building",
       distress:
         "Distress: {distress}/{threshold} — conditions unmet, risk of abandonment",
       landValue: "Land value: {value} ({label})",
@@ -217,6 +218,7 @@ export const en: TranslationSchema = {
       stationsRebuiltTitle: "Stations rebuilt",
       lotMergedTitle: "A big building goes up",
       lotMergedMsg: "Four thriving lots have become one 2×2 building. It holds half as much again.",
+      lotMergedPairMsg: "Two thriving shops side by side have become one building. It holds half as much again.",
       stationsRebuilt: "Stations are smaller now. {n} in this city were rebuilt at the new size, on the same track and with their roads kept.",
       newerSaveTitle: "Saved by a newer version",
       newerSave: "Your city was saved by a newer version of the game and cannot be opened here. Reload the page to update. It is kept: nothing is saved over it unless you start or load another city, and a copy is under Load.",

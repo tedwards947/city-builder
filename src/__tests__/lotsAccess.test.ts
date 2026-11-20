@@ -101,10 +101,10 @@ describe('counts for the lab', () => {
     const blocks: [number, number, number][] = [[2, 2, ZONE_R], [6, 2, ZONE_R], [10, 2, ZONE_C], [14, 2, ZONE_I], [2, 8, ZONE_I]];
     for (const [x, y, zone] of blocks) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) w.setZone(x + dx, y + dy, zone);
     for (const [x, y] of blocks.slice(0, 4)) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) w.layers.devLevel[w.grid.idx(x + dx, y + dy)] = TOP;
-    expect(lotCounts(w)).toEqual({ total: 0, byZone: [0, 0, 0, 0] });
+    expect(lotCounts(w)).toEqual({ total: 0, byZone: [0, 0, 0, 0], pairs: 0 });
     for (const [x, y] of blocks) mergeLot(w, x, y);                     // the last block is not built up: it does not merge
     const byZone = [0, 0, 0, 0];
     byZone[ZONE_R] = 2; byZone[ZONE_C] = 1; byZone[ZONE_I] = 1;
-    expect(lotCounts(w)).toEqual({ total: 4, byZone });
+    expect(lotCounts(w)).toEqual({ total: 4, byZone, pairs: 0 });
   });
 });

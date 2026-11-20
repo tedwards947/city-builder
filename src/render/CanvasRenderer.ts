@@ -8,6 +8,7 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import { isLotAnchor } from '../sim/lots';
 import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
 import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
@@ -392,8 +393,8 @@ export class CanvasRenderer {
         const sxi = Math.floor(sx);
         const syi = Math.floor(sy);
         // Zoomed in, every lot is checked for a missing road, power or water, empty ones too.
-        // A merged 2×2 lot gets one set of badges, queued from its anchor (NW quarter).
-        if (ts >= PROBLEM_BADGE_MIN_TILE && zone !== ZONE_NONE && world.layers.lot[i] <= 1) utilityQueue.push(i, sxi, syi);
+        // A merged lot gets one set of badges, queued from its anchor.
+        if (ts >= PROBLEM_BADGE_MIN_TILE && zone !== ZONE_NONE && (world.layers.lot[i] === 0 || isLotAnchor(world.layers.lot[i]))) utilityQueue.push(i, sxi, syi);
 
         // 1. Draw Sprite (Buildings/Houses)
         // Localized Vibe for sprite selection
@@ -416,8 +417,10 @@ export class CanvasRenderer {
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
         // A merged 2×2 lot (sim/lots.ts) is drawn once, from its bottom-left quarter, so rows behind it are already drawn.
         if (world.layers.lot[i] === 3) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
-        if (world.layers.lot[i] === 1 && dev > 0) markerQueue.push(i, sxi, syi);
-        const clay = big || world.layers.lot[i] !== 0 || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        if (isLotAnchor(world.layers.lot[i]) && dev > 0) markerQueue.push(i, sxi, syi);
+        // A merged pair of shops (lot 5–8) has no art of its own yet: its two tiles keep their level-3 pictures.
+        const lotQ = world.layers.lot[i];
+        const clay = big || (lotQ >= 1 && lotQ <= 4) || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).

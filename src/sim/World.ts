@@ -727,23 +727,28 @@ export class World {
     return true;
   }
 
-  /** Index of the NW tile of the merged 2×2 lot that tile `i` is part of (sim/lots.ts), or -1 for an ordinary tile. An array read. */
+  /**
+   * Index of the anchor tile of the merged lot that tile `i` is part of (sim/lots.ts), or -1 for an
+   * ordinary tile: the NW tile of a 2×2, the west tile of a wide pair, the north tile of a tall one. An array read.
+   */
   lotAnchor(i: number): number {
     const q = this.layers.lot[i];
     if (q === 0) return -1;
-    return i - ((q - 1) & 1) - ((q - 1) >> 1) * this.grid.width;
+    if (q <= 4) return i - ((q - 1) & 1) - ((q - 1) >> 1) * this.grid.width;
+    return q === 6 ? i - 1 : q === 8 ? i - this.grid.width : i;
   }
 
-  /** The four tiles (NW, NE, SW, SE) of the merged lot that tile `i` is part of; empty for an ordinary tile. */
+  /** The tiles of the merged lot that tile `i` is part of, anchor first: four (NW, NE, SW, SE) for a 2×2, two for a pair of shops; empty for an ordinary tile. */
   lotTilesAt(i: number): number[] {
     const a = this.lotAnchor(i);
     if (a < 0) return [];
     const { width } = this.grid;
-    return [a, a + 1, a + width, a + width + 1];
+    const q = this.layers.lot[a];
+    return q === 5 ? [a, a + 1] : q === 7 ? [a, a + width] : [a, a + 1, a + width, a + width + 1];
   }
 
   /**
-   * Bring down the merged lot that tile `i` is part of: all four tiles become
+   * Bring down the merged lot that tile `i` is part of: all its tiles become
    * empty lots, still zoned. It is one building, so whatever changes one of
    * its tiles (a bulldozer, a rezone, a road, a building, a fire that guts it)
    * calls this first. False, and nothing changes, for an ordinary tile.
