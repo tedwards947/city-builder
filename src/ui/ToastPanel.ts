@@ -2,6 +2,7 @@ import { BALANCE } from '../data/balance';
 import { World } from '../sim/World';
 import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
+import { BUILDING_NAME } from './TileInfoPanel';
 
 export type ToastType = 'info' | 'warning' | 'alert';
 
@@ -99,6 +100,20 @@ export class ToastPanel {
     };
     this.handlers['debtCleared'] = () => {
       this.showToast(t('ui.toast.debtClearedTitle'), t('ui.toast.debtClearedMsg'), 'info');
+    };
+    // An action cut buildings off from their road: say which, and a click goes to the first.
+    this.handlers['roadLost'] = (p: CityEvents['roadLost']) => {
+      const list = p.buildings;
+      if (list.length === 0) return;
+      const name = (kind: number) => BUILDING_NAME[kind] ? t(BUILDING_NAME[kind]) : t('buildings.building');
+      const first = list[0];
+      const place = { x0: first.x0, y0: first.y0, x1: first.x1, y1: first.y1 };
+      if (list.length === 1) {
+        this.showToast(t('ui.toast.roadLostTitle', { name: name(first.kind) }), t('ui.toast.roadLostMsg'), 'alert', place);
+      } else {
+        const names = [...new Set(list.map((b) => name(b.kind)))].join(', ');
+        this.showToast(t('ui.toast.roadLostManyTitle', { n: list.length }), t('ui.toast.roadLostManyMsg', { names }), 'alert', place);
+      }
     };
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam

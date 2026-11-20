@@ -66,6 +66,10 @@ export type CityEvents = {
   // for a batch that was refused and taken back. (tx, ty) is the tile of the
   // action's last change. `undo` is true for an undo step.
   pcAction:         { delta: number; tx?: number; ty?: number; undo: boolean };
+  // A player action (bulldozing a road, or upgrading it to a highway) left
+  // these buildings with no street or avenue, so they stopped working
+  // (sim/roadCutoff.ts; emitted by CommandHistory, never on undo).
+  roadLost:         { buildings: import('./roadCutoff').CutOffBuilding[] };
   // Ordinances (src/sim/ordinances.ts). Enact and repeal come from the
   // player; suspend and resume from OrdinanceSystem when PC falls to 0 or
   // below and when it climbs above 0 again.

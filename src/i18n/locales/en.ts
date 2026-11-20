@@ -236,6 +236,10 @@ export const en: TranslationSchema = {
       healthcareCrisisTitle: "Healthcare Crisis",
       healthcareCrisisMsg:
         "Widespread sickness reported in {affectedTiles} areas!",
+      roadLostTitle: "{name} has no road",
+      roadLostMsg: "It has stopped working. Build a street or avenue beside it (a highway does not count).",
+      roadLostManyTitle: "{n} buildings have no road",
+      roadLostManyMsg: "{names} stopped working. Build a street or avenue beside them (a highway does not count).",
       buildingAbandonedTitle: "Building Abandoned",
       buildingAbandonedMsg:
         "A level {level} building was abandoned at {tx}, {ty}.",

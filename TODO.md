@@ -10,6 +10,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
+**No-road warning is in (owner, 2026-11-19):** when a bulldoze or a highway upgrade leaves a police or fire station, school, hospital, train or subway station, seaport or airport with no street or avenue, a toast names it (click goes there) and the drag outlines it in red before release (`sim/roadCutoff.ts`, hooked into `CommandHistory`). Undo brings it back silently. Parks (decorative) and utilities (need no road) are left out.
+
 **Tutorial UI is in (TUTORIAL_DESIGN.md, 2026-11-19):** `src/ui/TutorialCard.ts` runs the steps 4×/s (passes met ones, Skip step, Leave asks once), draws the card (bottom centre, full width under 600px), pulses the step's toolbar item (opening its fly-out) plus the speed buttons and demand chart, and ghosts `target()` on the map (area highlight). Title and Menu have a Tutorial button, lit on a first launch (`concretta.tutorialDone`). The steps, rules and map are ENGINE's (see its section); the map is a placeholder until the owner builds the real one. Copy (`ui.tutorial.*`) waits on the owner.
 
 **Toolbar regrouped (2026-11-19, owner via PM):** View · Inspect · Clear, Roads · Rail · Ports (seaport, airport), Zones, Utilities · Services (park joined) · Landscape, then Views (the data maps plus the underground view, moved out of Rail) · Budget · Ordinances · Requests · Undo · Redo · Menu. Fly-out items can start a group (`sepBefore`): Rail is ground / elevated / subway. Park's icon is now a bench. Hotkeys unchanged.

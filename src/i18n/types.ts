@@ -170,6 +170,10 @@ export interface TranslationSchema {
       fireDamagedOnlyMany: string;
       healthcareCrisisTitle: string;
       healthcareCrisisMsg: string;
+      roadLostTitle: string;
+      roadLostMsg: string;
+      roadLostManyTitle: string;
+      roadLostManyMsg: string;
       buildingAbandonedTitle: string;
       buildingAbandonedMsg: string;
       lowFundsTitle: string;
