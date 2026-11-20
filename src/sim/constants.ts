@@ -54,6 +54,7 @@ export const BUILDING_BEACH_PARK = 20;  // 3×2 on land at the water's edge, rep
 export const BUILDING_PLAZA      = 21;  // 2×2 plaza with a monument, repeatable
 export const BUILDING_MUSEUM     = 22;  // 2×2, one per city
 export const BUILDING_STADIUM    = 23;  // 4×4 bowl plus a 2-tile entrance plaza, one per city
+export const BUILDING_LIDO       = 25;  // 3×2 seaside lido at the water's edge, repeatable (owner 2026-11-20: a second beach park type)
 export const BUILDING_MID_PARK   = 24;  // 2×2 park, repeatable (owner 2026-11-20: a size between the 1×1 park and the 3×3)
 
 

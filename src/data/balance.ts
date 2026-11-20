@@ -108,6 +108,7 @@ export const BALANCE = {
     22: { cost: 60000,  maintenance: 60 },  // BUILDING_MUSEUM (2×2, one per city)
     23: { cost: 400000, maintenance: 200 }, // BUILDING_STADIUM (4×4 + plaza, one per city)
     24: { cost: 2500,   maintenance: 14 },  // BUILDING_MID_PARK (2×2)
+    25: { cost: 8000,   maintenance: 35 },  // BUILDING_LIDO (3×2), as the beach park until tuned
   } as Record<number, { cost: number; maintenance: number }>,
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
@@ -126,6 +127,7 @@ export const BALANCE = {
       22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false, capacity: 60,  appeal: 50, pull: 20, ticket: 6, shopShare: 0   }, // museum
       23: { category: 'unique', unlockPopulation: 10000, pcCost: 200, landValue: { bonus: 5,  radius: 3 }, countsAsPark: false }, // stadium: only a little; it is a destination on event days only (part 4)
       24: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 14, radius: 4 }, countsAsPark: true,  capacity: 14,  appeal: 12, pull: 2,  ticket: 0, shopShare: 0.5 }, // 2×2 park
+      25: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 40,  appeal: 35, pull: 10, ticket: 0, shopShare: 0.5 }, // lido (as the beach park until tuned)
     } as Record<number, LeisureRow>,
     // Leisure trips a home sends per level, per tick (the `leisure` traffic market). Residents go
     // less often than they shop (transit.tripsRtoC is 0.33). The market runs only while an

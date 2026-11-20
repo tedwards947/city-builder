@@ -38,7 +38,7 @@ function rich(size = 40, population = 0): World {
 
 describe('leisure kinds', () => {
   it('are in two groups: parks (repeatable) and unique (one per city)', () => {
-    expect(leisureKinds('parks')).toEqual([BUILDING_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, 24]);   // 24: the 2×2 park
+    expect(leisureKinds('parks')).toEqual([BUILDING_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, 24, 25]);   // 24: the 2×2 park, 25: the lido
     expect(leisureKinds('unique')).toEqual([BUILDING_MUSEUM, BUILDING_STADIUM]);
     for (const k of leisureKinds('unique')) expect(placementRules(k).onePerCity).toBe(true);
     for (const k of leisureKinds('parks')) expect(placementRules(k).onePerCity).toBeFalsy();
@@ -71,6 +71,9 @@ describe('leisure kinds', () => {
 describe('placing leisure buildings', () => {
   it('a beach park must touch water, on any side', () => {
     const w = rich();
+    expect(w.placeBlocker(10, 10, 25)).toBe('noWater');                                   // the lido follows the same rule
+    expect(buildingShape(25, 1)).toEqual(buildingShape(BUILDING_BEACH_PARK, 1));
+    expect(countsAsPark(25)).toBe(true);
     expect(w.placeBlocker(10, 10, BUILDING_BEACH_PARK)).toBe('noWater');
     const cmd = new PlaceBuildingCommand(10, 10, BUILDING_BEACH_PARK);
     expect(new CommandHistory(w).run(cmd)).toBe(false);
