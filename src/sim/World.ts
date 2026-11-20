@@ -227,6 +227,12 @@ export class World {
    * nothing draws it.
    */
   developedSince: Uint16Array;
+  /**
+   * Per tile: how many game days in a row the lot has been happy and on
+   * valuable land, toward merging into a 2×2 building (sim/lots.ts
+   * updateLotStreaks). Saved. Outside `layers` because nothing draws it.
+   */
+  lotStreak: Uint8Array;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
   /** Set while this is the tutorial city (tutorial/rules.ts): the tutorial-only rules apply. Saved. */
@@ -324,6 +330,7 @@ export class World {
     this.stats = { population: 0, powerSupply: 0, powerDemand: 0, waterSupply: 0, waterDemand: 0, sewageSupply: 0, sewageDemand: 0, servicesCoveredZones: 0, rDemand: 1, cDemand: 1, iDemand: 1, avgLandValue: BALANCE.landValue.base, avgCongestion: 0, satisfaction: 1 };
     this.character = { egalitarian: 0, green: 0, planned: 0 };
     this.developedSince = new Uint16Array(n);
+    this.lotStreak = new Uint8Array(n);
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requestNotBefore: {}, requests: [], nextRequestId: 1 };
     this.buildings = [];
     this.buildingId = new Uint32Array(n);

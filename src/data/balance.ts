@@ -564,6 +564,17 @@ export const BALANCE = {
     debtPcDrainPerDay: 0.75,
   },
 
+  // When four top-level lots merge into a 2×2 building (sim/lots.ts, systems/LotMergeSystem.ts,
+  // BIG_LOTS_DESIGN.md). PLACEHOLDER numbers, for ENGINEER 3 to tune.
+  lots: {
+    chancePerDay: 0,       // a ready block's chance to merge, per game day. 0 = no merges: shipped until the owner approves the numbers.
+    streakDays: 10,        // days in a row all four lots must be happy and on valuable land before the block is ready
+    minSatisfaction: 0.8,  // the city's satisfaction (0–1) a day needs to count as happy
+    // Land value (0–255) a lot needs that day, by zone: homes, shops, industry (which sits on cheaper land).
+    minLandValue: { 1: 150, 2: 150, 3: 90 } as Record<number, number>,
+    maxPerDay: 1,          // merges per game day, city-wide
+  },
+
   ticksPerDay: 8,
   baseTickMs: 500,      // 2 ticks/sec at 1×
   startingMoney: 20000,
