@@ -8,7 +8,7 @@ import type { World } from '../sim/World';
 import type { Camera } from '../render/Camera';
 import type { AreaHighlight } from '../render/CanvasRenderer';
 import { TILE_SIZE } from '../render/Projection';
-import { TUTORIAL_STEPS } from '../tutorial/steps';
+import { TUTORIAL_STEPS, newTutorialUi } from '../tutorial/steps';
 import { endTutorial } from '../tutorial/rules';
 import type { TutorialStep, TutorialTarget, TutorialUi } from '../tutorial/types';
 import { t } from '../i18n';
@@ -40,7 +40,7 @@ function node<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text =
 }
 
 export class Tutorial {
-  readonly ui: TutorialUi = { panned: false, zoomed: false, inspectedHome: false, budgetOpened: false, overlayOn: false, cardClosed: false };
+  readonly ui: TutorialUi = newTutorialUi();
   private world: World | null = null;
   private readonly steps: readonly TutorialStep[];
   private readonly hooks: TutorialHooks;
@@ -82,13 +82,13 @@ export class Tutorial {
   attach(world: World, camera: Camera): void {
     const state = world.tutorial;
     this.world = state ? world : null;
-    for (const k of Object.keys(this.ui) as Array<keyof TutorialUi>) this.ui[k] = false;
+    Object.assign(this.ui, newTutorialUi());
     this.cam0 = { x: camera.x, y: camera.y, zoom: camera.zoom };
     this.shown = -1;
     this.confirming = false;
     this.lastCheck = -Infinity;
     this.target = null;
-    if (state) this.steps[state.step]?.enter?.(world);   // once after a load
+    if (state) this.steps[state.step]?.enter?.(world, this.ui);   // once after a load
     this.show();
   }
 
@@ -138,7 +138,7 @@ export class Tutorial {
     const world = this.world!;
     if (step >= this.steps.length) { this.finish(); return; }
     world.tutorial!.step = step;
-    this.steps[step].enter?.(world);
+    this.steps[step].enter?.(world, this.ui);
     this.confirming = false;
     this.show();
   }
@@ -166,7 +166,7 @@ export class Tutorial {
       this.point([]);
       return;
     }
-    if (this.shown !== step) this.point(s.point ?? []);
+    if (this.shown !== step) this.point(typeof s.point === 'function' ? s.point(world) : s.point ?? []);
     this.shown = step;
     this.target = s.target?.(world) ?? null;
     this.card.hidden = false;
@@ -180,7 +180,7 @@ export class Tutorial {
       this.button(t('ui.tutorial.leaveNo'), false, () => { this.confirming = false; this.show(); });
       return;
     }
-    this.text.textContent = t('ui.tutorial.step.' + s.id, s.vars?.(world));
+    this.text.textContent = t('ui.tutorial.step.' + (s.copy?.(world) ?? s.id), s.vars?.(world));
     if (last) {
       this.button(t('ui.tutorial.close'), true, () => { this.ui.cardClosed = true; this.lastCheck = -Infinity; this.finish(); });
       return;

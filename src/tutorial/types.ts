@@ -10,6 +10,8 @@ export interface TutorialUi {
   zoomed: boolean;
   /** Clicked with Inspect on a home tile (zone R, developed or not). */
   inspectedHome: boolean;
+  /** The home tile last clicked with Inspect (a tile index), or -1. */
+  inspectedTile: number;
   budgetOpened: boolean;
   overlayOn: boolean;
   /** The last card's button was pressed. */
@@ -27,14 +29,16 @@ export interface TutorialTarget {
 export interface TutorialProgress { key: string; n: number; of: number }
 
 export interface TutorialStep {
-  /** The card's copy is ui.tutorial.step.<id>. */
+  /** The card's copy is ui.tutorial.step.<id>, unless `copy` names another. */
   id: string;
-  /** Toolbar item keys to pulse (ui/Toolbar.ts), plus 'speed' and 'demand'. */
-  point?: string[];
+  /** For a step whose wording depends on the city: the copy to show, ui.tutorial.step.<copy(world)>. */
+  copy?(world: World): string;
+  /** Toolbar item keys to pulse (ui/Toolbar.ts), plus 'speed' and 'demand'. A function if they depend on the city. */
+  point?: string[] | ((world: World) => string[]);
   /** Where on the map to point, if anywhere (from Focus markers on the tutorial map). */
   target?(world: World): TutorialTarget | null;
   /** Called each time the step becomes current, and once after a load. Idempotent. */
-  enter?(world: World): void;
+  enter?(world: World, ui: TutorialUi): void;
   /** Values for the copy's {placeholders}. */
   vars?(world: World): Record<string, string | number>;
   /** How far along the step's counted goals are, if it has any. The card shows them and keeps them up to date. */
@@ -42,5 +46,11 @@ export interface TutorialStep {
   done(world: World, ui: TutorialUi): boolean;
 }
 
-/** `world.tutorial` while a tutorial is running (absent otherwise). `request` is the scripted request's id. */
-export interface TutorialState { step: number; request?: number }
+/** `world.tutorial` while a tutorial is running (absent otherwise). */
+export interface TutorialState {
+  step: number;
+  /** The service the services step asks for (tutorial/steps.ts SERVICES id), fixed when the step is first reached. */
+  service?: string;
+  /** That service was chosen for the home the player had just inspected (the card then says "This home…"). */
+  forHome?: boolean;
+}

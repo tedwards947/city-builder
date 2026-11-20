@@ -7,8 +7,8 @@
 // To replace it with a hand-made map: open the game with ?debug=true, Menu →
 // New city → "Tutorial 48×48" (blank land), build the map, Menu → Save →
 // save to file, and put the file at that path. The map needs a highway stub
-// (a highway that ends on land); Focus markers labelled "power" and "park"
-// are optional and show the suggested spots.
+// (a highway that ends on land); a Focus marker labelled "power" is optional
+// and shows the suggested spot for the plant.
 
 import { World } from '../sim/World';
 import { ROAD_HIGHWAY, TERRAIN_GRASS, TERRAIN_WATER, VEG_NONE } from '../sim/constants';

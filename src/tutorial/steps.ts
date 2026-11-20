@@ -4,16 +4,19 @@
 // cheap enough to ask a few times a second and changes nothing.
 //
 // The numbers are in GOALS. The spots a step points at come from the map: the
-// end of the highway stub, and Focus markers labelled "power" and "park"
-// (placed with ?debug=true; a map without them simply shows no spot).
+// end of the highway stub, and a Focus marker labelled "power" (placed with
+// ?debug=true; a map without it simply shows no spot).
+//
+// No step ever needs something knocked down: the services step asks for a
+// building "beside a road" anywhere, and a short new street always makes room.
 
 import type { World } from '../sim/World';
 import {
-  ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, TERRAIN_WATER, BUILDING_NONE, BUILDING_PARK,
+  ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, TERRAIN_WATER, BUILDING_NONE,
+  BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL, BUILDING_PARK,
 } from '../sim/constants';
-import { isMet } from '../sim/requests';
 import { coveredBy, touchesAccessRoad } from '../sim/serviceValue';
-import { hasLivedInHome, openScriptedRequest, scriptedRequest } from './rules';
+import { t } from '../i18n';
 import type { TutorialProgress, TutorialStep, TutorialTarget, TutorialUi } from './types';
 
 export const GOALS = {
@@ -127,27 +130,58 @@ export function streetPath(world: World): TutorialTarget | null {
   return best && best.length > 0 ? { path: best } : null;
 }
 
-/** Whether every lived-in home has a park in reach (false with no lived-in home). */
-function everyHomeHasPark(world: World): boolean {
-  if (!hasLivedInHome(world)) return false;
-  const parks = coveredBy(world, BUILDING_PARK);
-  const { zone, devLevel, abandoned } = world.layers;
-  const { zoned, zonedCount } = world.index;
-  for (let k = 0; k < zonedCount; k++) {
-    const i = zoned[k];
-    if (zone[i] === ZONE_R && devLevel[i] > 0 && !abandoned[i] && !parks.has(i)) return false;
-  }
-  return true;
+/**
+ * The services the services step can ask for, in the order it prefers them
+ * when several are equally missing. `id` names the building in the card's
+ * copy (ui.tutorial.service.<id>); `key` is its toolbar item.
+ */
+export const SERVICES = [
+  { id: 'police', kind: BUILDING_POLICE, key: 'police' },
+  { id: 'fire', kind: BUILDING_FIRE, key: 'fireStation' },
+  { id: 'school', kind: BUILDING_SCHOOL, key: 'school' },
+  { id: 'hospital', kind: BUILDING_HOSPITAL, key: 'hospital' },
+  { id: 'park', kind: BUILDING_PARK, key: 'park' },
+] as const;
+type Service = typeof SERVICES[number];
+
+/** Home tiles (zoned, lived in or not) that a building of `kind` reaches. */
+function homesReached(world: World, kind: number): number {
+  const covered = coveredBy(world, kind);
+  if (covered.size === 0) return 0;
+  return countZone(world, ZONE_R, (i) => covered.has(i));
 }
 
 /**
- * The park step: the scripted request has been met. If it never opened
- * because the homes already had a park (the player ran ahead), that counts.
+ * The service to ask for. If the player has just inspected a home that lacks
+ * something, it is one of the services THAT home lacks (`forHome`); otherwise
+ * one the town's homes lack. Among those, the one the most homes are without,
+ * the earlier in SERVICES on a tie. With nothing missing anywhere: police.
  */
-function parkDone(world: World): boolean {
-  if (world.tutorial?.request === undefined) return everyHomeHasPark(world);
-  const req = scriptedRequest(world);
-  return req === null || isMet(world, req);   // closed (RequestSystem paid it out), or about to be
+export function chooseService(world: World, inspectedTile: number): { service: Service; forHome: boolean } {
+  const homes = countZone(world, ZONE_R);
+  const missing = (s: Service): number => homes - homesReached(world, s.kind);
+  const pick = (from: readonly Service[]): Service | null => {
+    let best: Service | null = null, most = 0;
+    for (const s of from) { const n = missing(s); if (n > most) { most = n; best = s; } }
+    return best;
+  };
+  if (inspectedTile >= 0 && world.layers.zone[inspectedTile] === ZONE_R) {
+    const lacked = SERVICES.filter((s) => !coveredBy(world, s.kind).has(inspectedTile));
+    if (lacked.length > 0) return { service: pick(lacked) ?? lacked[0], forHome: true };
+  }
+  return { service: pick(SERVICES) ?? SERVICES[0], forHome: false };
+}
+
+/** The service the services step asks for: the one fixed when the step was reached, else what it would be now. */
+function askedService(world: World): { service: Service; forHome: boolean } {
+  const state = world.tutorial;
+  const fixed = SERVICES.find((s) => s.id === state?.service);
+  return fixed ? { service: fixed, forHome: state?.forHome === true } : chooseService(world, -1);
+}
+
+/** The services step: some police station, fire station, school, hospital or park reaches at least one home. Any of the five counts. */
+function servicesDone(world: World): boolean {
+  return SERVICES.some((s) => homesReached(world, s.kind) > 0);
 }
 
 /**
@@ -185,14 +219,19 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   ]),
   { id: 'inspect', point: ['inspect'], done: (_w, ui) => ui.inspectedHome },
   {
-    id: 'park', point: ['park'],
-    // The request's own homes if it is open, else the map's suggested spot.
-    target: (w) => {
-      const r = scriptedRequest(w);
-      return r ? { area: { x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 } } : markerArea(w, 'park');
+    // Follows on from Inspect: the card names a service the inspected home is without.
+    id: 'services',
+    enter: (w, ui) => {
+      const state = w.tutorial;
+      if (!state || state.service !== undefined) return;
+      const { service, forHome } = chooseService(w, ui.inspectedTile);
+      state.service = service.id;
+      if (forHome) state.forHome = true;
     },
-    enter: (w) => { openScriptedRequest(w); },
-    done: parkDone,
+    copy: (w) => (askedService(w).forHome ? 'servicesHome' : 'services'),
+    vars: (w) => ({ service: t('ui.tutorial.service.' + askedService(w).service.id) }),
+    point: (w) => [askedService(w).service.key],
+    done: servicesDone,
   },
   { id: 'budget', point: ['econ'], done: (_w, ui) => ui.budgetOpened },
   { id: 'views', point: ['traffic'], done: (_w, ui) => ui.overlayOn },
@@ -201,7 +240,7 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
 
 /** A fresh record of what the player has done in the UI: nothing yet. */
 export function newTutorialUi(): TutorialUi {
-  return { panned: false, zoomed: false, inspectedHome: false, budgetOpened: false, overlayOn: false, cardClosed: false };
+  return { panned: false, zoomed: false, inspectedHome: false, inspectedTile: -1, budgetOpened: false, overlayOn: false, cardClosed: false };
 }
 
 /**

@@ -26,7 +26,7 @@ export class RequestSystem {
 
     const day = world.tick / BALANCE.ticksPerDay;
     // A standing request (the airport) does not take one of the maxOpen slots.
-    // The tutorial city gets only its one scripted request (tutorial/rules.ts).
+    // Residents of the tutorial city make no requests (tutorial/rules.ts).
     if (world.tutorial) return;
     if (cfg.spawnEveryDays <= 0 || openSlotsUsed(world) >= cfg.maxOpen || day % cfg.spawnEveryDays !== 0) return;
     const pick = pickRequest(world, world.rng);
