@@ -9,6 +9,7 @@ import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
+import { eventStatus } from '../sim/eventDays';
 import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
 import type {World} from "../sim/World";
@@ -116,6 +117,8 @@ function tripRows(world: World, i: number): string {
       html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px;color:#778"><span>${label}</span><span>${t("ui.tileInfo.tripLeisureNone")}</span></div>`;
     }
     const door = world.layers.lot[i] !== 0 ? doorTile(world, i) : i;
+    const strain = world.eventStrain[i], dropAfter = BALANCE.leisure.event.dropAfter;
+    if (strain > 0 && dropAfter > 0) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.eventStrain", {n: strain, max: dropAfter})}</div>`;
     if (lacksLeisure(world, i, door)) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.noLeisure")}</div>`;
   }
   const T = BALANCE.transit;
@@ -301,6 +304,18 @@ function attractionRows(world: World, tx: number, ty: number, kind: number): str
   return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
 }
 
+/** The stadium's game days: when the next is, fans in the seats, and how the last went. */
+function stadiumRows(world: World): string {
+  const s = eventStatus(world);
+  if (!s) return "";
+  const when = s.daysToEvent === 0 ? t("ui.tileInfo.eventToday") : s.daysToEvent === 1 ? t("ui.tileInfo.eventInOneDay") : t("ui.tileInfo.eventInDays", {n: s.daysToEvent});
+  let html = `<div class="ti-detail">${t("ui.tileInfo.eventNext", {when})}</div>`;
+  if (!s.connected) html += `<div class="ti-detail" style="color:#e55;font-weight:bold">${t("ui.tileInfo.attractionNoRoad")}</div>`;
+  if (s.eventToday) html += `<div class="ti-detail">${t("ui.tileInfo.eventFans", {fans: Math.round(s.fans).toLocaleString("en-US"), seats: s.seats.toLocaleString("en-US")})}</div>`;
+  if (s.last) html += `<div class="ti-detail">${t("ui.tileInfo.eventLast", {arrived: Math.round(s.last.arrived), wanted: Math.round(s.last.wanted), stuck: Math.round(s.last.stuckResidents).toLocaleString("en-US")})}</div>`;
+  return html;
+}
+
 function airportRows(world: World, tx: number, ty: number): string {
   const trips = buildingTripsAt(world, tx, ty), row = BALANCE.transit.buildings[BUILDING_AIRPORT];
   let html = `<div class="ti-detail">${t("ui.tileInfo.airportAbout")}</div>`;
@@ -450,6 +465,7 @@ export class TileInfoPanel {
       if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
       html += attractionRows(world, tx, ty, building);
+      if (building === BUILDING_STADIUM) html += stadiumRows(world);
       if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_SUBWAY_STATION) html += stationRows(world, tx, ty, building);
 
       // Connectivity warning for utilities
