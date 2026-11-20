@@ -4,6 +4,7 @@
 // under "Advanced". Edits BALANCE live; nothing is saved. ?econPreset=<id>
 // opens a preset directly.
 
+import { headcountCost } from '../sim/runningCost';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { isServiceKind } from '../sim/serviceValue';
@@ -125,7 +126,7 @@ export class EconomyTuningPanel {
 
   private render(world: World): void {
     const perDay = BALANCE.ticksPerDay;
-    // Expenses by group, the same sums EconomySystem charges per tick.
+    // Expenses by group, the same sums EconomySystem charges per tick (utilities and services include their per-resident running costs).
     let roads = 0, utilities = 0, services = 0;
     const { roads: list, roadCount } = world.index;
     for (let k = 0; k < roadCount; k++) roads += BALANCE.roadClasses[world.layers.roadClass[list[k]]]?.maintenance ?? 0;
@@ -133,6 +134,9 @@ export class EconomyTuningPanel {
       const m = BALANCE.buildings[b.kind]?.maintenance ?? 0;
       if (isServiceKind(b.kind)) services += m * BALANCE.maintenance.serviceMult; else utilities += m;
     }
+    const head = headcountCost(world);
+    const headUtilities = head.utilities.power + head.utilities.water + head.utilities.sewage;
+    utilities += headUtilities; services += head.total - headUtilities;
     const income = world.budget.income * perDay;
     const expenses = (roads + utilities + services) * perDay;
     const net = income - expenses;
@@ -153,6 +157,7 @@ export class EconomyTuningPanel {
       + line('&nbsp;&nbsp;roads', money(roads * perDay))
       + line('&nbsp;&nbsp;utilities', money(utilities * perDay))
       + line('&nbsp;&nbsp;services', money(services * perDay))
+      + line('&nbsp;&nbsp;of which per resident', money(head.total * perDay))
       + line('Outlook', outlook, warn)
       + line('Upkeep banked', expenses > 0 ? `${Math.floor(cash / expenses)} days` : '—');
   }

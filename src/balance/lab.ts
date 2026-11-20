@@ -12,6 +12,7 @@ import { airportResult, type AirportResult } from './airport';
 import { railResult, railFresh, type RailResult, type RailFresh } from './rail';
 import { landscapeResult, treeBufferResult, type LandscapeResult } from './landscape';
 import { lotsResult, type LotsResult } from './lots';
+import { paceResult } from './pace';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
 import { loadCity, type CitySpec } from './world';
@@ -362,7 +363,10 @@ export function runLab(o: LabOptions): Report {
         if (fresh && !population.get(city.id)) population.set(city.id, run.world.stats.population);
         report.econRuns[id][city.id] = s;
         log(`econ ${id} ${city.id}: pop ${run.world.stats.population}, money ${s.econ.moneyStart} → ${s.econ.moneyEnd}, surplus ${s.econ.surplusLate} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
-        grade('econ', id, city, { runs: { planner: s }, probes: null, refill: null, ordinancesOn: false });
+        // The mid-game pacing probe (econ.fixCost): saved cities, shipped numbers only.
+        const pace = !fresh && id === 'shipped' ? paceResult(loadCity(city)) : null;
+        if (pace) log(`econ ${id} ${city.id}: pace at neutral tax ${pace.surplusPerResident}/resident, costs ${pace.costShare} of income, police +${pace.police.more}, fire +${pace.fire.more}, fix ${pace.fixDays ?? '-'} days`);
+        grade('econ', id, city, { runs: { planner: s }, probes: null, refill: null, ordinancesOn: false, pace });
       }
     }
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);

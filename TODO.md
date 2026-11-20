@@ -149,9 +149,10 @@ Approved by the owner (2026-11-19, proposals in #305):
 - Station growth ×1.4 (owner OK'd raising it, 2026-11-19): ×1.25 gave only ~15% sooner. rail.stationGrowth testcity1 24%, gen-s1 17%, gen-suburban 26%; rail suite 30/30. Swept 1.35 (gen-s1 14%, fails), 1.45 (passes, but rail.suburb access on gen-s1 fell to 29.8%) and 1.5 (29 / 23 / 29%).
 - Level crossings (owner-approved 2026-11-19): `crossing.delay` split into carDelay 8 / trainDelay 2; car wait = carDelay × rail load × road load; overlay shows a crossing at (1 − ½ × rail load) capacity (looks only). Target rail.crossing: busy +12%, quiet +0.9%.
 - rail.suburb access floor 30% → 25% (owner, 2026-11-19): gen-s1 sat at 29.8% after the station resize and the crossing change.
+- Running costs that grow with the city (owner, 2026-11-20, pacing option A): `sim/runningCost.ts`, charged in EconomySystem. Per covered resident: police 0.03, fire 0.02, school 0.04, hospital 0.04 a day. Per unit of power, water and sewage supplied: 0.05, 0.06 and 0.04 (large plants ×0.6). The first 1,000 residents are free. Police capacity 3,000 and fire 4,000, so a growing city outgrows its stations. New targets: econ.pace (surplus per resident by size band), econ.firstYearBank (30–60k at day 300), econ.fixCost (`src/balance/pace.ts`). Planner bank at day 300 is about 50k (was 93–178k). Golden: expenses +15–21%, money at 400 ticks −25%; residents unchanged. Lots suite 14/0 after leisure. Open for the owner: econ.fixCost and econ.matureSurplus still fail on mature cities (golden-1 0.35 a resident at neutral tax), because one flat per-resident rate can't suit both young and mature cities. Option: rates that rise with city size. The UI lines go to ENGINEER 2.
 
 Next:
-1. Nothing queued.
+1. Leisure and tourism numbers, including stadium crowd size and PC (owner wants it "massive" with real teeth), tuned together with the running costs.
 
 ## DESIGN
 

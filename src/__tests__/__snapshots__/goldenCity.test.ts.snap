@@ -4,10 +4,10 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 {
   "budget": {
     "debtOverTicks": 0,
-    "expenses": 804.18,
+    "expenses": 924.276025,
     "gameOver": false,
     "income": 963.286244,
-    "money": 50159.1062,
+    "money": 50039.0102,
     "politicalCapital": 280.448814,
     "taxLevel": 10,
     "taxRates": {
@@ -78,10 +78,10 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 {
   "budget": {
     "debtOverTicks": 0,
-    "expenses": 804.18,
+    "expenses": 933.421625,
     "gameOver": false,
     "income": 1109.25836,
-    "money": 65731.4498,
+    "money": 59491.9966,
     "politicalCapital": 267.591972,
     "taxLevel": 10,
     "taxRates": {
@@ -160,10 +160,10 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 {
   "budget": {
     "debtOverTicks": 0,
-    "expenses": 804.18,
+    "expenses": 953.27552,
     "gameOver": false,
     "income": 1311.04507,
-    "money": 131761.69,
+    "money": 104440.675,
     "politicalCapital": 242.040692,
     "taxLevel": 10,
     "taxRates": {
@@ -242,10 +242,10 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
 {
   "budget": {
     "debtOverTicks": 0,
-    "expenses": 804.18,
+    "expenses": 972.418164,
     "gameOver": false,
     "income": 1377.1439,
-    "money": 240046.395,
+    "money": 180856.873,
     "politicalCapital": 211.536,
     "taxLevel": 10,
     "taxRates": {

@@ -45,15 +45,17 @@ afterEach(() => {
 });
 
 describe('service capacity', () => {
-  it("ships with the owner's numbers: schools and hospitals reach far and are limited by capacity", () => {
-    expect(shipped.capacity).toEqual({ [BUILDING_SCHOOL]: 4000, [BUILDING_HOSPITAL]: 8000 });
+  it("ships with the owner's numbers: schools and hospitals reach far and are limited by capacity, police and fire too (pacing, 2026-11-20)", () => {
+    expect(shipped.capacity).toEqual({ [BUILDING_POLICE]: 3000, [BUILDING_FIRE]: 4000, [BUILDING_SCHOOL]: 4000, [BUILDING_HOSPITAL]: 8000 });
     expect(shipped.reach[BUILDING_SCHOOL]).toBe(20);
     expect(shipped.reach[BUILDING_HOSPITAL]).toBe(30);
     Object.assign(capacity, shipped.capacity);
     expect(serviceCapacity(BUILDING_SCHOOL)).toBe(4000);
     expect(hasCapacity(BUILDING_HOSPITAL)).toBe(true);
-    // Police, fire and parks are served by reach alone.
-    for (const kind of [BUILDING_POLICE, BUILDING_FIRE, BUILDING_PARK]) {
+    expect(serviceCapacity(BUILDING_POLICE)).toBe(3000);
+    expect(serviceCapacity(BUILDING_FIRE)).toBe(4000);
+    // Parks are served by reach alone.
+    for (const kind of [BUILDING_PARK]) {
       expect(serviceCapacity(kind)).toBe(0);
       expect(hasCapacity(kind)).toBe(false);
     }
