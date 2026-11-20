@@ -228,7 +228,10 @@ function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, tile: numb
   const fs = Math.round(Math.max(11, Math.min(16, tile * 0.24)));
   ctx.save();
   ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
-  const h = fs * 2, w = ctx.measureText(label).width + fs * 2.3, by = y - h - fs * 0.6 + (today ? Math.sin(sec * 3) * 2 : 0), bx = x - w / 2;
+  ctx.textAlign = 'left';
+  // Ball area on the left (1.75 em), then the words, then a right margin clear of the pill's round end.
+  const textW = Math.ceil(ctx.measureText(label).width), padL = fs * 1.75, padR = fs * 0.95;
+  const h = fs * 2, w = padL + textW + padR, by = y - h - fs * 0.6 + (today ? Math.sin(sec * 3) * 2 : 0), bx = x - w / 2;
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath(); ctx.roundRect(bx + 2, by + 3, w, h, h / 2); ctx.fill();
   ctx.fillStyle = today ? '#ffd34d' : '#fffaf0';
@@ -238,10 +241,10 @@ function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, tile: numb
   ctx.beginPath(); ctx.ellipse(bx + fs * 1.05, by + h / 2, fs * 0.45, fs * 0.29, -0.5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#24211d';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, bx + fs * 1.75, by + h / 2 + (progress >= 0 ? -1 : 1));
+  ctx.fillText(label, bx + padL, by + h / 2 + (progress >= 0 ? -1 : 1));
   if (progress >= 0) {
-    // How far through the event: a thin bar along the tag's foot.
-    const px = bx + fs * 1.75, pw = w - fs * 2.6, ph = Math.max(2, Math.round(fs * 0.18)), py = by + h - ph - fs * 0.22;
+    // How far through the event: a thin bar under the words.
+    const px = bx + padL, pw = textW, ph = Math.max(2, Math.round(fs * 0.18)), py = by + h - ph - fs * 0.22;
     ctx.fillStyle = 'rgba(36,33,29,0.25)'; ctx.fillRect(px, py, pw, ph);
     ctx.fillStyle = '#c4552d'; ctx.fillRect(px, py, pw * progress, ph);
   }
