@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>dress preview</title>
+<style>body{margin:0;background:#86bd63;font:12px sans-serif}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script type="module">
+// Dressed lots as the game draws them: rows are sprites, columns the 6 dressing variants. Dev check only.
+import { loadClaySprites, setClayLoadListener, pickClaySprite, drawClaySprite } from '/src/render/clay/ClaySprites.ts';
+import { ZONE_R, ZONE_C, ZONE_I, BUILDING_NONE } from '/src/sim/constants.ts';
+const T = 128, rows = [[ZONE_R, 3, 0], [ZONE_R, 3, 1], [ZONE_R, 3, 3], [ZONE_R, 1, 0], [ZONE_R, 2, 1], [ZONE_C, 1, 0], [ZONE_C, 3, 2], [ZONE_I, 2, 0]];
+const cv = document.getElementById('c'); cv.width = 6 * T; cv.height = rows.length * T;
+const ctx = cv.getContext('2d');
+const neutral = { green: 0, egalitarian: 0 };
+function draw() {
+  ctx.fillStyle = '#86bd63'; ctx.fillRect(0, 0, cv.width, cv.height);
+  rows.forEach(([z, d, id], r) => { for (let v = 0; v < 6; v++) { const s = pickClaySprite(z, BUILDING_NONE, d, neutral, false, id); if (s) drawClaySprite(ctx, s, v * T, r * T, T, v); } });
+}
+setClayLoadListener(() => { draw(); });
+loadClaySprites();
+setTimeout(draw, 1500); setTimeout(() => { draw(); window.__done = true; }, 3500);
+</script>

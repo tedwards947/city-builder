@@ -181,8 +181,13 @@ function drawGroundItem(c: Ctx, f: LotField, it: GroundItem): void {
       c.fillStyle = '#585d66'; rrect(c, it.x, it.y, it.w, it.h, 4);
       c.fillStyle = '#6d727b'; rrect(c, it.x + 1, it.y + 1, it.w - 2, it.h - 3, 3.4);
       c.fillStyle = 'rgba(245,245,240,0.85)';
-      const bh = (it.h - 4) / it.bays;
-      for (let i = 1; i < it.bays; i++) c.fillRect(it.x + 4, it.y + 2 + i * bh - 0.7, it.w - 8, 1.4);
+      if (it.nose) { // nose-in bays: lines run front to back
+        const bw = (it.w - 4) / it.bays;
+        for (let i = 1; i < it.bays; i++) c.fillRect(it.x + 2 + i * bw - 0.7, it.y + 4, 1.4, it.h - 8);
+      } else {
+        const bh = (it.h - 4) / it.bays;
+        for (let i = 1; i < it.bays; i++) c.fillRect(it.x + 4, it.y + 2 + i * bh - 0.7, it.w - 8, 1.4);
+      }
       break;
     }
     case 'court':
@@ -241,6 +246,12 @@ function drawProp(c: Ctx, p: PropItem, trees: Partial<Record<TreeName, CanvasIma
       c.fillStyle = 'rgba(25,35,45,0.28)'; rrect(c, x + 1.5, y + 2, p.w, p.h, 4);
       c.fillStyle = col[0]; rrect(c, x, y, p.w, p.h, 4);
       c.fillStyle = col[1]; rrect(c, x + 1, y + 0.6, p.w - 2, p.h - 3, 3.4);
+      if (p.h > p.w) { // parked nose-in: the cabin runs across, set towards the back
+        const cy = p.flip ? y + p.h * 0.2 : y + p.h * 0.28, ch = p.h * 0.52;
+        c.fillStyle = '#2f3a46'; rrect(c, x + 2.4, cy, p.w - 4.8, ch, 2.4);
+        c.fillStyle = col[1]; rrect(c, x + 3.2, cy + ch * 0.22, p.w - 6.4, ch * 0.56, 1.6);
+        break;
+      }
       // cabin: glass with a roof panel, set towards the back of the car
       const cx = p.flip ? x + p.w * 0.2 : x + p.w * 0.28, cw = p.w * 0.52;
       c.fillStyle = '#2f3a46'; rrect(c, cx, y + 1.8, cw, p.h - 5.2, 2.4);

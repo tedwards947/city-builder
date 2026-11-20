@@ -258,6 +258,8 @@ export interface TrafficCar {
 export const CAR_COLOURS = ['#e9e6dc', '#d65a4a', '#4f86c6', '#e3b94a', '#5aa868', '#8d949c', '#3b4048', '#c98bb5'];
 /** Slots per tile length is 1 / SLOT_SPACING. */
 const SLOT_SPACING = 0.36;
+/** A truck's length in tiles: 9 m (docs/SCALE.md). */
+export const TRUCK_LEN = 9 / 17;
 /** Free-flow speed in tiles per second, by road class: streets slow, highways fast. */
 const SPEED = [0, 0.4, 0.75, 1.3];
 /** A road over capacity crawls at this share of its free-flow speed. */
@@ -281,6 +283,15 @@ const hash = (a: number, b: number, c: number): number => {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
+
+/** Whether slot k of a lane holds a truck: filled, even, and picked for goods. */
+function isTruck(k: number, line: number, lane: number, dir: number, axis: number, fill: number, goodsShare: number): boolean {
+  if ((k & 1) !== 0 || !(goodsShare > 0)) return false;
+  if (hash(k, line * 31 + lane, dir + axis * 5 + 3) >= fill) return false;
+  return hash(k, line, lane * 13 + dir + axis * 17) < goodsShare * TRUCK_SHARE;
+}
+/** Share of the goods traffic on even slots that shows as trucks (the rest are vans). */
+const TRUCK_SHARE = 0.7;
 
 /**
  * Writes the cars showing on road tile (tx, ty) at `time` seconds into `out`
@@ -307,8 +318,13 @@ export function roadTrafficCars(tx: number, ty: number, cls: number, around: rea
       const shift = dir * speed * time;
       for (let lane = 0; lane < LANES[cls].length; lane++) {
         const k0 = Math.ceil((along - shift - 0.06) / SLOT_SPACING), k1 = Math.floor((along + 1 - shift + 0.06) / SLOT_SPACING);
-        for (let k = k0; k <= k1; k++) {
-          const s = k * SLOT_SPACING + (hash(k, line, lane + dir * 7 + axis * 31) - 0.5) * 0.1 + shift - along;
+        for (let k = k0 - 1; k <= k1 + 1; k++) {
+          // A truck (9 m, longer than a slot) takes its slot and the one
+          // behind it, so it sits half a slot back and that slot stays empty.
+          // Only even slots hold trucks, so trucks never chain.
+          if (isTruck(k + dir, line, lane, dir, axis, fill, goodsShare)) continue;
+          const truck = isTruck(k, line, lane, dir, axis, fill, goodsShare);
+          const s = k * SLOT_SPACING + (hash(k, line, lane + dir * 7 + axis * 31) - 0.5) * 0.1 + shift - along - (truck ? dir * SLOT_SPACING / 2 : 0);
           if (s < 0 || s >= 1) continue; // the tile under the car's centre draws it
           const next = s < 0.5 ? first : second;
           if (next === ROAD_NONE) continue;
@@ -326,7 +342,7 @@ export function roadTrafficCars(tx: number, ty: number, cls: number, around: rea
           car.y = axis === 0 ? 0.5 + off : s;
           car.dx = axis === 0 ? dir : 0;
           car.dy = axis === 0 ? 0 : dir;
-          car.kind = h < goodsShare * 0.5 ? 2 : h < goodsShare ? 1 : h > 0.95 ? 1 : 0;
+          car.kind = truck ? 2 : h < goodsShare ? 1 : h > 0.95 ? 1 : 0;
           car.colour = Math.floor(h * 977) % CAR_COLOURS.length;
           car.braking = braking;
         }
@@ -351,7 +367,7 @@ export function beginTrafficFrame(tile: number, now: number): void {
 }
 
 function bakeCar(T: number, colourIdx: number, kind: CarKind, heading: number, braking: boolean): HTMLCanvasElement {
-  const len = (kind === 2 ? 0.4 : kind === 1 ? 0.3 : 0.25) * T, wid = (kind === 2 ? 0.17 : 0.15) * T;
+  const len = (kind === 2 ? TRUCK_LEN : kind === 1 ? 0.3 : 0.25) * T, wid = (kind === 2 ? 0.17 : 0.15) * T;
   const size = Math.ceil(len + T * 0.08);
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roadTrafficCars, drawnRoadClass, trafficSpeed, CAR_COLOURS, type TrafficCar } from '../render/clay/roads';
+import { roadTrafficCars, drawnRoadClass, trafficSpeed, CAR_COLOURS, TRUCK_LEN, type TrafficCar } from '../render/clay/roads';
 import { ROAD_NONE, ROAD_STREET, ROAD_AVENUE, ROAD_HIGHWAY } from '../sim/constants';
 
 const EW = [ROAD_NONE, ROAD_STREET, ROAD_NONE, ROAD_STREET]; // N, E, S, W
@@ -65,6 +65,28 @@ describe('road traffic cars', () => {
       plain += cars(1.5, 2, ROAD_STREET, EW, 0, tx).filter((c) => c.kind !== 0).length;
     }
     expect(trucks).toBeGreaterThan(plain * 3);
+  });
+
+  it('gives a 9 m truck room: nothing in its lane overlaps it, along a whole street', () => {
+    const len = (c: TrafficCar) => (c.kind === 2 ? TRUCK_LEN : c.kind === 1 ? 0.3 : 0.25);
+    let trucks = 0;
+    for (const cls of [ROAD_STREET, ROAD_HIGHWAY]) {
+      const around = [ROAD_NONE, cls, ROAD_NONE, cls];
+      for (const time of [0, 1.7, 4.2, 9.9]) {
+        const lanes = new Map<string, { at: number; len: number }[]>();
+        for (let tx = 0; tx < 60; tx++) for (const c of cars(2, time, cls, around, 0.9, tx)) {
+          const key = `${c.dx}:${c.y.toFixed(3)}`;
+          if (!lanes.has(key)) lanes.set(key, []);
+          lanes.get(key)!.push({ at: tx + c.x, len: len(c) });
+          if (c.kind === 2) trucks++;
+        }
+        for (const list of lanes.values()) {
+          list.sort((a, b) => a.at - b.at);
+          for (let i = 1; i < list.length; i++) if (list[i].len === TRUCK_LEN || list[i - 1].len === TRUCK_LEN) expect(list[i].at - list[i - 1].at).toBeGreaterThan((list[i].len + list[i - 1].len) / 2);
+        }
+      }
+    }
+    expect(trucks).toBeGreaterThan(20);
   });
 });
 
