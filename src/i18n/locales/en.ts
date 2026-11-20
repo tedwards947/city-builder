@@ -246,6 +246,7 @@ export const en: TranslationSchema = {
     paused: {
       chip: "Paused: press Space",
       inspect: "Game paused: numbers won't change",
+      coverage: "Game paused: coverage updates when time runs",
     },
     toast: {
       eventStartedTitle: "Kick-off",

@@ -463,6 +463,10 @@ export class TileInfoPanel {
     const fire = world.layers.fire[i];
 
     let html = paused ? `<div class="ti-detail" style="color:#e8b030;font-weight:bold">${t("ui.paused.inspect")}</div>` : "";
+    // Coverage is only worked out while time runs: say so where a lot is showing a gap.
+    if (paused && zone !== 0 && (world.layers.power[i] === 0 || world.layers.water[i] === 0)) {
+      html += `<div class="ti-detail" style="color:#e8b030">${t("ui.paused.coverage")}</div>`;
+    }
     html += `<div class="ti-coord">${t("ui.tileInfo.coords", {tx, ty})}</div>`;
 
     // ── Building tile ──────────────────────────────────────────────────────────

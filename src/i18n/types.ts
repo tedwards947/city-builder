@@ -174,7 +174,7 @@ export interface TranslationSchema {
       pop: string;
       water: string;
     };
-    paused: { chip: string; inspect: string };
+    paused: { chip: string; inspect: string; coverage: string };
     toast: {
       eventStartedTitle: string;
       eventStartedMsg: string;
