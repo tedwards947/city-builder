@@ -145,6 +145,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
   },
   "tick": 50,
   "traffic": {
+    "event": "5e509dc5",
     "exports": "5e509dc5",
     "goods": "81ed7a93",
     "jobs": "96ff7e0b",
@@ -226,6 +227,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
   },
   "tick": 200,
   "traffic": {
+    "event": "5e509dc5",
     "exports": "5e509dc5",
     "goods": "00658fb6",
     "jobs": "e7789919",
@@ -307,6 +309,7 @@ exports[`the whole simulation on the test city > gives the stored result, tick f
   },
   "tick": 400,
   "traffic": {
+    "event": "5e509dc5",
     "exports": "5e509dc5",
     "goods": "df34c339",
     "jobs": "857314cf",

@@ -8,6 +8,7 @@
 //     exports:  industry → seaports  (only while a connected port takes them)
 //     visitors: homes → buildings that draw visitors (only while one takes them)
 //     leisure:  homes and tourists → attractions (only while one stands on a road)
+//     event:    fans → the stadium (only on an event day)
 //
 //   Buildings can also take or send trips in any market (BALANCE.transit
 //   .buildings, sim/buildingTraffic.ts): their access roads are extra doors
@@ -93,6 +94,7 @@ import {
 import '../seaport';   // registers the seaports' doors with the markets
 import '../buildingTraffic';   // registers the doors and trips of BALANCE.transit.buildings
 import '../leisureTraffic';    // registers the attractions' doors and the tourists (LEISURE_DESIGN.md)
+import '../eventDays';         // registers the stadium's event-day doors and fans
 
 // Iteration control. Not balance: these only affect how fast traffic settles.
 const ITERATIONS_FIRST_PASS = 24;   // first pass of a game, and recompute()
@@ -124,6 +126,7 @@ export class TransitSystem {
   private _unstable: Uint8Array[] = [];
   private _firstIteration = true;   // nothing to compare against yet
   private _room!: Float32Array;     // capacity left at each door
+  private _wasOpen: boolean[] = [];  // per market: whether buildings gave it doors on the last pass (see MarketDef.occasional)
   private _bldCap!: Float32Array;   // the part of each door's capacity that buildings added, this market
   private _doorStart!: Float32Array; // the handicap of each building door, this market (see DoorProvider)
   private _onward!: Float32Array;   // trips leaving full building doors for the zones (see _passOn)
@@ -296,6 +299,7 @@ export class TransitSystem {
       this._unstable = this._data.markets.map(() => new Uint8Array(nn));
       this._extraDoorCount = this._data.markets.map(() => 0);
       this._extraTripCount = this._data.markets.map(() => 0);
+      this._wasOpen = this._data.markets.map(() => false);
       this._idle = this._data.markets.map(() => false);
       this._firstIteration = true;
       this._lastInputHash = NaN;
@@ -388,6 +392,15 @@ export class TransitSystem {
       data.settled = false;
     }
 
+    // An occasional market (an event day) started or stopped: a whole crowd joined or left the
+    // roads at once, so settle as after a road edit instead of over the coming days.
+    for (let k = 0; k < data.markets.length; k++) {
+      const open = this._extraDoorCount[k] > 0;
+      if (open !== this._wasOpen[k]) {
+        this._wasOpen[k] = open;
+        if (data.markets[k].def.occasional && rounds < ITERATIONS_AFTER_EDIT) rounds = ITERATIONS_AFTER_EDIT;
+      }
+    }
     const budget = this._fresh ? ITERATIONS_FIRST_PASS : rounds;
     this._fresh = false;
     for (let k = 0; k < budget && !data.settled; k++) {

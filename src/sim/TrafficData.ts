@@ -65,6 +65,8 @@ export interface MarketDef {
   reach?: () => number;
   /** The trips are people, who take a train when that is faster. Freight never rides. */
   rides?: boolean;
+  /** Its doors come and go by themselves (an event day): when they do, the pass settles as it does after a road edit. */
+  occasional?: boolean;
 }
 
 export const MARKET_DEFS: readonly MarketDef[] = [
@@ -86,6 +88,10 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   // An attraction's appeal is a head start (a door handicap), so people weigh appeal against travel time.
   { key: 'leisure', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.leisure.tripsPerLevel, capacity: () => 0,
     reach: () => BALANCE.leisure.reach, rides: true },
+  // Event days (sim/eventDays.ts): fans go to the stadium. Its doors exist on event days only,
+  // so on every other day this market holds nothing and costs nothing.
+  { key: 'event', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.leisure.event.fansPerLevel, capacity: () => 0,
+    reach: () => BALANCE.leisure.event.reach, rides: true, occasional: true },
 ];
 
 // ── Doors that are not zones ────────────────────────────────────────────────
@@ -245,6 +251,7 @@ export interface TrafficData {
   exports: TrafficMarket;  // industry → seaport (all zero while no port takes exports)
   visitors: TrafficMarket; // homes → buildings that draw visitors (all zero while none takes them)
   leisure: TrafficMarket;  // homes and tourists → attractions (all zero while none stands on a road)
+  event: TrafficMarket;    // fans → the stadium (all zero except on an event day)
   /** The way to the nearest developed homes (no trips follow it; used for accessibility). */
   toR: TrafficField;
   // What accessibility is measured on (TransitSystem). Each is one of the maps above unless a
@@ -281,7 +288,7 @@ export function makeTrafficData(n: number): TrafficData {
   const toR = makeTrafficField(nn);
   return {
     version: 0, markets, tiles: n, rail: { capacity: new Float32Array(nn - n), stations: [], boardings: 0 },
-    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'), leisure: byKey('leisure'),
+    shopping: byKey('shopping'), jobs: byKey('jobs'), goods: byKey('goods'), exports: byKey('exports'), visitors: byKey('visitors'), leisure: byKey('leisure'), event: byKey('event'),
     toR, toShops: byKey('shopping').field, toJobs: byKey('jobs').field, toCustomers: toR, toWorkers: toR, settled: false,
   };
 }

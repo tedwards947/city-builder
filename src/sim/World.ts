@@ -2,6 +2,7 @@
 // Each named layer is a flat Uint8Array of length width*height.
 // Adding a new simulation concern = adding a new layer, not restructuring.
 
+import type { EventResult } from './eventDays';
 import type { Marker } from './markers';
 import type { TutorialState } from '../tutorial/types';
 import { Grid } from './Grid';
@@ -233,6 +234,13 @@ export class World {
    * updateLotStreaks). Saved. Outside `layers` because nothing draws it.
    */
   lotStreak: Uint8Array;
+  /**
+   * Per tile: how many event days (net of good ones) the home has been stuck in the stadium's
+   * jam (sim/eventDays.ts). Saved. Outside `layers` because nothing draws it.
+   */
+  eventStrain: Uint8Array;
+  /** The last event day's result (sim/eventDays.ts), or null if there has been none. Saved. */
+  lastEvent: EventResult | null = null;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
   /** Set while this is the tutorial city (tutorial/rules.ts): the tutorial-only rules apply. Saved. */
@@ -331,6 +339,7 @@ export class World {
     this.character = { egalitarian: 0, green: 0, planned: 0 };
     this.developedSince = new Uint16Array(n);
     this.lotStreak = new Uint8Array(n);
+    this.eventStrain = new Uint8Array(n);
     this.politics = { peakPopulation: 0, regen: 0, ordinances: { active: [], suspended: [] }, requestNotBefore: {}, requests: [], nextRequestId: 1 };
     this.buildings = [];
     this.buildingId = new Uint32Array(n);
