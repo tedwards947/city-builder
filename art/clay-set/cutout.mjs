@@ -357,9 +357,9 @@ for (const { src, id, n } of BIG) {
 // (2 × 101 px); the game draws them over the four tiles (clay/bigLots.ts).
 // Game ids are `lots/<name>`. Game output only.
 const LOT_PLOT = 202;
-const PURPLE_BG = new Set(['i-works-c.png']);
+const PURPLE_BG = new Set(['i-works-c.png', 'i-works-g.png']);
 // Magenta reflected in steel and glass: pulled back towards grey-blue.
-const LOT_UNTINT = new Set(['i-works-e.png', 'i-works-f.png']);
+const LOT_UNTINT = new Set(['i-works-e.png', 'i-works-f.png', 'i-works-g.png', 'c-tower-i.png', 'c-mall-c.png']);
 mkdirSync(join(GAME_OUT, 'lots'), { recursive: true });
 for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.png')).sort()) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-lots', f), '--out', tmp], { stdio: 'ignore' });
