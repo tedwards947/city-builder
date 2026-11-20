@@ -3,18 +3,20 @@
 // #7/#8, plazas #13/#14. Sprites are `leisure/<name>` (art/clay-set/cutout.mjs).
 //
 // The stadium also draws its 2-tile entrance plaza, its countdown pin, and its
-// event days from sim/eventDays.ts eventStatus: the day before, set-up S3 (a
-// TV truck and an articulated truck park on the plaza, a forklift unloads flight
-// cases, the pitch is mown into fresh stripes, and at dusk the floodlights are
-// tested); on game day the floodlights, a glow over the pitch, two sweeping
-// spotlights and camera flashes in the stands, more as the seats fill. No fans
-// walk the streets (owner: it would clash with the traffic).
+// events from sim/eventDays.ts eventStatus. Events are timed (owner,
+// 2026-11-20): about 5 minutes at 1× with 7–20 minutes between them. In the
+// last SETUP_TICKS before kick-off, set-up S3 (a TV truck and an articulated
+// truck park on the plaza, a forklift unloads flight cases, the pitch is mown
+// into fresh stripes, and at the end the floodlights are tested); for the whole
+// event the floodlights, a glow over the pitch, two sweeping spotlights and
+// camera flashes in the stands, brighter as the crowd grows. The pin counts
+// down in real minutes, then shows "Game on!" with a bar through the event.
+// No fans walk the streets (owner: it would clash with the traffic).
 
 import {
   BUILDING_BIG_PARK, BUILDING_MID_PARK, BUILDING_MUSEUM, BUILDING_PLAZA, BUILDING_STADIUM, BUILDING_BEACH_PARK, BUILDING_LIDO,
 } from '../../sim/constants';
 import type { EventStatus } from '../../sim/eventDays';
-import { BALANCE } from '../../data/balance';
 import { t as tr } from '../../i18n';
 import { leisureClaySprite, drawClaySprite } from './ClaySprites';
 import { LEISURE_SPRITES } from './leisureSpriteData';
@@ -59,14 +61,26 @@ const FIELD = { u: 0.505, v: 0.497, hu: 0.181, hv: 0.084 };
 const MASTS: readonly [number, number][] = [[0.146, 0.975], [0.865, 0.975], [0.129, 0.435], [0.883, 0.435]];
 const STANDS = { u: 0.5, v: 0.588, inU: 0.21, inV: 0.14, outU: 0.39, outV: 0.32 };
 
-/** Today's phase, smoothed between ticks: the tick's own fraction is estimated from how long the last tick took. */
-const smooth = { tick: -1, at: 0, dur: 1000 };
-function smoothPhase(status: EventStatus, tick: number, now: number): number {
+/** Set-up runs over the last this many ticks before kick-off (2 minutes at 1×). */
+const SETUP_TICKS = 240;
+/** Sim ticks a second at 1× speed (engine): the pin's countdown is in real time at 1×. */
+const TICKS_PER_SECOND = 2;
+
+/** How far into the current tick we are, 0–1, estimated from how long the last tick took (for smooth motion between ticks). */
+const smooth = { tick: -1, at: 0, dur: 500 };
+function tickFraction(tick: number, now: number): number {
   if (tick !== smooth.tick) {
-    if (smooth.tick >= 0 && tick === smooth.tick + 1) smooth.dur = Math.min(8000, Math.max(100, now - smooth.at));
+    if (smooth.tick >= 0 && tick === smooth.tick + 1) smooth.dur = Math.min(8000, Math.max(50, now - smooth.at));
     smooth.tick = tick; smooth.at = now;
   }
-  return Math.min(0.9999, status.phase + Math.min(1, (now - smooth.at) / smooth.dur) / BALANCE.ticksPerDay);
+  return Math.min(1, (now - smooth.at) / smooth.dur);
+}
+
+/** The pin's words: "Kick-off in 12 min" / "Kick-off in 40 s" / "Game on!". */
+export function stadiumPinLabel(status: EventStatus): string {
+  if (status.eventToday) return tr('ui.stadiumPin.live');
+  const s = Math.ceil(status.ticksToEvent / TICKS_PER_SECOND);
+  return s >= 60 ? tr('ui.stadiumPin.inMin', { n: Math.ceil(s / 60) }) : tr('ui.stadiumPin.inSec', { n: Math.max(1, s) });
 }
 
 const hash = (n: number): number => { let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
@@ -95,9 +109,12 @@ export function drawLeisureBuilding(ctx: CanvasRenderingContext2D, kind: number,
   drawEntrance(ctx, L + tile, T + side, tile);
   drawClaySprite(ctx, sprite, L, T, side);
   if (!status) return true;
-  const phase = smoothPhase(status, tick, now), sec = now / 1000;
-  const setUp = status.daysToEvent === 1, gameDay = status.eventToday;
+  const frac = tickFraction(tick, now), sec = now / 1000;
+  const gameOn = status.eventToday;
+  const setUp = !gameOn && status.stage === 'waiting' && status.ticksToEvent <= SETUP_TICKS;
   if (setUp) {
+    // 0 when the trucks arrive → 1 at kick-off.
+    const phase = Math.max(0, Math.min(1, 1 - (status.ticksToEvent - frac) / SETUP_TICKS));
     drawMowing(ctx, X, Y, side, phase);
     // Parked on the entrance plaza: the articulated truck on its left tile, the TV truck on its right.
     const fork = ease(Math.abs(((sec / 5) % 2) - 1));   // there and back every 10 s
@@ -107,15 +124,15 @@ export function drawLeisureBuilding(ctx: CanvasRenderingContext2D, kind: number,
     prop(ctx, 'truck-artic', L + tile * 1.5, T + side + tile * 0.92, tile);
     prop(ctx, 'forklift', L + tile * (1.45 + 0.4 * fork), T + side + tile * (0.55 - 0.35 * fork), tile);
     prop(ctx, 'truck-tv', L + tile * 2.62, T + side + tile * 0.62, tile);
-    // At dusk the floodlights are tested: a flicker.
+    // Just before kick-off the floodlights are tested: a flicker.
     if (phase > 0.85 && Math.sin(sec * 23) > -0.2 && Math.sin(sec * 7) > -0.6) drawLights(ctx, X, Y, tile, sec, 0, false);
-  } else if (gameDay) {
+  } else if (gameOn) {
     prop(ctx, 'truck-tv', L + tile * 2.62, T + side + tile * 0.62, tile);
-    drawLights(ctx, X, Y, tile, sec, status.seats > 0 ? status.fans / status.seats : 0, true);
+    drawLights(ctx, X, Y, tile, sec, status.intensity, true);
   }
-  if (status.connected && status.daysToEvent <= 6) {
-    const label = status.daysToEvent === 0 ? (gameDay ? tr('ui.stadiumPin.today') : '') : status.daysToEvent === 1 ? tr('ui.stadiumPin.tomorrow') : tr('ui.stadiumPin.inDays', { n: status.daysToEvent });
-    if (label) drawPin(ctx, X(0.5), Y(1.08), tile, label, gameDay, sec);
+  if (status.connected) {
+    const progress = gameOn ? Math.min(1, status.phase + frac * (1 - status.phase) / Math.max(1, status.ticksLeft)) : -1;
+    drawPin(ctx, X(0.5), Y(1.08), tile, stadiumPinLabel(status), gameOn, sec, progress);
   }
   return true;
 }
@@ -159,7 +176,7 @@ function drawMowing(ctx: CanvasRenderingContext2D, X: (u: number) => number, Y: 
   }
 }
 
-/** Floodlights on the masts with their beams on the pitch; on game day also the pitch glow, two sweeping spotlights and flashes (`full`: share of seats filled). */
+/** Floodlights on the masts with their beams on the pitch; during an event also the pitch glow, two sweeping spotlights and flashes (`full`: the crowd's size, 0–1). */
 function drawLights(ctx: CanvasRenderingContext2D, X: (u: number) => number, Y: (v: number) => number, tile: number, sec: number, full: number, game: boolean): void {
   const fx = X(FIELD.u), fy = Y(FIELD.v);
   ctx.save();
@@ -206,8 +223,8 @@ function drawLights(ctx: CanvasRenderingContext2D, X: (u: number) => number, Y: 
   ctx.restore();
 }
 
-/** The countdown pin over the venue: a rounded tag with a little football; gold, and bobbing, on game day. */
-function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, label: string, today: boolean, sec: number): void {
+/** The countdown pin over the venue: a rounded tag with a little football; gold and bobbing during an event, with a bar through it (`progress` 0–1, or -1 for none). */
+function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, tile: number, label: string, today: boolean, sec: number, progress = -1): void {
   const fs = Math.round(Math.max(11, Math.min(16, tile * 0.24)));
   ctx.save();
   ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
@@ -221,6 +238,12 @@ function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, tile: numb
   ctx.beginPath(); ctx.ellipse(bx + fs * 1.05, by + h / 2, fs * 0.45, fs * 0.29, -0.5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#24211d';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, bx + fs * 1.75, by + h / 2 + 1);
+  ctx.fillText(label, bx + fs * 1.75, by + h / 2 + (progress >= 0 ? -1 : 1));
+  if (progress >= 0) {
+    // How far through the event: a thin bar along the tag's foot.
+    const px = bx + fs * 1.75, pw = w - fs * 2.6, ph = Math.max(2, Math.round(fs * 0.18)), py = by + h - ph - fs * 0.22;
+    ctx.fillStyle = 'rgba(36,33,29,0.25)'; ctx.fillRect(px, py, pw, ph);
+    ctx.fillStyle = '#c4552d'; ctx.fillRect(px, py, pw * progress, ph);
+  }
   ctx.restore();
 }
