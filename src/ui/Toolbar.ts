@@ -26,7 +26,7 @@ import { ordinancesShown } from './OrdinancePanel';
 import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
 import { DEBUG } from '../debug';
-import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
+import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
@@ -117,6 +117,7 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'midPark', icon: 'park', tool: 'midPark' },
     { key: 'bigPark', icon: 'park', tool: 'bigPark' },
     { key: 'beachPark', icon: 'beach', tool: 'beachPark', shown: () => DEBUG },
+    { key: 'lido', icon: 'beach', tool: 'lido', shown: () => DEBUG },   // ?debug=true until its art is in
     { key: 'plaza', icon: 'monument', tool: 'plaza' },
   ] },
   { family: 'unique', icon: 'stadium', items: [
@@ -156,7 +157,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 ];
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
-  midPark: BUILDING_MID_PARK, bigPark: BUILDING_BIG_PARK, beachPark: BUILDING_BEACH_PARK, plaza: BUILDING_PLAZA, museum: BUILDING_MUSEUM, stadium: BUILDING_STADIUM,
+  midPark: BUILDING_MID_PARK, bigPark: BUILDING_BIG_PARK, beachPark: BUILDING_BEACH_PARK, lido: BUILDING_LIDO, plaza: BUILDING_PLAZA, museum: BUILDING_MUSEUM, stadium: BUILDING_STADIUM,
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
   largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT, station: BUILDING_STATION, stationL: BUILDING_STATION_L,
   rampElevated: BUILDING_RAMP_ELEVATED, rampSubway: BUILDING_RAMP_SUBWAY, subwayStation: BUILDING_SUBWAY_STATION,

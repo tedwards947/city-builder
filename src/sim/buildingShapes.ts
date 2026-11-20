@@ -26,7 +26,7 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM, BUILDING_MID_PARK, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM, BUILDING_MID_PARK, BUILDING_LIDO, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
@@ -210,6 +210,7 @@ setBuildingShape(BUILDING_LARGE_SEWAGE_PLANT, block(2, 2));
 setBuildingShape(BUILDING_BIG_PARK, block(3, 3));
 setBuildingShape(BUILDING_MID_PARK, block(2, 2));
 setBuildingShape(BUILDING_BEACH_PARK, block(3, 2));
+setBuildingShape(BUILDING_LIDO, block(3, 2));
 setBuildingShape(BUILDING_PLAZA, block(2, 2));
 setBuildingShape(BUILDING_MUSEUM, block(2, 2));
 setBuildingShape(BUILDING_STADIUM, [...block(4, 4), [1, 4], [2, 4]]);
@@ -295,6 +296,7 @@ setPlacementRules(BUILDING_AIRPORT, { noRotation: true, onePerCity: true });
 setPlacementRules(BUILDING_BIG_PARK, { noRotation: true });
 setPlacementRules(BUILDING_MID_PARK, { noRotation: true });
 setPlacementRules(BUILDING_BEACH_PARK, { needsWaterEdge: true });
+setPlacementRules(BUILDING_LIDO, { needsWaterEdge: true });
 setPlacementRules(BUILDING_PLAZA, { noRotation: true });
 setPlacementRules(BUILDING_MUSEUM, { noRotation: true, onePerCity: true });
 setPlacementRules(BUILDING_STADIUM, { noRotation: true, onePerCity: true });

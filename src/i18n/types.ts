@@ -347,6 +347,7 @@ export interface TranslationSchema {
       midPark: string;
       bigPark: string;
       beachPark: string;
+      lido: string;
       plaza: string;
       museum: string;
       stadium: string;
@@ -470,6 +471,7 @@ export interface TranslationSchema {
       midPark: string;
       bigPark: string;
       beachPark: string;
+      lido: string;
       plaza: string;
       museum: string;
       stadium: string;
@@ -522,6 +524,7 @@ export interface TranslationSchema {
     midPark: string;
     bigPark: string;
     beachPark: string;
+    lido: string;
     plaza: string;
     museum: string;
     stadium: string;
