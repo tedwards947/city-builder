@@ -310,10 +310,20 @@ function attractionRows(world: World, tx: number, ty: number, kind: number): str
 function stadiumRows(world: World): string {
   const s = eventStatus(world);
   if (!s) return "";
-  const when = s.daysToEvent === 0 ? t("ui.tileInfo.eventToday") : s.daysToEvent === 1 ? t("ui.tileInfo.eventInOneDay") : t("ui.tileInfo.eventInDays", {n: s.daysToEvent});
-  let html = `<div class="ti-detail">${t("ui.tileInfo.eventNext", {when})}</div>`;
+  const TPS = 2;  // sim ticks a second at 1x
+  const span = (ticks: number) => ticks < 60 * TPS ? t("ui.tileInfo.eventSoon") : t("ui.tileInfo.eventMinutes", {n: Math.round(ticks / (60 * TPS))});
+  let html = "";
+  if (!s.eventToday) html += `<div class="ti-detail">${t("ui.tileInfo.eventNext", {when: span(s.ticksToEvent)})}</div>`;
+  else {
+    const stage = t(s.stage === "ramp" ? "ui.tileInfo.eventStageRamp" : s.stage === "drain" ? "ui.tileInfo.eventStageDrain" : "ui.tileInfo.eventStagePeak");
+    const left = s.ticksLeft < 60 * TPS ? Math.max(1, Math.round(s.ticksLeft / TPS)) + " s" : Math.round(s.ticksLeft / (60 * TPS)) + " min";
+    html += `<div class="ti-detail" style="color:#e8b030;font-weight:bold">${t("ui.tileInfo.eventOn", {stage, left})}</div>`;
+  }
   if (!s.connected) html += `<div class="ti-detail" style="color:#e55;font-weight:bold">${t("ui.tileInfo.attractionNoRoad")}</div>`;
-  if (s.eventToday) html += `<div class="ti-detail">${t("ui.tileInfo.eventFans", {fans: Math.round(s.fans).toLocaleString("en-US"), seats: s.seats.toLocaleString("en-US")})}</div>`;
+  if (s.eventToday) {
+    html += `<div class="ti-detail">${t("ui.tileInfo.eventFans", {fans: Math.round(s.fans).toLocaleString("en-US"), seats: s.seats.toLocaleString("en-US")})}</div>`;
+    if (s.stuckResidents > 0) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.eventStuckNow", {n: Math.round(s.stuckResidents).toLocaleString("en-US"), pc: pcAmount(s.pc)})}</div>`;
+  }
   if (s.last) html += `<div class="ti-detail">${t("ui.tileInfo.eventLast", {arrived: Math.round(s.last.arrived), wanted: Math.round(s.last.wanted), stuck: Math.round(s.last.stuckResidents).toLocaleString("en-US")})}</div>`;
   return html;
 }

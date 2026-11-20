@@ -86,9 +86,13 @@ export interface TranslationSchema {
       runningCostCovered: string;
       plantSupplies: string;
       eventNext: string;
-      eventToday: string;
-      eventInDays: string;
-      eventInOneDay: string;
+      eventSoon: string;
+      eventMinutes: string;
+      eventOn: string;
+      eventStageRamp: string;
+      eventStagePeak: string;
+      eventStageDrain: string;
+      eventStuckNow: string;
       eventFans: string;
       eventLast: string;
       eventStrain: string;
@@ -172,6 +176,8 @@ export interface TranslationSchema {
     };
     paused: { chip: string; inspect: string };
     toast: {
+      eventStartedTitle: string;
+      eventStartedMsg: string;
       eventDayTitle: string;
       eventDayFans: string;
       eventDayStuck: string;
