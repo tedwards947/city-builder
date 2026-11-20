@@ -10,6 +10,8 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
+**Scale pass, round 1 out for the owner (2026-11-19):** `docs/SCALE.md` sets 1 tile = 17 m (from the highway's 4 lanes), the per-pixel numbers, target sizes and an audit; review page built by `art/clay-set/scale/build.mjs`. Waiting on the owner: tower height (true / 75% / 50%) and floors, the 1×1 level 3 mid-rise, longer trucks and train cars, ship size. Feeds TODO h (2×2 towers). Redraws need paid images: ask first.
+
 **No-road warning is in (owner, 2026-11-19):** when a bulldoze or a highway upgrade leaves a police or fire station, school, hospital, train or subway station, seaport or airport with no street or avenue, a toast names it (click goes there) and the drag outlines it in red before release (`sim/roadCutoff.ts`, hooked into `CommandHistory`). Undo brings it back silently. Parks (decorative) and utilities (need no road) are left out.
 
 **Tutorial UI is in (TUTORIAL_DESIGN.md, 2026-11-19):** `src/ui/TutorialCard.ts` runs the steps 4×/s (passes met ones, Skip step, Leave asks once), draws the card (bottom centre, full width under 600px), pulses the step's toolbar item (opening its fly-out) plus the speed buttons and demand chart, and ghosts `target()` on the map (area highlight). Title and Menu have a Tutorial button, lit on a first launch (`concretta.tutorialDone`). The steps, rules and map are ENGINE's (see its section); the map is a placeholder until the owner builds the real one. Copy (`ui.tutorial.*`) waits on the owner.

@@ -1,0 +1,316 @@
+<title>Concretta Scale Pass</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a surveyor's sheet. One reading column; the scenes break wider. Rulers and numbers in mono. */
+:root {
+  --bg: #eef0ec; --panel: #f8f9f6; --ink: #1c2322; --muted: #5a6562; --line: #cfd5cf;
+  --accent: #2d6a86; --ok: #2f7d50; --warn: #b4542f; --mid: #a67a12; --chip: #e2e7e1;
+  --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161b1c; --panel: #1e2425; --ink: #e4e9e6; --muted: #9aa6a2; --line: #333c3c;
+  --accent: #6fb0cf; --ok: #6cc08e; --warn: #e88a64; --mid: #dcb14e; --chip: #283031; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #161b1c; --panel: #1e2425; --ink: #e4e9e6; --muted: #9aa6a2; --line: #333c3c;
+  --accent: #6fb0cf; --ok: #6cc08e; --warn: #e88a64; --mid: #dcb14e; --chip: #283031; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: 34px; letter-spacing: -0.01em; }
+h2 { font-size: 23px; }
+h3 { font-size: 16px; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+section { display: grid; gap: 14px; min-width: 0; }
+.lede { color: var(--muted); }
+.keys { display: flex; flex-wrap: wrap; gap: 10px; }
+.key { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; display: grid; gap: 2px; min-width: 0; }
+.key b { font: 600 20px/1.1 var(--mono); }
+.key span { font-size: 12px; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 13px var(--body); padding: 6px 12px; border: 0; background: var(--panel); color: var(--ink); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.seg button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label { display: inline-flex; gap: 8px; align-items: center; }
+input[type=range] { accent-color: var(--accent); width: 140px; }
+.out { font: 600 13px var(--mono); min-width: 5ch; }
+.scenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; min-width: 0; }
+figure canvas { width: 100%; height: auto; display: block; }
+figcaption { padding: 10px 12px; font-size: 13px; color: var(--muted); display: grid; gap: 2px; border-top: 1px solid var(--line); }
+figcaption b { color: var(--ink); font-family: var(--display); font-size: 15px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 760px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: var(--chip); }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; white-space: nowrap; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.small { color: var(--warn); } .pill.big { color: var(--mid); } .pill.call { color: var(--accent); }
+.qs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: q; }
+.qs li { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px 12px 46px; position: relative; counter-increment: q; }
+.qs li::before { content: counter(q); position: absolute; left: 14px; top: 11px; font: 700 15px var(--mono); color: var(--accent); }
+.note { font-size: 13px; color: var(--muted); }
+code { font: 13px var(--mono); background: var(--chip); padding: 1px 4px; border-radius: 3px; }
+@media (max-width: 480px) { h1 { font-size: 27px; } }
+</style>
+
+<div class="wrap">
+<header style="display:grid;gap:10px">
+  <div class="eyebrow">Concretta · asset scale pass · draft 1</div>
+  <h1>One metre for the whole city</h1>
+  <p class="lede">The highway's four lanes fit in one tile, so a tile is about 17 m. Everything below is drawn at game scale against that. The houses, shops and factories are the real sprites. The mid-rise and the tower are code-drawn massing blocks, here only to judge size; they are not the final art.</p>
+</header>
+
+<section>
+  <div class="eyebrow">The metre</div>
+  <div class="keys">
+    <div class="key"><b>17 m</b><span>one tile (4 lanes × 3.1 m + verges)</span></div>
+    <div class="key"><b>5.9 px/m</b><span>across, in a 128 px sprite (plot is 101 px)</span></div>
+    <div class="key"><b>11 px</b><span>one 3 m floor, upward, in a 128 px sprite</span></div>
+    <div class="key"><b>0.12 tile</b><span>one floor on screen, in the game</span></div>
+    <div class="key"><b>4.5 m</b><span>a car: about ¼ tile, never ⅓</span></div>
+  </div>
+  <p class="note">The floor height comes from the art you said looks right (level 1–2 houses, the current level 3 towers' window rows). Measured, not guessed: 11 px per floor at 128 px across all of them.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Heights</div>
+  <h2>How tall should a 2×2 tower stand?</h2>
+  <p>The same block three times. Left to right: the tower at true height (the houses' scale), at 75%, and at 50%. The squeeze applies to the tower and the mid-rise only. The houses stay as they are. Hover or tap a scene to see the tower fade, the way hover-to-hide could work.</p>
+  <div class="controls">
+    <label for="floors">Tower floors <input id="floors" type="range" min="8" max="32" step="1" value="20"><span class="out" id="floorsOut">20</span></label>
+    <label for="mid">1×1 mid-rise floors <input id="mid" type="range" min="3" max="6" step="1" value="4"><span class="out" id="midOut">4</span></label>
+    <span>Cars <span class="seg" role="group" aria-label="Car size"><button id="carsNow" aria-pressed="false">now</button><button id="carsTarget" aria-pressed="true">target</button></span></span>
+  </div>
+  <div class="scenes" id="scenes"></div>
+  <p class="note">Each scene: street in front, then two rows of lots, and a back row of houses so you can see what the tower covers. From the left: level 1 and 2 houses, today's level 3 tower (the real sprite), a 1×1 mid-rise mock, the 2×2 tower mock, a level 2 shop.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Vehicles</div>
+  <h2>Things that move, against the tile grid</h2>
+  <p>Grey outline is what the game draws today; the filled shape is the target. Grid squares are tiles (17 m), small ticks are 1 m.</p>
+  <figure><canvas id="fleet" width="1088" height="520" aria-label="Vehicles drawn now and at target size on a tile grid"></canvas>
+  <figcaption><b>Cars, vans and trucks are close; trains and ships are short</b><span>The road car is the right length but 40% too wide. Parked cars on lots are about half size. A train car is ¾ tile (13 m); a real one is 20 m. The ship is 38 m, so it reads as a coaster next to 17 m tiles.</span></figcaption></figure>
+</section>
+
+<section>
+  <div class="eyebrow">Audit</div>
+  <h2>Every asset family, now and target</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Asset</th><th>Now</th><th>Target</th><th>Verdict</th><th>Fix</th></tr></thead>
+    <tbody id="audit"></tbody>
+  </table></div>
+  <p class="note">Same table in <code>docs/SCALE.md</code>. "Code" fixes are cheap and free. "Redraw" means new image generations, which I'll ask you about before making any.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Your call</div>
+  <h2>Questions for this round</h2>
+  <ol class="qs">
+    <li><b>Tower height.</b> True, 75% or 50%? And how many floors for the tallest 2×2 tower? A true-height 20-floor tower covers about 2½ tiles behind it, so hover-to-hide matters more the taller we go.</li>
+    <li><b>1×1 level 3 mid-rise.</b> Is 4 floors on a block about 12 m square the right look for the top of a 1×1 lot? (Shops 2–4 floors, industry a bigger works, as you said.) This replaces today's thin 6–8 floor towers, which are only about 5 m wide.</li>
+    <li><b>Trucks and trains.</b> Trucks at real length (9 m) take two traffic slots instead of one, and train cars at 20 m make a 3-car train 3½ tiles long. Both are code changes. Go ahead?</li>
+    <li><b>Ships.</b> Real container ships would be 8+ tiles long. Keep the small 2¼-tile ships, go to about 4 tiles, or leave ships for later?</li>
+  </ol>
+</section>
+</div>
+
+<script>
+const IMG = /*SPRITES*/{};
+const PLOT = { left: 13, right: 113, bottom: 109, w: 128, h: 128 }, ASPECT = 0.905;
+const FLOOR = 0.1203;            // tiles of screen per 3 m floor, in the game (measured)
+const M = 1 / 17;                // tiles per metre across
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const imgs = {};
+const loads = Object.entries(IMG).map(([k, src]) => new Promise(r => { const i = new Image(); i.onload = () => { imgs[k] = i; r(); }; i.onerror = r; i.src = src; }));
+
+const COL = { grass: '#86bd63', grassLip: '#5e8f45', asphalt: '#63676e', pave: '#b7b1a4', paveLip: '#8f897c', line: '#ece5d2', plaza: '#d8d4cb', plazaLip: '#9d988c' };
+const CAR = ['#e9e6dc', '#d65a4a', '#4f86c6', '#e3b94a', '#5aa868', '#3b4048'];
+
+function sprite(ctx, name, tx, ty, T, span = 1) {
+  const im = imgs[name]; if (!im) return;
+  const pw = PLOT.right - PLOT.left + 1, ph = pw * ASPECT, kx = T * span / pw, ky = T * span / ph;
+  ctx.drawImage(im, tx * T - PLOT.left * kx, ty * T - (PLOT.bottom + 1 - ph) * ky, PLOT.w * kx, PLOT.h * ky);
+}
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+// A lot slab like the clay sprites: flat top, darker lip along the front.
+function slab(ctx, x, y, w, d, T, top, lip) {
+  const lipH = 0.06 * T, inset = 0.06 * T;
+  ctx.fillStyle = lip; rr(ctx, x * T + inset, y * T + inset + lipH, w * T - 2 * inset, d * T - 2 * inset, 0.07 * T); ctx.fill();
+  ctx.fillStyle = top; rr(ctx, x * T + inset, y * T + inset, w * T - 2 * inset, d * T - 2 * inset, 0.07 * T); ctx.fill();
+}
+
+// A massing block: front face + roof, window rows per floor, shadow to the right.
+function block(ctx, T, b, alpha = 1) {
+  const { x, y, w, d, floors, k, wall, wallDark, glass, roof } = b;
+  const H = floors * FLOOR * k * T, X = x * T, Y = y * T, W = w * T, D = d * T;
+  ctx.save(); ctx.globalAlpha = alpha;
+  // shadow
+  ctx.fillStyle = 'rgba(30,40,35,0.22)';
+  ctx.beginPath(); ctx.moveTo(X + W, Y + D); ctx.lineTo(X + W + Math.min(H * 0.55, 2.2 * T), Y + D - Math.min(H * 0.1, 0.4 * T)); ctx.lineTo(X + W + Math.min(H * 0.55, 2.2 * T), Y - Math.min(H * 0.1, 0.4 * T)); ctx.lineTo(X + W, Y); ctx.closePath(); ctx.fill();
+  // front face
+  ctx.fillStyle = wall; ctx.fillRect(X, Y + D - H, W, H);
+  const fh = FLOOR * k * T, rows = floors;
+  const bays = Math.max(2, Math.round(w / 0.17));
+  const bw = W / bays;
+  for (let f = 0; f < rows; f++) {
+    const fy = Y + D - (f + 1) * fh;
+    if (f === 0 && b.shop) { ctx.fillStyle = glass; ctx.fillRect(X + W * 0.06, fy + fh * 0.18, W * 0.88, fh * 0.72); ctx.fillStyle = wallDark; ctx.fillRect(X + W * 0.42, fy + fh * 0.35, W * 0.16, fh * 0.65); continue; }
+    ctx.fillStyle = wallDark; ctx.fillRect(X, fy + fh - Math.max(1, fh * 0.12), W, Math.max(1, fh * 0.12));
+    ctx.fillStyle = glass;
+    for (let i = 0; i < bays; i++) ctx.fillRect(X + i * bw + bw * 0.18, fy + fh * 0.22, bw * 0.64, fh * 0.5);
+  }
+  if (!b.shop) { ctx.fillStyle = wallDark; ctx.fillRect(X + W / 2 - bw * 0.35, Y + D - fh * 0.85, bw * 0.7, fh * 0.85); }
+  // roof
+  ctx.fillStyle = roof; ctx.fillRect(X, Y - H, W, D);
+  ctx.strokeStyle = wall; ctx.lineWidth = Math.max(1, T * 0.03); ctx.strokeRect(X + ctx.lineWidth / 2, Y - H + ctx.lineWidth / 2, W - ctx.lineWidth, D - ctx.lineWidth);
+  ctx.fillStyle = wallDark; ctx.fillRect(X + W * 0.62, Y - H + D * 0.25, W * 0.22, D * 0.3);
+  ctx.restore();
+}
+
+function road(ctx, x0, x1, y, T) {
+  ctx.fillStyle = COL.paveLip; ctx.fillRect(x0 * T, y * T, (x1 - x0) * T, T);
+  ctx.fillStyle = COL.pave; ctx.fillRect(x0 * T, y * T, (x1 - x0) * T, T * 0.96);
+  ctx.fillStyle = COL.asphalt; ctx.fillRect(x0 * T, (y + 0.25) * T, (x1 - x0) * T, T * 0.5);
+  ctx.fillStyle = COL.line;
+  for (let x = x0 + 0.1; x < x1; x += 0.36) ctx.fillRect(x * T, (y + 0.49) * T, 0.18 * T, Math.max(1, 0.02 * T));
+}
+function car(ctx, cx, cy, len, wid, colour, heading, T, ghost) {
+  ctx.save(); ctx.translate(cx * T, cy * T); ctx.rotate(heading);
+  const L = len * T, W = wid * T;
+  if (ghost) { ctx.strokeStyle = ghost; ctx.lineWidth = 1.5; ctx.setLineDash([3, 2]); rr(ctx, -L / 2, -W / 2, L, W, W * 0.4); ctx.stroke(); ctx.restore(); return; }
+  ctx.fillStyle = 'rgba(20,24,28,0.3)'; rr(ctx, -L / 2 + T * 0.01, -W / 2 + T * 0.025, L, W, W * 0.4); ctx.fill();
+  ctx.fillStyle = colour; rr(ctx, -L / 2, -W / 2, L, W, W * 0.4); ctx.fill();
+  ctx.fillStyle = 'rgba(30,40,55,0.8)'; rr(ctx, -L * 0.27, -W * 0.37, L * 0.56, W * 0.74, W * 0.22); ctx.fill();
+  ctx.fillStyle = colour; ctx.fillRect(-L * 0.17, -W * 0.37, L * 0.27, W * 0.74);
+  ctx.restore();
+}
+
+const state = { floors: 20, mid: 4, carsTarget: true, hover: -1 };
+const SCALES = [{ k: 1, label: 'True height', sub: 'Same metre as the houses' }, { k: 0.75, label: '75%', sub: 'Floors drawn ¾ height' }, { k: 0.5, label: '50%', sub: 'Floors drawn half height' }];
+const TS = 72, COLS = 7, ROWS = 4;
+
+function scene(cv, k, faded) {
+  const T = TS;
+  const head = Math.max(1.2, state.floors * FLOOR * 1 + 0.4); // room for the true-height tower in every panel, so they line up
+  cv.width = COLS * T; cv.height = Math.ceil((ROWS + head) * T);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = css('--panel'); ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.save(); ctx.translate(0, head * T);
+  ctx.fillStyle = COL.grass; ctx.fillRect(0, -0.1 * T, COLS * T, ROWS * T + 0.1 * T);
+  road(ctx, 0, COLS, 3, T);
+  // back row (y = 0)
+  ['res-1', 'res-1-b', 'res-2', 'res-1-c', 'res-1', 'res-2-c', 'res-1-b'].forEach((n, x) => sprite(ctx, n, x, 0, T));
+  // row 1
+  sprite(ctx, 'res-1-c', 0, 1, T); sprite(ctx, 'res-2', 1, 1, T); sprite(ctx, 'res-1', 2, 1, T); sprite(ctx, 'res-2-c', 3, 1, T); sprite(ctx, 'ind-1', 6, 1, T);
+  // row 2 (front lots), with the 2×2 tower on x 4–5, y 1–2
+  sprite(ctx, 'res-1', 0, 2, T); sprite(ctx, 'res-2-c', 1, 2, T); sprite(ctx, 'res-3', 2, 2, T);
+  slab(ctx, 3, 2, 1, 1, T, COL.plaza, COL.plazaLip);
+  block(ctx, T, { x: 3.14, y: 2.18, w: 0.72, d: 0.62, floors: state.mid, k, wall: '#c9c1b2', wallDark: '#8d8577', glass: '#4d6f86', roof: '#a9a296' });
+  slab(ctx, 4, 1, 2, 2, T, COL.plaza, COL.plazaLip);
+  const tw = { x: 4.3, y: 1.35, w: 1.4, d: 1.15, floors: state.floors, k, wall: '#bdb8ad', wallDark: '#7d796f', glass: '#3e5d73', roof: '#9e998e' };
+  block(ctx, T, { x: 4.12, y: 2.05, w: 1.76, d: 0.78, floors: 2, k: 1, wall: '#a8a397', wallDark: '#6f6b62', glass: '#3e5d73', roof: '#8f8a80', shop: true });
+  block(ctx, T, tw, faded ? 0.18 : 1);
+  if (faded) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(tw.x * T, tw.y * T, tw.w * T, tw.d * T); ctx.setLineDash([]); }
+  sprite(ctx, 'com-2', 6, 2, T);
+  // cars on the street
+  const cars = state.carsTarget ? { l: 4.5 * M, w: 1.8 * M } : { l: 0.25, w: 0.15 };
+  [[0.6, 3.38, 0, 1], [1.9, 3.62, Math.PI, 2], [3.4, 3.38, 0, 3], [5.3, 3.62, Math.PI, 4], [6.4, 3.38, 0, 0]].forEach(([x, y, h, c]) => car(ctx, x, y, cars.l, cars.w, CAR[c], h, T));
+  ctx.restore();
+  // tile ruler along the bottom
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `600 ${Math.round(T * 0.16)}px JetBrains Mono, monospace`;
+  ctx.fillText('17 m', 0.08 * T, cv.height - 0.08 * T);
+  ctx.fillRect(0, cv.height - 0.04 * T, T, 0.04 * T);
+}
+
+function drawScenes() {
+  const host = document.getElementById('scenes');
+  if (!host.childElementCount) SCALES.forEach((s, i) => {
+    const f = document.createElement('figure'), cv = document.createElement('canvas');
+    cv.setAttribute('aria-label', `Block with a 2×2 tower at ${s.label}`); cv.tabIndex = 0;
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = `<b>${s.label}</b><span class="sub"></span>`;
+    f.append(cv, cap); host.append(f);
+    const on = () => { state.hover = i; drawScenes(); }, off = () => { state.hover = -1; drawScenes(); };
+    cv.addEventListener('pointerenter', on); cv.addEventListener('pointerleave', off); cv.addEventListener('focus', on); cv.addEventListener('blur', off);
+    cv.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') { state.hover = state.hover === i ? -1 : i; drawScenes(); } });
+  });
+  [...host.children].forEach((f, i) => {
+    const s = SCALES[i], m = state.floors * 3 * s.k;
+    scene(f.querySelector('canvas'), s.k, state.hover === i);
+    f.querySelector('.sub').textContent = `${s.sub}. ${state.floors} floors look ${Math.round(m)} m tall; the tower rises ${(state.floors * FLOOR * s.k).toFixed(1)} tiles on screen.`;
+  });
+}
+
+// ── Fleet: now (outline) vs target (filled), top-down, on a 17 m grid ──
+function fleet() {
+  const cv = document.getElementById('fleet'), ctx = cv.getContext('2d');
+  const T = 96, L = 150, rowH = 62;
+  ctx.fillStyle = css('--panel'); ctx.fillRect(0, 0, cv.width, cv.height);
+  const gridX0 = L, ink = css('--ink'), muted = css('--muted'), line = css('--line'), warn = css('--warn');
+  const rows = [
+    { name: 'Car', now: [0.25, 0.15], tgt: [4.5, 1.8], c: '#4f86c6' },
+    { name: 'Parked car', now: [30 / 202, 13 / 202], tgt: [4.5, 1.8], c: '#d65a4a' },
+    { name: 'Van', now: [0.30, 0.15], tgt: [5.5, 2.0], c: '#e3b94a' },
+    { name: 'Truck', now: [0.40, 0.17], tgt: [9, 2.5], c: '#e9e6dc' },
+    { name: 'Bus (new)', now: null, tgt: [12, 2.55], c: '#5aa868' },
+    { name: 'Train car', now: [0.75, 0.2], tgt: [20, 3.0], c: '#c9533f' },
+    { name: 'Plane', now: [2, 2], tgt: [38, 36], c: '#ffffff', img: 'plane-red' },
+    { name: 'Ship', now: [2.25, 0.4], tgt: [70, 12], c: '#3b4048', img: 'ship-side' },
+  ];
+  // grid
+  ctx.strokeStyle = line; ctx.lineWidth = 1;
+  for (let x = 0; x * T <= cv.width - gridX0; x++) { ctx.beginPath(); ctx.moveTo(gridX0 + x * T + 0.5, 10); ctx.lineTo(gridX0 + x * T + 0.5, cv.height - 26); ctx.stroke(); }
+  ctx.fillStyle = muted; ctx.font = '600 11px JetBrains Mono, monospace';
+  for (let x = 0; x * T <= cv.width - gridX0 - 30; x++) ctx.fillText(`${x * 17} m`, gridX0 + x * T + 3, cv.height - 10);
+  for (let m = 0; m * T / 17 <= cv.width - gridX0; m++) ctx.fillRect(gridX0 + m * T / 17, cv.height - 26, 1, m % 5 ? 3 : 6);
+  rows.forEach((r, i) => {
+    const cy = 22 + i * rowH + rowH / 2 - 10;
+    ctx.fillStyle = ink; ctx.font = '600 13px Inter, system-ui, sans-serif'; ctx.fillText(r.name, 12, cy + 4);
+    const tl = r.tgt[0] / 17, tw = r.tgt[1] / 17;
+    if (r.img && imgs[r.img]) {
+      const im = imgs[r.img], len = (r.name === 'Plane' ? 2 : 2.25) * T, h = len * im.height / im.width;
+      ctx.drawImage(im, gridX0 + 4, cy - h / 2, len, h);
+      if (r.name === 'Ship') { ctx.strokeStyle = warn; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; const tl2 = Math.min(tl * T, cv.width - gridX0 - 12); rr(ctx, gridX0 + 4, cy - tw * T / 2, tl2, tw * T, tw * T * 0.5); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = warn; ctx.font = '500 12px Inter, system-ui, sans-serif'; ctx.fillText('outline: a 70 m ship (4 tiles). A feeder container ship is 140 m (8 tiles).', gridX0 + 2.4 * T, cy - 22); }
+      else { ctx.fillStyle = muted; ctx.font = '500 12px Inter, system-ui, sans-serif'; ctx.fillText('2 tiles = 34 m. About right (an A320 is 38 m).', gridX0 + 2.2 * T, cy + 4); }
+      return;
+    }
+    const x = gridX0 + 4;
+    ctx.fillStyle = r.c; ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+    rr(ctx, x, cy - tw * T / 2, tl * T, tw * T, Math.min(tw * T * 0.35, 6)); ctx.fill(); ctx.stroke();
+    if (r.now) { ctx.strokeStyle = muted; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5; rr(ctx, x, cy - r.now[1] * T / 2, r.now[0] * T, r.now[1] * T, Math.min(r.now[1] * T * 0.35, 6)); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.fillStyle = muted; ctx.font = '500 12px JetBrains Mono, monospace';
+    const nowTxt = r.now ? `now ${(r.now[0] * 17).toFixed(1)} × ${(r.now[1] * 17).toFixed(1)} m` : 'not in the game yet';
+    ctx.fillText(`${nowTxt}   target ${r.tgt[0]} × ${r.tgt[1]} m`, x + Math.max(tl, r.now ? r.now[0] : 0) * T + 14, cy + 4);
+  });
+}
+
+const AUDIT = /*AUDIT*/[];
+function audit() {
+  const tb = document.getElementById('audit');
+  tb.innerHTML = AUDIT.map(a => `<tr><td>${a[0]}</td><td class="n">${a[1]}</td><td class="n">${a[2]}</td><td><span class="pill ${a[3]}">${{ ok: 'OK', small: 'too small', big: 'too big', call: 'your call' }[a[3]]}</span></td><td>${a[4]}</td></tr>`).join('');
+}
+
+function bind() {
+  const f = document.getElementById('floors'), m = document.getElementById('mid');
+  f.addEventListener('input', () => { state.floors = +f.value; document.getElementById('floorsOut').textContent = f.value; drawScenes(); });
+  m.addEventListener('input', () => { state.mid = +m.value; document.getElementById('midOut').textContent = m.value; drawScenes(); });
+  const now = document.getElementById('carsNow'), tgt = document.getElementById('carsTarget');
+  const set = v => { state.carsTarget = v; now.setAttribute('aria-pressed', String(!v)); tgt.setAttribute('aria-pressed', String(v)); drawScenes(); };
+  now.addEventListener('click', () => set(false)); tgt.addEventListener('click', () => set(true));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawScenes(); fleet(); });
+  new MutationObserver(() => { drawScenes(); fleet(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+audit(); bind();
+Promise.all(loads).then(() => (document.fonts?.ready ?? Promise.resolve())).then(() => { drawScenes(); fleet(); });
+</script>
