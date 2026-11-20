@@ -1,4 +1,4 @@
-import { levelWeight } from '../lots';
+import { isLotAnchor, levelWeight } from '../lots';
 import type { World } from '../World';
 import { ZONE_R, ZONE_C, ZONE_I, ZONE_NONE, BUILDING_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -143,7 +143,7 @@ export class FireSystem {
 
       // 4. Ignition (never in the tutorial city: tutorial/rules.ts)
       // A merged 2×2 lot (sim/lots.ts) is one building: it rolls once, at its anchor, and burns whole.
-      if (z !== ZONE_NONE && level > 0 && !world.tutorial && world.layers.lot[i] <= 1) {
+      if (z !== ZONE_NONE && level > 0 && !world.tutorial && (world.layers.lot[i] === 0 || isLotAnchor(world.layers.lot[i]))) {
         const ignitionProb = b.baseProbability * (fireRisk[i] / 20);
         if (world.rng() < ignitionProb) {
           const itx = i % width;

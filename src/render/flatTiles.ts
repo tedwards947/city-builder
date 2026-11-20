@@ -249,15 +249,19 @@ function drawIndustrial(ctx: CanvasRenderingContext2D, dev: number, sxi: number,
 /**
  * Placeholder for a merged 2×2 lot (sim/lots.ts) until its art exists: this
  * tile's quarter of one plain slab with a lighter roof. `quarter` is
- * world.layers.lot: 1 NW, 2 NE, 3 SW, 4 SE.
+ * world.layers.lot: 1 NW, 2 NE, 3 SW, 4 SE of a 2×2; 5 west, 6 east of a wide
+ * pair of shops; 7 north, 8 south of a tall one.
  */
 export function drawFlatLotSlice(ctx: CanvasRenderingContext2D, zone: number, quarter: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette, isAbandoned: boolean): void {
   ctx.fillStyle = zone === ZONE_R ? p.zoneR : zone === ZONE_C ? p.zoneC : p.zoneI;
   ctx.fillRect(sxi, syi, tsi, tsi);
-  const west = ((quarter - 1) & 1) === 0, north = quarter <= 2;
+  // Which sides of this tile are the building's outside edge (the others join its next tile).
+  const pair = quarter >= 5;
+  const w = pair ? quarter !== 6 : ((quarter - 1) & 1) === 0, e = pair ? quarter !== 5 : ((quarter - 1) & 1) === 1;
+  const n = pair ? quarter !== 8 : quarter <= 2, s = pair ? quarter !== 7 : quarter >= 3;
   const slab = (margin: number, colour: string): void => {
-    const x0 = west ? sxi + margin : sxi, x1 = west ? sxi + tsi : sxi + tsi - margin;
-    const y0 = north ? syi + margin : syi, y1 = north ? syi + tsi : syi + tsi - margin;
+    const x0 = sxi + (w ? margin : 0), x1 = sxi + tsi - (e ? margin : 0);
+    const y0 = syi + (n ? margin : 0), y1 = syi + tsi - (s ? margin : 0);
     ctx.fillStyle = colour;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   };

@@ -1,21 +1,24 @@
-// Merged 2×2 lots (BIG_LOTS_DESIGN.md): four top-level lots of one zone that
-// have become a single big building.
+// Merged lots (BIG_LOTS_DESIGN.md): top-level lots of one zone that have become
+// a single big building. Four lots in a 2×2 square, for any zone; or, for shops
+// only, two lots side by side (a "pair": owner, 2026-11-20, because shops
+// seldom stand two deep).
 //
-// A merged lot is NOT a building kind. Its four tiles stay zone tiles, so every
+// A merged lot is NOT a building kind. Its tiles stay zone tiles, so every
 // system that counts residents, jobs, taxes and trips per tile keeps working:
 //   - each tile is at devLevel LOT_LEVEL (4), one above what a lot grows to;
-//   - `layers.lot` says which quarter a tile is: 1 NW (the anchor), 2 NE, 3 SW, 4 SE;
-//     0 = an ordinary lot;
+//   - `layers.lot` says which part of the building a tile is. 0 = an ordinary lot.
+//       2×2 square:  1 NW (the anchor), 2 NE, 3 SW, 4 SE
+//       wide pair:   5 west (the anchor), 6 east
+//       tall pair:   7 north (the anchor), 8 south
+//     Ask lotShape / isLotAnchor / world.lotAnchor / world.lotTilesAt rather
+//     than reading the numbers;
 //   - capacity comes from the per-level tables in BALANCE.growth: `popPerLevel[4]`
 //     for residents and `levelWeight[4]` wherever a system multiplies by the level.
 //
 // It is one building: knocking down, rezoning, paving or building over any of
 // its tiles brings the whole of it down first (World.razeLot), leaving the
-// other tiles as empty zoned lots. Commands snapshot all four tiles
+// other tiles as empty zoned lots. Commands snapshot all its tiles
 // (Command.tilesClearedWith / lotSiblings) so one undo puts it back.
-//
-// Phase 1 (this file): the model, a forced merge for debug, the summary for
-// Inspect. Nothing merges in normal play yet; the trigger comes later.
 
 import type { World } from './World';
 import { BUILDING_NONE, BUILDING_PARK, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R } from './constants';
@@ -29,25 +32,51 @@ export function levelWeight(dev: number): number {
   return BALANCE.growth.levelWeight[dev] ?? dev;
 }
 
-/** The four tile indices of the 2×2 whose NW corner is (tx, ty), in quarter order, or null if it leaves the map. */
-function square(world: World, tx: number, ty: number): number[] | null {
+/** The shape of a merged lot: a 2×2 square, or (shops only) two lots side by side, east–west ('wide') or north–south ('tall'). */
+export type LotShape = 'square' | 'wide' | 'tall';
+
+/** Width and height in tiles of each shape. */
+export const LOT_SIZE: Readonly<Record<LotShape, { w: number; h: number }>> = { square: { w: 2, h: 2 }, wide: { w: 2, h: 1 }, tall: { w: 1, h: 2 } };
+
+/** The `layers.lot` value of the anchor tile of each shape; the other tiles count up from it. */
+const FIRST: Readonly<Record<LotShape, number>> = { square: 1, wide: 5, tall: 7 };
+
+/** Whether a `layers.lot` value marks the anchor tile of a merged lot (its NW, west or north tile): the one tile per building. */
+export function isLotAnchor(q: number): boolean {
+  return q === 1 || q === 5 || q === 7;
+}
+
+/** The shape a `layers.lot` value belongs to, or null for 0 (an ordinary lot). */
+export function shapeOfQuarter(q: number): LotShape | null {
+  return q === 0 ? null : q <= 4 ? 'square' : q <= 6 ? 'wide' : 'tall';
+}
+
+/** The shape of the merged lot that tile `i` is part of, or null for an ordinary tile. */
+export function lotShape(world: World, i: number): LotShape | null {
+  return shapeOfQuarter(world.layers.lot[i]);
+}
+
+/** The tile indices of the `shape` whose anchor (NW corner) is (tx, ty), anchor first, or null if it leaves the map. */
+function tilesOf(world: World, tx: number, ty: number, shape: LotShape): number[] | null {
   const { width, height } = world.grid;
-  if (tx < 0 || ty < 0 || tx + 1 >= width || ty + 1 >= height) return null;
+  const { w, h } = LOT_SIZE[shape];
+  if (tx < 0 || ty < 0 || tx + w > width || ty + h > height) return null;
   const a = ty * width + tx;
-  return [a, a + 1, a + width, a + width + 1];
+  return shape === 'wide' ? [a, a + 1] : shape === 'tall' ? [a, a + width] : [a, a + 1, a + width, a + width + 1];
 }
 
 /**
- * Whether the 2×2 with its NW corner at (tx, ty) can merge: four lots of one
- * zone, none already part of a merged lot, each at the top level and none
- * abandoned. With `force` (debug), the level and abandonment are not asked.
+ * Whether the `shape` with its anchor at (tx, ty) can merge: lots of one zone
+ * (shops, for a pair), none already part of a merged lot, each at the top
+ * level and none abandoned. With `force` (debug), the level and abandonment
+ * are not asked.
  */
-export function canMergeLot(world: World, tx: number, ty: number, force = false): boolean {
-  const tiles = square(world, tx, ty);
+export function canMergeLot(world: World, tx: number, ty: number, force = false, shape: LotShape = 'square'): boolean {
+  const tiles = tilesOf(world, tx, ty, shape);
   if (!tiles) return false;
   const L = world.layers;
   const zone = L.zone[tiles[0]];
-  if (zone === ZONE_NONE) return false;
+  if (zone === ZONE_NONE || (shape !== 'square' && zone !== ZONE_C)) return false;
   for (const i of tiles) {
     if (L.zone[i] !== zone || L.building[i] !== BUILDING_NONE || L.roadClass[i] !== ROAD_NONE || L.lot[i] !== 0) return false;
     if (!force && (L.devLevel[i] !== BALANCE.growth.maxLevel || L.abandoned[i] !== 0)) return false;
@@ -56,25 +85,25 @@ export function canMergeLot(world: World, tx: number, ty: number, force = false)
 }
 
 /**
- * Merge the 2×2 with its NW corner at (tx, ty) into one building. Nobody is
- * displaced: the four lots' residents and jobs are simply part of it. Returns
+ * Merge the `shape` with its anchor at (tx, ty) into one building. Nobody is
+ * displaced: the lots' residents and jobs are simply part of it. Returns
  * false, changing nothing, if it cannot merge (canMergeLot).
  */
-export function mergeLot(world: World, tx: number, ty: number, force = false): boolean {
-  if (!canMergeLot(world, tx, ty, force)) return false;
-  const tiles = square(world, tx, ty)!;
+export function mergeLot(world: World, tx: number, ty: number, force = false, shape: LotShape = 'square'): boolean {
+  if (!canMergeLot(world, tx, ty, force, shape)) return false;
+  const tiles = tilesOf(world, tx, ty, shape)!;
   const L = world.layers;
   const { width } = world.grid;
-  for (let q = 0; q < 4; q++) {
+  for (let q = 0; q < tiles.length; q++) {
     const i = tiles[q];
     L.devLevel[i] = LOT_LEVEL;
-    L.lot[i] = q + 1;
+    L.lot[i] = FIRST[shape] + q;
     L.abandoned[i] = 0;
     L.distress[i] = 0;
     world.lotStreak[i] = 0;
     world.grid.markDirty(i % width, (i - (i % width)) / width);
   }
-  world.events.emit('lotMerged', { tx, ty, zone: L.zone[tiles[0]] });
+  world.events.emit('lotMerged', { tx, ty, zone: L.zone[tiles[0]], shape });
   return true;
 }
 
@@ -84,10 +113,11 @@ export function lotSiblings(world: World, i: number): number[] {
 }
 
 export interface LotSummary {
-  /** Tile index of the NW corner. */
+  /** Tile index of the anchor: the NW corner of a 2×2, the west or north tile of a pair. */
   anchor: number;
-  /** The four tiles, NW, NE, SW, SE. */
+  /** The tiles, anchor first: NW, NE, SW, SE for a 2×2; two for a pair. */
   tiles: number[];
+  shape: LotShape;
   zone: number;
   abandoned: boolean;
   /** Residents of the whole building (0 for shops and industry, and when abandoned). */
@@ -96,7 +126,7 @@ export interface LotSummary {
   weight: number;
 }
 
-/** The merged lot that tile `i` is part of, summed over its four tiles, or null for an ordinary tile. */
+/** The merged lot that tile `i` is part of, summed over its tiles, or null for an ordinary tile. */
 export function lotSummary(world: World, i: number): LotSummary | null {
   const tiles = world.lotTilesAt(i);
   if (tiles.length === 0) return null;
@@ -108,25 +138,28 @@ export function lotSummary(world: World, i: number): LotSummary | null {
     weight += levelWeight(L.devLevel[t]);
     if (zone === ZONE_R) residents += BALANCE.growth.popPerLevel[L.devLevel[t]] ?? 0;
   }
-  return { anchor: tiles[0], tiles, zone, abandoned, residents, weight };
+  return { anchor: tiles[0], tiles, shape: lotShape(world, i)!, zone, abandoned, residents, weight };
 }
 
 /**
- * After loading: make `layers.lot` and the levels agree. A quarter that is not
- * part of a whole, same-zone 2×2 at LOT_LEVEL goes back to an ordinary lot,
- * and so does any tile above the top level that is not in a merged lot.
+ * After loading: make `layers.lot` and the levels agree. A tile that is not
+ * part of a whole, same-zone merged lot at LOT_LEVEL (a 2×2, or a pair of
+ * shops) goes back to an ordinary lot, and so does any tile above the top
+ * level that is not in a merged lot.
  */
 export function cleanLots(world: World): void {
   const L = world.layers;
-  const { width, height } = world.grid;
+  const { width } = world.grid;
   const top = BALANCE.growth.maxLevel;
   const good = new Uint8Array(L.lot.length);
-  for (let y = 0; y + 1 < height; y++) for (let x = 0; x + 1 < width; x++) {
-    const a = y * width + x;
-    if (L.lot[a] !== 1) continue;
-    const tiles = [a, a + 1, a + width, a + width + 1];
+  for (let a = 0; a < L.lot.length; a++) {
+    const shape = isLotAnchor(L.lot[a]) ? shapeOfQuarter(L.lot[a])! : null;
+    if (!shape) continue;
+    const x = a % width;
+    const tiles = tilesOf(world, x, (a - x) / width, shape);
     const zone = L.zone[a];
-    if (zone !== ZONE_NONE && tiles.every((t, q) => L.lot[t] === q + 1 && L.zone[t] === zone && L.devLevel[t] === LOT_LEVEL && L.building[t] === BUILDING_NONE && L.roadClass[t] === ROAD_NONE)) {
+    if (!tiles || zone === ZONE_NONE || (shape !== 'square' && zone !== ZONE_C)) continue;
+    if (tiles.every((t, q) => L.lot[t] === FIRST[shape] + q && L.zone[t] === zone && L.devLevel[t] === LOT_LEVEL && L.building[t] === BUILDING_NONE && L.roadClass[t] === ROAD_NONE)) {
       for (const t of tiles) good[t] = 1;
     }
   }
@@ -137,12 +170,12 @@ export function cleanLots(world: World): void {
   }
 }
 
-/** The NW corner of the 2×2 nearest (tx, ty), within `radius` tiles, that canMergeLot accepts; null if there is none. For the debug button. */
-export function nearestMergeable(world: World, tx: number, ty: number, force = false, radius = 12): { tx: number; ty: number } | null {
+/** The anchor of the `shape` nearest (tx, ty), within `radius` tiles, that canMergeLot accepts; null if there is none. For the debug button. */
+export function nearestMergeable(world: World, tx: number, ty: number, force = false, radius = 12, shape: LotShape = 'square'): { tx: number; ty: number } | null {
   let best: { tx: number; ty: number } | null = null, bestD = Infinity;
   for (let y = ty - radius; y <= ty + radius; y++) for (let x = tx - radius; x <= tx + radius; x++) {
     const d = (x + 0.5 - tx) ** 2 + (y + 0.5 - ty) ** 2;
-    if (d < bestD && canMergeLot(world, x, y, force)) { best = { tx: x, ty: y }; bestD = d; }
+    if (d < bestD && canMergeLot(world, x, y, force, shape)) { best = { tx: x, ty: y }; bestD = d; }
   }
   return best;
 }
@@ -269,32 +302,58 @@ export function updateLotStreaks(world: World): void {
   }
 }
 
-/** Whether the 2×2 with its NW corner at (tx, ty) is far enough from every merged lot: none within BALANCE.lots.spacing tiles of it. */
-export function clearOfLots(world: World, tx: number, ty: number): boolean {
+/** Whether the `shape` with its anchor at (tx, ty) is far enough from every merged lot: none within BALANCE.lots.spacing tiles of it. */
+export function clearOfLots(world: World, tx: number, ty: number, shape: LotShape = 'square'): boolean {
   const { width, height } = world.grid, lot = world.layers.lot, gap = BALANCE.lots.spacing;
-  for (let y = Math.max(0, ty - gap); y <= Math.min(height - 1, ty + 1 + gap); y++) {
-    for (let x = Math.max(0, tx - gap); x <= Math.min(width - 1, tx + 1 + gap); x++) if (lot[y * width + x] !== 0) return false;
+  const { w, h } = LOT_SIZE[shape];
+  for (let y = Math.max(0, ty - gap); y <= Math.min(height - 1, ty + h - 1 + gap); y++) {
+    for (let x = Math.max(0, tx - gap); x <= Math.min(width - 1, tx + w - 1 + gap); x++) if (lot[y * width + x] !== 0) return false;
   }
   return true;
 }
 
+/** Whether tile `i` is a corner of some 2×2 that canMergeLot accepts: four top-level lots of its zone, whatever their streaks. */
+function inSquare(world: World, i: number): boolean {
+  const { width } = world.grid, x = i % width, y = (i - x) / width;
+  return canMergeLot(world, x, y) || canMergeLot(world, x - 1, y) || canMergeLot(world, x, y - 1) || canMergeLot(world, x - 1, y - 1);
+}
+
 /**
- * The NW tile of every 2×2 that could merge today: canMergeLot, all four lots
- * counting for BALANCE.lots.streakDays in a row, and clear of every merged lot
+ * Whether the pair of shops (`shape` 'wide' or 'tall') anchored at (tx, ty)
+ * may merge as a pair: canMergeLot, and neither shop is part of a 2×2 of
+ * top-level shops. Where the block is deep enough for the full 2×2, the pair
+ * waits for it (owner, 2026-11-20: deep shop blocks get the tall towers).
+ */
+export function canMergePair(world: World, tx: number, ty: number, shape: LotShape): boolean {
+  if (shape === 'square' || !canMergeLot(world, tx, ty, false, shape)) return false;
+  const tiles = tilesOf(world, tx, ty, shape)!;
+  return !inSquare(world, tiles[0]) && !inSquare(world, tiles[1]);
+}
+
+/** A block that could merge today: its anchor tile and its shape. */
+export interface MergeCandidate { anchor: number; shape: LotShape }
+
+/**
+ * Every block that could merge today: a 2×2 of one zone, or a pair of shops
+ * that is not part of a possible 2×2 (canMergePair); every lot of it counting
+ * for BALANCE.lots.streakDays in a row; and clear of every merged lot
  * (clearOfLots). Blocks may overlap.
  */
-export function mergeCandidates(world: World): number[] {
+export function mergeCandidates(world: World): MergeCandidate[] {
   const streak = world.lotStreak, need = BALANCE.lots.streakDays;
   const { width, height } = world.grid;
   const { zoned, zonedCount } = world.index;
-  const out: number[] = [];
+  const zone = world.layers.zone;
+  const out: MergeCandidate[] = [];
   for (let k = 0; k < zonedCount; k++) {
     const a = zoned[k];
     if (streak[a] < need) continue;
     const x = a % width, y = (a - x) / width;
-    if (x + 1 >= width || y + 1 >= height) continue;
-    if (streak[a + 1] < need || streak[a + width] < need || streak[a + width + 1] < need) continue;
-    if (canMergeLot(world, x, y) && clearOfLots(world, x, y)) out.push(a);
+    const east = x + 1 < width && streak[a + 1] >= need, south = y + 1 < height && streak[a + width] >= need;
+    if (east && south && streak[a + width + 1] >= need && canMergeLot(world, x, y) && clearOfLots(world, x, y)) out.push({ anchor: a, shape: 'square' });
+    if (zone[a] !== ZONE_C) continue;
+    if (east && canMergePair(world, x, y, 'wide') && clearOfLots(world, x, y, 'wide')) out.push({ anchor: a, shape: 'wide' });
+    if (south && canMergePair(world, x, y, 'tall') && clearOfLots(world, x, y, 'tall')) out.push({ anchor: a, shape: 'tall' });
   }
   return out;
 }
@@ -322,18 +381,19 @@ export function doorTile(world: World, i: number): number {
   return i;
 }
 
-/** How many merged lots the city has, by zone (index ZONE_R, ZONE_C, ZONE_I) and in all. For the Balance Lab and the bench. */
-export function lotCounts(world: World): { total: number; byZone: number[] } {
+/** How many merged lots the city has, by zone (index ZONE_R, ZONE_C, ZONE_I) and in all; `pairs` of them are pairs of shops, the rest 2×2. For the Balance Lab and the bench. */
+export function lotCounts(world: World): { total: number; byZone: number[]; pairs: number } {
   const L = world.layers, byZone = [0, 0, 0, 0];
   const { zoned, zonedCount } = world.index;
-  let total = 0;
+  let total = 0, pairs = 0;
   for (let k = 0; k < zonedCount; k++) {
     const i = zoned[k];
-    if (L.lot[i] !== 1) continue;
+    if (!isLotAnchor(L.lot[i])) continue;
     total++;
+    if (L.lot[i] !== 1) pairs++;
     byZone[L.zone[i]]++;
   }
-  return { total, byZone };
+  return { total, byZone, pairs };
 }
 
 export interface MergeReport {
@@ -347,6 +407,8 @@ export interface MergeReport {
   ready: number;
   /** 2×2 squares of top-level lots of one zone, ready or not: where a merge could ever happen. */
   squares: number;
+  /** Pairs of top-level shops that may merge as a pair (canMergePair), ready or not. */
+  pairs: number;
 }
 
 /** Where the city stands on merging, for the debug button and the lab: how many lots qualify, and how far along they are. */
@@ -354,7 +416,7 @@ export function mergeReport(world: World): MergeReport {
   const L = world.layers, top = BALANCE.growth.maxLevel;
   const { width, height } = world.grid;
   const { zoned, zonedCount } = world.index;
-  const r: MergeReport = { topLots: 0, happyToday: 0, bestStreak: 0, ready: mergeCandidates(world).length, squares: 0 };
+  const r: MergeReport = { topLots: 0, happyToday: 0, bestStreak: 0, ready: mergeCandidates(world).length, squares: 0, pairs: 0 };
   const jobs = jobsNearby(world);
   for (let k = 0; k < zonedCount; k++) {
     const i = zoned[k];
@@ -364,6 +426,7 @@ export function mergeReport(world: World): MergeReport {
     if (world.lotStreak[i] > r.bestStreak) r.bestStreak = world.lotStreak[i];
     const x = i % width, y = (i - x) / width;
     if (x + 1 < width && y + 1 < height && canMergeLot(world, x, y)) r.squares++;
+    if (L.zone[i] === ZONE_C) r.pairs += +canMergePair(world, x, y, 'wide') + +canMergePair(world, x, y, 'tall');
   }
   return r;
 }

@@ -22,6 +22,7 @@ export interface TranslationSchema {
       notBuildable: string;
       abandoned: string;
       bigLot: string;
+      bigLotPair: string;
       bigLotResidents: string;
       bigLotStreak: string;
       distress: string;
@@ -151,6 +152,7 @@ export interface TranslationSchema {
       stationsRebuiltTitle: string;
       lotMergedTitle: string;
       lotMergedMsg: string;
+      lotMergedPairMsg: string;
       stationsRebuilt: string;
       newerSaveTitle: string;
       newerSave: string;

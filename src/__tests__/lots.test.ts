@@ -76,7 +76,7 @@ describe('merging', () => {
       expect(w.lotTilesAt(i)).toEqual(tiles);
     }
     expect(tiles.map((i) => w.layers.visualVariant[i])).toEqual(variants);   // the anchor's look is kept for the art
-    expect(seen).toEqual([{ tx: 10, ty: 10, zone: ZONE_R }]);
+    expect(seen).toEqual([{ tx: 10, ty: 10, zone: ZONE_R, shape: 'square' }]);
     expect(w.lotAnchor(w.grid.idx(12, 10))).toBe(-1);
     expect(w.lotTilesAt(w.grid.idx(12, 10))).toEqual([]);
   });

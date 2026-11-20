@@ -67,7 +67,7 @@ import { PoliticsTuningPanel } from './ui/PoliticsTuningPanel';
 import { EconomyTuningPanel } from './ui/EconomyTuningPanel';
 import { PoliticsSystem } from './sim/systems/PoliticsSystem';
 import { DEBUG } from './debug';
-import { mergeLot, mergeReport, nearestMergeable } from './sim/lots';
+import { mergeLot, mergeReport, nearestMergeable, type LotShape } from './sim/lots';
 import { MarkerPanel, markerZoomOf } from './ui/MarkerPanel';
 import { drawMarkerPins } from './render/markerPins';
 import { TitleScreen } from './ui/TitleScreen';
@@ -140,7 +140,8 @@ if (DEBUG) {
     get world() { return state.world; },
     camera,
     tick: (n = 1) => { for (let k = 0; k < n; k++) state.scheduler.tick(); },
-    mergeLot: (tx: number, ty: number) => mergeLot(state.world, tx, ty, true),
+    /** `shape`: 'square' (2×2, any zone), or for shops 'wide' (two side by side, east–west) or 'tall' (north–south). (tx, ty) is the NW tile. */
+    mergeLot: (tx: number, ty: number, shape: LotShape = 'square') => mergeLot(state.world, tx, ty, true, shape),
   };
 }
 
@@ -702,10 +703,14 @@ if (DEBUG) {
   merge.addEventListener('click', () => {
     // Nearest the last place the pointer was on the map; failing that, the middle of the view.
     const c = camera.screenToTile(camera.viewportW / 2, camera.viewportH / 2);
-    const at = (lastMapTile && nearestMergeable(state.world, lastMapTile.tx, lastMapTile.ty, true, 24)) ?? nearestMergeable(state.world, c.tx, c.ty, true, 24);
-    // A merge shows its own toast (lotMerged); say so when there is nothing to merge.
-    if (at) mergeLot(state.world, at.tx, at.ty, true);
-    else toastPanel.showToast('Merge 2×2 (debug)', 'Nothing to merge: no 2×2 square of one zone (two lots by two, no road or building in it) within 24 tiles of where the pointer last was on the map, or of the middle of the view.', 'warning');
+    // A 2×2 if there is one; failing that a pair of shops, side by side then one above the other.
+    let done = false;
+    for (const shape of ['square', 'wide', 'tall'] as const) {
+      const at = (lastMapTile && nearestMergeable(state.world, lastMapTile.tx, lastMapTile.ty, true, 24, shape)) ?? nearestMergeable(state.world, c.tx, c.ty, true, 24, shape);
+      // A merge shows its own toast (lotMerged); say so when there is nothing to merge.
+      if (at && mergeLot(state.world, at.tx, at.ty, true, shape)) { done = true; break; }
+    }
+    if (!done) toastPanel.showToast('Merge 2×2 (debug)', 'Nothing to merge: no 2×2 square of one zone (two lots by two, no road or building in it), and no two shop lots side by side, within 24 tiles of where the pointer last was on the map, or of the middle of the view.', 'warning');
   });
   ship.after(merge);
   // Merging is rare at the shipped chances: try it with a quick one (homes, shops and industry alike).
@@ -725,7 +730,7 @@ if (DEBUG) {
     // Say where the city stands, so "nothing happened" can be told from "nothing qualifies".
     const w = state.world, r = mergeReport(w), need = BALANCE.lots.streakDays;
     const sat = Math.round(w.stats.satisfaction * 100), satNeed = Math.round(BALANCE.lots.minSatisfaction * 100);
-    toastPanel.showToast(knobs.chancePerDay === 0.25 ? 'Merging fast (debug)' : 'Merging on (debug)', `A ready block has a ${pct(knobs.chancePerDay)} chance a day (industry ${pct(knobs.industryChancePerDay)}). Level-3 lots: ${r.topLots}; in a 2×2 square of one zone: ${r.squares} squares. `
+    toastPanel.showToast(knobs.chancePerDay === 0.25 ? 'Merging fast (debug)' : 'Merging on (debug)', `A ready block has a ${pct(knobs.chancePerDay)} chance a day (industry ${pct(knobs.industryChancePerDay)}). Level-3 lots: ${r.topLots}; in a 2×2 square of one zone: ${r.squares} squares; shop pairs: ${r.pairs}. `
       + `Thriving today: ${r.happyToday} lots (needs no problems, a prime spot — downtown, or by a park or water — and city satisfaction ${satNeed}%; it is ${sat}%). `
       + `Longest streak: ${r.bestStreak} of ${need} days. Blocks ready now: ${r.ready}.`, 'info');
   });

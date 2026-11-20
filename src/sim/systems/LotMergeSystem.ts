@@ -4,7 +4,8 @@
 //      other lot's streak goes back to 0;
 //   2. each 2×2 of one zone whose four lots have all kept that up for
 //      BALANCE.lots.streakDays rolls BALANCE.lots.chancePerDay (industry:
-//      BALANCE.lots.industryChancePerDay);
+//      BALANCE.lots.industryChancePerDay); so does each pair of shops side by
+//      side that is not part of a possible 2×2 (lots.ts canMergePair);
 //   3. of the blocks that won, at most BALANCE.lots.maxPerDay merge, picked at random,
 //      and never within BALANCE.lots.spacing tiles of another merged lot.
 //
@@ -24,13 +25,13 @@ export class LotMergeSystem {
 
     updateLotStreaks(world);
     const zone = world.layers.zone;
-    const won = mergeCandidates(world).filter((a) => world.rng() < (zone[a] === ZONE_I ? cfg.industryChancePerDay : cfg.chancePerDay));
+    const won = mergeCandidates(world).filter((c) => world.rng() < (zone[c.anchor] === ZONE_I ? cfg.industryChancePerDay : cfg.chancePerDay));
     const { width } = world.grid;
     for (let merged = 0; merged < cfg.maxPerDay && won.length > 0;) {
-      const a = won.splice(Math.floor(world.rng() * won.length), 1)[0];
-      const x = a % width, y = (a - x) / width;
+      const c = won.splice(Math.floor(world.rng() * won.length), 1)[0];
+      const x = c.anchor % width, y = (c.anchor - x) / width;
       // Not if a merge a moment ago took one of this block's tiles, or stands too close to it.
-      if (clearOfLots(world, x, y) && mergeLot(world, x, y)) merged++;
+      if (clearOfLots(world, x, y, c.shape) && mergeLot(world, x, y, false, c.shape)) merged++;
     }
   }
 }

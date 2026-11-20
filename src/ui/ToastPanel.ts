@@ -116,7 +116,7 @@ export class ToastPanel {
       }
     };
     this.handlers['lotMerged'] = (p: CityEvents['lotMerged']) => {
-      this.showToast(t('ui.toast.lotMergedTitle'), t('ui.toast.lotMergedMsg'), 'info', tile(p.tx, p.ty));
+      this.showToast(t('ui.toast.lotMergedTitle'), t(p.shape === 'square' ? 'ui.toast.lotMergedMsg' : 'ui.toast.lotMergedPairMsg'), 'info', tile(p.tx, p.ty));
     };
     this.handlers['tileAbandoned'] = (p: CityEvents['tileAbandoned']) => {
       // Only notify for higher level buildings to avoid spam

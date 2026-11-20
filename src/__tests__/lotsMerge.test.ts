@@ -94,7 +94,7 @@ describe('with merging on', () => {
     days(w, 1);
     expect(tiles.map((i) => w.layers.lot[i])).toEqual([1, 2, 3, 4]);
     for (const i of tiles) expect(w.layers.devLevel[i]).toBe(LOT_LEVEL);
-    expect(seen).toEqual([{ tx: 10, ty: 10, zone: ZONE_I }]);
+    expect(seen).toEqual([{ tx: 10, ty: 10, zone: ZONE_I, shape: 'square' }]);
     expect(tiles.map((i) => w.lotStreak[i])).toEqual([0, 0, 0, 0]);
   });
 

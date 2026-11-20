@@ -12,6 +12,7 @@
 // beside any of them is a road to the building); all four carry the same
 // distress and are abandoned together.
 
+import { isLotAnchor } from '../lots';
 import { World } from '../World';
 import { ZONE_NONE, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -61,9 +62,9 @@ export class AbandonmentSystem {
         continue;
       }
 
-      // A merged lot is judged once, at its anchor (its NW tile, met first).
-      if (lot[i] > 1) continue;
-      const whole = lot[i] === 1 ? world.lotTilesAt(i) : null;
+      // A merged lot is judged once, at its anchor (its NW, west or north tile, met first).
+      if (lot[i] !== 0 && !isLotAnchor(lot[i])) continue;
+      const whole = lot[i] !== 0 ? world.lotTilesAt(i) : null;
       let s: number;
       if (whole) {
         s = RESOURCES;
