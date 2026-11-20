@@ -100,14 +100,15 @@ export const BALANCE = {
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
     18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost) Owner-approved 2026-11-19.
-    // Leisure (LEISURE_DESIGN.md). PLACEHOLDERS until the Balance Lab sets them: dear to build
-    // and dear to run ("upkeep is high for all"); the two unique ones cost a lot (and PC: leisure below).
-    19: { cost: 6000,   maintenance: 30 },  // BUILDING_BIG_PARK (3×3)
+    // Leisure (LEISURE_DESIGN.md). Parks and the museum: ENGINEER 3, leisure suite (owner-approved
+    // targets 2026-11-20): a park's upkeep is about what the homes it lets grow pay in a park-poor
+    // city less a 1–2 year payback; the museum repays its cost in about 230–265 days.
+    19: { cost: 6000,   maintenance: 9 },   // BUILDING_BIG_PARK (3×3)
     20: { cost: 8000,   maintenance: 35 },  // BUILDING_BEACH_PARK (3×2)
-    21: { cost: 4000,   maintenance: 15 },  // BUILDING_PLAZA (2×2)
-    22: { cost: 60000,  maintenance: 60 },  // BUILDING_MUSEUM (2×2, one per city)
-    23: { cost: 400000, maintenance: 200 }, // BUILDING_STADIUM (4×4 + plaza, one per city)
-    24: { cost: 2500,   maintenance: 14 },  // BUILDING_MID_PARK (2×2)
+    21: { cost: 4000,   maintenance: 6 },   // BUILDING_PLAZA (2×2)
+    22: { cost: 250000, maintenance: 75 },  // BUILDING_MUSEUM (2×2, one per city)
+    23: { cost: 400000, maintenance: 84 },  // BUILDING_STADIUM (4×4 + plaza, one per city): stadium suite, repays in 2–4 years once the city has planned for its crowds
+    24: { cost: 2500,   maintenance: 4 },   // BUILDING_MID_PARK (2×2)
     25: { cost: 8000,   maintenance: 35 },  // BUILDING_LIDO (3×2), as the beach park until tuned
   } as Record<number, { cost: number; maintenance: number }>,
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
@@ -121,12 +122,12 @@ export const BALANCE = {
   leisure: {
     kinds: {
       8:  { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 0,  radius: 0 }, countsAsPark: true,  capacity: 4,   appeal: 5,  pull: 0,  ticket: 0, shopShare: 0   }, // the park: a little leisure (owner 2026-11-20); its land value comes from its service coverage
-      19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 30,  appeal: 20, pull: 4,  ticket: 0, shopShare: 0.5 }, // big park
+      19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 5 }, countsAsPark: true,  capacity: 30,  appeal: 20, pull: 4,  ticket: 0, shopShare: 0.5 }, // big park
       20: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 40,  appeal: 35, pull: 10, ticket: 0, shopShare: 0.5 }, // beach park
-      21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 4 }, countsAsPark: false, capacity: 20,  appeal: 15, pull: 6,  ticket: 0, shopShare: 0.5 }, // plaza / monument: the biggest lift
-      22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false, capacity: 60,  appeal: 50, pull: 20, ticket: 6, shopShare: 0   }, // museum
+      21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 40, radius: 4 }, countsAsPark: false, capacity: 20,  appeal: 15, pull: 6,  ticket: 0, shopShare: 0.5 }, // plaza / monument: the biggest lift
+      22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false, capacity: 60,  appeal: 50, pull: 20, ticket: 3.5, shopShare: 0 }, // museum
       23: { category: 'unique', unlockPopulation: 10000, pcCost: 200, landValue: { bonus: 5,  radius: 3 }, countsAsPark: false }, // stadium: only a little; it is a destination on event days only (part 4)
-      24: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 14, radius: 4 }, countsAsPark: true,  capacity: 14,  appeal: 12, pull: 2,  ticket: 0, shopShare: 0.5 }, // 2×2 park
+      24: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 4 }, countsAsPark: true,  capacity: 14,  appeal: 12, pull: 2,  ticket: 0, shopShare: 0.5 }, // 2×2 park
       25: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 40,  appeal: 35, pull: 10, ticket: 0, shopShare: 0.5 }, // lido (as the beach park until tuned)
     } as Record<number, LeisureRow>,
     // Leisure trips a home sends per level, per tick (the `leisure` traffic market). Residents go
@@ -147,9 +148,17 @@ export const BALANCE = {
     // attraction in reach (sim/leisureTraffic.ts leisureReachAt above `minReach`) has its chance
     // multiplied by `growthMult`. Lower levels are not affected. growthMult 1 = off.
     // PLACEHOLDER: slows, does not stop, so cities built before leisure do not freeze.
-    need: { fromLevel: 3, growthMult: 0.5, minReach: 0 } as { fromLevel: number; growthMult: number; minReach: number },
+    // minReach 0.45 (ENGINEER 3, owner-approved target leisure.need): a home with no attraction
+    // nearer than about 8 street tiles of drive (a 1×1 park) counts as having none. testcity1 32%
+    // lacking; golden-1 (111 parks) 10%, gen-s1 (8 parks) 76%.
+    need: { fromLevel: 3, growthMult: 0.5, minReach: 0.45 } as { fromLevel: number; growthMult: number; minReach: number },
     // Stadium events (sim/eventDays.ts): timed, not tied to the calendar. Times are sim ticks
-    // (500 ms each at 1× speed: 120 ticks = 1 minute). ALL PLACEHOLDERS.
+    // (500 ms each at 1× speed: 120 ticks = 1 minute). Gaps 12–30 min at 1× (owner 2026-11-20:
+    // "a bit more infrequent"). Seats, fans, ticket, PC and dropAfter: ENGINEER 3, stadium suite
+    // (owner-approved targets 2026-11-20): on a 15k+ city 2–4× more fans than seats and 60–70% of
+    // streets near it jammed by the crowd alone; an unprepared city loses 20–55% of its PC cap an
+    // event; avenues near it save ~0–10% of that, fixing the streets the crowd jams saves 47–95%.
+    // touristFans, reach, jam and stuckShare are still the engine's starting numbers.
     //   duration           Length of an event (600 = 5 min at 1×).
     //   ramp, drain        Ticks at the start over which the crowd grows from nothing, and at the
     //                      end over which it drains (120 each = 1 min; the 3 min between is the peak).
@@ -169,9 +178,9 @@ export const BALANCE = {
     //                      as a bad event for that home.
     //   dropAfter          Bad events (net of good ones) after which a home loses a level. 0 = never.
     event: {
-      kind: 23, duration: 600, ramp: 120, drain: 120, gapMin: 840, gapMax: 2400, firstGap: 600,
-      seats: 400, fansPerLevel: 0.15, touristFans: 40, ticket: 0.25, reach: 120,
-      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.03, stuckShare: 0.25, dropAfter: 3,
+      kind: 23, duration: 600, ramp: 120, drain: 120, gapMin: 1440, gapMax: 3600, firstGap: 600,
+      seats: 700, fansPerLevel: 0.8, touristFans: 40, ticket: 0.75, reach: 120,
+      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.016, stuckShare: 0.25, dropAfter: 2,
     } as { kind: number; duration: number; ramp: number; drain: number; gapMin: number; gapMax: number; firstGap: number;
       seats: number; fansPerLevel: number; touristFans: number; ticket: number; reach: number;
       jam: { load: number; eventShare: number }; pcPerStuckResident: number; stuckShare: number; dropAfter: number },

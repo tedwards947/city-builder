@@ -9,7 +9,8 @@
 // this machine (cities/testcity1.citysave.json or ~/Downloads/
 // testcity1.citysave.json; never commit it); the owner's golden-1
 // (cities/golden-1.citysave.json, 35k residents: committed with the owner's OK, #392,
-// so the nightly has it; in the standard suite since 2026-11-20); every cities/gen-*.citysave.json
+// so the nightly has it; in the standard suite since 2026-11-20); the owner's smallercity
+// (cities/smallercity.citysave.json, 12.7k residents, committed with the owner's OK, #443); every cities/gen-*.citysave.json
 // (generated cities); and any --city <file>.
 //
 // Six suites: "pc" grades the PC targets per PC variant; "svc" the services targets per
@@ -24,10 +25,13 @@
 // saved city; a tree-belt probe on a made-up map, graded on fresh maps); "lots" the 2×2 merged-lot
 // targets under the shipped numbers (3 seeds × 360 days of merging on each saved city, its own merged
 // lots undone first, and a capacity probe; saved cities up to 40k residents, --lots-max-pop to change).
-// Cities above 20k residents only run the econ suite (--pc-max-pop to change; it applies to svc too).
+// "stadium" the stadium targets under the shipped numbers (the stadium beside the homes on each saved
+// city, three events as is against a twin, with avenues within 10 tiles, and prepared); "leisure"
+// the steady-attraction targets (museum and parks against twins, the leisure need, tourism).
+// Cities above 20k residents only run the econ, lots, stadium and leisure suites (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots  one suite only (default all nine)
+//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots|stadium|leisure  one suite only (default all eleven)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
@@ -66,6 +70,9 @@ if (!quick && !args.includes('--no-saves')) {
   }
   const golden1 = join(root, 'cities', 'golden-1.citysave.json');
   if (existsSync(golden1)) saves.push({ id: 'golden-1', path: golden1 });
+  // The owner's mid-game city (12.7k residents, rail, beach park; PR #443, owner 2026-11-20).
+  const smaller = join(root, 'cities', 'smallercity.citysave.json');
+  if (existsSync(smaller)) saves.push({ id: 'smallercity', path: smaller });
   const dir = join(root, 'cities');
   if (existsSync(dir)) for (const f of readdirSync(dir).sort()) if (/^gen-.*\.citysave\.json$/.test(f)) saves.push({ id: f.replace('.citysave.json', ''), path: join(dir, f) });
 }
@@ -118,6 +125,8 @@ try {
   for (const [v, s] of Object.entries(report.railSummary ?? {})) console.log(`rail    ${v.padEnd(9)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.landscapeSummary ?? {})) console.log(`landscape ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.lotsSummary ?? {})) console.log(`lots ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.stadiumSummary ?? {})) console.log(`stadium ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.leisureSummary ?? {})) console.log(`leisure ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -140,7 +149,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest) + rows('2×2 lots suite (shipped numbers)', r.lotsSummary ?? {}, r.lotsBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest) + rows('2×2 lots suite (shipped numbers)', r.lotsSummary ?? {}, r.lotsBest) + rows('Stadium suite (shipped numbers)', r.stadiumSummary ?? {}, r.stadiumBest) + rows('Leisure suite (shipped numbers)', r.leisureSummary ?? {}, r.leisureBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;

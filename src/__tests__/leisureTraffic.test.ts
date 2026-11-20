@@ -255,7 +255,7 @@ describe('homes need leisure to keep growing', () => {
   const home = (x: number) => idx(x, ROW + 1);
 
   it('ships slowing (not stopping) growth to level 3 and beyond', () => {
-    expect(shipped.need).toEqual({ fromLevel: 3, growthMult: 0.5, minReach: 0 });
+    expect(shipped.need).toEqual({ fromLevel: 3, growthMult: 0.5, minReach: 0.45 });
   });
 
   it('a home growing to level 3 with no leisure in reach has half the chance; lower levels are not touched', () => {
@@ -273,6 +273,7 @@ describe('homes need leisure to keep growing', () => {
   });
 
   it('a small park nearby is enough', () => {
+    LE.need.minReach = 0;   // any reach at all (shipped 0.45 wants one within about 8 tiles of drive)
     homes(10, 4);
     north(20, BUILDING_PARK, 1);
     traffic();
@@ -313,6 +314,7 @@ describe('homes need leisure to keep growing', () => {
       for (let k = 1; k <= 400; k++) { world.tick = k * BALANCE.growth.tickInterval; g.update(world); }
       return lots.filter(i => L.devLevel[i] === 3).length / lots.length;
     };
+    LE.need.minReach = 0;   // the park 26 tiles along the street counts (shipped 0.45 wants it within about 8)
     const without = grown(false), withPark = grown(true);
     expect(withPark).toBeGreaterThan(without * 1.4);
     expect(without).toBeGreaterThan(0);                        // slowed, not stopped
