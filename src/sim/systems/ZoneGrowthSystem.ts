@@ -2,6 +2,7 @@
 // gradually at a low random probability per tick.
 
 import { stationGrowthMask } from '../rail';
+import { leisureGrowthMult } from '../leisureTraffic';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -138,7 +139,9 @@ export class ZoneGrowthSystem {
       const baseP = zone[i] === ZONE_R ? (BALANCE.growth.homeProbabilityByLevel[dev[i]] ?? BALANCE.growth.probability) : BALANCE.growth.probability;
       // Homes and shops near a station with a road and riders grow faster (sim/rail.ts).
       const station = nearStation !== null && nearStation[i] === 1 && zone[i] !== ZONE_I ? BALANCE.rail.stationGrowth.mult : 1;
-      if (world.rng() < baseP * demandMult * congestionMult * accessMult * shortagePenalty * ordinance * station) {
+      // Homes growing to level 3 want leisure in reach (sim/leisureTraffic.ts); without it they grow slower.
+      const leisure = zone[i] === ZONE_R ? leisureGrowthMult(world, i, dev[i] + 1) : 1;
+      if (world.rng() < baseP * demandMult * congestionMult * accessMult * shortagePenalty * ordinance * station * leisure) {
         dev[i]++;
         if (dev[i] === 1) markDeveloped(world, i);   // built up from empty: its years start now
         world.grid.markDirty(x, y);

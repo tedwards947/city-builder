@@ -27,7 +27,7 @@
 
 import type { World, BuildingEntity } from './World';
 import { BALANCE, type LeisureRow } from '../data/balance';
-import { ROAD_NONE, ROAD_HIGHWAY } from './constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
 import { addDoorProvider, addTripProvider, servedAtDoors, type TrafficField } from './TrafficData';
 
 const rows = (): Record<number, LeisureRow> => BALANCE.leisure.kinds;
@@ -240,4 +240,24 @@ export function leisureReachAt(world: World, i: number, door: number = i): numbe
   }
   const reach = BALANCE.leisure.reach;
   return best < reach ? 1 - best / reach : 0;
+}
+
+/**
+ * What a home's chance to grow to `toLevel` is multiplied by for want of
+ * leisure (BALANCE.leisure.need): `growthMult` when `toLevel` is at or past
+ * `fromLevel` and no attraction is in reach of tile `i` (leisureReachAt at or
+ * below `minReach`), otherwise 1. Also 1 in the tutorial city and before the
+ * first traffic pass (nothing is known yet). `door` as in leisureReachAt.
+ */
+export function leisureGrowthMult(world: World, i: number, toLevel: number, door: number = i): number {
+  const need = BALANCE.leisure.need;
+  if (need.growthMult === 1 || toLevel < need.fromLevel || world.tutorial || !world.traffic) return 1;
+  return leisureReachAt(world, i, door) > need.minReach ? 1 : need.growthMult;
+}
+
+/** Whether the home on tile `i` is being held back for want of leisure: it is at the level just below the need (or above) and none is in reach. For Inspect. */
+export function lacksLeisure(world: World, i: number, door: number = i): boolean {
+  const need = BALANCE.leisure.need;
+  if (world.layers.zone[i] !== ZONE_R || world.layers.devLevel[i] + 1 < need.fromLevel) return false;
+  return leisureGrowthMult(world, i, need.fromLevel, door) !== 1;
 }
