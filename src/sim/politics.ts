@@ -295,15 +295,23 @@ export function zonesCutOffByHighway(world: World, tx: number, ty: number): { tx
     if (!grid.inBounds(nx, ny)) continue;
     const ni = grid.idx(nx, ny);
     if (layers.zone[ni] === ZONE_NONE || layers.devLevel[ni] === 0 || layers.abandoned[ni] !== 0) continue;
+    // A merged 2×2 lot (sim/lots.ts) is one building: a road beside any of its
+    // tiles serves it, and if none is left the whole of it is cut off.
+    const lot = world.lotTilesAt(ni);
+    const tiles = lot.length > 0 ? lot : [ni];
     let hasAccess = false;
-    for (const [adx, ady] of N4) {
-      const ax = nx + adx, ay = ny + ady;
-      if (ax === tx && ay === ty) continue;            // the tile that becomes a highway
-      if (!grid.inBounds(ax, ay)) continue;
-      const rc = layers.roadClass[grid.idx(ax, ay)];
-      if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { hasAccess = true; break; }
+    for (const li of tiles) {
+      const lx = li % grid.width, ly = (li - lx) / grid.width;
+      for (const [adx, ady] of N4) {
+        const ax = lx + adx, ay = ly + ady;
+        if (ax === tx && ay === ty) continue;            // the tile that becomes a highway
+        if (!grid.inBounds(ax, ay)) continue;
+        const rc = layers.roadClass[grid.idx(ax, ay)];
+        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { hasAccess = true; break; }
+      }
+      if (hasAccess) break;
     }
-    if (!hasAccess) out.push({ tx: nx, ty: ny });
+    if (!hasAccess) for (const li of tiles) out.push({ tx: li % grid.width, ty: (li - (li % grid.width)) / grid.width });
   }
   return out;
 }
