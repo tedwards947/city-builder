@@ -179,6 +179,11 @@ function askedService(world: World): { service: Service; forHome: boolean } {
   return fixed ? { service: fixed, forHome: state?.forHome === true } : chooseService(world, -1);
 }
 
+/** Whether the city spends more than it earns (the budget panel's daily total is negative). */
+export function budgetInTheRed(world: World): boolean {
+  return world.budget.income - world.budget.expenses < 0;
+}
+
 /** The services step: some police station, fire station, school, hospital or park reaches at least one home. Any of the five counts. */
 function servicesDone(world: World): boolean {
   return SERVICES.some((s) => homesReached(world, s.kind) > 0);
@@ -233,7 +238,12 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     point: (w) => [askedService(w).service.key],
     done: servicesDone,
   },
-  { id: 'budget', point: ['econ'], done: (_w, ui) => ui.budgetOpened },
+  {
+    // A young town spends more than it earns, which looks alarming: the card says so, either way.
+    id: 'budget', point: ['econ'],
+    notes: (w) => [budgetInTheRed(w) ? 'budgetRed' : 'budgetBlack', 'budgetDebt'],
+    done: (_w, ui) => ui.budgetOpened,
+  },
   { id: 'views', point: ['traffic'], done: (_w, ui) => ui.overlayOn },
   { id: 'done', done: (_w, ui) => ui.cardClosed },
 ];

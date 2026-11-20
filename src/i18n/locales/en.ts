@@ -472,6 +472,11 @@ export const en: TranslationSchema = {
         hospital: "hospital",
         park: "park",
       },
+      note: {
+        budgetRed: "You're spending more than you earn. That's normal for a young town: taxes grow as people move in, so you'll get there.",
+        budgetBlack: "You're in the black. Nice!",
+        budgetDebt: "Just don't stay deep in debt for long, or the council will vote you out.",
+      },
       progress: {
         streets: "Street tiles",
         homes: "Home tiles",

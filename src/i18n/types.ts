@@ -373,6 +373,7 @@ export interface TranslationSchema {
     tutorial: {
       label: string; count: string; skip: string; leave: string; leaveAsk: string; leaveYes: string; leaveNo: string; close: string; askTitle: string; askBody: string; askCancel: string; askStart: string;
       service: { police: string; fire: string; school: string; hospital: string; park: string };
+      note: { budgetRed: string; budgetBlack: string; budgetDebt: string };
       progress: { streets: string; homes: string; powered: string; watered: string; sewered: string; residents: string; shops: string; industry: string };
       step: { camera: string; street: string; homes: string; roads: string; power: string; water: string; grow: string; jobs: string; inspect: string; services: string; servicesHome: string; budget: string; views: string; done: string };
     };

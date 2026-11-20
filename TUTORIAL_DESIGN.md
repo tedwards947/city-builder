@@ -28,7 +28,7 @@
 | 8 | "People need jobs. Zone 8 tiles of shops, and 8 of industry away from homes." | Zones → Shops, Industry | ≥ 8 shop tiles and ≥ 8 industry tiles zoned |
 | 9 | "Pick the Inspect tool (I), then click a home to see how it's doing and what it needs." | Inspect, until it is picked | A home clicked with Inspect |
 | 10 | "This home has no {service} nearby. Build one beside a road. Draw a short new street if you need room." Follows on from Inspect: {service} is what the inspected home is without (police station, fire station, school, hospital or park; the one most homes lack, police first on a tie). With no home inspected: "Your town has no police station yet. …" | Services → that building | Any police station, fire station, school, hospital or park reaches at least one home |
-| 11 | "Services cost upkeep. Check your budget and taxes." | Budget | The budget panel opened |
+| 11 | "Services cost upkeep. Check your budget and taxes." Under it, while the daily total is negative: "You're spending more than you earn. That's normal for a young town: taxes grow as people move in, so you'll get there." When it is not: "You're in the black. Nice!" Then, either way: "Just don't stay deep in debt for long, or the council will vote you out." | Budget | The budget panel opened and closed again, or left open for 6 seconds (so the card stays up while the panel is read) |
 | 12 | "Views show what's going on. Try the traffic view." | Views → Traffic | An overlay switched on |
 | 13 | "That's the basics. The city is yours now. Have fun!" | – | The card is closed |
 

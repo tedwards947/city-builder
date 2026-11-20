@@ -47,6 +47,8 @@ export class Tutorial {
   private readonly card: HTMLElement;
   private readonly count: HTMLElement;
   private readonly text: HTMLElement;
+  /** The step's extra lines that follow the city, e.g. what the budget's daily total means (empty for most steps). */
+  private readonly note: HTMLElement;
   /** The step's counted goals, e.g. "Shops 3 / 8 · Industry 0 / 8" (empty for a step with none). */
   private readonly progress: HTMLElement;
   private readonly actions: HTMLElement;
@@ -71,6 +73,7 @@ export class Tutorial {
     top.appendChild(node('span', 'tut-label', t('ui.tutorial.label')));
     this.count = top.appendChild(node('span', 'tut-count'));
     this.text = this.card.appendChild(node('div', 'tut-text'));
+    this.note = this.card.appendChild(node('div', 'tut-note'));
     this.progress = this.card.appendChild(node('div', 'tut-progress'));
     this.actions = this.card.appendChild(node('div', 'tut-actions'));
     document.body.append(this.card);
@@ -111,13 +114,17 @@ export class Tutorial {
     }
   }
 
-  /** The current step's counts, kept up to date between checks. A goal that is reached is ticked. */
+  /** The current step's counts and notes, kept up to date between checks. A goal that is reached is ticked. */
   private showProgress(): void {
     const world = this.world;
     const goals = world && !this.confirming ? this.steps[world.tutorial?.step ?? -1]?.progress?.(world) ?? [] : [];
     const line = goals.map(g => `${t('ui.tutorial.progress.' + g.key)} ${g.n} / ${g.of}${g.n >= g.of ? ' ✓' : ''}`).join(' · ');
     if (this.progress.textContent !== line) this.progress.textContent = line;
     this.progress.hidden = line === '';
+    const notes = world && !this.confirming ? this.steps[world.tutorial?.step ?? -1]?.notes?.(world) ?? [] : [];
+    const said = notes.map(k => t('ui.tutorial.note.' + k)).join(' ');
+    if (this.note.textContent !== said) this.note.textContent = said;
+    this.note.hidden = said === '';
   }
 
   /** The current step's ghost on the map, softly pulsing. */

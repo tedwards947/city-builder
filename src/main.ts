@@ -428,6 +428,9 @@ canvas.addEventListener('pointermove', (e) => {
   pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top; pointer.inside = true;
 });
 canvas.addEventListener('pointerleave', () => { pointer.inside = false; });
+// The tutorial's budget step: when the budget panel was opened (null: not open since it last counted).
+let budgetOpenAt: number | null = null;
+const BUDGET_LOOK_MS = 6000;
 // The tutorial's "click a home" step: a click (not a drag) with Inspect on a home tile.
 let pressAt: { x: number; y: number } | null = null;
 canvas.addEventListener('pointerdown', (e) => { pressAt = { x: e.clientX, y: e.clientY }; });
@@ -718,7 +721,10 @@ function frame(now: number): void {
   if (titleUp || tourPreview) tour.update(now);
   if (titleUp && showcase) keepShowcase();
   if (tutorial.active && !titleUp) {
-    if (econPanel.isOpen) tutorial.ui.budgetOpened = true;
+    // The budget counts as looked at once it is closed again, or has been open a few seconds:
+    // the card's words about the daily total stay up while the player reads the panel.
+    if (econPanel.isOpen) budgetOpenAt ??= now;
+    if (budgetOpenAt !== null && (!econPanel.isOpen || now - budgetOpenAt >= BUDGET_LOOK_MS)) { tutorial.ui.budgetOpened = true; budgetOpenAt = null; }
     if (overlay !== 'none') tutorial.ui.overlayOn = true;
     tutorial.update(camera, now);
   }

@@ -11,7 +11,7 @@ import { World } from '../sim/World';
 import { VibeSystem } from '../sim/systems/VibeSystem';
 import {
   BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_PARK, BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER,
-  ROAD_HIGHWAY, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R,
+  ROAD_HIGHWAY, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_R,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { pcCap } from '../sim/politics';
@@ -19,10 +19,11 @@ import { startSim } from '../balance/world';
 import { BuildRoadCommand } from '../commands/BuildRoadCommand';
 import { PaintZoneCommand } from '../commands/PaintZoneCommand';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
-import { blankWorld, buildTutorialMap } from '../gen/tutorialMap';
-import { GOALS, SERVICES, TUTORIAL_STEPS, chooseService, homesBesideRoad, newTutorialUi, nextStep, roadTilesOffHighway, streetPath } from '../tutorial/steps';
+import { CLEAR, blankWorld, buildTutorialMap } from '../gen/tutorialMap';
+import { GOALS, SERVICES, TUTORIAL_STEPS, budgetInTheRed, chooseService, homesBesideRoad, newTutorialUi, nextStep, roadTilesOffHighway, streetPath } from '../tutorial/steps';
 import { TUTORIAL, beginTutorial, endTutorial } from '../tutorial/rules';
 import { toolbarItems } from '../ui/Toolbar';
+import { t } from '../i18n';
 import type { TutorialUi } from '../tutorial/types';
 
 const step = (id: string) => {
@@ -189,6 +190,20 @@ describe('the tutorial step list', () => {
     expect(step('roads').progress?.(w)).toEqual([{ key: 'streets', n: 7, of: 20 }]);
     w.stats.population = 12;
     expect(step('grow').progress?.(w)).toEqual([{ key: 'residents', n: 12, of: 40 }]);
+  });
+
+  it('budget: the card says what the daily total means, and warns about debt either way', () => {
+    const w = stubWorld();
+    const budget = step('budget');
+    w.budget.income = 10; w.budget.expenses = 30;
+    expect(budgetInTheRed(w)).toBe(true);
+    expect(budget.notes?.(w)).toEqual(['budgetRed', 'budgetDebt']);
+    w.budget.income = 30; w.budget.expenses = 30;
+    expect(budget.notes?.(w)).toEqual(['budgetBlack', 'budgetDebt']);
+    w.budget.income = 45;
+    expect(budget.notes?.(w)).toEqual(['budgetBlack', 'budgetDebt']);
+    // Every note a step can show has copy.
+    for (const key of ['budgetRed', 'budgetBlack', 'budgetDebt']) expect(t('ui.tutorial.note.' + key)).not.toContain('ui.tutorial');
   });
 
   it('inspect, budget, views and the last card are met in the UI', () => {
@@ -396,10 +411,27 @@ describe('the tutorial map', () => {
     expect(streetPath(w)?.path).toHaveLength(GOALS.streetTiles);
   });
 
+  it('is wooded, with the land for the first steps left open', () => {
+    const w = loadMap();
+    const N = w.grid.width, row = N / 2;
+    let trees = 0, inClear = 0;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (w.layers.vegetation[y * N + x] === 0) continue;
+      trees++;
+      if (x >= CLEAR.x0 && x <= CLEAR.x1 && Math.abs(y - row) <= CLEAR.half) inClear++;
+    }
+    expect(trees).toBeGreaterThan(400);
+    expect(inClear).toBe(0);
+    // No tree stands in water, and the stream reaches the south edge.
+    for (let i = 0; i < N * N; i++) if (w.layers.terrain[i] === TERRAIN_WATER) expect(w.layers.vegetation[i]).toBe(0);
+    expect(Array.from(w.layers.terrain.subarray((N - 1) * N)).includes(TERRAIN_WATER)).toBe(true);
+  });
+
   it('the placeholder file is what the generator builds', () => {
     const made = buildTutorialMap(), w = loadMap();
     expect(Array.from(w.layers.terrain)).toEqual(Array.from(made.layers.terrain));
     expect(Array.from(w.layers.roadClass)).toEqual(Array.from(made.layers.roadClass));
+    expect(Array.from(w.layers.vegetation)).toEqual(Array.from(made.layers.vegetation));
     expect(w.markers).toEqual(made.markers);
   });
 
