@@ -1,12 +1,12 @@
 // Words and numbers for service capacity (schools have seats, hospitals have
 // beds). Pure, so it can be tested. The numbers come from sim/serviceCapacity.ts.
 
-import { BUILDING_HOSPITAL } from '../sim/constants';
+import { BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_POLICE } from '../sim/constants';
 import type { BuildingSeats, HomeSeat } from '../sim/serviceCapacity';
 
-/** The i18n group for a kind's words: 'ui.capacity.bed' for a hospital, 'ui.capacity.seat' otherwise. */
+/** The i18n group for a kind's words: beds for a hospital, cover for police and fire, seats otherwise. */
 export function seatWords(kind: number): string {
-  return kind === BUILDING_HOSPITAL ? 'ui.capacity.bed' : 'ui.capacity.seat';
+  return kind === BUILDING_HOSPITAL ? 'ui.capacity.bed' : kind === BUILDING_POLICE ? 'ui.capacity.police' : kind === BUILDING_FIRE ? 'ui.capacity.fire' : 'ui.capacity.seat';
 }
 
 export interface SeatsView {

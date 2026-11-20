@@ -9,6 +9,7 @@ import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
+import { headcountCost, perResidentCost, perUnitCost } from '../sim/runningCost';
 import { eventStatus } from '../sim/eventDays';
 import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
@@ -317,6 +318,32 @@ function stadiumRows(world: World): string {
   return html;
 }
 
+const UTILITY_OF: Record<number, { u: 'power' | 'water' | 'sewage'; large: boolean }> = {
+  [BUILDING_POWER_PLANT]: { u: 'power', large: false }, [BUILDING_LARGE_POWER_PLANT]: { u: 'power', large: true },
+  [BUILDING_WATER_TOWER]: { u: 'water', large: false }, [BUILDING_LARGE_WATER_PLANT]: { u: 'water', large: true },
+  [BUILDING_SEWAGE_PLANT]: { u: 'sewage', large: false }, [BUILDING_LARGE_SEWAGE_PLANT]: { u: 'sewage', large: true },
+};
+
+/** A day's running cost of a service building (fixed upkeep plus covered residents) or a plant (fixed upkeep plus units supplied). */
+function runningCostRows(world: World, kind: number, covered: number): string {
+  const day = BALANCE.ticksPerDay, charged = headcountCost(world).charged;
+  const fixed = buildingUpkeep(kind) * day;
+  const money = (n: number) => Math.round(n).toLocaleString("en-US");
+  const per = perResidentCost(kind);
+  if (per > 0) {
+    return `<div class="ti-detail">${t("ui.tileInfo.runningCostCovered", {amount: money(fixed + covered * per * charged), n: Math.round(covered).toLocaleString("en-US")})}</div>`;
+  }
+  const util = UTILITY_OF[kind];
+  if (!util) return "";
+  const s = world.stats;
+  const [demand, supply] = util.u === 'power' ? [s.powerDemand, s.powerSupply] : util.u === 'water' ? [s.waterDemand, s.waterSupply] : [s.sewageDemand, s.sewageSupply];
+  const out = util.u === 'power' ? (util.large ? BALANCE.power.largePlantOutput : BALANCE.power.plantOutput)
+    : util.u === 'water' ? (util.large ? BALANCE.water.largePlantOutput : BALANCE.water.towerOutput)
+    : (util.large ? BALANCE.sewage.largePlantOutput : BALANCE.sewage.plantOutput);
+  const units = supply > 0 ? out * Math.min(1, demand / supply) : 0;
+  return `<div class="ti-detail">${t("ui.tileInfo.plantSupplies", {n: Math.round(units).toLocaleString("en-US"), amount: money(fixed + units * perUnitCost(util.u, util.large) * charged)})}</div>`;
+}
+
 function airportRows(world: World, tx: number, ty: number): string {
   const trips = buildingTripsAt(world, tx, ty), row = BALANCE.transit.buildings[BUILDING_AIRPORT];
   let html = `<div class="ti-detail">${t("ui.tileInfo.airportAbout")}</div>`;
@@ -450,6 +477,7 @@ export class TileInfoPanel {
         if (!sv.full) html += `<div class="ti-detail">${t(w + ".free", {n: sv.free.toLocaleString("en-US")})}</div>`;
         if (sv.leftOut > 0) html += `<div class="ti-detail ti-seats full">${t(w + ".leftOut", {n: sv.leftOut.toLocaleString("en-US")})}</div>`;
       }
+      if (seats || UTILITY_OF[building]) html += runningCostRows(world, building, seats?.seated ?? 0);
       if (building === BUILDING_POWER_PLANT) {
         html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.power.plantOutput})}</div>`;
       }
@@ -609,7 +637,7 @@ export class TileInfoPanel {
 
       if (zone === ZONE_R) {
         // A place at the school and the hospital: has one, or why not (full vs. out of reach: bigger vs. closer).
-        for (const kind of [BUILDING_SCHOOL, BUILDING_HOSPITAL]) {
+        for (const kind of [BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL]) {
           const seat = hasCapacity(kind) ? homeSeat(world, tx, ty, kind) : null;
           if (!seat) continue;
           const state = homeSeatState(seat), key = state === "full" ? "fullState" : state;

@@ -82,6 +82,9 @@ export interface TranslationSchema {
       railJunction4: string;
       railCrossing: string;
       tripLeisure: string;
+      runningCost: string;
+      runningCostCovered: string;
+      plantSupplies: string;
       eventNext: string;
       eventToday: string;
       eventInDays: string;
@@ -125,6 +128,7 @@ export interface TranslationSchema {
       taxLevel: string;
       taxIncome: string;
       afterUpkeep: string;
+      runningCosts: string;
       satisfaction: string;
       growth: string;
       polCapital: string;
@@ -143,6 +147,8 @@ export interface TranslationSchema {
     capacity: {
       full: string;
       seat: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
+      police: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
+      fire: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
       bed: { label: string; free: string; leftOut: string; has: string; fullState: string; outOfReach: string; gain: string };
     };
     debt: {
@@ -170,6 +176,8 @@ export interface TranslationSchema {
       eventDayFans: string;
       eventDayStuck: string;
       eventDayDeclined: string;
+      buildingFullTitle: string;
+      buildingFullMsg: string;
       residentsOnlyTitle: string;
       residentsOnlyMsg: string;
       stationsRebuiltTitle: string;
@@ -297,7 +305,7 @@ export interface TranslationSchema {
       progressBy: Record<'homes' | 'roads' | 'lots' | 'city', string>;
       /** Why the asking homes still lack the service: every building in reach is full, or none reaches them. */
       unmet: {
-        full: Record<'school' | 'hospital', string>;
+        full: Record<'police' | 'fire' | 'school' | 'hospital', string>;
         outOfReach: Record<'park' | 'police' | 'fire' | 'school' | 'hospital', string>;
       };
       show: string;

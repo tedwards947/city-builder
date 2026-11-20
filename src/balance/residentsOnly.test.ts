@@ -41,3 +41,17 @@ describe('game-day toast', () => {
     expect(r.text).toBe('30 of 50 fans made kick-off. 120 residents were stuck in the traffic (−◆1.2). 2 homes lost a level.');
   });
 });
+
+import { seatWords } from '../ui/capacityFormat';
+import { unmetKey } from '../ui/requestInfo';
+import { BUILDING_FIRE } from '../sim/constants';
+describe('police and fire words', () => {
+  it('have their own cover strings', () => {
+    expect(seatWords(BUILDING_POLICE)).toBe('ui.capacity.police');
+    expect(seatWords(BUILDING_FIRE)).toBe('ui.capacity.fire');
+  });
+  it('give a "full" reason for police and fire requests', () => {
+    expect(unmetKey('police', 'full')).toBe('ui.requests.unmet.full.police');
+    expect(unmetKey('fire', 'full')).toBe('ui.requests.unmet.full.fire');
+  });
+});

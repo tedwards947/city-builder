@@ -4,6 +4,7 @@ import type { CityEvents } from '../sim/EventBus';
 import { t } from '../i18n';
 import { BUILDING_NAME } from './TileInfoPanel';
 import { pcAmount } from './pcFormat';
+import { buildingSeats, hasCapacity } from '../sim/serviceCapacity';
 import { drawsTourists, hasGateway } from '../sim/leisureTraffic';
 
 export type ToastType = 'info' | 'warning' | 'alert';
@@ -36,6 +37,25 @@ export function eventDayToast(p: { wanted: number; arrived: number; stuckResiden
   return { title: t('ui.toast.eventDayTitle'), text, type: p.stuckResidents > 0 ? 'warning' : 'info' };
 }
 
+/** Anchors of buildings already announced as full, per world (one toast per building). */
+const announcedFull = new WeakMap<World, Set<number>>();
+const lastCheckDay = new WeakMap<World, number>();
+
+/** Capacity-limited service buildings that have started turning residents away since the last call: their anchor tile and how many are left out. */
+export function newlyFullBuildings(world: World): { tx: number; ty: number; kind: number; n: number }[] {
+  let seen = announcedFull.get(world);
+  if (!seen) { seen = new Set(); announcedFull.set(world, seen); }
+  const out: { tx: number; ty: number; kind: number; n: number }[] = [];
+  for (const b of world.buildings) {
+    if (!hasCapacity(b.kind)) continue;
+    const key = b.ty * world.grid.width + b.tx;
+    if (seen.has(key)) continue;
+    const s = buildingSeats(world, b.tx, b.ty);
+    if (s && s.inReachUnseated > 0) { seen.add(key); out.push({ tx: b.tx, ty: b.ty, kind: b.kind, n: Math.round(s.inReachUnseated) }); }
+  }
+  return out;
+}
+
 export class ToastPanel {
   private container: HTMLDivElement;
   private world: World | null = null;
@@ -52,6 +72,20 @@ export class ToastPanel {
     document.body.appendChild(this.container);
 
     this.setupHandlers();
+  }
+
+  /** Called every frame: once a game day, toasts each service building that has just turned residents away (once per building). */
+  public checkFull(world: World): void {
+    const day = Math.floor(world.tick / BALANCE.ticksPerDay);
+    if (lastCheckDay.get(world) === day) return;
+    const first = !lastCheckDay.has(world);
+    lastCheckDay.set(world, day);
+    // The first look at a world (a loaded save) only notes what is already full, so it does not toast all at once.
+    if (this.quiet || first) { newlyFullBuildings(world); return; }
+    for (const f of newlyFullBuildings(world)) {
+      const name = BUILDING_NAME[f.kind] ? t(BUILDING_NAME[f.kind]) : t('buildings.building');
+      this.showToast(t('ui.toast.buildingFullTitle', { name }), t('ui.toast.buildingFullMsg', { n: f.n.toLocaleString('en-US') }), 'warning', tile(f.tx, f.ty));
+    }
   }
 
   public setWorld(world: World): void {

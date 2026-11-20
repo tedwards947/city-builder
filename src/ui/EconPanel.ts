@@ -5,6 +5,7 @@ import type { World } from '../sim/World';
 import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
 import { taxLevelRange, setTaxLevel, taxEffect } from '../sim/tax';
+import { headcountCost } from '../sim/runningCost';
 import { pcCap } from '../sim/politics';
 
 const STEP = 0.1;
@@ -57,6 +58,7 @@ export class EconPanel {
     set('econ-tax-pct', String(world.budget.taxLevel));
     set('econ-tax-min', range.min + '%'); set('econ-tax-max', range.max + '%');
     set('econ-tax-income', perDay(e.income));
+    set('econ-running', perDay(-Math.round(headcountCost(world).total * BALANCE.ticksPerDay)));
     set('econ-tax-net', perDay(e.net), e.net);
     // Satisfaction is 0–1; shown as percentage points gained or lost to the tax level.
     const sat = Math.round(e.satisfactionDelta * 100);

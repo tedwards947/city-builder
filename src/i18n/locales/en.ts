@@ -104,6 +104,9 @@ export const en: TranslationSchema = {
       tripCustomers: "To customers",
       tripWorkers: "To workers",
       tripLeisure: "To leisure",
+      runningCost: "Running cost: ${amount}/day",
+      runningCostCovered: "Running cost: ${amount}/day ({n} residents covered)",
+      plantSupplies: "Supplying {n} units · ${amount}/day",
       eventNext: "Next game: {when}",
       eventToday: "today",
       eventInDays: "in {n} days",
@@ -169,6 +172,7 @@ export const en: TranslationSchema = {
       taxLevel: "Tax rate",
       taxIncome: "Tax income",
       afterUpkeep: "After upkeep",
+      runningCosts: "Running costs (per resident)",
       satisfaction: "Satisfaction",
       growth: "Growth",
       polCapital: "Pol. capital",
@@ -189,6 +193,14 @@ export const en: TranslationSchema = {
       seat: {
         label: "Seats", free: "{n} seats free", leftOut: "{n} residents in reach have no seat",
         has: "has a seat", fullState: "no seat: school full", outOfReach: "out of reach", gain: "+{n} get a seat",
+      },
+      police: {
+        label: "Residents covered", free: "room for {n} more residents", leftOut: "{n} residents in reach have no cover",
+        has: "covered", fullState: "no cover: police station full", outOfReach: "out of reach", gain: "+{n} get cover",
+      },
+      fire: {
+        label: "Residents covered", free: "room for {n} more residents", leftOut: "{n} residents in reach have no cover",
+        has: "covered", fullState: "no cover: fire station full", outOfReach: "out of reach", gain: "+{n} get cover",
       },
       bed: {
         label: "Beds", free: "{n} beds free", leftOut: "{n} residents in reach have no bed",
@@ -236,6 +248,8 @@ export const en: TranslationSchema = {
       eventDayFans: "{arrived} of {wanted} fans made kick-off.",
       eventDayStuck: " {n} residents were stuck in the traffic (−◆{pc}).",
       eventDayDeclined: " {n} homes lost a level.",
+      buildingFullTitle: "{name} is full",
+      buildingFullMsg: "{n} residents in reach have no place. Build another to take them.",
       residentsOnlyTitle: "Residents only",
       residentsOnlyMsg: "No airport yet: this attraction draws residents, not tourists. Build an airport to bring visitors.",
       stationsRebuiltTitle: "Stations rebuilt",
@@ -380,7 +394,7 @@ export const en: TranslationSchema = {
         city: "waiting for the shortage to end",
       },
       unmet: {
-        full: { school: "nearby schools are full", hospital: "nearby hospitals are full" },
+        full: { police: "nearby police stations are full", fire: "nearby fire stations are full", school: "nearby schools are full", hospital: "nearby hospitals are full" },
         outOfReach: { park: "no park in reach", police: "no police station in reach", fire: "no fire station in reach", school: "no school in reach", hospital: "no hospital in reach" },
       },
       show: "Show on map",
