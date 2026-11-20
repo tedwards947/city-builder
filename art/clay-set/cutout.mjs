@@ -266,10 +266,32 @@ function extendSlab(img, aspect = PLOT_ASPECT) {
   // Something may overhang one side; the slab's own edge is the lower reading.
   const top = Math.max(median(p.left + inset, p.left + inset + span), median(p.right - inset - span, p.right - inset));
   if (top - wantTop < plotW * 0.015) return { grown: 0 };
-  const s0 = Math.round(p.bottom - plotW * 0.095), s1 = Math.round(p.bottom - plotW * 0.06), sn = s1 - s0;
+  // Texture: plain rows of ground (no path, hedge or prop across them) from the
+  // front of the plot, mirrored back and forth. A strip with a path in it,
+  // repeated, made stripes behind a tower (owner, 2026-11-20). With too few
+  // plain rows, flat ground colour instead.
+  const x0 = p.left + Math.round(plotW * 0.04), x1 = p.right - Math.round(plotW * 0.04);
+  const lumAt = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 250 ? -1 : rgba[d] + rgba[d + 1] + rgba[d + 2]; };
+  const plain = (y) => {
+    const lum = []; for (let x = x0; x <= x1; x++) { const v = lumAt(x, y); if (v < 0) return false; lum.push(v); }
+    const sorted = [...lum].sort((a, b) => a - b), med = sorted[sorted.length >> 1];
+    return lum.filter((v) => Math.abs(v - med) > 36).length < lum.length * 0.06;
+  };
+  const rows = [];
+  for (let y = Math.round(p.bottom - plotW * 0.06); y > p.bottom - plotW * 0.45 && rows.length < 48; y--) if (plain(y)) rows.push(y);
+  let flat = null;
+  if (rows.length < 6) {
+    // The median colour of the ground along the front strip.
+    const ch = [[], [], []];
+    for (let y = Math.round(p.bottom - plotW * 0.095); y <= p.bottom - plotW * 0.06; y++) for (let x = x0; x <= x1; x++) { const d = (y * w + x) * 4; if (rgba[d + 3] > 250) for (let c = 0; c < 3; c++) ch[c].push(rgba[d + c]); }
+    flat = ch.map((v) => { v.sort((a, b) => a - b); return v[v.length >> 1] ?? 128; });
+    rows.length = 0; rows.push(Math.round(p.bottom - plotW * 0.08));
+  }
+  rows.sort((a, b) => a - b);
+  const sn = rows.length;
   const corner = Math.round(plotW * 0.03);
   for (let y = wantTop; y < top + corner; y++) {
-    const k = (y - wantTop) % (2 * sn), sy = s0 + (k < sn ? k : 2 * sn - k);
+    const k = sn > 1 ? (y - wantTop) % (2 * sn - 2) : 0, sy = rows[k < sn ? k : 2 * sn - 2 - k];
     for (let x = p.left; x <= p.right; x++) {
       const s = (sy * w + x) * 4, d = (y * w + x) * 4;
       // Round the new back corners.
@@ -279,7 +301,7 @@ function extendSlab(img, aspect = PLOT_ASPECT) {
       const fa = (rgba[s + 3] / 255) * Math.max(0, Math.min(1, corner - dist + 0.5));
       const ea = rgba[d + 3] / 255, a = ea + fa * (1 - ea);
       if (a <= 0) continue;
-      for (let c = 0; c < 3; c++) rgba[d + c] = Math.round((rgba[d + c] * ea + rgba[s + c] * fa * (1 - ea)) / a);
+      for (let c = 0; c < 3; c++) rgba[d + c] = Math.round((rgba[d + c] * ea + (flat ? flat[c] : rgba[s + c]) * fa * (1 - ea)) / a);
       rgba[d + 3] = Math.round(a * 255);
     }
   }
