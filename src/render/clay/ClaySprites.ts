@@ -226,6 +226,11 @@ export function pairClaySprite(name: string): ClaySprite | undefined {
   return sprites.get('pairs/' + name);
 }
 
+/** A leisure building's clay sprite (public/sprites/clay/leisure/<name>.png, clay/leisureArt.ts), or undefined until it has loaded. */
+export function leisureClaySprite(name: string): ClaySprite | undefined {
+  return sprites.get('leisure/' + name);
+}
+
 /** The sprite for a building on several tiles, or undefined if it has none or it has not loaded. Draw it with `tile` = the footprint's side. */
 export function bigClaySprite(kind: number): ClaySprite | undefined {
   const id = BIG_ID[kind];

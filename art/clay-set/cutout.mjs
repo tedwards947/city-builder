@@ -466,6 +466,38 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
   console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px${pulled ? `, pulled forward ${pulled}px` : ''}`);
 }
+// ── Leisure buildings ───────────────────────────────────────────────────────
+// The owner's picks from raw-leisure/ (leisure review page, 2026-11-20): museum
+// 1b, stadium #4, big parks #9 and #10, 2×2 parks #7 and #8, plazas #13 and #14.
+// Drawn on the n×n anchors (ref/anchor-2x2, -3x3, -4x4); scaled so the plot is
+// n 1×1 plots wide (n × 101 px). Game ids are `leisure/<id>`. Game output only.
+const LEISURE = [
+  { src: 'museum-a3', id: 'museum', n: 2, untint: true },
+  { src: 'stadium-a', id: 'stadium', n: 4 },
+  { src: 'bigpark-a', id: 'bigpark-a', n: 3 }, { src: 'bigpark-b', id: 'bigpark-b', n: 3 },
+  { src: 'park2-a', id: 'midpark-a', n: 2 }, { src: 'park2-b', id: 'midpark-b', n: 2 },
+  { src: 'monument-a', id: 'plaza-a', n: 2, untint: true }, { src: 'monument-b', id: 'plaza-b', n: 2 },
+];
+mkdirSync(join(GAME_OUT, 'leisure'), { recursive: true });
+for (const { src, id: name, n, untint } of LEISURE) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-leisure', src + '.png'), '--out', tmp], { stdio: 'ignore' });
+  const cut = cutout(readBmp(tmp));
+  // Magenta tint in glass and pale paving: pulled back towards grey.
+  if (untint) for (let i = 0; i < cut.w * cut.h; i++) {
+    const d = i * 4, m = Math.min(cut.rgba[d], cut.rgba[d + 2]) - cut.rgba[d + 1];
+    if (cut.rgba[d + 3] === 0 || m < 12) continue;
+    cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
+  }
+  const thinned = thinLip(cut, n);
+  const { grown } = extendSlab(cut);
+  const p = findPlot(cut), k = n * 101 / (p.right - p.left + 1);
+  const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
+  const id = 'leisure/' + name;
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px`);
+}
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 // Also as a script, so the review page works when opened straight from disk.

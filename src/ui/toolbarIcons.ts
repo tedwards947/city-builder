@@ -19,6 +19,14 @@ const ICONS = {
   police: p('M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8.5l1 2.2 2.4.2-1.8 1.6.6 2.3-2.2-1.3-2.2 1.3.6-2.3-1.8-1.6 2.4-.2z'),
   fire: p('M12 3c1 4 5 6 5 11a5 5 0 01-10 0c0-2 1-3.5 2-4.5 0 2 .8 3 1.8 3C11 9 10 7 12 3z'),
   school: p('M2 9l10-5 10 5-10 5zM6 11.5V16c3 3 9 3 12 0v-4.5M22 9v6'),
+  // A columned museum front under a pediment.
+  museum: p('M3 9l9-5 9 5zM4 20h16M3 22h18M6 10v9M10 10v9M14 10v9M18 10v9'),
+  // A stadium bowl seen from above, with its pitch.
+  stadium: '<ellipse cx="12" cy="12" rx="10" ry="7"/><rect x="7.5" y="9.5" width="9" height="5" rx=".5"/>' + p('M12 9.5v5'),
+  // An obelisk on its steps.
+  monument: p('M10.5 18l.8-13L12 3l.7 2 .8 13zM7 18h10v2H7zM5 20h14v2H5z'),
+  // A beach umbrella over the waves.
+  beach: p('M4 11a8 6 0 0116 0zM12 11v8M8 5.5c1.5 1 1.5 4 0 5.5M16 5.5c-1.5 1-1.5 4 0 5.5M2 21c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5'),
   hospital: p('M9 3h6v6h6v6h-6v6H9v-6H3V9h6z'),
   // An anchor.
   port: p('M12 8v13M12 21c-4 0-7-3-7-7h3M12 21c4 0 7-3 7-7h-3M9 12h6') + '<circle cx="12" cy="5.5" r="2.5"/>',

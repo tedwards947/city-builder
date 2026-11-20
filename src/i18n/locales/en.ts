@@ -163,6 +163,7 @@ export const en: TranslationSchema = {
     trafficOverlay: { stationRiders: "{n} riders", stationNoRoad: "No road" },
     rail: { offMap: "Off the map", blocked: "Something is in the way", hasTrack: "Track is already here", crossing: "Track can only cross a straight street or avenue", noRoute: "No way for track from the start to here" },
     airport: { noRoad: "⚠ No road to the terminal: build a street along its north side", roadHere: "Road here" },
+    stadiumPin: { today: "Game today!", tomorrow: "Game tomorrow", inDays: "Game in {n} days" },
     econ: {
       title: "Budget",
       taxLevel: "Tax rate",
@@ -463,6 +464,8 @@ export const en: TranslationSchema = {
       services: "Services",
       ports: "Ports",
       leisure: "Leisure",
+      parks: "Parks and leisure",
+      unique: "Unique buildings",
       views: "Views",
       menu: "Menu",
       upkeep: "Upkeep:",

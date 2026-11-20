@@ -995,5 +995,61 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "left": 25,
     "right": 226,
     "bottom": 304
+  },
+  "leisure/museum": {
+    "w": 256,
+    "h": 256,
+    "left": 26,
+    "right": 227,
+    "bottom": 220
+  },
+  "leisure/stadium": {
+    "w": 484,
+    "h": 484,
+    "left": 38,
+    "right": 440,
+    "bottom": 430
+  },
+  "leisure/bigpark-a": {
+    "w": 383,
+    "h": 383,
+    "left": 38,
+    "right": 340,
+    "bottom": 329
+  },
+  "leisure/bigpark-b": {
+    "w": 384,
+    "h": 384,
+    "left": 38,
+    "right": 340,
+    "bottom": 330
+  },
+  "leisure/midpark-a": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "leisure/midpark-b": {
+    "w": 236,
+    "h": 236,
+    "left": 17,
+    "right": 218,
+    "bottom": 202
+  },
+  "leisure/plaza-a": {
+    "w": 254,
+    "h": 254,
+    "left": 25,
+    "right": 225,
+    "bottom": 218
+  },
+  "leisure/plaza-b": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
   }
 };

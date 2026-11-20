@@ -109,17 +109,19 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'fireStation', icon: 'fire', tool: 'fire', hotkey: 'q' },
     { key: 'school', icon: 'school', tool: 'school', hotkey: 'w' },
     { key: 'hospital', icon: 'hospital', tool: 'hospital', hotkey: 'e' },
-    { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
   ] },
-  // Leisure (LEISURE_DESIGN.md): ?debug=true only for now. Graphics replaces this with the two
-  // categories of the design (Parks and leisure, Unique buildings: BALANCE.leisure.kinds[kind].category).
-  { family: 'leisure', icon: 'park', items: [
-    { key: 'midPark', icon: 'park', tool: 'midPark', shown: () => DEBUG },
-    { key: 'bigPark', icon: 'park', tool: 'bigPark', shown: () => DEBUG },
-    { key: 'beachPark', icon: 'park', tool: 'beachPark', shown: () => DEBUG },
-    { key: 'plaza', icon: 'park', tool: 'plaza', shown: () => DEBUG },
-    { key: 'museum', icon: 'school', tool: 'museum', shown: () => DEBUG, sepBefore: true },
-    { key: 'stadium', icon: 'school', tool: 'stadium', shown: () => DEBUG },
+  // Leisure (LEISURE_DESIGN.md), the design's two categories (BALANCE.leisure.kinds[kind].category):
+  // parks and leisure repeat, unique buildings are one a city. The beach park stays ?debug=true until its art is in.
+  { family: 'parks', icon: 'park', items: [
+    { key: 'park', icon: 'park', tool: 'park', hotkey: 'r' },
+    { key: 'midPark', icon: 'park', tool: 'midPark' },
+    { key: 'bigPark', icon: 'park', tool: 'bigPark' },
+    { key: 'beachPark', icon: 'beach', tool: 'beachPark', shown: () => DEBUG },
+    { key: 'plaza', icon: 'monument', tool: 'plaza' },
+  ] },
+  { family: 'unique', icon: 'stadium', items: [
+    { key: 'museum', icon: 'museum', tool: 'museum' },
+    { key: 'stadium', icon: 'stadium', tool: 'stadium' },
   ] },
   // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
   { family: 'landscape', icon: 'tree', items: [
