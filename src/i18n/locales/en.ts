@@ -58,7 +58,7 @@ export const en: TranslationSchema = {
       abandoned: "ABANDONED",
       bigLot: "2×2 building",
       bigLotResidents: "{count} residents in the whole building",
-      bigLotStreak: "Thriving for {days} of {need} days toward a 2×2 building",
+      bigLotStreak: "Thriving in a prime spot for {days} of {need} days toward a 2×2 building",
       distress:
         "Distress: {distress}/{threshold} — conditions unmet, risk of abandonment",
       landValue: "Land value: {value} ({label})",

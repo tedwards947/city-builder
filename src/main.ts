@@ -705,22 +705,24 @@ if (DEBUG) {
     else toastPanel.showToast('Merge 2×2 (debug)', 'Nothing to merge: no 2×2 square of one zone (two lots by two, no road or building in it) within 24 tiles of where the pointer last was on the map, or of the middle of the view.', 'warning');
   });
   ship.after(merge);
-  // Merging is off in the shipped numbers (BALANCE.lots.chancePerDay 0): try it with a quick chance.
+  // Merging is off as shipped (BALANCE.lots.chancePerDay 0) and rare at the approved chance: try it with a quick one.
   const auto = document.createElement('button');
   auto.id = 'debug-auto-merge';
   auto.type = 'button';
-  const label = () => { auto.textContent = (BALANCE.lots.chancePerDay as number) > 0 ? 'Merging: on' : 'Merging: off'; };
   const knobs = BALANCE.lots as { chancePerDay: number };   // BALANCE is edited live by the debug tools, never saved
+  const shippedChance = knobs.chancePerDay;
+  const label = () => { auto.textContent = knobs.chancePerDay === 0.25 ? 'Merging: fast' : knobs.chancePerDay > 0 ? 'Merging: on' : 'Merging: off'; };
   auto.addEventListener('click', () => {
-    knobs.chancePerDay = knobs.chancePerDay > 0 ? 0 : 0.25;
+    knobs.chancePerDay = knobs.chancePerDay === 0.25 ? shippedChance : 0.25;
     label();
     if (knobs.chancePerDay <= 0) { toastPanel.showToast('Merging off (debug)', 'Lots no longer merge on their own.', 'info'); return; }
+    const pct = `${+(knobs.chancePerDay * 100).toFixed(2)}%`;
     // Say where the city stands, so "nothing happened" can be told from "nothing qualifies".
     const w = state.world, r = mergeReport(w), need = BALANCE.lots.streakDays;
     const sat = Math.round(w.stats.satisfaction * 100), satNeed = Math.round(BALANCE.lots.minSatisfaction * 100);
-    toastPanel.showToast('Merging on (debug)', `A ready block has a 25% chance a day. Level-3 lots: ${r.topLots}; in a 2×2 square of one zone: ${r.squares} squares. `
-      + `Thriving today: ${r.happyToday} lots (needs no problems, high land value, and city satisfaction ${satNeed}%; it is ${sat}%). `
-      + `Longest streak: ${r.bestStreak} of ${need} days. Blocks ready now: ${r.ready}. Streaks start counting from now.`, 'info');
+    toastPanel.showToast(knobs.chancePerDay === 0.25 ? 'Merging fast (debug)' : 'Merging on (debug)', `A ready block has a ${pct} chance a day. Level-3 lots: ${r.topLots}; in a 2×2 square of one zone: ${r.squares} squares. `
+      + `Thriving today: ${r.happyToday} lots (needs no problems, a prime spot — downtown, or by a park or water — and city satisfaction ${satNeed}%; it is ${sat}%). `
+      + `Longest streak: ${r.bestStreak} of ${need} days. Blocks ready now: ${r.ready}.`, 'info');
   });
   label();
   merge.after(auto);

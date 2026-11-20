@@ -1,9 +1,11 @@
 // When lots merge (sim/lots.ts, BIG_LOTS_DESIGN.md). Once a game day:
-//   1. every top-level lot that is happy and on valuable land today adds a
-//      day to its streak; any other lot's streak goes back to 0;
+//   1. every top-level lot that is happy and in a prime spot today (downtown,
+//      or by a park or water: lots.ts primeSpot) adds a day to its streak; any
+//      other lot's streak goes back to 0;
 //   2. each 2×2 of one zone whose four lots have all kept that up for
 //      BALANCE.lots.streakDays rolls BALANCE.lots.chancePerDay;
-//   3. of the blocks that won, at most BALANCE.lots.maxPerDay merge, picked at random.
+//   3. of the blocks that won, at most BALANCE.lots.maxPerDay merge, picked at random,
+//      and never within BALANCE.lots.spacing tiles of another merged lot.
 //
 // Off (it does nothing at all, and uses no random numbers) while
 // BALANCE.lots.chancePerDay is 0, which is what ships until the owner approves
@@ -11,7 +13,7 @@
 
 import type { World } from '../World';
 import { BALANCE } from '../../data/balance';
-import { mergeCandidates, mergeLot, updateLotStreaks } from '../lots';
+import { clearOfLots, mergeCandidates, mergeLot, updateLotStreaks } from '../lots';
 
 export class LotMergeSystem {
   update(world: World): void {
@@ -24,8 +26,9 @@ export class LotMergeSystem {
     const { width } = world.grid;
     for (let merged = 0; merged < cfg.maxPerDay && won.length > 0;) {
       const a = won.splice(Math.floor(world.rng() * won.length), 1)[0];
-      // False if a merge a moment ago took one of this block's tiles.
-      if (mergeLot(world, a % width, (a - (a % width)) / width)) merged++;
+      const x = a % width, y = (a - x) / width;
+      // Not if a merge a moment ago took one of this block's tiles, or stands too close to it.
+      if (clearOfLots(world, x, y) && mergeLot(world, x, y)) merged++;
     }
   }
 }
