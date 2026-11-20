@@ -2,6 +2,7 @@
 // game, the tests and the benchmarks all run the same simulation.
 
 import type { System } from './Scheduler';
+import type { World } from './World';
 import { NetworkSystem } from './systems/NetworkSystem';
 import { PowerSystem } from './systems/PowerSystem';
 import { WaterSystem } from './systems/WaterSystem';
@@ -29,6 +30,24 @@ export interface SimSystems {
   systems: System[];
   /** The traffic system (also in `systems`), for callers that poke it between ticks. */
   transit: TransitSystem;
+  /** The systems (also in `systems`) that work out what reaches each tile: see refreshCoverage. */
+  coverage: System[];
+}
+
+/**
+ * Rework the road networks and the power, water, sewage and service coverage
+ * now, without a tick. These depend only on what is built, and are otherwise
+ * redone each tick, so a clock that is stopped (paused, or game over) would
+ * leave a road or a zone built in the meantime showing "No power" until it
+ * runs again. Draws no random numbers and moves nothing else in the city.
+ */
+export function refreshCoverage(world: World, sim: SimSystems): void {
+  world.pinIndex();
+  try {
+    for (const sys of sim.coverage) sys.update(world);
+  } finally {
+    world.unpinIndex();
+  }
 }
 
 /**
@@ -37,14 +56,12 @@ export interface SimSystems {
  */
 export function createSystems(): SimSystems {
   const transit = new TransitSystem();
+  const coverage = [new NetworkSystem(), new PowerSystem(), new WaterSystem(), new SewageSystem(), new ServiceSystem()];
   return {
     transit,
+    coverage,
     systems: [
-      new NetworkSystem(),
-      new PowerSystem(),
-      new WaterSystem(),
-      new SewageSystem(),
-      new ServiceSystem(),
+      ...coverage,
       new LandValueSystem(),
       new PollutionSystem(),
       new CrimeSystem(),

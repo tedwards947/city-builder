@@ -12,6 +12,8 @@ export class CommandHistory {
   private readonly redoStack: Command[] = [];
   // Commands collected between beginBatch() and endBatch(); null when not batching.
   private batch: Command[] | null = null;
+  /** Goes up whenever a command, an undo or a redo may have changed the world. */
+  changes = 0;
 
   // Political-capital changes since the current action began, added up so the
   // whole action can be reported as one `pcAction` event.
@@ -59,6 +61,7 @@ export class CommandHistory {
     const ok = cmd.execute(this.world);
     if (ok && before) this._roadReport(before);
     if (ok) {
+      this.changes++;
       if (this.batch) {
         this.batch.push(cmd);
       } else {
@@ -101,6 +104,7 @@ export class CommandHistory {
     this.roadBefore = this.cutCache = null;
     if (!batch) return;
     for (let i = batch.length - 1; i >= 0; i--) batch[i].undo(this.world);
+    this.changes++;
     this._pcReset();   // nothing happened, so nothing to report
   }
 
@@ -110,6 +114,7 @@ export class CommandHistory {
     if (!cmd) return;
     this._pcReset();
     cmd.undo(this.world);
+    this.changes++;
     this._pcReport(true);
     this.redoStack.push(cmd);
   }
@@ -123,6 +128,7 @@ export class CommandHistory {
     this._pcReset();
     const before = roadSnapshot(this.world);
     if (cmd.execute(this.world)) {
+      this.changes++;
       this._roadReport(before);
       this.stack.push(cmd);
       if (this.stack.length > MAX_STACK) this.stack.shift();

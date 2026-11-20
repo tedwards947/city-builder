@@ -25,6 +25,9 @@ export class Scheduler {
     this.baseTickMs = baseTickMs;
   }
 
+  /** True while no ticks run: paused, or the game is over. */
+  get stopped(): boolean { return this.speed === 0 || this.world.budget.gameOver; }
+
   setSpeed(s: number): void {
     this.speed = s;
     this.accumulator = 0;

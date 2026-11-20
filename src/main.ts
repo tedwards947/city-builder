@@ -13,7 +13,7 @@ localizeHTML();
 
 import { CommandHistory } from './commands/CommandHistory';
 import { Scheduler } from './sim/Scheduler';
-import { createSystems } from './sim/createSystems';
+import { createSystems, refreshCoverage, type SimSystems } from './sim/createSystems';
 import { computeServiceCoverage } from './sim/systems/ServiceSystem';
 import type { TransitSystem } from './sim/systems/TransitSystem';
 import { VibeSystem } from './sim/systems/VibeSystem';
@@ -122,6 +122,8 @@ const state = {
   history:   null as unknown as CommandHistory,
   scheduler: null as unknown as Scheduler,
   transit:   null as unknown as TransitSystem,
+  sim:       null as unknown as SimSystems,
+  seenChanges: 0,
   politics:  undefined as PoliticsSystem | undefined,
 };
 
@@ -259,11 +261,15 @@ function startGame(world: World, behindTitle = false): void {
   // Systems carry per-game state, so every new or loaded world gets a fresh set.
   const sim = createSystems();
   state.transit = sim.transit;
+  state.sim = sim;
+  state.seenChanges = 0;
   state.politics = sim.systems.find((s): s is PoliticsSystem => s instanceof PoliticsSystem);
   // Settle traffic now, while the city is loading, rather than on the first
   // traffic tick: that pass is the costliest of the game (~20 ms on a big
   // city), and roads show their traffic from the first frame.
   sim.transit.recompute(world);
+  // A city saved while paused may hold coverage from before its last edits.
+  refreshCoverage(world, sim);
   state.scheduler = new Scheduler(world, sim.systems);
   syncSpeedButtons();
   autosave.reset();
@@ -777,6 +783,12 @@ function frame(now: number): void {
   state.scheduler.update(now);
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
+  // So does what it connects: power, water and services reach a road or zone built while the
+  // clock is stopped (paused, or game over), instead of showing "No power" until it runs again.
+  if (state.history.changes !== state.seenChanges) {
+    state.seenChanges = state.history.changes;
+    if (state.scheduler.stopped) refreshCoverage(state.world, state.sim);
+  }
   if (titleUp || tourPreview) tour.update(now);
   if (titleUp && showcase) keepShowcase();
   if (tutorial.active && !titleUp) {
