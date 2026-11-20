@@ -567,11 +567,13 @@ export const BALANCE = {
   // When four top-level lots merge into a 2×2 building (sim/lots.ts, systems/LotMergeSystem.ts,
   // BIG_LOTS_DESIGN.md). The "prime spot" trigger: ENGINEER 3's numbers, approved by the owner 2026-11-19.
   lots: {
-    // A ready block's chance to merge, per game day. 0 = no merges. The approved value is
-    // `approvedChancePerDay`; it is not switched on here yet because it changes the golden
-    // baseline (the test city gets merges), which needs the owner's OK.
-    chancePerDay: 0,
-    approvedChancePerDay: 0.003,
+    // A ready block's chance to merge, per game day: homes and shops at `chancePerDay`, industry
+    // at `industryChancePerDay`. Industry needs no prime spot (it merges anywhere), so at the
+    // home/shop chance it made about three quarters of all merges, mostly at the city's edge;
+    // a fifth of the chance keeps the towers downtown the headline (ENGINEER 3, owner-approved
+    // 2026-11-20). Both 0 = no merges.
+    chancePerDay: 0.003,
+    industryChancePerDay: 0.0006,
     streakDays: 10,        // days in a row all four lots must count (happy, in a prime spot) before the block is ready
     minSatisfaction: 0.9,  // the city's satisfaction (0–1) a day needs to count
     maxPerDay: 1,          // merges per game day, city-wide
