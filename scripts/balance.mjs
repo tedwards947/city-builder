@@ -7,7 +7,9 @@
 //
 // Cities: a fresh 128×128 town every run; the owner's testcity1 if it is on
 // this machine (cities/testcity1.citysave.json or ~/Downloads/
-// testcity1.citysave.json; never commit it); every cities/gen-*.citysave.json
+// testcity1.citysave.json; never commit it); the owner's golden-1
+// (cities/golden-1.citysave.json, 35k residents: committed with the owner's OK, #392,
+// so the nightly has it; in the standard suite since 2026-11-20); every cities/gen-*.citysave.json
 // (generated cities); and any --city <file>.
 //
 // Six suites: "pc" grades the PC targets per PC variant; "svc" the services targets per
@@ -62,10 +64,12 @@ if (!quick && !args.includes('--no-saves')) {
   for (const p of [join(root, 'cities', 'testcity1.citysave.json'), join(homedir(), 'Downloads', 'testcity1.citysave.json')]) {
     if (existsSync(p)) { saves.push({ id: 'testcity1', path: p }); break; }
   }
+  const golden1 = join(root, 'cities', 'golden-1.citysave.json');
+  if (existsSync(golden1)) saves.push({ id: 'golden-1', path: golden1 });
   const dir = join(root, 'cities');
   if (existsSync(dir)) for (const f of readdirSync(dir).sort()) if (/^gen-.*\.citysave\.json$/.test(f)) saves.push({ id: f.replace('.citysave.json', ''), path: join(dir, f) });
 }
-args.forEach((a, k) => { if (a === '--city') saves.push({ id: basename(args[k + 1]).replace('.citysave.json', ''), path: args[k + 1] }); });
+args.forEach((a, k) => { if (a === '--city' && !saves.some((s) => resolve(s.path) === resolve(args[k + 1]))) saves.push({ id: basename(args[k + 1]).replace('.citysave.json', ''), path: args[k + 1] }); });
 
 const cities = [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }, ...saves.map((s) => ({ id: s.id, kind: 'save', text: readFileSync(s.path, 'utf8') }))];
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
