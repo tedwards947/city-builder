@@ -10,6 +10,7 @@
 // diffusion step — rather than the whole map. Everything outside is 0 and
 // stays 0, so the result is the same as a whole-map pass.
 
+import { levelWeight } from '../lots';
 import { World } from '../World';
 import { ZONE_I, BUILDING_POWER_PLANT, BUILDING_LARGE_POWER_PLANT, BUILDING_SEAPORT, TERRAIN_WATER, VEG_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -71,7 +72,7 @@ export class PollutionSystem {
         let p = Math.floor(pol[i] * rate);
 
         // 2. Add sources.
-        if (zone[i] === ZONE_I && dev[i] > 0) p = Math.min(255, Math.round(p + dev[i] * industryOutput));
+        if (zone[i] === ZONE_I && dev[i] > 0) p = Math.min(255, Math.round(p + levelWeight(dev[i]) * industryOutput));
         if (building[i] === BUILDING_POWER_PLANT) p = Math.min(255, Math.round(p + powerPlantOutput));
         else if (building[i] === BUILDING_LARGE_POWER_PLANT) p = Math.min(255, Math.round(p + largePowerPlantOutput));
         else if (building[i] === BUILDING_SEAPORT && seaportOutput !== 0 && terrain[i] !== TERRAIN_WATER) p = Math.min(255, Math.round(p + seaportOutput));

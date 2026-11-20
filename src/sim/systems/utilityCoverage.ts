@@ -5,6 +5,7 @@
 // Loops over the road and zone lists in world.index rather than the whole
 // map, so the cost follows the size of the city, not of the map.
 
+import { levelWeight } from '../lots';
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY } from '../constants';
 import { footprintTiles, footprintEdge, hasNeededWater } from '../buildingShapes';
@@ -79,7 +80,7 @@ export function utilityDemand(world: World, minLevel: number, perLevel: number):
   let demand = 0;
   for (let k = 0; k < zonedCount; k++) {
     const i = zoned[k];
-    if (zone[i] !== 0 && devLevel[i] >= minLevel && abandoned[i] === 0) demand += devLevel[i] * perLevel;
+    if (zone[i] !== 0 && devLevel[i] >= minLevel && abandoned[i] === 0) demand += levelWeight(devLevel[i]) * perLevel;
   }
   return demand;
 }

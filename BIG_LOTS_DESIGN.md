@@ -1,6 +1,6 @@
 # 2×2 Lots: Design
 
-*Status: owner decided the core rules on 2026-11-19 (TODO DESIGN h). Engine review next. Rules marked "PM default" were not asked of the owner and can be changed.*
+*Status: owner decided the core rules on 2026-11-19 (TODO DESIGN h) and approved the engine's model and phase plan the same day. Phase 1 (the model) is built; see "The model" below. Rules marked "PM default" were not asked of the owner and can be changed.*
 
 ## Why
 Towers belong on big lots, not squeezed onto one tile (owner, 2026-11-19). A very happy, valuable block of four top-level lots can merge into one 2×2 building. It's a reward to aim for, and it gives downtowns a skyline.
@@ -15,14 +15,27 @@ Towers belong on big lots, not squeezed onto one tile (owner, 2026-11-19). A ver
 | 5 | Scale (docs/SCALE.md) | 1 tile = 17 m. Towers only on 2×2, **true height, 20 floors at most**, with heights varying below that. Some 2×2s stay low (malls, factories). A level 3 on 1×1 is a 4-floor mid-rise. |
 
 ## Rules (PM defaults)
-- **Shape:** an aligned 2×2 square, with no L shapes or larger blocks for now. All four tiles must be level 3, the same zone, and not part of another building.
-- **Road access:** a street or avenue on any edge of the 2×2, the same as stations (`World.buildingAccessRoads`).
+- **Shape:** an aligned 2×2 square, with no L shapes or larger blocks for now. All four tiles must be level 3, the same zone, not abandoned, and not part of another merged lot.
+- **Road access:** no new rule. The four lots already have a road each (they reached level 3), and each tile of the merged lot keeps using its own.
 - **The streak:** each of the four lots must stay above the satisfaction and land-value thresholds for about **10 days in a row**. Once that holds, the daily merge chance applies. Numbers are placeholders for ENGINEER 3.
 - **Merging displaces nobody.** The residents and jobs of the four lots move in, then it fills up to the new capacity through normal growth. **No PC cost**, because nobody chose to do it.
-- **Bulldozing or rezoning any tile of it** affects the whole building, so the usual per-resident displacement PC applies to all of it. The preview shows the whole 2×2.
-- **Services, crime and fire** treat it as one building with the combined numbers. A fire burns the whole building. Engine decides the details.
+- **Bulldozing, rezoning, paving or building over any tile of it** brings the whole building down. The other tiles are left as empty lots, still zoned. The per-resident displacement PC applies to everyone in it, counted once, and one undo puts the whole building back. Clearing an abandoned one earns the blight reward for all four tiles.
+- **Services, crime and fire** work per tile, as for any lot, with each tile counting 1.5× a level 3. A fire that guts it (burns out with no fire station in reach) leaves four empty zoned lots. Phase 2 makes abandonment, recovery and fire act on all four tiles together.
 - **Rarity:** a cap, or a falling chance, so a district doesn't merge all at once. Something like "at most one merge per district per few days". ENGINEER 3 to tune.
 - **Undo:** a merge is a simulation event, not a player action, so there's nothing to undo.
+
+## The model (engine, approved 2026-11-19)
+A merged lot is **four zone tiles, not a building kind** (`src/sim/lots.ts`). Every system that counts residents, jobs, taxes and trips reads the zone and level of each tile, so they all keep working.
+- Each of its tiles is at **`devLevel` 4**, one above what a lot grows to (`BALANCE.growth.maxLevel` stays 3).
+- **`world.layers.lot`** gives each tile its quarter: 1 NW (the anchor), 2 NE, 3 SW, 4 SE; 0 is an ordinary lot. `world.lotAnchor(i)` gives the anchor's tile index, or −1. `world.lotTilesAt(i)` gives the four tiles.
+- **Capacity** comes from two tables in `BALANCE.growth`: `popPerLevel[4]` (30 residents a tile, 1.5 × level 3) and `levelWeight` (4.5 for level 4, used wherever a system multiplies by the level: taxes, trips, utility demand, crime, fire risk, pollution, the demand tally). ENGINEER 3 tunes both; keep them in step.
+- **One building:** `World.razeLot` brings all four tiles down, and everything that changes one of its tiles calls it first. Commands snapshot all four tiles for undo.
+- **Art contract:** draw once at the anchor over the 2×2 and skip the other three tiles. `layers.visualVariant[anchor]` picks the look (tall or low). `lotSummary(world, i)` gives the combined numbers for Inspect. The event `lotMerged { tx, ty, zone }` fires at a merge.
+- **Happiness per lot** (for the trigger, phase 3): a lot counts as happy on a day when it has no distress, is not abandoned and the city's satisfaction is above a threshold. Land value is already per tile.
+- **Save:** version 11. The `lot` layer is new and optional, so every older save loads unchanged; the number went up only so that an older build refuses a newer save instead of misreading level 4. On load, a damaged lot layer is put right (`cleanLots`).
+- **Debug:** with `?debug=true`, the **Merge 2×2** button merges the zoned block nearest the middle of the view, whatever its level (`__city.mergeLot(tx, ty)` for scripts).
+
+**Phases.** 1: the model, save, group rules for bulldoze / rezone / road / building / undo / displacement, Inspect, the debug button, a placeholder slab (done). 2: abandonment, recovery and fire by group. 3: the trigger (streak, thresholds, daily chance, cap), shipped at chance 0 until the owner approves numbers. 4: an audit of every level reader, and lab hooks for ENGINEER 3.
 
 ## Seeing past tall buildings (owner: "maybe when you hover over them they disappear?")
 - **Desktop:** towers within about 2 tiles of the cursor fade to about 30%, but only while a build tool is selected (View and Inspect keep them solid).
@@ -30,7 +43,7 @@ Towers belong on big lots, not squeezed onto one tile (owner, 2026-11-19). A ver
 - Graphics' call on the details. The owner reviews on 5174.
 
 ## Who does what
-- **Engine:** the merged-lot model (a 2×2 zone building kind per zone, reusing `buildingShapes.ts`), the streak and trigger, capacity, decline and abandonment, and bulldoze, rezone and displacement. Save: follow AGENT.md's save rule (additive if possible, otherwise a version bump with an upgrade). Placeholder art at first.
+- **Engine:** the merged-lot model (below), the streak and trigger, capacity, decline and abandonment, and bulldoze, rezone and displacement. Placeholder art at first.
 - **Graphics:** the 2×2 art per zone, with variety (tall and low), within SCALE.md. Paid images need the owner's OK, as usual. Also hover-to-hide and the "Low buildings" toggle.
 - **ENGINEER 3:** thresholds, streak, chance, cap and the 1.5× capacity. Lab targets such as "a mature downtown gets its first 2×2 by day N", "suburbs at the edge get none" and "towers add traffic". Golden stays unchanged until the owner approves numbers.
 - **PM:** this doc, and relaying the owner's picks.

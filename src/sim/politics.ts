@@ -460,11 +460,26 @@ export function pcQuote(
   let footprint: readonly number[] = [i];
   // Residents displaced from tiles other than (tx, ty) itself.
   let displacedElsewhere = 0;
+  // Whatever stood on tile `ti` goes: its residents are displaced and, with
+  // `blight`, its ruin cleared. A merged 2×2 lot (sim/lots.ts) is one building
+  // and comes down whole, so all four of its tiles count, each once.
+  const gone = new Set<number>();
+  const displace = (ti: number, blight: boolean): void => {
+    const lot = world.lotTilesAt(ti);
+    for (const li of lot.length > 0 ? lot : [ti]) {
+      if (gone.has(li)) continue;
+      gone.add(li);
+      const lx = li % grid.width, ly = (li - lx) / grid.width;
+      const ld = li === i ? d : tileDisruption(world, lx, ly);
+      addPart(q, 'displacement', lx, ly, -ld.pcCost);
+      if (blight) addPart(q, 'blightCleared', lx, ly, ld.pcReward);
+      if (li !== i) displacedElsewhere += ld.displacedPopulation;
+    }
+  };
 
   switch (action.type) {
     case 'bulldoze':
-      addPart(q, 'displacement', tx, ty, -d.pcCost);
-      addPart(q, 'blightCleared', tx, ty, d.pcReward);
+      displace(i, true);
       // Closing a service: the residents it covered object.
       for (const p of serviceClosureValue(world, tx, ty, service)) {
         addPart(q, 'serviceClosed', p.tx, p.ty, p.amount, p.strength);
@@ -473,8 +488,7 @@ export function pcQuote(
     case 'zone': {
       if (!world.isBuildable(tx, ty) || layers.roadClass[i] !== ROAD_NONE) return q;
       if (layers.zone[i] === action.zone && layers.abandoned[i] === 0) return q;
-      addPart(q, 'displacement', tx, ty, -d.pcCost);
-      addPart(q, 'blightCleared', tx, ty, d.pcReward);
+      displace(i, true);
       break;
     }
     case 'building':
@@ -482,13 +496,7 @@ export function pcQuote(
       if (!world.canPlaceBuilding(tx, ty, action.kind, action.rot ?? 0)) return q;
       footprint = footprintTiles(grid.width, grid.height, tx, ty, action.kind, action.rot ?? 0)!;
       // Every home under the building's shape is displaced.
-      for (const fi of footprint) {
-        if (fi === i) { addPart(q, 'displacement', tx, ty, -d.pcCost); continue; }
-        const fx = fi % grid.width, fy = (fi - fx) / grid.width;
-        const fd = tileDisruption(world, fx, fy);
-        addPart(q, 'displacement', fx, fy, -fd.pcCost);
-        displacedElsewhere += fd.displacedPopulation;
-      }
+      for (const fi of footprint) displace(fi, false);
       if (isServiceKind(action.kind) && !(footprint.length === 1 ? touchesAccessRoad(world, tx, ty) : shapeTouchesAccessRoad(world, footprint))) q.notConnected = true;
       // Opening a service: the residents it will cover are pleased.
       for (const p of serviceOpeningValue(world, tx, ty, action.kind, service)) {
@@ -501,7 +509,7 @@ export function pcQuote(
       break;
     case 'road': {
       if (!world.isBuildable(tx, ty, true) || layers.roadClass[i] >= action.roadClass) return q;
-      addPart(q, 'displacement', tx, ty, -d.pcCost);
+      displace(i, false);
       // A highway gives no access: homes left with no other road abandon.
       if (action.roadClass === ROAD_HIGHWAY) {
         for (const z of zonesCutOffByHighway(world, tx, ty)) {

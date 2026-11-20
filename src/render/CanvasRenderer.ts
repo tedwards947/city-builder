@@ -399,7 +399,8 @@ export class CanvasRenderer {
         }
         // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
-        const clay = big || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        // A merged 2×2 lot has no art yet: the chunk layer's placeholder slab shows (sim/lots.ts).
+        const clay = big || world.layers.lot[i] !== 0 || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).

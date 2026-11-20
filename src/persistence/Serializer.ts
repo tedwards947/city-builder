@@ -1,6 +1,7 @@
 // Converts a live World to a point-in-time WorldSnapshot and back.
 // All typed arrays are copied (not referenced) so the snapshot is immutable.
 
+import { cleanLots } from '../sim/lots';
 import { World } from '../sim/World';
 import { upgradeLoadedRequests } from '../sim/requests';
 import { startCountingFromNow } from '../sim/established';
@@ -45,6 +46,7 @@ export function serialize(world: World): WorldSnapshot {
       building:  new Uint8Array(l.building),
       vegetation: new Uint8Array(l.vegetation),
       devLevel:  new Uint8Array(l.devLevel),
+      lot:       new Uint8Array(l.lot),
       power:     new Uint8Array(l.power),
       water:     new Uint8Array(l.water),
       sewage:    new Uint8Array(l.sewage),
@@ -115,6 +117,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.rebuildBuildingIds();
   l.vegetation.set(snapshot.layers.vegetation);
   l.devLevel.set(snapshot.layers.devLevel);
+  if (snapshot.layers.lot) l.lot.set(snapshot.layers.lot);
+  cleanLots(world);
   l.power.set(snapshot.layers.power);
   l.water.set(snapshot.layers.water);
   l.sewage.set(snapshot.layers.sewage);

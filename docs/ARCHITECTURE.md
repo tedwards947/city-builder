@@ -502,5 +502,5 @@ Test files:
 - `chunkCache.test.ts`, `chunkPainter.test.ts`, `rebakeBudget.test.ts` — the static layer is redrawn only when its picture changes; the signature covers every layer the painter reads; zoom smoothing
 - `transit.test.ts`, `trafficCity.test.ts` — traffic model on small hand-built maps, and stability on a 6,500-person test city (`fixtures/testCity.ts`)
 - `goldenCity.test.ts` — the whole simulation on the test city against a stored fingerprint (see below)
-- `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (pins `SAVE_VERSION` = 9), autosave, new game
+- `persistence.test.ts`, `autosave.test.ts`, `newgame.test.ts` — save/load round-trip (follows `SAVE_VERSION`), autosave, new game
 - `World`, `Grid`, `rng`, `Vegetation`, `graphics`, `i18n`, `audio`, `ToastPanel`

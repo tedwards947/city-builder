@@ -49,6 +49,10 @@ describe('a saved city from every save version', () => {
       const owned = new Set(w.buildings.flatMap(b => w.buildingTilesAt(b.tx, b.ty)));
       for (const b of w.buildings) expect(w.layers.building[at(b.tx, b.ty)]).toBe(b.kind);
       for (let i = 0; i < w.layers.building.length; i++) if (w.layers.building[i] !== 0) expect(owned.has(i)).toBe(true);
+      // v11 and later add a merged 2×2 lot of shops at (2, 2)–(3, 3) (sim/lots.ts).
+      expect([at(2, 2), at(3, 2), at(2, 3), at(3, 3)].map(i => w.layers.lot[i])).toEqual(f.version >= 11 ? [1, 2, 3, 4] : [0, 0, 0, 0]);
+      expect(w.layers.devLevel[at(3, 3)]).toBe(f.version >= 11 ? 4 : 0);
+      expect(w.layers.lot.filter(v => v !== 0).length).toBe(f.version >= 11 ? 4 : 0);
       // It saves and loads again as itself …
       expect(serialize(deserialize(serialize(w))).buildings).toEqual(serialize(w).buildings);
       // … and plays: a year of ticks without an error, the power plant still supplying.

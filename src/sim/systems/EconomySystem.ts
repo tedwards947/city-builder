@@ -1,3 +1,4 @@
+import { levelWeight } from '../lots';
 import { trackMaintenance, railFareIncome } from '../rail';
 import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
@@ -60,7 +61,7 @@ export class EconomySystem {
           sickMult = 1.0 - (sick / 255) * BALANCE.healthcare.taxPenalty;
         }
         const ordinance = zone[i] === ZONE_C ? shopIncome : zone[i] === ZONE_I ? industryIncome : 1;
-        income += dev[i] * baseRate * lvMult * eduMult * sickMult * ordinance;
+        income += levelWeight(dev[i]) * baseRate * lvMult * eduMult * sickMult * ordinance;
       }
     }
     // The city's tax level scales all tax income (exactly 1 at the neutral level).

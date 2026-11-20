@@ -245,3 +245,23 @@ function drawIndustrial(ctx: CanvasRenderingContext2D, dev: number, sxi: number,
     ctx.stroke();
   }
 }
+
+/**
+ * Placeholder for a merged 2×2 lot (sim/lots.ts) until its art exists: this
+ * tile's quarter of one plain slab with a lighter roof. `quarter` is
+ * world.layers.lot: 1 NW, 2 NE, 3 SW, 4 SE.
+ */
+export function drawFlatLotSlice(ctx: CanvasRenderingContext2D, zone: number, quarter: number, sxi: number, syi: number, tsi: number, ts: number, p: ColorPalette, isAbandoned: boolean): void {
+  ctx.fillStyle = zone === ZONE_R ? p.zoneR : zone === ZONE_C ? p.zoneC : p.zoneI;
+  ctx.fillRect(sxi, syi, tsi, tsi);
+  const west = ((quarter - 1) & 1) === 0, north = quarter <= 2;
+  const slab = (margin: number, colour: string): void => {
+    const x0 = west ? sxi + margin : sxi, x1 = west ? sxi + tsi : sxi + tsi - margin;
+    const y0 = north ? syi + margin : syi, y1 = north ? syi + tsi : syi + tsi - margin;
+    ctx.fillStyle = colour;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  };
+  const walls = zone === ZONE_R ? p.buildingR : zone === ZONE_C ? p.buildingC : p.buildingI;
+  slab(Math.max(1, Math.floor(ts * 0.12)), isAbandoned ? '#2a2a2a' : walls[2]);
+  if (ts >= 6) slab(Math.max(2, Math.floor(ts * 0.34)), isAbandoned ? '#1a1a1a' : 'rgba(255,255,255,0.25)');
+}

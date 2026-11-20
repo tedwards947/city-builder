@@ -40,6 +40,8 @@ export interface TileSnapshot {
   buildingId?: number;
   /** For a building's anchor tile: its rotation (0–3). Missing = 0. */
   rot?: number;
+  /** world.layers.lot: which quarter of a merged 2×2 lot the tile is. Missing = 0, an ordinary tile. */
+  lot?: number;
 }
 
 export function snapshotTile(world: World, tx: number, ty: number): TileSnapshot {
@@ -56,16 +58,31 @@ export function snapshotTile(world: World, tx: number, ty: number): TileSnapshot
     visualVariant: world.layers.visualVariant[i],
     buildingId:    world.buildingId[i],
     rot:           world.buildingRot[i],
+    lot:           world.layers.lot[i],
   };
 }
 
 /**
  * The tiles a command must snapshot to be able to undo clearing (tx, ty):
- * every tile of the building there, or just the tile if there is none.
+ * every tile of the building there (or of the merged 2×2 lot, which comes
+ * down as one: sim/lots.ts), or just the tile if there is neither.
  */
 export function tilesClearedWith(world: World, tx: number, ty: number): number[] {
   const whole = world.buildingTilesAt(tx, ty);
-  return whole.length > 0 ? whole : [world.grid.idx(tx, ty)];
+  if (whole.length > 0) return whole;
+  const i = world.grid.idx(tx, ty);
+  const lot = world.lotTilesAt(i);
+  return lot.length > 0 ? lot : [i];
+}
+
+/**
+ * The tiles a command must snapshot before changing `tiles`: those tiles, and
+ * the rest of any merged 2×2 lot one of them is part of (it comes down whole).
+ */
+export function withLots(world: World, tiles: readonly number[]): number[] {
+  const out = [...tiles];
+  for (const i of tiles) for (const t of world.lotTilesAt(i)) if (!out.includes(t)) out.push(t);
+  return out;
 }
 
 /** Snapshots of several tiles, to hand back to restoreTiles. */
@@ -95,6 +112,7 @@ export function restoreTile(world: World, tx: number, ty: number, snap: TileSnap
   if (world.layers.rail[i] !== (snap.rail ?? 0)) { world.layers.rail[i] = snap.rail ?? 0; world.railVersion++; }
   world.layers.building[i]  = snap.building;
   world.layers.devLevel[i]  = snap.dev;
+  world.layers.lot[i]       = snap.lot ?? 0;
   world.layers.abandoned[i]     = snap.abandoned ?? 0;
   world.layers.distress[i]      = snap.distress ?? 0;
   world.layers.vegetation[i]    = snap.vegetation ?? 0;
