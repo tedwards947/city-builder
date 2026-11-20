@@ -1,6 +1,6 @@
 # Leisure and Tourism: Design Workshop
 
-*Status: workshop with the owner, started 2026-11-20 (TODO k). **Nothing is decided and nothing gets built yet.** This file holds the brief, what already exists, the options, and the owner's picks as they're made, so the discussion survives across sessions. PM writes it; engine and graphics review it once the shape is settled.*
+*Status: workshopped with the owner on 2026-11-20 (TODO k); **the owner approved building the first version the same day.** The owner's picks are in "Decisions" at the end; they override the PM picks in the option lists above them. PM keeps this file; changes to the decisions need the owner.*
 
 ## The owner's brief (2026-11-20)
 **Visitors**
@@ -92,6 +92,13 @@ Today traffic is worked out once a day, so there are two ways to do this:
 | Feel | One big weekly crisis to plan for | Steady pressure on the downtown network |
 | Neighbours | Noisy on event days: homes nearby may object (PC nuisance rule) | Raises land value around it |
 
+### Q6b. What happens when fans can't get there? (owner wasn't keen on turnout loss and reputation alone)
+- **A. Nothing extra.** The jam is the cost: commuters and shops suffer that day, as with any congestion.
+- **B. Empty seats.** Ticket money only from the fans who arrive. No lasting effect.
+- **C. Residents stuck in it complain (PC).** A bad event day costs PC from the homes whose trips got jammed by the crowd. This is the owner's "objections mostly because of traffic": the cost follows the jam you allowed, not a fixed radius, so fixing access fixes it.
+- **D. The team threatens to leave.** After several bad days, a request-style countdown: "Fix access within 30 days or the Bulldogs move." Fix it and it's a PC win; fail and the stadium sits empty for a season.
+- PM pick: **B + C now, D later** as the dramatic version.
+
 ### Q7. The first set of attractions
 A starting list, not final. Footprints follow `docs/SCALE.md` (1 tile = 17 m).
 | Attraction | Footprint | Ticket? | Draws | Notes |
@@ -114,7 +121,10 @@ A starting list, not final. Footprints follow `docs/SCALE.md` (1 tile = 17 m).
 
 ### Q10. Does a visitor stay the night?
 - Hotels would be a new kind of building (or a shop sub-type) that visitors fill, earning a hotel tax. They tie visitors to land use and give downtown towers a job.
-- PM pick: **not in v1**. Note it for later.
+- **How they could work:** visitors who fly or take the train in from far away stay the night; day-trippers by highway don't. Overnight visitors need beds, so beds become a third cap: overnight visitors = the smallest of pull, gateway capacity and beds. A hotel earns per night (a tourist tax).
+  - **H1. A hotel you place**, like any building.
+  - **H2. Hotels grow on their own**: shop lots near attractions or the airport turn into hotels when visitors want beds, and 2×2 shop towers can be hotel towers. No new tool, and it gives downtown towers a job.
+- PM pick: **H2, but not in v1.** Note it for later.
 
 ### Q11. How do visitors show on screen?
 - Graphics' call. Ideas: tour buses, a different car colour, crowds on event days (fans walking from the station), stadium lights on event nights.
@@ -127,7 +137,19 @@ A starting list, not final. Footprints follow `docs/SCALE.md` (1 tile = 17 m).
 
 ---
 
-## Proposed phases (once decided)
+## Build plan (first version, owner approved 2026-11-20)
+**In:** big park, beach park (+ umbrellas), plaza/monument, the existing park moved into *Parks and leisure*; museum and football stadium in *Unique buildings*. **Next round:** concert hall, amusement park. **After the core:** hotels (H2), the team threatening to leave (Q6b D), border connections.
+
+| Who | What |
+|---|---|
+| **Engine** | The simulation: attraction kinds and footprints (odd shapes), pull capped by gateways, the appeal head start in the visitors map, resident leisure trips on that same map and the "To leisure" reach, the level-3 growth need, tickets and nearby shop spending, land value, the 2×2 prime-spot link, one-per-city and population unlocks, PC and money costs, the no-gateway soft warning, saving. Then event days: the stadium's Saturday crowd, turnout and empty seats, PC from stuck residents, distress that builds up across event days, the countdown pin's data. Times the traffic pass on golden-1 before and after. Ships numbers at a neutral or placeholder level until ENG3 sets them. |
+| **ENGINEER 2** (Sonnet) | Small, well-specified pieces: the 7-day week (a pure calendar helper and the weekday in the HUD date), then UI pieces engine hands over (warning toasts, Inspect lines, strings). |
+| **Graphics** | Art for the six attractions within SCALE.md, the stadium's event-day animation (trucks setting up, then lights and spotlights), beach umbrellas, the two toolbar categories, the countdown pin, how visitors look. Paid images need the owner's OK, as usual. |
+| **ENGINEER 3** | The numbers, after the pacing work: pull and appeal, gateway caps, ticket prices, upkeep, unlock populations, PC costs, crowd size, how many bad event days drop a home a level. Lab targets for tourism. |
+| **HAIKU1** | Read-only legwork for engine on request (inventories, checks). |
+| **PM** | This file, and relaying. |
+
+## Phases
 1. **Visitors and steady attractions:** pull and gateways (Q1), appeal versus distance (Q3), fees (Q4), the "To leisure" bar (Q5), big park, museum, monument and amusement park. Engine + graphics + ENG3 (numbers).
 2. **Event venues:** the week, event days, turnout, reputation, the forecast view; stadium and concert hall.
 3. **Border connections:** highway and rail visitors from the edge, then maybe cruise ships.
@@ -136,3 +158,17 @@ A starting list, not final. Footprints follow `docs/SCALE.md` (1 tile = 17 m).
 | Q | Topic | Owner's pick |
 |---|---|---|
 | – | Brief | Given above (2026-11-20) |
+| Q1 | How many visitors | **B: pull, capped by gateways.** Placing a big attraction with no outside connection (no airport yet; later no border connection) gives a **soft warning**: attendance is limited to residents. |
+| Q6 | Showing an event | **The building itself shows it.** Before: trucks pulling up, set-up. During: lights, animation, maybe spotlights. (Graphics.) **A countdown pin** on the venue ("Game in 2 days"). **No forecast preview**: working out the traffic is the fun (owner). |
+| Q6a | Event day in the sim | **A: the whole event day is the spike** (one traffic pass with the crowd added). B (arrival and departure windows) maybe later, depending on balance and playtesting. A **7-day week** in the date; stadium on Saturdays, concert hall Thu–Sat evenings. **It must have real teeth** (owner): homes whose trips are jammed by the crowd take distress that builds up across event days, so a few bad event days in a row make them drop a level (or worse), not just a one-day dip. ENG3 tunes how many. |
+| Q8 | One or many | **Two new toolbar categories:** **Parks and leisure** (repeatable: parks, big parks, beach parks, plazas…) and **Unique buildings** (one a city: stadiums, museums…). |
+| Q9 | Unlocks | **Yes, probably by population.** Numbers to come. |
+| Q5 | Residents' leisure | **B: a "To leisure" reach bar** in Inspect, beside To work and To shops. It hurts homes from **level 3** (and 2×2 towers) up: they need some leisure in reach to keep growing; nothing earlier. **Performance requirement (engine):** resident leisure shares the visitors travel-time map (no new sweep), and Q3's appeal is a head start in that sweep (still one sweep a day). Engine times the traffic pass on golden-1 before and after. |
+| Q12 | PC and stadiums | **Yes, homes object to a stadium, mostly because of its traffic.** |
+| Q6b | Fans who can't get there | **B + C:** empty seats (tickets only from fans who arrive), and residents stuck in the event jam cost PC. **D (team threatens to leave) maybe later.** |
+| Q3 | Choosing an attraction | **B: appeal weighed against travel time.** Star attractions draw from across the map, small ones mostly locals, and jams on the way make a place less attractive. |
+| Q4 | Money | **D: fixed ticket price per type** for museums, amusement parks, stadiums and concert halls; **free** parks, beach parks and monuments earn nothing directly, but their visitors spend money in nearby shops. Upkeep is high for all. |
+| Q7 | First attractions | **List approved.** Parks and leisure: park (existing 1×1, moves here), big park (2×2/3×3), beach park (odd, on the coast), plaza/monument. Unique: museum (2×2), amusement park (3×3/4×3), concert hall (2×2/3×2), football stadium (~4×4, odd). **First version:** the four parks-and-leisure items + museum + stadium; concert hall and amusement park next round. Later ideas: zoo, aquarium, botanical garden, marina, convention centre. **Cute detail (owner):** a beach park spawns little beach umbrellas on the beach near it. |
+| Q7b | Concert hall | **Waits for the second round** (owner OK). |
+| Q12 | Links | **Unique buildings cost a lot of PC and a lot of money** (owner). Big parks and beach parks count as "near a park" for the 2×2 prime spot; the others don't. Attractions raise land value nearby (plaza/monument most; the stadium only a little). "Residents want a big park" requests: later. Tourism income is tuned together with ENG3's headcount costs (TODO m). Gateways: the airport first, highway and rail border connections in phase 3. |
+| Q10 | Hotels | **H2 (hotels grow on shop lots near attractions and the airport), after the core is built.** |
