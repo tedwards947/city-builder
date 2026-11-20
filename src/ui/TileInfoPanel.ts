@@ -346,17 +346,17 @@ export class TileInfoPanel {
     if (!v) this.el.classList.add("hidden");
   }
 
-  update(world: World, tile: {tx: number; ty: number} | null): void {
+  update(world: World, tile: {tx: number; ty: number} | null, paused = false): void {
     if (!this.visible) return;
     if (!tile || !world.grid.inBounds(tile.tx, tile.ty)) {
       this.el.classList.add("hidden");
       return;
     }
     this.el.classList.remove("hidden");
-    this._render(world, tile.tx, tile.ty);
+    this._render(world, tile.tx, tile.ty, paused);
   }
 
-  private _render(world: World, tx: number, ty: number): void {
+  private _render(world: World, tx: number, ty: number, paused = false): void {
     const i = world.grid.idx(tx, ty);
     const terrain = world.layers.terrain[i];
     const zone = world.layers.zone[i];
@@ -369,7 +369,8 @@ export class TileInfoPanel {
     const fireRisk = world.layers.fireRisk[i];
     const fire = world.layers.fire[i];
 
-    let html = `<div class="ti-coord">${t("ui.tileInfo.coords", {tx, ty})}</div>`;
+    let html = paused ? `<div class="ti-detail" style="color:#e8b030;font-weight:bold">${t("ui.paused.inspect")}</div>` : "";
+    html += `<div class="ti-coord">${t("ui.tileInfo.coords", {tx, ty})}</div>`;
 
     // ── Building tile ──────────────────────────────────────────────────────────
     if (building !== 0) {
@@ -646,6 +647,11 @@ export class TileInfoPanel {
             ? `<span class="ti-yes">${t("common.yes")}</span>`
             : `<span class="ti-no">${t("common.no")}</span>`;
           html += `<div class="ti-req">${icon} ${req.label}</div>`;
+        }
+        // Level 2 -> 3 homes: the first missing gate is a school when sewage and services are already fine.
+        if (zone === ZONE_R && dev === 2 && world.layers.sewage[i] !== 0 && world.layers.services[i] !== 0
+            && world.layers.education[i] < BALANCE.education.growthThreshold) {
+          html += `<div class="ti-detail" style="color:#e8b030">${t("ui.tileInfo.needsSchool")}</div>`;
         }
         const allMet = reqs.every((r) => r.met);
         if (allMet) {

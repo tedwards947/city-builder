@@ -183,6 +183,9 @@ function syncSpeedButtons(): void {
   const speed = state.scheduler.speed;
   document.querySelectorAll<HTMLButtonElement>('.speed').forEach(b =>
     b.classList.toggle('active', parseInt(b.dataset.speed ?? '0', 10) === speed));
+  // Hard-to-miss paused state: a chip under the speed buttons.
+  const chip = document.getElementById('paused-chip');
+  if (chip) { chip.textContent = t('ui.paused.chip'); chip.classList.toggle('hidden', speed !== 0); }
 }
 
 // ── Title screen ──────────────────────────────────────────────────────────────
@@ -893,7 +896,7 @@ function frame(now: number): void {
   trafficTuning?.update();
   politicsTuning?.update();
   economyTuning?.update();
-  tileInfoPanel.update(state.world, hoverTile);
+  tileInfoPanel.update(state.world, hoverTile, state.scheduler.speed === 0);
   badgeTooltip.update(currentTool === 'inspect');
   requestLogState.open = state.world.politics.requests.length;
   toolbar.syncShown();

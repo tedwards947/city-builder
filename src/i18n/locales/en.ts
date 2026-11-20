@@ -70,6 +70,7 @@ export const en: TranslationSchema = {
       fireRisk: "Fire Risk: {value} ({label})",
       demand: "Demand: {value}×",
       taxRate: "Tax rate: {rate} ({sign}{delta}% demand from taxes)",
+      needsSchool: "Needs a school nearby to grow to level 3.",
       growthBlockedAbandoned: "Growth blocked — building is abandoned",
       fullyDeveloped: "✦ Fully developed",
       toReachLevel: "To reach Lv {level}:",
@@ -207,6 +208,10 @@ export const en: TranslationSchema = {
       backupName: "Autosave from before the last update",
       pop: "pop",
       water: "water",
+    },
+    paused: {
+      chip: "Paused: press Space",
+      inspect: "Game paused: numbers won't change",
     },
     toast: {
       stationsRebuiltTitle: "Stations rebuilt",
