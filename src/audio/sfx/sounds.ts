@@ -6,6 +6,7 @@
 
 import { N, R, bed, bell, bird, brownNoise, carPass, fm, horn, kalimba, marimba, noise, poisson, tone } from './synth';
 import type { Bed } from './synth';
+import { cheer, fullTime, kickoff } from './stadium';
 
 type Play = (ac: BaseAudioContext, out: AudioNode, t: number, arg?: number) => void;
 export interface OneShot { /** Seconds until it has died away. */ len: number; play: Play }
@@ -24,6 +25,8 @@ const pipe = (ac: BaseAudioContext, o: AudioNode, t: number, f: number, len: num
   tone(ac, o, { t, f, type: 'triangle', a: 0.04, hold: len, d: 0.12, peak, vib: [5.5, f * 0.004], lp: f * 3 });
   noise(ac, o, { t, a: 0.03, hold: len, d: 0.1, peak: peak * 0.5, f, Q: 9 });
 };
+/** A gain of k in front of `o`: the stadium cues were voiced on the review page and scaled down here. */
+const level = (ac: BaseAudioContext, o: AudioNode, k: number) => { const g = ac.createGain(); g.gain.value = k; g.connect(o); return g; };
 /**
  * A train far off: a long, low swell of rumble that drifts across (dir 1 left to right, -1 back) and
  * opens up a little as it passes nearest.
@@ -261,6 +264,15 @@ export const SOUNDS = {
   trainBell: { len: 1.4, play: (ac, o, t) => {
     for (const dt of [0, 0.32]) { feltBell(ac, o, t + dt, N('A5'), 0.04); feltBell(ac, o, t + dt + 0.012, N('A5') * 1.003, 0.016); }
   } },
+
+  // ── Stadium events (review page, Nov 2026: "Horn into fanfare", all three cheers, "Final whistle") ──
+  // From a few streets away and just above the ambience; kick-off is a touch more noticeable.
+  /** The event starts: a wooden horn, a felt drum roll and fanfare, and the crowd answering. */
+  stadiumKickoff: { len: 6.8, play: (ac, o, t) => kickoff(ac, level(ac, o, 0.45), t) },
+  /** A moment in the match; arg picks it: 0 a distant cheer, 1 a goal with a rattle, 2 a near miss. */
+  stadiumCheer: { len: 4.4, play: (ac, o, t, which = 0) => cheer(ac, level(ac, o, 0.4), t, which) },
+  /** The event ends: three whistles, a last cheer, and applause thinning out as the crowd leaves. */
+  stadiumFullTime: { len: 7.6, play: (ac, o, t) => fullTime(ac, level(ac, o, 0.4), t) },
 } satisfies Record<string, OneShot>;
 
 export type SfxName = keyof typeof SOUNDS;

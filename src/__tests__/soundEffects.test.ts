@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LOOPS, SOUNDS } from '../audio/sfx/sounds';
 import type { SfxName } from '../audio/sfx/sounds';
 import { SoundEffects } from '../audio/SoundEffects';
@@ -14,6 +14,14 @@ vi.mock('../render/clay/trains', () => ({
     rail.levels.push(level);
     return level === 1 ? rail.trains : [];
   },
+}));
+
+// The stadium event comes from the sim (sim/eventDays.ts); here a test sets its status directly.
+const stadium = vi.hoisted(() => ({ status: null as null | { stage: string; phase: number; eventToday: boolean }, venue: null as null | { tx: number; ty: number; kind: number } }));
+vi.mock('../sim/eventDays', async orig => ({
+  ...(await orig<typeof import('../sim/eventDays')>()),
+  eventStatus: () => stadium.status,
+  eventVenue: () => ({ venue: stadium.venue, roads: [] }),
 }));
 
 // ── A minimal stand-in for an AudioContext: enough to schedule every sound ───
@@ -52,7 +60,8 @@ describe('sound recipes', () => {
       sound.play(ctx, ctx.destination as unknown as AudioNode, 0, 2);
       expect(made.oscillators + made.sources, name).toBeGreaterThan(0);
       expect(sound.len, name).toBeGreaterThan(0);
-      expect(sound.len, name).toBeLessThan(name === 'railRumble' ? 10 : 3);   // a far-off train is a long swell
+      // a far-off train and the stadium crowd are long swells
+      expect(sound.len, name).toBeLessThan(name === 'railRumble' || name.startsWith('stadium') ? 10 : 3);
     }
   });
 
@@ -227,6 +236,55 @@ describe('SoundEffects', () => {
       listen(0);
       expect(rail.levels).toEqual([RAIL_GROUND, RAIL_ELEVATED]);
       expect(rail.levels).not.toContain(RAIL_SUBWAY);
+    });
+  });
+
+  describe('stadium events', () => {
+    // BALANCE: 600-tick events, 120 ticks each of ramp and drain, so the peak is phase 0.2 to 0.8.
+    const status = (stage: string, phase: number) => { stadium.status = { stage, phase, eventToday: true }; };
+    let clock: ReturnType<typeof vi.spyOn>, ms = 0;
+    const listen = () => { ms += 1000; clock.mockReturnValue(ms); (fx as any).listenStadium(world); };
+    beforeEach(() => {
+      clock = vi.spyOn(performance, 'now'); ms = 100_000;
+      camera.centerOnTile(32, 32);
+      stadium.venue = { tx: 31, ty: 31, kind: 23 };
+      stadium.status = null;
+      world.eventClock = { start: 5000, n: 0, judged: 0, wanted: 0, arrived: 0, stuckNow: 0, pc: 0, pcOwed: 0 };
+    });
+    afterEach(() => clock.mockRestore());
+
+    it('plays the kick-off when the event starts with the stadium on screen, and not off screen', () => {
+      world.events.emit('eventStarted', { tick: 5000, tx: 31, ty: 31, duration: 600 });
+      expect(fx.names()).toEqual(['stadiumKickoff']);
+      stadium.venue = { tx: 1, ty: 1, kind: 23 };
+      ms += 60_000; clock.mockReturnValue(ms);
+      world.events.emit('eventStarted', { tick: 9000, tx: 1, ty: 1, duration: 600 });
+      expect(fx.names()).toEqual(['stadiumKickoff']);
+    });
+
+    it('cheers one to three times through the peak, never twice the same in a row, then blows full time once', () => {
+      for (let i = 0; i < 20; i++) {
+        fx.played = []; (fx as any).stadium = null;
+        world.eventClock!.start = 5000 + i * 1000;
+        status('ramp', 0.1); listen();
+        for (let p = 0.2; p < 0.8; p += 0.01) { status('peak', p); listen(); }
+        for (let p = 0.8; p < 1; p += 0.05) { status('drain', p); listen(); }
+        const cheers = fx.played.filter(x => x.name === 'stadiumCheer');
+        expect(cheers.length).toBeGreaterThanOrEqual(1);
+        expect(cheers.length).toBeLessThanOrEqual(3);
+        for (let k = 1; k < cheers.length; k++) expect(cheers[k].arg).not.toBe(cheers[k - 1].arg);
+        expect(fx.names().filter(n => n === 'stadiumFullTime')).toHaveLength(1);
+        expect(fx.names().at(-1)).toBe('stadiumFullTime');
+      }
+    });
+
+    it('stays quiet joining an event at the drain, and with the stadium off screen', () => {
+      status('drain', 0.85); listen(); listen();
+      expect(fx.names()).toEqual([]);
+      stadium.venue = { tx: 1, ty: 1, kind: 23 };
+      world.eventClock!.start = 99_000;
+      for (let p = 0.2; p < 1; p += 0.01) { status(p < 0.8 ? 'peak' : 'drain', p); listen(); }
+      expect(fx.names()).toEqual([]);
     });
   });
 });
