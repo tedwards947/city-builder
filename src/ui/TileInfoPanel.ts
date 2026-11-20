@@ -42,7 +42,7 @@ import {BALANCE} from "../data/balance";
 import {buildingUpkeep} from "../sim/serviceValue";
 import {taxDemandMult} from "../sim/tax";
 import {t} from "../i18n";
-import {lotSummary} from "../sim/lots";
+import {doorTile, lotSummary} from "../sim/lots";
 import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
@@ -161,6 +161,10 @@ const TREE_SPECIES: Record<number, string> = {
 
 function hasRoadAccess(world: World, tx: number, ty: number): boolean {
   const {width} = world.grid;
+  // A merged 2×2 lot has a road if any of its tiles has (sim/lots.ts).
+  const door = doorTile(world, ty * width + tx);
+  tx = door % width;
+  ty = (door - tx) / width;
   const roadClass = world.layers.roadClass;
   const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
   for (const [dx, dy] of neighbors) {

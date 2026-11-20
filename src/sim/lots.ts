@@ -18,7 +18,7 @@
 // Inspect. Nothing merges in normal play yet; the trigger comes later.
 
 import type { World } from './World';
-import { BUILDING_NONE, ROAD_NONE, ZONE_NONE, ZONE_R } from './constants';
+import { BUILDING_NONE, ROAD_HIGHWAY, ROAD_NONE, ZONE_NONE, ZONE_R } from './constants';
 import { BALANCE } from '../data/balance';
 
 /** The devLevel of every tile of a merged lot. */
@@ -189,4 +189,72 @@ export function mergeCandidates(world: World): number[] {
     if (canMergeLot(world, x, y)) out.push(a);
   }
   return out;
+}
+
+// ── One way in ───────────────────────────────────────────────────────────────
+
+/** Whether a street or avenue lies beside tile `i` (a highway gives no access). */
+function roadBeside(world: World, i: number): boolean {
+  const { width, height } = world.grid, road = world.layers.roadClass, x = i % width;
+  const ok = (j: number): boolean => road[j] !== ROAD_NONE && road[j] !== ROAD_HIGHWAY;
+  return (x > 0 && ok(i - 1)) || (x < width - 1 && ok(i + 1)) || (i >= width && ok(i - width)) || (i < width * (height - 1) && ok(i + width));
+}
+
+/**
+ * The tile whose neighbouring roads tile `i` uses: `i` itself, except for a
+ * tile of a merged lot with no street or avenue of its own, which goes out
+ * through the first tile of its building that has one. (Every lot has its own
+ * road when it merges; this matters after the player takes a road away from
+ * one side.) Traffic, accessibility and the "no road" warnings all ask this,
+ * so they agree with AbandonmentSystem that the building still has a road.
+ */
+export function doorTile(world: World, i: number): number {
+  if (world.layers.lot[i] === 0 || roadBeside(world, i)) return i;
+  for (const t of world.lotTilesAt(i)) if (t !== i && roadBeside(world, t)) return t;
+  return i;
+}
+
+/** How many merged lots the city has, by zone (index ZONE_R, ZONE_C, ZONE_I) and in all. For the Balance Lab and the bench. */
+export function lotCounts(world: World): { total: number; byZone: number[] } {
+  const L = world.layers, byZone = [0, 0, 0, 0];
+  const { zoned, zonedCount } = world.index;
+  let total = 0;
+  for (let k = 0; k < zonedCount; k++) {
+    const i = zoned[k];
+    if (L.lot[i] !== 1) continue;
+    total++;
+    byZone[L.zone[i]]++;
+  }
+  return { total, byZone };
+}
+
+export interface MergeReport {
+  /** Ordinary lots at the top level, not abandoned. */
+  topLots: number;
+  /** Of those, how many count as happy and valuable today (lotIsHappy). */
+  happyToday: number;
+  /** The longest streak any lot has, in days. */
+  bestStreak: number;
+  /** Blocks that could merge today (mergeCandidates). */
+  ready: number;
+  /** 2×2 squares of top-level lots of one zone, ready or not: where a merge could ever happen. */
+  squares: number;
+}
+
+/** Where the city stands on merging, for the debug button and the lab: how many lots qualify, and how far along they are. */
+export function mergeReport(world: World): MergeReport {
+  const L = world.layers, top = BALANCE.growth.maxLevel;
+  const { width, height } = world.grid;
+  const { zoned, zonedCount } = world.index;
+  const r: MergeReport = { topLots: 0, happyToday: 0, bestStreak: 0, ready: mergeCandidates(world).length, squares: 0 };
+  for (let k = 0; k < zonedCount; k++) {
+    const i = zoned[k];
+    if (L.lot[i] !== 0 || L.devLevel[i] !== top || L.abandoned[i] !== 0) continue;
+    r.topLots++;
+    if (lotIsHappy(world, i)) r.happyToday++;
+    if (world.lotStreak[i] > r.bestStreak) r.bestStreak = world.lotStreak[i];
+    const x = i % width, y = (i - x) / width;
+    if (x + 1 < width && y + 1 < height && canMergeLot(world, x, y)) r.squares++;
+  }
+  return r;
 }
