@@ -130,9 +130,21 @@ const RAIL_GAME = {
   // (The brick ramps, ramps-r5-*, were replaced by the code-drawn concrete ramp, owner's E3 in ramps.html.)
   // (The brick portals, portals-r5-*, were replaced by the code-drawn subway ramp, owner's P3 in ramps.html.)
 };
-const RAIL = set === 'rail', AIR = set === 'airport' || RAIL;   // both write the same sprite data shape
-const GAME_OUT = join(here, '../../public/sprites/clay/' + (RAIL ? 'rail' : AIR ? 'airport' : 'port'));
-const GAME_DATA = join(here, '../../src/render/clay/' + (RAIL ? 'railSpriteData.ts' : AIR ? 'airportSpriteData.ts' : 'portSpriteData.ts'));
+// The leisure props (art/clay-set/raw-leisure, leisure review page): beach umbrellas, towels, a lifeguard tower and a
+// sandcastle near beach parks, and the stadium's set-up trucks and tents. One scale per sheet, so the props stay in proportion:
+// beach props at an umbrella about a third of a tile across, event vehicles at the airport vehicles' scale.
+const KB = 0.128, KE = 0.26;
+const LEISURE_GAME = {
+  'props-beach-1': ['umbrella-red', KB], 'props-beach-3': ['umbrella-blue', KB], 'props-beach-4': ['umbrella-teal', KB], 'props-beach-7': ['umbrella-yellow', KB],
+  'props-beach-2': ['towel-yellow', KB], 'props-beach-9': ['towel-blue', KB], 'props-beach-10': ['towel-coral', KB],
+  'props-beach-6': ['lifeguard', KB], 'props-beach-13': ['sandcastle', KB],
+  'props-event-1': ['truck-artic', KE], 'props-event-2': ['truck-tv', KE], 'props-event-3': ['truck-box', KE], 'props-event-4': ['truck-crane', KE],
+  'props-event-5': ['truck-food', KE], 'props-event-6': ['forklift', KE], 'props-event-7': ['tent-white', KE], 'props-event-8': ['tent-striped', KE],
+  'props-event-9': ['barriers', KE], 'props-event-10': ['cases', KE],
+};
+const RAIL = set === 'rail', LEISURE = set === 'leisure', AIR = set === 'airport' || RAIL || LEISURE;   // all write the same sprite data shape
+const GAME_OUT = join(here, '../../public/sprites/clay/' + (RAIL ? 'rail' : LEISURE ? 'leisure' : AIR ? 'airport' : 'port'));
+const GAME_DATA = join(here, '../../src/render/clay/' + (RAIL ? 'railSpriteData.ts' : LEISURE ? 'leisureSpriteData.ts' : AIR ? 'airportSpriteData.ts' : 'portSpriteData.ts'));
 // Area-average resample with premultiplied alpha.
 function resample(px, W, H, k) {
   const W2 = Math.round(W * k), H2 = Math.round(H * k), out = new Uint8Array(W2 * H2 * 4);
@@ -186,7 +198,7 @@ blobs.forEach((bl, k) => {
   png(join(OUT, file), W, H, px);
   // foot: where the prop's base sits in the crop (bottom of its solid pixels).
   meta.push({ file, w: W, h: H, footY: bl.y1 - y0, left: bl.x0 - x0, right: bl.x1 - x0 });
-  const g = (RAIL ? RAIL_GAME : AIR ? AIR_GAME : set === 'port' ? GAME : {})[`${name}-${k + 1}`];
+  const g = (RAIL ? RAIL_GAME : LEISURE ? LEISURE_GAME : AIR ? AIR_GAME : set === 'port' ? GAME : {})[`${name}-${k + 1}`];
   if (g) {
     mkdirSync(GAME_OUT, { recursive: true });
     const [id, kk] = g, r = resample(px, W, H, kk);
@@ -203,7 +215,11 @@ if (Object.keys(game).length) {
   let prev = {};
   try { prev = JSON.parse(/\/\* json \*\/([\s\S]*?)\/\* end \*\//.exec(readFileSync(GAME_DATA, 'utf8'))[1]); } catch {}
   const all = { ...prev, ...game };
-  writeFileSync(GAME_DATA, RAIL ? `// Made by art/clay-set/port-sheet.mjs (… rail): the stations' painted props in public/sprites/clay/rail, at 128 px a tile.
+  writeFileSync(GAME_DATA, LEISURE ? `// Made by art/clay-set/port-sheet.mjs (… leisure): beach and stadium event props in public/sprites/clay/leisure, at 128 px a tile.
+// w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
+export interface LeisureSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number }
+export const LEISURE_SPRITES: Record<string, LeisureSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;
+` : RAIL ? `// Made by art/clay-set/port-sheet.mjs (… rail): the stations' painted props in public/sprites/clay/rail, at 128 px a tile.
 // w, h: image size; (footX, footY): where the prop stands; left, right, top: its solid box; all in image pixels. k: image pixels per raw sheet pixel.
 export interface RailSpriteMeta { w: number; h: number; footX: number; footY: number; left: number; right: number; top: number; k: number; sheetX?: number; sheetY?: number }
 export const RAIL_SPRITES: Record<string, RailSpriteMeta> = /* json */${JSON.stringify(all)}/* end */;

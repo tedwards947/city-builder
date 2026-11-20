@@ -8,8 +8,12 @@
 //   flatTiles.ts       the flat look used in the static layer
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
+import { drawLeisureBuilding } from './clay/leisureArt';
+import { isLeisureKind } from '../sim/leisure';
+import { eventStatus } from '../sim/eventDays';
+import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
 import { isLotAnchor, lotShape, LOT_SIZE } from '../sim/lots';
-import { TERRAIN_WATER, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
+import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
 import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
@@ -360,6 +364,8 @@ export class CanvasRenderer {
     // size ITS chunk was drawn at: the two never show together.
     const clayTrees = wildTreesReady();
     if (clayTrees) this._drawForestFloor(ctx, world, camera, bounds);
+    // Umbrellas and towels on the sand near beach parks (clay/beachProps.ts).
+    const beachTiles = beginBeachFrame(world);
 
     for (let ty = bounds.y0; ty <= bounds.y1; ty++) {
       for (let tx = bounds.x0; tx <= bounds.x1; tx++) {
@@ -377,6 +383,11 @@ export class CanvasRenderer {
           }
           drawWildTrees(ctx, world.layers.vegetation[i], wildVariant(tx, ty), wildDensity(around),
             Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), clayTile);
+        }
+
+        if (beachTiles.size > 0) {
+          const flags = beachTiles.get(i);
+          if (flags !== undefined) drawBeachTile(ctx, i, flags, Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty))), clayTile, now);
         }
 
         // Skip entirely empty tiles to save CPU (But include roads!)
@@ -701,6 +712,11 @@ export class CanvasRenderer {
         drawRailTile(ctx, railLinks(world, i), X(ax + dx), Y(ay + dy), tile);
       });
       return;
+    }
+    // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
+    if (isLeisureKind(kind)) {
+      const tile = Math.ceil(camera.zoom * TILE_SIZE), status = kind === BUILDING_STADIUM ? eventStatus(world) : null;
+      if (drawLeisureBuilding(ctx, kind, world.layers.visualVariant[anchor], X(ax + box.minX), Y(ay + box.minY), tile, now, status, world.tick)) return;
     }
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
     if (!sprite) {
