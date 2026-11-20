@@ -6,12 +6,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
+import { ZoneGrowthSystem } from '../sim/systems/ZoneGrowthSystem';
 import {
   BUILDING_POLICE, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_BIG_PARK, BUILDING_STADIUM, BUILDING_PARK,
   ROAD_STREET, ZONE_R, ZONE_C,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import {
+  leisureGrowthMult, lacksLeisure,
   attractionAt, cityPull, gatewayCapacity, hasGateway, drawsTourists, touristsArriving, leisureTicketIncome,
   leisureHandicap, leisureReachAt, tourismInfo, leisureCapacity,
 } from '../sim/leisureTraffic';
@@ -20,6 +22,7 @@ import { landWorld } from './pcTestWorld';
 const LE = BALANCE.leisure as unknown as {
   kinds: Record<number, { capacity?: number; appeal?: number; pull?: number; ticket?: number; shopShare?: number }>;
   tripsPerLevel: number; reach: number; gateways: Record<number, number>;
+  need: { fromLevel: number; growthMult: number; minReach: number };
 };
 const shipped = JSON.parse(JSON.stringify(LE));
 const FLOW = BALANCE.transit.flowInterval;
@@ -49,14 +52,16 @@ beforeEach(() => {
 });
 afterEach(() => {
   for (const k in shipped.kinds) LE.kinds[Number(k)] = JSON.parse(JSON.stringify(shipped.kinds[k]));
-  LE.tripsPerLevel = shipped.tripsPerLevel; LE.reach = shipped.reach; LE.gateways = { ...shipped.gateways };
+  LE.tripsPerLevel = shipped.tripsPerLevel; LE.reach = shipped.reach; LE.gateways = { ...shipped.gateways }; LE.need = { ...shipped.need };
 });
 
 describe('the leisure market', () => {
-  it('ships with the airport as the only gateway, the stadium and the small park not yet destinations', () => {
+  it('ships with the airport as the only gateway, the stadium not yet a destination, the small park a little one', () => {
     expect(shipped.gateways).toEqual({ 13: 60 });
     expect(leisureCapacity(BUILDING_STADIUM)).toBe(0);
-    expect(leisureCapacity(BUILDING_PARK)).toBe(0);
+    expect(leisureCapacity(BUILDING_PARK)).toBeGreaterThan(0);
+    expect(leisureCapacity(BUILDING_PARK)).toBeLessThan(leisureCapacity(BUILDING_PLAZA));
+    expect(leisureHandicap(BUILDING_PARK)).toBeGreaterThan(leisureHandicap(BUILDING_PLAZA));
     for (const k of [BUILDING_BIG_PARK, BUILDING_PLAZA, BUILDING_MUSEUM]) expect(leisureCapacity(k)).toBeGreaterThan(0);
     // The museum is the star: everything else is measured against it.
     expect(leisureHandicap(BUILDING_MUSEUM)).toBe(0);
@@ -243,5 +248,73 @@ describe('free attractions and the shops', () => {
     expect(t.shopping.field.demand).toBeCloseTo(base + 5);
     // A ticketed one sends nobody on.
     expect(shipped.kinds[BUILDING_MUSEUM].shopShare).toBe(0);
+  });
+});
+
+describe('homes need leisure to keep growing', () => {
+  const home = (x: number) => idx(x, ROW + 1);
+
+  it('ships slowing (not stopping) growth to level 3 and beyond', () => {
+    expect(shipped.need).toEqual({ fromLevel: 3, growthMult: 0.5, minReach: 0 });
+  });
+
+  it('a home growing to level 3 with no leisure in reach has half the chance; lower levels are not touched', () => {
+    homes(10, 4);
+    north(80, BUILDING_PARK, 1);                              // a park far beyond its reach
+    traffic();
+    expect(leisureReachAt(w, home(10))).toBe(0);
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(0.5);
+    expect(leisureGrowthMult(w, home(10), 4)).toBe(0.5);     // merging into a tower
+    expect(leisureGrowthMult(w, home(10), 2)).toBe(1);
+    expect(leisureGrowthMult(w, home(10), 1)).toBe(1);
+    expect(lacksLeisure(w, home(10))).toBe(true);            // a level-2 home: its next level is 3
+    w.layers.devLevel[home(11)] = 1;
+    expect(lacksLeisure(w, home(11))).toBe(false);
+  });
+
+  it('a small park nearby is enough', () => {
+    homes(10, 4);
+    north(20, BUILDING_PARK, 1);
+    traffic();
+    expect(leisureReachAt(w, home(10))).toBeGreaterThan(0);
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
+    expect(lacksLeisure(w, home(10))).toBe(false);
+  });
+
+  it('is off at growthMult 1, in the tutorial city and before the first traffic pass', () => {
+    homes(10, 4);
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(1);       // no traffic pass yet
+    traffic();
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(0.5);
+    LE.need.growthMult = 1;
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
+    LE.need.growthMult = 0.5;
+    (w as unknown as { tutorial: unknown }).tutorial = { step: 0 };
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
+  });
+
+  it('level-2 homes reach level 3 about twice as fast with a park in reach', () => {
+    // Two identical towns, one with a park. Everything a home needs to grow is switched on by hand.
+    const grown = (withPark: boolean) => {
+      const world = landWorld(SIZE);
+      for (let x = 2; x <= 93; x++) world.setRoad(x, ROW, ROAD_STREET);
+      const lots: number[] = [];
+      for (let x = 4; x <= 63; x++) for (const y of [ROW - 1, ROW + 1]) {
+        if (y === ROW - 1 && x >= 30 && x <= 31) continue;
+        const i = world.grid.idx(x, y);
+        world.layers.zone[i] = ZONE_R; world.layers.devLevel[i] = 2; lots.push(i);
+      }
+      if (withPark) world.placeBuilding(30, ROW - 1, BUILDING_PARK);
+      const L = world.layers;
+      L.power.fill(1); L.water.fill(1); L.sewage.fill(1); L.services.fill(1); L.education.fill(255); L.accessibility.fill(255);
+      world.stats.rDemand = 1;
+      const t = new TransitSystem(), g = new ZoneGrowthSystem();
+      world.tick = FLOW; t.update(world);
+      for (let k = 1; k <= 400; k++) { world.tick = k * BALANCE.growth.tickInterval; g.update(world); }
+      return lots.filter(i => L.devLevel[i] === 3).length / lots.length;
+    };
+    const without = grown(false), withPark = grown(true);
+    expect(withPark).toBeGreaterThan(without * 1.4);
+    expect(without).toBeGreaterThan(0);                        // slowed, not stopped
   });
 });

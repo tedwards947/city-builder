@@ -119,7 +119,7 @@ export const BALANCE = {
   //   countsAsPark      Counts as a park for the 2×2 lots' prime-spot rule (BALANCE.lots.parkRadius).
   leisure: {
     kinds: {
-      8:  { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 0,  radius: 0 }, countsAsPark: true  }, // the park: its land value comes from its service coverage
+      8:  { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 0,  radius: 0 }, countsAsPark: true,  capacity: 4,   appeal: 5,  pull: 0,  ticket: 0, shopShare: 0   }, // the park: a little leisure (owner 2026-11-20); its land value comes from its service coverage
       19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 30,  appeal: 20, pull: 4,  ticket: 0, shopShare: 0.5 }, // big park
       20: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true,  capacity: 40,  appeal: 35, pull: 10, ticket: 0, shopShare: 0.5 }, // beach park
       21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 4 }, countsAsPark: false, capacity: 20,  appeal: 15, pull: 6,  ticket: 0, shopShare: 0.5 }, // plaza / monument: the biggest lift
@@ -140,6 +140,12 @@ export const BALANCE = {
     // Tourists = the city's pull (the sum of its attractions' `pull`), capped by the gateways'
     // total. Only the airport for now (border connections later). PLACEHOLDER.
     gateways: { 13: 60 } as Record<number, number>,
+    // Homes need leisure in reach to keep growing (owner 2026-11-20): a home growing to
+    // `fromLevel` or beyond (to level 3, and four homes merging into a 2×2 tower) with no
+    // attraction in reach (sim/leisureTraffic.ts leisureReachAt above `minReach`) has its chance
+    // multiplied by `growthMult`. Lower levels are not affected. growthMult 1 = off.
+    // PLACEHOLDER: slows, does not stop, so cities built before leisure do not freeze.
+    need: { fromLevel: 3, growthMult: 0.5, minReach: 0 } as { fromLevel: number; growthMult: number; minReach: number },
   },
   tax: {
     // Per developed level per sim tick.

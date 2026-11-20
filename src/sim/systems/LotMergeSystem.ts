@@ -14,8 +14,9 @@
 
 import type { World } from '../World';
 import { BALANCE } from '../../data/balance';
-import { ZONE_I } from '../constants';
-import { clearOfLots, mergeCandidates, mergeLot, updateLotStreaks } from '../lots';
+import { ZONE_I, ZONE_R } from '../constants';
+import { LOT_LEVEL, clearOfLots, doorTile, mergeCandidates, mergeLot, updateLotStreaks } from '../lots';
+import { leisureGrowthMult } from '../leisureTraffic';
 
 export class LotMergeSystem {
   update(world: World): void {
@@ -25,7 +26,9 @@ export class LotMergeSystem {
 
     updateLotStreaks(world);
     const zone = world.layers.zone;
-    const won = mergeCandidates(world).filter((c) => world.rng() < (zone[c.anchor] === ZONE_I ? cfg.industryChancePerDay : cfg.chancePerDay));
+    // Homes merging into a tower want leisure in reach, like homes growing to level 3 (sim/leisureTraffic.ts).
+    const won = mergeCandidates(world).filter((c) => world.rng() < (zone[c.anchor] === ZONE_I ? cfg.industryChancePerDay
+      : cfg.chancePerDay * (zone[c.anchor] === ZONE_R ? leisureGrowthMult(world, c.anchor, LOT_LEVEL, doorTile(world, c.anchor)) : 1)));
     const { width } = world.grid;
     for (let merged = 0; merged < cfg.maxPerDay && won.length > 0;) {
       const c = won.splice(Math.floor(world.rng() * won.length), 1)[0];
