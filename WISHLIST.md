@@ -27,6 +27,7 @@
 ### Leisure
 
 - [ ] implement leisure. parks improve leisure. no leisure doesn't _hurt_ things but lack of it might impede R and C growth.
+  → Being built: see LEISURE_DESIGN.md (owner-approved 2026-11-20).
 
 ### Server & Cloud Saves
 
@@ -45,7 +46,7 @@ Decision: keep it, and keep it **one simple number**. Core pillar: PC is what st
 **New sinks**
 - [ ] NIMBY placement cost: power plants, sewage plants, I zones cost PC scaled by nearby developed residential pop
 - [ ] Closing services costs PC: bulldozing a school / hospital / park / police / fire station
-- [ ] Big projects cost money + PC (stadium, airport, power plants, landmarks) — `pcCost` on building defs
+- [ ] Big projects cost money + PC (stadium, airport, power plants, landmarks) — `pcCost` on building defs → unique buildings cost a lot of PC and money (LEISURE_DESIGN.md, Q12).
 - [ ] Neighborhood initiative tool: spend PC to nudge local vibe ("make this block greener") — reuses VibeSystem's spatial nudge
 - [ ] Ordinances: toggles with upfront or per-day PC cost (curfew, clean air act, rent control…) — needs a small policy registry + panel
 
