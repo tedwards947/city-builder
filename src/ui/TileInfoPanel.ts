@@ -9,7 +9,7 @@ import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
-import { attractionAt, hasGateway, leisureReachAt } from '../sim/leisureTraffic';
+import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
 import type {World} from "../sim/World";
 import {
@@ -115,6 +115,8 @@ function tripRows(world: World, i: number): string {
     } else {
       html += `<div class="ti-detail" style="display:flex;justify-content:space-between;gap:10px;color:#778"><span>${label}</span><span>${t("ui.tileInfo.tripLeisureNone")}</span></div>`;
     }
+    const door = world.layers.lot[i] !== 0 ? doorTile(world, i) : i;
+    if (lacksLeisure(world, i, door)) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.noLeisure")}</div>`;
   }
   const T = BALANCE.transit;
   const mult = T.accessFloor + (1 - T.accessFloor) * (world.layers.accessibility[i] / 255);
