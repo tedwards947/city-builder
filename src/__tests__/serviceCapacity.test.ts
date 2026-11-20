@@ -249,3 +249,20 @@ describe('service capacity', () => {
     expect(seatX(14)).toBe(15);
   });
 });
+
+describe('police seats with shipped numbers', () => {
+  it('a 3,000-capacity police station seats a few hundred residents, powered or not', () => {
+    const w2 = landWorld();
+    for (let tx = 2; tx <= 28; tx++) w2.setRoad(tx, 10, ROAD_STREET);
+    for (const tx of [5, 8, 11, 14]) home(w2, tx, 11, 2);
+    w2.placeBuilding(10, 9, BUILDING_POLICE);
+    const seats = buildingSeats(w2, 10, 9)!;
+    expect(seats.capacity).toBe(3000);
+    expect(seats.inReachUnseated).toBe(0);
+    for (const tx of [5, 8, 11, 14]) {
+      const h = homeSeat(w2, tx, 11, BUILDING_POLICE);
+      expect(h?.seatedAt).not.toBeNull();
+      expect(h?.reason).toBeNull();
+    }
+  });
+});
