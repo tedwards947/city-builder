@@ -358,6 +358,8 @@ for (const { src, id, n } of BIG) {
 // Game ids are `lots/<name>`. Game output only.
 const LOT_PLOT = 202;
 const PURPLE_BG = new Set(['i-works-c.png']);
+// Magenta reflected in steel and glass: pulled back towards grey-blue.
+const LOT_UNTINT = new Set(['i-works-e.png', 'i-works-f.png']);
 mkdirSync(join(GAME_OUT, 'lots'), { recursive: true });
 for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.png')).sort()) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-lots', f), '--out', tmp], { stdio: 'ignore' });
@@ -368,6 +370,11 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
     if (Math.min(r, b) > 70 && g < Math.min(r, b) * 0.5 && Math.abs(r - b) < 70) { bmp.rgb[i * 3] = 255; bmp.rgb[i * 3 + 1] = 0; bmp.rgb[i * 3 + 2] = 255; }
   }
   const cut = cutout(bmp);
+  if (LOT_UNTINT.has(f)) for (let i = 0; i < cut.w * cut.h; i++) {
+    const d = i * 4, m = Math.min(cut.rgba[d], cut.rgba[d + 2]) - cut.rgba[d + 1];
+    if (cut.rgba[d + 3] === 0 || m < 20) continue;
+    cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
+  }
   const thinned = thinLip(cut, 2);
   const { grown } = extendSlab(cut);   // generated plots come back short front to back
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
