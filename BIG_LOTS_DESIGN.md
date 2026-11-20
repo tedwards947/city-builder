@@ -1,6 +1,6 @@
 # 2×2 Lots: Design
 
-*Status: owner decided the core rules on 2026-11-19 (TODO DESIGN h) and approved the engine's model and phase plan the same day. Phase 1 (the model) is built; see "The model" below. Rules marked "PM default" were not asked of the owner and can be changed.*
+*Status: owner decided the core rules on 2026-11-19 (TODO DESIGN h) and approved the engine's model and phase plan the same day. All four engine phases are built. **Merging is on since 2026-11-20 (#398).** Rules marked "PM default" were not asked of the owner and can be changed.*
 
 ## Why
 Towers belong on big lots, not squeezed onto one tile (owner, 2026-11-19). A very happy, valuable block of four top-level lots can merge into one 2×2 building. It's a reward to aim for, and it gives downtowns a skyline.
@@ -12,7 +12,10 @@ Towers belong on big lots, not squeezed onto one tile (owner, 2026-11-19). A ver
 | 2 | Zones | **All three.** Homes: residential towers or a courtyard block. Shops: office towers or a low mall. Industry: a big factory or warehouse (low). |
 | 3 | Decline | **It declines as one.** It stays 2×2, but it loses residents or jobs and can be abandoned as a whole, like any building. |
 | 4 | Capacity | **About 1.5×** the four lots it replaces (residents, jobs, taxes, and the traffic that comes with them). The balance lab tunes the exact number. |
-| 5 | Scale (docs/SCALE.md) | 1 tile = 17 m. Towers only on 2×2, **true height, 20 floors at most**, with heights varying below that. Some 2×2s stay low (malls, factories). A level 3 on 1×1 is a 4-floor mid-rise. |
+| 5 | Scale (docs/SCALE.md) | 1 tile = 17 m. Towers only on 2×2, **true height, 26 floors at most (owner raised it from 20)**, with heights varying below that. Some 2×2s stay low (malls, factories). A level 3 on 1×1 is a 4-floor mid-rise. |
+| 6 | Industry rate (2026-11-20) | **Industry merges at its own, lower chance** (`industryChancePerDay`, 0.06% a day vs 0.3%), because industry skips the prime-spot test and would otherwise make about 3 in 4 merges, mostly at the edge of town. |
+| 7 | Shop shape (2026-11-20) | **A + E.** Shops sit in strips, so a 2×2 of shops is rare (golden-1, the owner's city: 1 spot, against 245 for homes). Shops keep the 2×2 (tall towers reward deep shop blocks downtown) and **also merge as a 2×1 pair** of level-3 shops side by side (a mid-size office or small mall). Same streak, prime spot, chance and spacing. A 2×2 is preferred where both fit. Homes and industry stay 2×2 only. Engine builds it; graphics draws both. |
+| 8 | Lab targets (2026-11-20) | First merge by day 120 on golden-1; edge-of-town merges 20% or fewer; 6 or fewer by day 90 and 15 or fewer by day 360, with no 16×16 area holding more than 4; capacity 1.5× ±5%; traffic about +50%. |
 
 ## Rules (PM defaults)
 - **Shape:** an aligned 2×2 square, with no L shapes or larger blocks for now. All four tiles must be level 3, the same zone, not abandoned, and not part of another merged lot.
@@ -38,7 +41,7 @@ A merged lot is **four zone tiles, not a building kind** (`src/sim/lots.ts`). Ev
 - **Save:** version 11. The `lot` layer is new and optional, so every older save loads unchanged; the number went up only so that an older build refuses a newer save instead of misreading level 4. On load, a damaged lot layer is put right (`cleanLots`).
 - **Debug:** with `?debug=true`, the **Merge 2×2** button merges the zoned block nearest the middle of the view, whatever its level (`__city.mergeLot(tx, ty)` for scripts).
 
-**Phases.** 1: the model, save, group rules for bulldoze / rezone / road / building / undo / displacement, Inspect, the debug button, a placeholder slab (done). 2: abandonment, recovery, fire and highway cut-off by group (done). 3: the trigger (streak, thresholds, daily chance, cap), shipped at chance 0 until the owner approves numbers (done; the debug button **Merging: off / fast** tries it at a 25% daily chance). 4: an audit of every level reader, one way in for traffic, and `lotCounts(world)` plus the `lotMerged` event for the lab (done). **What is left is not engine work:** the numbers (ENGINEER 3), the owner's approval to switch merging on, and the art and hover-to-hide (graphics).
+**Phases.** 1: the model, save, group rules for bulldoze / rezone / road / building / undo / displacement, Inspect, the debug button, a placeholder slab (done). 2: abandonment, recovery, fire and highway cut-off by group (done). 3: the trigger (streak, thresholds, daily chance, cap), shipped at chance 0 until the owner approves numbers (done; the debug button **Merging: off / fast** tries it at a 25% daily chance). 4: an audit of every level reader, one way in for traffic, and `lotCounts(world)` plus the `lotMerged` event for the lab (done). Merging went on on 2026-11-20 (#398). **Left:** the shop 2×1 pair (engine, owner decision 7), the lab targets (ENGINEER 3), and the shop art and hover-to-hide (graphics).
 
 ## Seeing past tall buildings (owner: "maybe when you hover over them they disappear?")
 - **Desktop:** towers within about 2 tiles of the cursor fade to about 30%, but only while a build tool is selected (View and Inspect keep them solid).
