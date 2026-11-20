@@ -10,7 +10,9 @@ Items marked [paid] need new nanobanana images (billed to the owner; ask before 
 
 ### Next (ranked)
 
-**Level 3 mid-rise set made (2026-11-20, PR held for the owner):** all 26 1×1 level 3 sprites (9 designs + 4 vibes, homes and shops) redrawn as 3–5 floor mid-rises at the SCALE.md metre, 28 paid images. Raws in `art/clay-set/raw-mid` (`fix.mjs` repairs short plots and a tinted glass roof, then copies into `raw/`). Waiting on the owner (round 3 on the review page) before merging; also asked: tallest 2×2 tower 20 or 26 floors.
+**Level 3 mid-rise set shipped (2026-11-20, #393):** all 26 1×1 level 3 sprites (9 designs + 4 vibes, homes and shops) redrawn as 3–5 floor mid-rises at the SCALE.md metre, 28 paid images. Raws in `art/clay-set/raw-mid` (`fix.mjs` repairs short plots and a tinted glass roof, then copies into `raw/`). Waiting on the owner (round 3 on the review page) before merging; also asked: tallest 2×2 tower 20 or 26 floors.
+
+**2×2 clay art in (2026-11-20):** 13 designs in `art/clay-set/raw-lots` (towers on the tall anchor `ref/anchor-2x2-tall.png`, low ones on `anchor-2x2.png`), cut by `cutout.mjs` into `public/sprites/clay/lots/`. Homes: towers of 26/20/15/11 floors, courtyard block, slab; shops: towers of 26/18/13, mall; industry: factory, warehouse, chemical works. `bigLots.ts` picks by zone and visualVariant; the massing stays as the fallback and for towers under Low buildings. Max 26 floors (owner). Not done: vibe versions of the 2×2s; utility badges still show on each quarter of a merged lot.
 
 **2×2 lots drawn (2026-11-20):** merged lots (engine #386) now draw code-drawn clay massing from `render/clay/bigLots.ts` until the clay art exists: towers of 8–20 floors at true height (homes, offices), courtyard blocks and slabs (homes), malls (shops), works (industry); `visualVariant` picks. Hover-to-hide fades a tower while the pointer (or a tap) is on a tile behind it; Views › Low buildings caps them at 3 floors; bulldoze, inspect and zone outlines cover all four tiles. Next: clay art for the 2×2 set (paid: ask first), after the 1×1 mid-rise pilot is approved.
 

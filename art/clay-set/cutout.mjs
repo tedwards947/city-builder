@@ -316,6 +316,32 @@ for (const { src, id, n } of BIG) {
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
   console.log(`${id}: ${n}×${n} tiles, slab grown by ${grown}px of 1024`, gp);
 }
+// ── Merged 2×2 lots ─────────────────────────────────────────────────────────
+// raw-lots/*.png: towers on a tall 9:16 canvas (ref/anchor-2x2-tall.png), low
+// buildings on the square 2×2 anchor. Scaled so the plot is two 1×1 plots wide
+// (2 × 101 px); the game draws them over the four tiles (clay/bigLots.ts).
+// Game ids are `lots/<name>`. Game output only.
+const LOT_PLOT = 202;
+const PURPLE_BG = new Set(['i-works-c.png']);
+mkdirSync(join(GAME_OUT, 'lots'), { recursive: true });
+for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.png')).sort()) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-lots', f), '--out', tmp], { stdio: 'ignore' });
+  const bmp = readBmp(tmp);
+  // A background that came back purple rather than magenta: snap it (and its shadow) to magenta first.
+  if (PURPLE_BG.has(f)) for (let i = 0; i < bmp.w * bmp.h; i++) {
+    const r = bmp.rgb[i * 3], g = bmp.rgb[i * 3 + 1], b = bmp.rgb[i * 3 + 2];
+    if (Math.min(r, b) > 70 && g < Math.min(r, b) * 0.5 && Math.abs(r - b) < 70) { bmp.rgb[i * 3] = 255; bmp.rgb[i * 3 + 1] = 0; bmp.rgb[i * 3 + 2] = 255; }
+  }
+  const cut = cutout(bmp);
+  const { grown } = extendSlab(cut);   // generated plots come back short front to back
+  const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
+  const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
+  const id = 'lots/' + f.replace(/\.png$/, '');
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px`);
+}
 rmSync(tmp, { force: true });
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 // Also as a script, so the review page works when opened straight from disk.
