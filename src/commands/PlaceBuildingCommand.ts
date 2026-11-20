@@ -5,6 +5,7 @@ import { footprintTiles, subwayPlatform } from '../sim/buildingShapes';
 import { RAIL_SUBWAY } from '../sim/constants';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
+import { buildingUnlocked } from '../sim/leisure';
 import { BALANCE } from '../data/balance';
 import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
@@ -35,6 +36,8 @@ export class PlaceBuildingCommand extends Command {
   }
 
   execute(world: World): boolean {
+    // A kind the city is not big enough for yet (sim/leisure.ts).
+    if (!buildingUnlocked(world, this.kind)) { this.failReason = 'locked'; return false; }
     const where = world.checkPlacement(this.tx, this.ty, this.kind, this.rot);
     if (!where.ok) {
       // Free land, but this kind needs water beside it, or open water under its docks: worth saying so.

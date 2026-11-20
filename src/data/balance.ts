@@ -21,6 +21,15 @@ export interface BuildingTrafficRow {
   demandMult?: { R?: number; C?: number; I?: number };
 }
 
+/** What one leisure building kind is (BALANCE.leisure.kinds, sim/leisure.ts). */
+export interface LeisureRow {
+  category: 'parks' | 'unique';
+  unlockPopulation: number;
+  pcCost: number;
+  landValue: { bonus: number; radius: number };
+  countsAsPark: boolean;
+}
+
 export const BALANCE = {
   costs: {
     road: 10,
@@ -81,7 +90,32 @@ export const BALANCE = {
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
     18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost) Owner-approved 2026-11-19.
+    // Leisure (LEISURE_DESIGN.md). PLACEHOLDERS until the Balance Lab sets them: dear to build
+    // and dear to run ("upkeep is high for all"); the two unique ones cost a lot (and PC: leisure below).
+    19: { cost: 6000,   maintenance: 30 },  // BUILDING_BIG_PARK (3×3)
+    20: { cost: 8000,   maintenance: 35 },  // BUILDING_BEACH_PARK (3×2)
+    21: { cost: 4000,   maintenance: 15 },  // BUILDING_PLAZA (2×2)
+    22: { cost: 60000,  maintenance: 60 },  // BUILDING_MUSEUM (2×2, one per city)
+    23: { cost: 400000, maintenance: 200 }, // BUILDING_STADIUM (4×4 + plaza, one per city)
   } as Record<number, { cost: number; maintenance: number }>,
+  // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
+  // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
+  //   category          'parks' (Parks and leisure: repeatable) or 'unique' (Unique buildings: one per city).
+  //   unlockPopulation  Residents the city must have (or have had) before it can be built. 0 = from the start.
+  //   pcCost            Political capital it costs to build ("big projects cost PC"). 0 = none.
+  //   landValue         Raises land value by `bonus` on the tiles touching it, falling in a straight line
+  //                     to nothing just past `radius` tiles from its nearest tile. bonus 0 = no effect.
+  //   countsAsPark      Counts as a park for the 2×2 lots' prime-spot rule (BALANCE.lots.parkRadius).
+  leisure: {
+    kinds: {
+      8:  { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 0,  radius: 0 }, countsAsPark: true  }, // the park: its land value comes from its service coverage
+      19: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true  }, // big park
+      20: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 20, radius: 5 }, countsAsPark: true  }, // beach park
+      21: { category: 'parks',  unlockPopulation: 0,     pcCost: 0,   landValue: { bonus: 30, radius: 4 }, countsAsPark: false }, // plaza / monument: the biggest lift
+      22: { category: 'unique', unlockPopulation: 2000,  pcCost: 100, landValue: { bonus: 15, radius: 4 }, countsAsPark: false }, // museum
+      23: { category: 'unique', unlockPopulation: 10000, pcCost: 200, landValue: { bonus: 5,  radius: 3 }, countsAsPark: false }, // stadium: only a little
+    } as Record<number, LeisureRow>,
+  },
   tax: {
     // Per developed level per sim tick.
     zoneR: 0.65,
