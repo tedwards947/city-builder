@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><title>l3</title>
+<style>body{margin:0;background:#86bd63;font:11px sans-serif}#g{display:grid;grid-template-columns:repeat(7,160px);gap:2px}figure{margin:0;text-align:center}img{width:160px;height:160px;display:block}</style>
+<div id="g"></div>
+<script>
+// Dev check: the level 3 set (game sprites, 128 px) side by side.
+const names = ['res-3','res-3-b','res-3-c','res-3-d','res-3-e','res-3-f','res-3-g','res-3-h','res-3-j','res-3-green','res-3-gritty','res-3-communal','res-3-wealthy','com-3','com-3-b','com-3-c','com-3-d','com-3-e','com-3-f','com-3-g','com-3-i','com-3-j','com-3-green','com-3-gritty','com-3-communal','com-3-wealthy'];
+const g = document.getElementById('g');
+for (const n of names) g.insertAdjacentHTML('beforeend', `<figure><img src="/sprites/clay/${n}.png?v=${Date.now()}"><figcaption>${n}</figcaption></figure>`);
+window.__done = true;
+</script>

@@ -53,6 +53,10 @@ td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space
 tr:last-child td { border-bottom: 0; }
 .pill { display: inline-block; font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; white-space: nowrap; border: 1px solid currentColor; }
 .pill.ok { color: var(--ok); } .pill.small { color: var(--warn); } .pill.big { color: var(--mid); } .pill.call { color: var(--accent); }
+.sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.sheet figure { background: #86bd63; border: 0; border-radius: 6px; }
+.sheet img { width: 100%; height: auto; display: block; image-rendering: auto; }
+.sheet figcaption { background: var(--panel); border: 0; padding: 4px 6px; font: 11px var(--mono); }
 .qs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: q; }
 .qs li { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px 12px 46px; position: relative; counter-increment: q; }
 .qs li::before { content: counter(q); position: absolute; left: 14px; top: 11px; font: 700 15px var(--mono); color: var(--accent); }
@@ -106,13 +110,21 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     <span>Cars <span class="seg" role="group" aria-label="Car size"><button id="carsNow" aria-pressed="false">now</button><button id="carsTarget" aria-pressed="true">target</button></span></span>
   </div>
   <div class="scenes" id="scenes"></div>
-  <p class="note">Each scene: street in front, then two rows of lots, and a back row of houses so you can see what the tower covers. From the left: level 1 and 2 houses, today's level 3 tower (the real sprite), the new 1×1 mid-rise home (pilot art), the 2×2 tower mock, the new mixed-use shop (pilot art).</p>
+  <p class="note">Each scene: street in front, then two rows of lots, and a back row of houses so you can see what the tower covers. From the left: level 1 and 2 houses, a new level 3 home (res-3-b), the new 1×1 mid-rise home (pilot art), the 2×2 tower mock, the new mixed-use shop (pilot art).</p>
+</section>
+
+<section id="l3set">
+  <div class="eyebrow">Redraw · round 3</div>
+  <h2>The new level 3 set: 13 homes, 13 shops</h2>
+  <p>Every 1×1 level 3 sprite, redrawn as a mid-rise at the 17 m metre. Nine designs each, plus the four vibe versions the game picks from the neighbourhood (green, gritty, communal, wealthy). They are ready to go into the game; I'm holding them until you say so.</p>
+  <div class="sheet" id="sheet"></div>
+  <p class="note">28 paid images in all. Four plots came back short at the back and one glass roof was tinted by the background; both were repaired in code, not regenerated.</p>
 </section>
 
 <section id="pilot">
-  <div class="eyebrow">Redraw · pilot</div>
-  <h2>The new 1×1 level 3, first two designs</h2>
-  <p>Made the same way as every clay sprite: edited from the house anchor, so the camera, the plot and the door size match. Left is today's level 3 tower; the other two are new. Both new ones also stand in the street scenes above.</p>
+  <div class="eyebrow">Redraw · round 2 (done)</div>
+  <h2>The pilot you approved</h2>
+  <p>Made the same way as every clay sprite: edited from the house anchor, so the camera, the plot and the door size match. Left is another of the new homes for comparison; the other two are the pilot pair. Both new ones also stand in the street scenes above.</p>
   <figure><canvas id="pilotCv" width="960" height="330" aria-label="Today's level 3 tower beside the new mid-rise home and mixed-use shop"></canvas>
   <figcaption><b>4-floor home · 3-floor shop with flats above</b><span>The home is about 10 m wide, and each floor is close to the 3 m metre. Two things to fix before the full set: the shop's paved plot came out a little short at the back corners (the cutout will show grass there), and both look plain beside the busy current set, so later designs get more variety (balconies, colour, roof gardens).</span></figcaption></figure>
   <p class="note">The 2×2 tower is next. At true height it is taller than a square image, so it needs a tall canvas, and the game needs a small change to draw a sprite that tall. I'll do that after you're happy with this look.</p>
@@ -139,8 +151,23 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 <section id="feedback">
   <div class="eyebrow">Your call</div>
   <h2>Feedback</h2>
-  <p>Round 2 is the pilot question at the top. Your round 1 answers are still filled in below; change them if you like. Press Save when you're done.</p>
+  <p>Round 3 is at the top. Your earlier answers are still filled in below. Press Save when you're done, then tell me in chat.</p>
   <form id="fb" class="qs">
+    <fieldset class="q">
+      <legend><b>Round 3 · The level 3 set</b></legend>
+      <p class="note">Put the 26 new sprites in the game?</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="l3Set" value="ship" id="l3-ship"> Ship them</label>
+        <label class="choice"><input type="radio" name="l3Set" value="ship-redo" id="l3-shipredo"> Ship, but redo some</label>
+        <label class="choice"><input type="radio" name="l3Set" value="hold" id="l3-hold"> Hold</label>
+      </div>
+      <textarea id="l3Note" name="l3Note" rows="2" placeholder="Which ones to redo, and what to change (names are under each picture)"></textarea>
+      <p class="note">Tallest 2×2 tower: your form now says 26 floors (round 1 said 20).</p>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="maxFloors" value="20" id="mf-20"> 20 floors</label>
+        <label class="choice"><input type="radio" name="maxFloors" value="26" id="mf-26"> 26 floors</label>
+      </div>
+    </fieldset>
     <fieldset class="q">
       <legend><b>Round 2 · The pilot look</b></legend>
       <p class="note">Is this the right direction for the 1×1 level 3 set (13 homes and 13 shops to replace)?</p>
@@ -311,7 +338,7 @@ function scene(cv, k, faded) {
   // row 1
   sprite(ctx, 'res-1-c', 0, 1, T); sprite(ctx, 'res-2', 1, 1, T); sprite(ctx, 'res-1', 2, 1, T); sprite(ctx, 'res-2-c', 3, 1, T); sprite(ctx, 'ind-1', 6, 1, T);
   // row 2 (front lots), with the 2×2 tower on x 4–5, y 1–2
-  sprite(ctx, 'res-1', 0, 2, T); sprite(ctx, 'res-2-c', 1, 2, T); sprite(ctx, 'res-3', 2, 2, T);
+  sprite(ctx, 'res-1', 0, 2, T); sprite(ctx, 'res-2-c', 1, 2, T); sprite(ctx, 'res-3-b', 2, 2, T);
   sprite(ctx, 'res-3-mid-a', 3, 2, T);
   slab(ctx, 4, 1, 2, 2, T, COL.plaza, COL.plazaLip);
   const tw = { x: 4.3, y: 1.35, w: 1.4, d: 1.15, floors: state.floors, k, wall: '#bdb8ad', wallDark: '#7d796f', glass: '#3e5d73', roof: '#9e998e' };
@@ -399,10 +426,10 @@ function pilot() {
   ctx.fillStyle = css('--panel'); ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.save(); ctx.translate(0, head * T);
   ctx.fillStyle = COL.grass; ctx.fillRect(0, 0, cv.width, T);
-  sprite(ctx, 'res-3', 0.25, 0, T); sprite(ctx, 'res-3-mid-a', 1.5, 0, T); sprite(ctx, 'com-3-mid-a', 2.75, 0, T);
+  sprite(ctx, 'res-3-b', 0.25, 0, T); sprite(ctx, 'res-3-mid-a', 1.5, 0, T); sprite(ctx, 'com-3-mid-a', 2.75, 0, T);
   ctx.restore();
   ctx.fillStyle = css('--muted'); ctx.font = '600 13px Inter, system-ui, sans-serif';
-  [['today', 0.25], ['new home', 1.5], ['new shop', 2.75]].forEach(([t, x]) => ctx.fillText(t, x * T + 6, 18));
+  [['res-3-b', 0.25], ['pilot home', 1.5], ['pilot shop', 2.75]].forEach(([t, x]) => ctx.fillText(t, x * T + 6, 18));
 }
 
 const AUDIT = /*AUDIT*/[];
@@ -423,8 +450,8 @@ function bind() {
 }
 
 // ── Feedback form: one document, feedback/round1, read back by the graphics session ──
-const FIELDS_RADIO = ['pilotLook', 'towerHeight', 'midrise', 'cars', 'trucks', 'trains', 'props', 'buses', 'ships'];
-const FIELDS_TEXT = ['pilotNote', 'towerNote', 'midNote', 'notes'];
+const FIELDS_RADIO = ['l3Set', 'maxFloors', 'pilotLook', 'towerHeight', 'midrise', 'cars', 'trucks', 'trains', 'props', 'buses', 'ships'];
+const FIELDS_TEXT = ['l3Note', 'pilotNote', 'towerNote', 'midNote', 'notes'];
 function syncPicks() {
   const v = document.querySelector('input[name=towerHeight]:checked')?.value;
   document.querySelectorAll('button.pick').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
@@ -471,6 +498,8 @@ async function feedback() {
     } finally { save.disabled = false; }
   });
 }
+const L3 = ["res-3", "res-3-b", "res-3-c", "res-3-d", "res-3-e", "res-3-f", "res-3-g", "res-3-h", "res-3-j", "res-3-green", "res-3-gritty", "res-3-communal", "res-3-wealthy", "com-3", "com-3-b", "com-3-c", "com-3-d", "com-3-e", "com-3-f", "com-3-g", "com-3-i", "com-3-j", "com-3-green", "com-3-gritty", "com-3-communal", "com-3-wealthy"];
+document.getElementById('sheet').innerHTML = L3.filter(n => IMG[n]).map(n => `<figure><img src="${IMG[n]}" alt="${n}" width="128" height="128"><figcaption>${n}</figcaption></figure>`).join('');
 audit(); bind(); feedback();
 Promise.all(loads).then(() => (document.fonts?.ready ?? Promise.resolve())).then(() => { drawScenes(); fleet(); pilot(); });
 </script>
