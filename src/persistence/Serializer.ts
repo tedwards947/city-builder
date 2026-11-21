@@ -127,7 +127,7 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   if (snapshot.layers.eventStrain) world.eventStrain.set(snapshot.layers.eventStrain);
   if (snapshot.layers.eventStuck) world.eventStuck.set(snapshot.layers.eventStuck);
   world.eventClock = snapshot.eventClock ? { ...snapshot.eventClock } : null;
-  world.lastEvent = snapshot.lastEvent ? { ...snapshot.lastEvent } : null;
+  world.lastEvent = snapshot.lastEvent ? { smooth: false, reward: 0, ...snapshot.lastEvent } : null;   // saves before 2026-11-20 have no smooth / reward
   cleanLots(world);
   l.power.set(snapshot.layers.power);
   l.water.set(snapshot.layers.water);

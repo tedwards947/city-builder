@@ -17,6 +17,7 @@ import { serialize, deserialize } from '../persistence/Serializer';
 import { createSystems } from '../sim/createSystems';
 import { Scheduler } from '../sim/Scheduler';
 import { landWorld } from './pcTestWorld';
+import { pcCap } from '../sim/politics';
 
 const EV = BALANCE.leisure.event;
 const LE = BALANCE.leisure as unknown as { gateways: Record<number, number> };
@@ -77,7 +78,7 @@ describe('stadium events', () => {
     expect([s.gapMin, s.gapMax]).toEqual([1440, 3600]);          // owner 2026-11-20: a bit more infrequent
     expect(s.firstGap).toBeGreaterThan(0);
     expect(s.seats).toBeGreaterThan(0);
-    expect(s.dropAfter).toBeGreaterThan(1);                    // one bad event is not a disaster
+    expect(s.dropAfter).toBe(0);                               // owner 2026-11-20: no level drops from events
   });
 
   it('the crowd grows smoothly, holds, and drains', () => {
@@ -255,16 +256,39 @@ describe('the event jam', () => {
     expect(stuckInEventJam(w, idx(73, ROW + 1))).toBe(false);        // the east side sends few
   });
 
-  it('an avenue carries the same crowd without a jam', () => {
+  it('an avenue carries the same crowd without a jam, and the smooth event earns capital back', () => {
     town(40, ROAD_AVENUE);
     EV.fansPerLevel = 0.5;
     const r = hold()!;
     expect(r.stuckResidents).toBe(0);
     expect(r.pc).toBe(0);
-    expect(w.budget.politicalCapital).toBe(100);
     expect(r.arrived).toBeCloseTo(60);
     expect(r.wanted).toBeCloseTo(60);
     expect(r.tick).toBe(START + EV.duration);
+    expect(r.smooth).toBe(true);
+    expect(r.reward).toBeCloseTo(EV.smooth.pcShare * pcCap(w));
+    expect(w.budget.politicalCapital).toBeCloseTo(100 + r.reward);
+  });
+
+  it('a jammed event is not smooth and earns nothing; a smooth one stops at the cap; pcShare 0 is off', () => {
+    jammed();
+    EV.jam = { load: 1, eventShare: 0.25 };
+    EV.smooth = { ...EV.smooth, maxStuckShare: 0 };
+    const bad = hold()!;
+    expect(bad.stuckResidents).toBeGreaterThan(0);
+    expect(bad.smooth).toBe(false);
+    expect(bad.reward).toBe(0);
+    town(40, ROAD_AVENUE);
+    EV.fansPerLevel = 0.5;
+    w.budget.politicalCapital = pcCap(w);
+    const atCap = hold()!;
+    expect(atCap.smooth).toBe(true);
+    expect(atCap.reward).toBe(0);
+    expect(w.budget.politicalCapital).toBe(pcCap(w));
+    town(40, ROAD_AVENUE);
+    EV.fansPerLevel = 0.5;
+    EV.smooth = { ...EV.smooth, pcShare: 0 };
+    expect(hold()!.smooth).toBe(false);
   });
 
   it('the damage builds while the jam lasts: capital goes point by point, and the result is kept and announced', () => {

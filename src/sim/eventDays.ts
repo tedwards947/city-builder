@@ -34,8 +34,11 @@
 //            (world.eventStrain) goes up by one; any other home loses one. A
 //            home whose strain reaches `dropAfter` loses a level and starts
 //            again from 0: a few bad events in a row empty the streets round
-//            the stadium. (A merged lot is one building and never drops a
-//            level; its residents still count.) The result is kept in
+//            the stadium (dropAfter 0, as shipped since 2026-11-20: never). (A
+//            merged lot is one building and never drops a level; its residents
+//            still count.) A SMOOTH event (most seatable fans in, few residents
+//            stuck: `smooth`) earns `smooth.pcShare` of the PC cap, reason
+//            'eventSmooth', up to the cap. The result is kept in
 //            world.lastEvent and announced (`eventDayEnded`).
 //
 // The clock, this event's counts, strain and the last result are saved.
@@ -47,7 +50,7 @@ import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
 import { addDoorProvider, addTripProvider, setMarketScale, servedAtDoors, roadCapacity, trafficVolume } from './TrafficData';
 import { gatewayRoads } from './leisureTraffic';
 import { doorTile } from './lots';
-import { changePc } from './politics';
+import { changePc, pcCap } from './politics';
 import { mulberry32 } from './rng';
 
 const cfg = () => BALANCE.leisure.event;
@@ -70,6 +73,9 @@ export interface EventResult {
   pc: number;
   /** Homes that lost a level for one bad event too many. */
   declined: number;
+  /** Whether it went smoothly (see `smooth` in BALANCE.leisure.event), and the political capital that earned. */
+  smooth: boolean;
+  reward: number;
 }
 
 /** When the next event is, and the running counts of the one that is on. Saved. */
@@ -334,10 +340,17 @@ export function endEvent(world: World): EventResult | null {
         world.events.emit('tileDeclined', { tx: x, ty: y, zone: ZONE_R, level: dev[i], reason: 'event' });
       }
     }
+    // A smooth event (owner 2026-11-20): most of the fans who could be seated got in, and few
+    // residents were stuck. It earns a share of the PC cap (up to the cap).
+    const s = c.smooth;
+    const seatable = Math.min(clock.wanted, c.seats);
+    const smooth = s.pcShare > 0 && seatable > 0 && clock.arrived >= s.minFill * seatable
+      && stuckResidents <= s.maxStuckShare * world.stats.population;
+    const reward = smooth ? changePc(world, s.pcShare * pcCap(world), 'eventSmooth', { tx: venue.tx, ty: venue.ty }) : 0;
     result = {
       tick: world.tick, tx: venue.tx, ty: venue.ty,
       wanted: clock.wanted, arrived: clock.arrived, seats: c.seats,
-      stuckResidents, pc: clock.pc, declined,
+      stuckResidents, pc: clock.pc, declined, smooth, reward,
     };
     world.lastEvent = result;
     world.events.emit('eventDayEnded', { ...result });

@@ -88,7 +88,7 @@ export interface WorldSnapshot {
   /** world.eventClock (sim/eventDays.ts). Added without a version bump: missing = the first event is set from the load. */
   eventClock?: { start: number; n: number; judged: number; wanted: number; arrived: number; stuckNow: number; pc: number; pcOwed: number };
   /** The last event's result (sim/eventDays.ts). Added without a version bump: missing = none yet. */
-  lastEvent?: { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number };
+  lastEvent?: { tick: number; tx: number; ty: number; wanted: number; arrived: number; seats: number; stuckResidents: number; pc: number; declined: number; smooth?: boolean; reward?: number };
   /**
    * Never saved: set by an upgrade step (migrate) that changed something the
    * player should be told about, and shown once after the load (World.loadNotes).

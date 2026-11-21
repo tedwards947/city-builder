@@ -36,6 +36,7 @@ export type PcReason =
   | 'requestFailed'    // a resident request ran past its deadline
   | 'bigProject'       // a big project was built: a unique building costs political capital (sim/leisure.ts)
   | 'eventJam'         // residents were stuck in an event day's jam (sim/eventDays.ts)
+  | 'eventSmooth'      // an event went smoothly: most fans got in, few residents were stuck (sim/eventDays.ts)
   | 'debt';            // a day with the city's money below zero (src/sim/debt.ts)
 
 /**
@@ -44,7 +45,7 @@ export type PcReason =
  * them out of pcAction. (Enacting an ordinance is a player action, but it is
  * not a command, so it is left out too.)
  */
-export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep', 'requestMet', 'requestFailed', 'debt', 'eventJam'];
+export const NOT_PLAYER_ACTION: readonly PcReason[] = ['milestone', 'ordinanceEnacted', 'ordinanceUpkeep', 'requestMet', 'requestFailed', 'debt', 'eventJam', 'eventSmooth'];
 
 export interface PcChangeInfo {
   /** The tile the change came from, if it has one. */
@@ -107,7 +108,7 @@ export function overCapFadePerDay(world: World): number {
 
 /** Rewards that fill PC up to the cap but never past it. */
 // Met-request rewards may go over the cap, like ribbon cuttings and milestones (owner, 2026-11-16).
-const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared'];
+const STOPS_AT_CAP: readonly PcReason[] = ['blightCleared', 'eventSmooth'];
 
 /**
  * Costs that are never refused: they are charged in full even when the city

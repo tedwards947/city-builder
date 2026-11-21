@@ -15,13 +15,13 @@ describe('balance lab: stadium probe', () => {
     const { world } = buildLivingCity();
     BALANCE.leisure.kinds[BUILDING_STADIUM].unlockPopulation = 1e9;
     const r = stadiumResult(world, 1);
-    expect(r.asIs).toBeUndefined();
+    expect(r.asBuilt).toBeUndefined();
     expect(r.note).toMatch(/too small/);
     for (const t of TARGETS.filter(t => t.suite === 'stadium'))
       expect(t.evaluate({ variant: 'shipped', city: 'x', cityKind: 'save', runs: {}, probes: null, refill: null, ordinancesOn: false, stadium: r }).pass).toBeNull();
   });
 
-  it('plays short events on copies, as is, with avenues and prepared, and leaves the city and BALANCE as they were', () => {
+  it('plays short events on copies, as built and with one line, and leaves the city and BALANCE as they were', () => {
     const { world } = buildLivingCity();
     BALANCE.leisure.kinds[BUILDING_STADIUM].unlockPopulation = 0;
     Object.assign(ev, { duration: 48, ramp: 8, drain: 8, firstGap: 16, gapMin: 16, gapMax: 16 });
@@ -32,9 +32,9 @@ describe('balance lab: stadium probe', () => {
     expect(world.stats.population).toBe(pop);
     expect(world.buildings.length).toBe(n);
     expect(r.note).toBeUndefined();
-    expect(r.asIs?.events).toHaveLength(2);
-    expect(r.asIs?.wantedShare).toBeGreaterThan(0);
-    expect(r.prepared?.events).toHaveLength(2);
-    expect(r.prepared?.netPerDay).not.toBeNull();
+    expect(r.asBuilt?.events).toHaveLength(2);
+    expect(r.asBuilt?.wantedShare).toBeGreaterThan(0);
+    expect(r.asBuilt?.declined).toBe(0);
+    expect(r.asBuilt?.netPerDay).not.toBeNull();
   }, 120_000);
 });
