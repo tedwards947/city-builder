@@ -53,9 +53,17 @@ Sewage and water come first because they're the dullest chores. The nuclear stat
 - **A. Coverage and land are the reward.** *(PM pick)* Simple to balance.
 - **B. A small city-wide perk each** (the university lifts land value and office demand; the general hospital raises satisfaction a little; the police HQ lowers crime more than full coverage does).
 
-### Q4. Cost level **Decided (owner, 2026-11-20): A, to try; ENGINEER 3 checks it in the lab.**
+### Q4. Cost level **Decided (owner, 2026-11-20): A, to try; ENGINEER 3 checked it, and the running cost now grows with residents covered (see Costs).**
 - **A. About the airport: $1–3M to build, upkeep about 2× what it replaces.** *(PM pick)*
 - **B. Cheaper to run than what it replaces** (a real saving, with only the build cost as the barrier). Then every big city builds them all, and it's no longer a sign of a well-run city.
+
+## Costs (ENGINEER 3's model, 2026-11-20; owner chose the running-cost rule)
+ENGINEER 3 measured 15 cities (10k–40k, 10 days each). The small buildings a capstone replaces cost more as the city grows, so a **fixed** upkeep was too steep at unlock (the Sewage Works ate about 80% of a 10k city's surplus) and nearly free at 40k (every big city would carry all seven).
+- **Running cost grows with the residents it covers (owner, 2026-11-20).** Each capstone kind has its own extra rate a day per covered resident, on top of the normal per-resident cost (`runningCost.perResident`), so it costs about **1.5× what it replaces at every size**. Starting rates: sewage 0.23, water 0.085, fire 0.09, police 0.11, hospital 0.07, power 0.30, university 0.06 (at 20k: 4.6k / 1.7k / 1.8k / 2.2k / 1.4k / 6.0k / 1.2k a day; double at 40k).
+- **What that gives:** at 10–15k the first one or two are easy to carry; a healthy 20k city carries 2–3, a weak one 0–1; a typical 40k city can't carry all seven (+16.1k against a 13.4k surplus), a strong one can.
+- **Build cost (airport band):** sewage $1.0M, water $1.0M, fire $1.25M, police $1.5M, hospital $2.0M, nuclear $2.5M, university $3.0M. Played cities hold $2–30M, so upkeep, not the build cost, is the real limit.
+- **Utilities are measured against small plants (owner, 2026-11-20).** A city that has already moved to large plants (about half the utility upkeep) finds a utility capstone about 2× pricier, which is fair: it has less of a chore left to solve.
+- Not modelled: the land freed by about 140 small buildings at 40k, which becomes homes and income.
 
 ## Who does what (once decided)
 - **Engine:** seven building kinds, one per city, population unlocks (reuse `unlockPopulation` and `onePerCity` from leisure), whole-city coverage as an extra source in the coverage layers, utility output.
