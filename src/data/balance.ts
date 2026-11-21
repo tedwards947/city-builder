@@ -239,12 +239,12 @@ export const BALANCE = {
   },
   service: {
     // Reach in road steps along streets and avenues, per building kind
-    // (4 police, 5 fire, 6 school, 7 hospital, 8 park). Police, fire and
+    // (4 police, 5 fire, 6 school, 7 hospital, 8 park, and the bigger parks: 24 the 2×2, 19 big, 20 beach, 25 lido: every park kind counts as park coverage; bigger reaches further). Police, fire and
     // parks are served by reach alone. Schools and hospitals reach far and
     // are limited by capacity instead (owner's services numbers, 2026-11-17;
     // they were 8 and 8). A hospital keeps a real reach so it cannot be
     // hidden away in an industrial district.
-    coverageRange: { 4: 15, 5: 15, 6: 20, 7: 30, 8: 6 } as Record<number, number>,
+    coverageRange: { 4: 15, 5: 15, 6: 20, 7: 30, 8: 6, 24: 9, 19: 12, 20: 12, 25: 12 } as Record<number, number>,
     // Residents one building can serve, by building kind (6 school, 7
     // hospital): a home is covered only if a building in reach has room for
     // it (sim/serviceCapacity.ts). 0 or missing = no limit, reach alone
