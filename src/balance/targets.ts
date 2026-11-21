@@ -710,7 +710,7 @@ const fmtNeeds = (ns: CapstoneNeedRun[]) => ns.map(n => `${n.need} ${extra(n) >=
 
 const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'capstone.premium', metric: 'Each need\'s running cost a day with its capstone alone ÷ with the small buildings it replaces (lowest of the seven)', target: '≥ 1.15 (a luxury, not a saving)', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20/21): upkeep about 2× what it replaces became a running cost of about 1.5× that grows with residents covered; never cheaper than the small buildings.',
+    why: 'Owner (2026-11-20/21): upkeep about 2× what it replaces became a running cost of about 1.5× that grows with residents covered; never cheaper than the small buildings. Expected fail: golden-1 (0.56, hospital) is overbuilt (36 hospitals, 28 schools), and consolidating there is a fair saving; left failing on purpose rather than lowering the bar (PM 2026-11-21).',
     evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const ns = o.r.needs; if (!ns.length) return NA('no capstone placed');
       const low = ns.reduce((a, b) => (b.premium < a.premium ? b : a));
       return { ...range(low.premium, 1.15), note: `lowest ${low.need}; ${ns.map(n => `${n.need} ${n.premium}`).join(', ')}` }; } },
