@@ -8,7 +8,7 @@
 //   HOW MANY         By map size (BALANCE.connections.counts). Maps smaller
 //                    than `minSize` get none.
 //   WHERE            Spread over the edges, apart from each other and from
-//                    the corners, on dry land with dry land behind it, and on
+//                    the corners, on dry land (never beach) with dry land behind it, and on
 //                    the land the middle of the map belongs to where there is
 //                    room. Chosen from the city's seed with a generator of
 //                    their own: `world.rng` is not touched.
@@ -27,7 +27,7 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
-import { BUILDING_NONE, RAIL_GROUND, RAIL_SURFACE, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_NONE } from './constants';
+import { BUILDING_NONE, RAIL_GROUND, RAIL_SURFACE, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_SAND, TERRAIN_WATER, ZONE_NONE } from './constants';
 import { mulberry32 } from './rng';
 
 export type ConnectionKind = 'highway' | 'rail';
@@ -195,7 +195,7 @@ export function generateConnections(world: World): Connection[] {
   }
   if (have.highway >= want.highway && have.rail >= want.rail) return out;
 
-  // 2. The rest: free, dry edge tiles with dry land behind them, away from the corners.
+  // 2. The rest: free, dry edge tiles (not beach) with dry land behind them, away from the corners.
   const land = mainLand(world);
   const free: number[] = [], onMain: number[] = [];
   for (const i of edges) {
@@ -204,6 +204,7 @@ export function generateConnections(world: World): Connection[] {
     const along = edge === EDGE_N || edge === EDGE_S ? Math.min(x, width - 1 - x) : Math.min(y, height - 1 - y);
     if (along < corner) continue;
     if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE || L.roadClass[i] !== ROAD_NONE || (L.rail[i] & RAIL_SURFACE) !== 0) continue;
+    if (L.terrain[i] === TERRAIN_SAND) continue;   // never on a beach
     const step = inwardStep(width, edge);
     let dry = true;
     for (let k = 0; k < C.inland && dry; k++) if (L.terrain[i + k * step] === TERRAIN_WATER) dry = false;

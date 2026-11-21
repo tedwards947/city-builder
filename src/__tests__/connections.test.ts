@@ -7,7 +7,7 @@ import tutorialText from '../../public/tutorial/tutorial.citysave.json?raw';
 import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
-  BUILDING_PARK, RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_NONE, ZONE_R,
+  BUILDING_PARK, RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_SAND, TERRAIN_WATER, ZONE_NONE, ZONE_R,
 } from '../sim/constants';
 import {
   cleanConnections, connectionCounts, connectionOn, connectionStatus, edgeOf, generateConnections, resetConnections,
@@ -108,6 +108,27 @@ describe('where the points go', () => {
     for (const c of w.connections) {
       expect(c.edge).not.toBe(EDGE_W);
       expect(xy(w, c)[0]).toBeGreaterThanOrEqual(40);
+    }
+  });
+
+  it('a point is never put on a beach: sand tiles on an edge are skipped', () => {
+    const w = landWorld(128);
+    // A beach all along the west edge and half the south edge.
+    for (let y = 0; y < 128; y++) w.layers.terrain[y * 128] = TERRAIN_SAND;
+    for (let x = 0; x < 64; x++) w.layers.terrain[127 * 128 + x] = TERRAIN_SAND;
+    resetConnections(w);
+    expect(w.connections).toHaveLength(4);
+    for (const c of w.connections) expect(w.layers.terrain[c.tile]).not.toBe(TERRAIN_SAND);
+  });
+
+  it('on generated coasts no point sits on a beach', () => {
+    for (const mapType of ['coastal', 'bay', 'lakes'] as const) {
+      for (const seed of [1, 2, 3, 4, 5, 6]) {
+        const w = new World(128, 128, seed, { mapType });
+        for (const c of w.connections) {
+          if (w.layers.roadClass[c.tile] === ROAD_NONE) expect(w.layers.terrain[c.tile], `${mapType} ${seed}`).not.toBe(TERRAIN_SAND);
+        }
+      }
     }
   });
 
