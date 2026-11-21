@@ -15,6 +15,7 @@ import { trackBlocker } from './rail';
 import type { World } from './World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
 import { BALANCE } from '../data/balance';
+import { isServiceCapstone } from './capstones';
 import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad, shapeTouchesAccessRoad } from './serviceValue';
 import { footprintTiles, shapeRoles, hasDocks } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
@@ -493,8 +494,18 @@ export function pcQuote(
     case 'bulldoze':
       displace(i, true);
       // Closing a service: the residents it covered object.
-      for (const p of serviceClosureValue(world, tx, ty, service)) {
-        addPart(q, 'serviceClosed', p.tx, p.ty, p.amount, p.strength);
+      {
+        const parts = serviceClosureValue(world, tx, ty, service);
+        // A service capstone covers the whole city: what closing it costs is capped at a share of the PC cap.
+        let scale = 1;
+        const at = world.buildingAnchorAt(i);
+        if (parts.length > 0 && at >= 0 && isServiceCapstone(layers.building[at])) {
+          let cost = 0;
+          for (const p of parts) cost -= p.amount;
+          const most = BALANCE.capstones.closurePcShare * pcCap(world);
+          if (cost > most && cost > 0) scale = most / cost;
+        }
+        for (const p of parts) addPart(q, 'serviceClosed', p.tx, p.ty, p.amount * scale, p.strength);
       }
       break;
     case 'zone': {

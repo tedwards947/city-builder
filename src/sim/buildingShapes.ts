@@ -35,8 +35,9 @@ export type ShapeOffset = readonly [dx: number, dy: number];
 /**
  * What a tile of a shape is: 'body' on land, 'dock' on open water, 'frontage' on land where the building meets the road,
  * 'platform' on land with rail track through it, 'rampLow' the ground-track end of a ramp and 'rampHigh' its elevated or subway end.
+ * 'runway' and 'apron' are land like 'body': the Fire Headquarters' strip and its tarmac, told apart for the art only.
  */
-export type PartRole = 'body' | 'dock' | 'frontage' | 'platform' | 'rampLow' | 'rampHigh';
+export type PartRole = 'body' | 'dock' | 'frontage' | 'platform' | 'rampLow' | 'rampHigh' | 'runway' | 'apron';
 
 const ONE_TILE: readonly ShapeOffset[] = [[0, 0]];
 const ONE_BODY: readonly PartRole[] = ['body'];
@@ -216,9 +217,13 @@ setBuildingShape(BUILDING_PLAZA, block(2, 2));
 setBuildingShape(BUILDING_MUSEUM, block(2, 2));
 setBuildingShape(BUILDING_STADIUM, [...block(4, 4), [1, 4], [2, 4]]);
 // Capstones (CAPSTONE_DESIGN.md): plain blocks of the size in BALANCE.capstones.kinds, read once here.
+// The Fire Headquarters (graphics, 2026-11-21): the row dy = 0 is its runway, the last four columns below it
+// the hangar and station, and the rest of the block tarmac. It is entered from any street or avenue beside it.
 for (const kind in BALANCE.capstones.kinds) {
-  const [w, h] = BALANCE.capstones.kinds[kind].size;
-  setBuildingShape(Number(kind), block(Math.max(1, w), Math.max(1, h)));
+  const row = BALANCE.capstones.kinds[kind];
+  const w = Math.max(1, row.size[0]), h = Math.max(1, row.size[1]);
+  const shape = block(w, h);
+  setBuildingShape(Number(kind), shape, row.need === 'fire' ? shape.map(([dx, dy]): PartRole => (dy === 0 ? 'runway' : dx >= w - 4 ? 'body' : 'apron')) : undefined);
 }
 // The train stations (RAIL_DESIGN.md; resized by the owner, TODO "station
 // resize"). STRAIGHT: three tiles in a row, ALL platform, the anchor at one
@@ -306,10 +311,10 @@ setPlacementRules(BUILDING_LIDO, { needsWaterEdge: true });
 setPlacementRules(BUILDING_PLAZA, { noRotation: true });
 setPlacementRules(BUILDING_MUSEUM, { noRotation: true, onePerCity: true });
 setPlacementRules(BUILDING_STADIUM, { noRotation: true, onePerCity: true });
-// Capstones: one of each per city. A square one has one facing; the Waterworks is a pump and stands beside water.
+// Capstones: one of each per city, each with one facing (their art has one, like the airport's); the Waterworks is a pump and stands beside water.
 for (const kind in BALANCE.capstones.kinds) {
   const row = BALANCE.capstones.kinds[kind];
-  setPlacementRules(Number(kind), { onePerCity: true, ...(row.size[0] === row.size[1] ? { noRotation: true } : {}), ...(row.need === 'water' ? { needsWaterEdge: true } : {}) });
+  setPlacementRules(Number(kind), { onePerCity: true, noRotation: true, ...(row.need === 'water' ? { needsWaterEdge: true } : {}) });
 }
 
 /**

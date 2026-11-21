@@ -9,6 +9,7 @@
 // limited number of residents: a home every building in reach is too full for
 // is left out of that kind's coverage. See sim/serviceCapacity.ts.
 
+import { serviceBaseKind, serviceRange } from '../capstones';
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
 import { BALANCE } from '../../data/balance';
@@ -29,7 +30,7 @@ export function computeServiceCoverage(
   tx: number,
   ty: number,
   kind: number,
-  range: number = BALANCE.service.coverageRange[kind] ?? 4,
+  range: number = serviceRange(kind) ?? 4,
   distOut?: Map<number, number>,
 ): Set<number> {
   const { width, height } = world.grid;
@@ -167,7 +168,7 @@ export class ServiceSystem {
     mix(roadCount);
     for (const b of world.buildings) {
       mix(b.ty * world.grid.width + b.tx); mix(b.kind);
-      mix(BALANCE.service.coverageRange[b.kind] ?? -1);
+      mix(serviceRange(b.kind) ?? -1);
     }
     mix(world.buildings.length);
 
@@ -259,7 +260,7 @@ export class ServiceSystem {
   /** The reach of one service building, as ServiceSystem works it out. For tests. */
   reachOf(world: World, tx: number, ty: number, kind: number): BuildingReach {
     this.update(world);   // sizes the scratch arrays
-    const m = this._walkOne(world, tx, ty, kind, BALANCE.service.coverageRange[kind] ?? 4);
+    const m = this._walkOne(world, tx, ty, kind, serviceRange(kind) ?? 4);
     return { anchor: ty * world.grid.width + tx, tiles: this._outTiles.slice(0, m), dist: this._outDist.slice(0, m) };
   }
 
@@ -268,16 +269,19 @@ export class ServiceSystem {
     const width = world.grid.width;
     const byKind = new Map<number, { capacity: number; reaches: BuildingReach[] }>();
     for (const b of world.buildings) {
-      const range = BALANCE.service.coverageRange[b.kind];
+      const range = serviceRange(b.kind);
       if (range === undefined) continue; // not a service building
-      let entry = byKind.get(b.kind);
-      if (!entry) { entry = { capacity: serviceCapacity(b.kind), reaches: [] }; byKind.set(b.kind, entry); }
+      // A service capstone (sim/capstones.ts) is one more building of its small kind, with no limit to its reach or its room.
+      const kind = serviceBaseKind(b.kind);
+      let entry = byKind.get(kind);
+      if (!entry) { entry = { capacity: serviceCapacity(kind), reaches: [] }; byKind.set(kind, entry); }
       const m = this._walkOne(world, b.tx, b.ty, b.kind, range);
       entry.reaches.push({
         anchor: b.ty * width + b.tx,
         tiles: this._outTiles.slice(0, m),
         // Distances are only needed to seat people.
         dist: entry.capacity > 0 ? this._outDist.slice(0, m) : EMPTY_DIST,
+        ...(kind !== b.kind ? { room: Infinity } : {}),
       });
     }
 
@@ -332,7 +336,7 @@ export class ServiceSystem {
         if (zone[i] !== ZONE_R || devLevel[i] === 0 || abandoned[i] !== 0) continue;
         const b = nearest[k];
         load[b] += popPerLevel[devLevel[i]] ?? 0;
-        if (load[b] > capacity) { fits = false; break; }
+        if (load[b] > (reaches[b].room ?? capacity)) { fits = false; break; }
       }
       let full: Uint8Array | null = null;
       if (!fits) {

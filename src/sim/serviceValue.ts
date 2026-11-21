@@ -32,6 +32,7 @@
 // standing is remembered until the map next changes, so pricing a hover every
 // frame walks the roads once for the hovered tile and no more.
 
+import { serviceBaseKind, serviceRange } from './capstones';
 import type { World } from './World';
 import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY, BUILDING_PARK } from './constants';
 import { countsAsPark } from './leisure';
@@ -86,7 +87,7 @@ const cache = new WeakMap<World, Map<number, KindCoverage>>();
  * beach park, the lido) is "a park" to residents, requests and the service rule; the rest are their own.
  */
 export function coverageGroup(kind: number): number {
-  return countsAsPark(kind) && BALANCE.service.coverageRange[kind] !== undefined ? BUILDING_PARK : kind;
+  return countsAsPark(kind) && BALANCE.service.coverageRange[kind] !== undefined ? BUILDING_PARK : serviceBaseKind(kind);
 }
 
 /** Coverage of every standing building of `kind` (for the park, of any park kind), remembered until the map changes. */
@@ -94,7 +95,7 @@ function kindCoverage(world: World, kind: number): KindCoverage {
   let byKind = cache.get(world);
   if (!byKind) { byKind = new Map(); cache.set(world, byKind); }
   let range = BALANCE.service.coverageRange[kind] ?? -1;
-  if (kind === BUILDING_PARK) for (const b of world.buildings) if (coverageGroup(b.kind) === kind) range = range * 31 + (BALANCE.service.coverageRange[b.kind] ?? 0);
+  for (const b of world.buildings) if (b.kind !== kind && coverageGroup(b.kind) === kind) range = range * 31 + (serviceRange(b.kind) ?? 0);
   const have = byKind.get(kind);
   if (have && have.edits === world.grid.edits && have.range === range) return have;
 
@@ -181,7 +182,7 @@ export function homesWithinReach(world: World, tx: number, ty: number, kind: num
 
 /** Whether `kind` is a building that serves homes by coverage (police, fire, school, hospital, park). */
 export function isServiceKind(kind: number): boolean {
-  return BALANCE.service.coverageRange[kind] !== undefined;
+  return serviceRange(kind) !== undefined;
 }
 
 /**
@@ -225,7 +226,7 @@ export function serviceOpeningValue(
 ): ServiceValuePart[] {
   const rate = cfg.perResident[kind] ?? cfg.perResident[coverageGroup(kind)] ?? 0;
   if (rate <= 0) return [];
-  if (hasCapacity(kind)) return seatParts(world, seatsIfOpened(world, tx, ty, kind), rate, cfg);
+  if (hasCapacity(serviceBaseKind(kind))) return seatParts(world, seatsIfOpened(world, tx, ty, kind), rate, cfg);
   const parts: ServiceValuePart[] = [];
   const { counts } = kindCoverage(world, coverageGroup(kind));
   const width = world.grid.width;
@@ -257,7 +258,7 @@ export function serviceClosureValue(
   const kind = world.layers.building[at];
   const rate = cfg.perResident[kind] ?? cfg.perResident[coverageGroup(kind)] ?? 0;
   if (rate <= 0) return [];
-  if (hasCapacity(kind)) return seatParts(world, seatsIfClosed(world, at, kind), rate, cfg);
+  if (hasCapacity(serviceBaseKind(kind))) return seatParts(world, seatsIfClosed(world, at, kind), rate, cfg);
   const { counts, own } = kindCoverage(world, coverageGroup(kind));
   const tiles = own.get(at);
   if (!tiles) return [];

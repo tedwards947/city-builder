@@ -15,15 +15,27 @@
 //              pump: it must stand beside water, and supplies nothing once
 //              that water is gone.
 //   SERVICES   The Police and Fire Headquarters, the General Hospital and the
-//              University are only buildings in this phase: whole-city
-//              coverage is the next one (they cover nothing yet, and cost
-//              nothing to run).
+//              University cover every home on the road network their street
+//              belongs to, highways included, at any distance, and never run
+//              out of room. To the rest of the game each is one more building
+//              of its small kind (`serviceBaseKind`: a police station, a fire
+//              station, a school, a hospital) whose reach has no limit
+//              (`serviceRange`) and which seats everyone it reaches
+//              (sim/serviceCapacity.ts): so coverage, residents' requests,
+//              the PC services rule and the running cost all follow, and the
+//              small buildings go on working beside it.
 //
 // Pure: reads the world, changes nothing. Nothing here is saved.
 
 import type { World, BuildingEntity } from './World';
 import { BALANCE, type CapstoneRow, type CapstoneNeed } from '../data/balance';
 import { footprintTiles, hasNeededWater } from './buildingShapes';
+import { BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_POLICE, BUILDING_SCHOOL } from './constants';
+
+/** A service capstone's reach in road steps: the whole road network. (The road walk keeps distances in 16 bits.) */
+export const WHOLE_CITY = 0xffff;
+
+const BASE: Partial<Record<CapstoneNeed, number>> = { police: BUILDING_POLICE, fire: BUILDING_FIRE, school: BUILDING_SCHOOL, hospital: BUILDING_HOSPITAL };
 
 export type { CapstoneNeed, CapstoneRow };
 export type UtilityNeed = 'power' | 'water' | 'sewage';
@@ -48,6 +60,26 @@ export function capstoneKinds(): number[] {
 export function capstoneFor(need: CapstoneNeed): number | undefined {
   for (const k in rows()) if (rows()[k].need === need) return Number(k);
   return undefined;
+}
+
+/**
+ * The small service kind a service capstone stands in for (the Police Headquarters: a police
+ * station), or `kind` itself for anything else. Coverage and seats are worked out per base kind.
+ */
+export function serviceBaseKind(kind: number): number {
+  const row = rows()[kind];
+  return (row && BASE[row.need]) ?? kind;
+}
+
+/** Whether `kind` is one of the four service capstones. */
+export function isServiceCapstone(kind: number): boolean {
+  const row = rows()[kind];
+  return row !== undefined && BASE[row.need] !== undefined;
+}
+
+/** How far a `kind` building's coverage walks along the roads: its range in the balance table, the whole city for a service capstone, undefined if it is no service building. */
+export function serviceRange(kind: number): number | undefined {
+  return isServiceCapstone(kind) ? WHOLE_CITY : BALANCE.service.coverageRange[kind];
 }
 
 /** Whether `need` is one of the three utilities. */
@@ -76,14 +108,15 @@ export function capstoneWorking(world: World, b: BuildingEntity): boolean {
 /**
  * Residents each standing capstone serves, by kind: for a utility capstone at
  * work, the whole population (it supplies the city); for a service capstone,
- * none yet (whole-city coverage is the next phase).
+ * the residents seated at it, which `seatedAt` gives (sim/serviceCapacity.ts
+ * buildingSeats: the homes it covers that no small building nearer has room for).
  */
-export function capstoneResidents(world: World, population: number): Record<number, number> {
+export function capstoneResidents(world: World, population: number, seatedAt: (b: BuildingEntity) => number): Record<number, number> {
   const out: Record<number, number> = {};
   for (const b of world.buildings) {
     const row = rows()[b.kind];
     if (!row) continue;
-    out[b.kind] = isUtilityNeed(row.need) && capstoneWorking(world, b) ? population : 0;
+    out[b.kind] = isUtilityNeed(row.need) ? (capstoneWorking(world, b) ? population : 0) : seatedAt(b);
   }
   return out;
 }
