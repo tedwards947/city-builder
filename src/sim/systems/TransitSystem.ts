@@ -82,6 +82,7 @@
 import { doorTile, levelWeight } from '../lots';
 import { World } from '../World';
 import { isEntryTile } from '../connections';
+import { isRailEntryTile } from '../connectionRail';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
 import { hasPlatforms, rampLevel, shapeRoles } from '../buildingShapes';
@@ -367,10 +368,10 @@ export class TransitSystem {
     if (hasTripProviders()) {
       for (let k = 0; k < data.markets.length; k++) {
         this._extraTripCount[k] = 0;
-        extraTrips(world, data.markets[k].def.key, (ri, trips) => {
+        extraTrips(world, data.markets[k].def.key, (ri, trips, railLevel = 0) => {
           if (!(trips > 0)) return;
           this._extraTripCount[k]++;
-          h = Math.imul(h ^ (ri * 8 + k), 0x9e3779b1);
+          h = Math.imul(h ^ (ri * 8 + k + railLevel * 0x1000000), 0x9e3779b1);
           h = Math.imul(h ^ Math.round(trips * 1000), 0x85ebca6b);
           h ^= h >>> 15;
         });
@@ -886,8 +887,8 @@ export class TransitSystem {
     field.handicapped = handicapped;
 
     if (sendersOf !== undefined) {
-      extraTrips(world, sendersOf, (ri, trips) => {
-        if (!(trips > 0) || ri < 0 || ri >= roadClass.length) return;
+      extraTrips(world, sendersOf, (ri, trips, railLevel = 0) => {
+        if (!(trips > 0) || ri < 0 || ri >= roadClass.length || railLevel !== 0) return;   // riders already on a train are nobody's customers at the track
         const rc = roadClass[ri];
         if (rc !== ROAD_NONE && (rc !== ROAD_HIGHWAY || isEntryTile(world, ri))) doorCap[ri] += trips;
       });
@@ -967,8 +968,18 @@ export class TransitSystem {
       }
     }
     if (market !== undefined) {
-      extraTrips(world, market, (ri, n) => {
+      extraTrips(world, market, (ri, n, railLevel = 0) => {
         if (!(n > 0) || ri < 0 || ri >= roadClass.length) return;
+        if (railLevel !== 0) {
+          // Riders coming in on a train: they start on the track of an outside rail connection, nowhere else.
+          if (!(world.layers.rail[ri] & railLevel) || !isRailEntryTile(world, ri)) return;
+          const node = railSlot(railLevel) * this._n + ri;
+          const trips = n * scale;
+          if (nowhere || !this._useRail || !(field.dist[node] < Infinity) || field.dist[node] > reach) { stranded += trips; return; }
+          flow[node] += trips;
+          total += trips;
+          return;
+        }
         const rc = roadClass[ri];
         if (rc === ROAD_NONE || (rc === ROAD_HIGHWAY && !isEntryTile(world, ri))) return;   // trips start on a highway only at an outside connection
         const trips = n * scale;

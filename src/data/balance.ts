@@ -143,6 +143,11 @@ export const BALANCE = {
     //                 point's tile, and fill what room the highways' `visitors` have left after the tourists.
     //                 0 = none. At 0.02 a city with 1,500 commerce levels fills one highway.
     highway: { visitors: 30, exportTrucks: 10, residentsOut: 30, shopPull: 0.02 },
+    // What a joined rail point carries, per tick (sim/connectionRail.ts). Owner 2026-11-20: 3× a highway;
+    // PLACEHOLDER. Visitors in only: tourists, and day-trippers at highway.shopPull, who ride in from the
+    // point's track and get off at whichever station suits them. They pay no fare. No freight, and
+    // residents do not ride out (rail out is after v1).
+    rail: { visitors: 90 },
   },
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
