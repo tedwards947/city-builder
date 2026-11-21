@@ -1,6 +1,6 @@
 # Capstone Buildings: Design
 
-*Status: Q1 and Q2 decided 2026-11-20; Q3 and Q4 open. The PM walks the questions with the owner one at a time.*
+*Status: all four questions decided 2026-11-20; engine review and ENGINEER 3's cost check next. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Owner: "really expensive [buildings] that solve an entire city's need for something: education, police, fire, hospital, power, water, sewage. Separate toolbar category, unlocked at a population level, and expensive enough to build and maintain that only really well-run cities can afford."
@@ -49,11 +49,11 @@ PM's proposed order and levels (ENGINEER 3 tunes; the owner confirms the order):
 | 7 | University | 40,000 |
 Sewage and water come first because they're the dullest chores. The nuclear station and the university are the late showpieces.
 
-### Q3. Is coverage the whole reward, or does each capstone add a perk?
+### Q3. Is coverage the whole reward, or does each capstone add a perk? **Decided (owner, 2026-11-20): A, coverage and land are the reward.**
 - **A. Coverage and land are the reward.** *(PM pick)* Simple to balance.
 - **B. A small city-wide perk each** (the university lifts land value and office demand; the general hospital raises satisfaction a little; the police HQ lowers crime more than full coverage does).
 
-### Q4. Cost level
+### Q4. Cost level **Decided (owner, 2026-11-20): A, to try; ENGINEER 3 checks it in the lab.**
 - **A. About the airport: $1–3M to build, upkeep about 2× what it replaces.** *(PM pick)*
 - **B. Cheaper to run than what it replaces** (a real saving, with only the build cost as the barrier). Then every big city builds them all, and it's no longer a sign of a well-run city.
 
