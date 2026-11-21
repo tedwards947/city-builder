@@ -664,7 +664,9 @@ export class CanvasRenderer {
       const rise = shape === 'square' ? bigLotRise(planBigLot(zone, variant), low) : pairRise(planPair(shape, variant));
       if (h.ty >= ay - Math.ceil(rise)) alpha = LOT_FADED_ALPHA;
     }
-    const tile = Math.ceil(camera.zoom * TILE_SIZE);
+    // The exact tile size, not rounded up: a lot n tiles wide drawn at n × ceil(tile) grew by up to n px
+    // and snapped back every 1/16 of zoom, so it jiggled against the ground while zooming.
+    const tile = camera.zoom * TILE_SIZE;
     const sx = Math.floor(camera.worldToScreenX(Projection.tileToWorldX(ax))), sy = Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ay)));
     const abandoned = world.layers.abandoned[anchor] !== 0;
     if (shape === 'square') drawBigLot(ctx, zone, variant, abandoned, sx, sy, tile, alpha, low);
@@ -717,7 +719,7 @@ export class CanvasRenderer {
     }
     // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
     if (isLeisureKind(kind)) {
-      const tile = Math.ceil(camera.zoom * TILE_SIZE), status = kind === BUILDING_STADIUM ? eventStatus(world) : null;
+      const tile = camera.zoom * TILE_SIZE, status = kind === BUILDING_STADIUM ? eventStatus(world) : null;   // exact: see the merged lots
       if (drawLeisureBuilding(ctx, kind, world.layers.visualVariant[anchor], X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, now, status, world.tick)) return;
     }
     const sprite = n === box.maxY - box.minY + 1 && buildingShape(kind).length === n * n ? bigClaySprite(kind) : undefined;
@@ -725,7 +727,7 @@ export class CanvasRenderer {
       drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, this._portWork.get(anchor) ?? -1);
       return;
     }
-    const tile = Math.ceil(camera.zoom * TILE_SIZE), side = n * tile;
+    const tile = camera.zoom * TILE_SIZE, side = n * tile;   // exact: see the merged lots
     const L = X(ax + box.minX), T = Y(ay + box.minY);
     drawClaySprite(ctx, sprite, L, T, side);
     const burning = world.layers.fire[anchor] > 0;
