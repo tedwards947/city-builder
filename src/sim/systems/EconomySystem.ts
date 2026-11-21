@@ -68,18 +68,20 @@ export class EconomySystem {
       }
     }
     // The city's tax level scales all tax income (exactly 1 at the neutral level).
-    noteIncomeBeforeTaxLevel(world, income);
+    const taxBase = income;
     income *= taxIncomeMult(world.budget.taxLevel);
-    // What the seaports earn from exports is trade, not tax: the tax level does not scale it.
+    // What is not tax is never scaled by it: what the seaports earn from exports (trade), what
+    // buildings earn per trip they take (an airport's passengers), tickets at the attractions
+    // (sim/leisureTraffic.ts) and at the stadium on an event day (sim/eventDays.ts), and the fares
+    // riders pay at the stations.
+    // (Added one at a time, in this order, so the total stays bit for bit what it was.)
+    const taxed = income;
     income += exportIncome(world);
-    // Nor what buildings earn per trip they take (an airport's passengers).
     income += buildingTripIncome(world);
-    // Tickets at the attractions (sim/leisureTraffic.ts).
     income += leisureTicketIncome(world);
-    // Tickets at the stadium, on an event day (sim/eventDays.ts).
     income += eventTicketIncome(world);
-    // Nor the fares riders pay at the stations.
     income += railFareIncome(world);
+    noteIncomeBeforeTaxLevel(world, taxBase, income - taxed);
     for (let k = 0; k < roadCount; k++) {
       const i = roads[k];
       if (roadClass[i] !== ROAD_NONE) {

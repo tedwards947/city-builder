@@ -31,6 +31,18 @@ function demandColor(d: number): string {
   return '#e55';
 }
 
+/**
+ * The budget lines per tick, which add up: tax + other − upkeep − running = net, and net is what the
+ * money does (budget.income − budget.expenses once the tax level is the one last collected at). `tax`
+ * and `net` follow the tax `level` (default: the current one), so the slider previews the whole sum.
+ */
+export function budgetLines(world: World, level: number = world.budget.taxLevel): { tax: number; other: number; upkeep: number; running: number; net: number } {
+  const e = taxEffect(world, level);
+  const running = Math.min(headcountCost(world).total, world.budget.expenses);
+  const upkeep = world.budget.expenses - running;
+  return { tax: e.income, other: e.otherIncome, upkeep, running, net: e.net };
+}
+
 export class EconPanel {
   private readonly el: HTMLElement;
   private visible = false;
@@ -57,9 +69,12 @@ export class EconPanel {
     const set = (id: string, text: string, sign = 0) => { const el = document.getElementById(id)!; el.textContent = text; el.className = sign > 0 ? 'pos' : sign < 0 ? 'neg' : ''; };
     set('econ-tax-pct', String(world.budget.taxLevel));
     set('econ-tax-min', range.min + '%'); set('econ-tax-max', range.max + '%');
-    set('econ-tax-income', perDay(e.income));
-    set('econ-running', perDay(-Math.round(headcountCost(world).total * BALANCE.ticksPerDay)));
-    set('econ-tax-net', perDay(e.net), e.net);
+    const lines = budgetLines(world);
+    set('econ-tax-income', perDay(lines.tax));
+    set('econ-other-income', perDay(lines.other));
+    set('econ-upkeep', perDay(-lines.upkeep));
+    set('econ-running', perDay(-lines.running));
+    set('econ-tax-net', perDay(lines.net), lines.net);
     // Satisfaction is 0–1; shown as percentage points gained or lost to the tax level.
     const sat = Math.round(e.satisfactionDelta * 100);
     set('econ-tax-sat', sat === 0 ? t('ui.econ.noChange') : (sat > 0 ? '+' : '−') + Math.abs(sat) + '%', sat);

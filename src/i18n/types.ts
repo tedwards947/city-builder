@@ -132,6 +132,8 @@ export interface TranslationSchema {
       taxLevel: string;
       taxIncome: string;
       afterUpkeep: string;
+      otherIncome: string;
+      upkeep: string;
       runningCosts: string;
       satisfaction: string;
       growth: string;

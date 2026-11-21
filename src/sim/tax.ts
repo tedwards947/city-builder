@@ -85,12 +85,15 @@ export function setTaxLevel(world: World, level: number): number {
 // touched them, so a preview does not have to work back from figures that may
 // predate the current level (the game can be paused when the slider moves).
 // Derived, not saved: after a load it is filled in by the first tick.
-const bases = new WeakMap<World, { income?: number; satisfaction?: number }>();
+const bases = new WeakMap<World, { income?: number; other?: number; satisfaction?: number }>();
 
-/** EconomySystem: this tick's tax income before the tax level's multiplier. */
-export function noteIncomeBeforeTaxLevel(world: World, income: number): void {
+/**
+ * EconomySystem: this tick's tax income before the tax level's multiplier, and the income that is
+ * not tax (trade, airport trips, fares, tickets), which the tax level does not scale.
+ */
+export function noteIncomeBeforeTaxLevel(world: World, income: number, other = 0): void {
   const b = bases.get(world);
-  if (b) b.income = income; else bases.set(world, { income });
+  if (b) { b.income = income; b.other = other; } else bases.set(world, { income, other });
 }
 
 /** PoliticsSystem: this tick's satisfaction before the tax level's effect. */
@@ -106,9 +109,11 @@ export interface TaxEffect {
   incomeMult: number;
   /** Projected tax income per tick at this level. */
   income: number;
-  /** `income` minus the city's current income per tick. */
+  /** Income per tick that is not tax (exports, airport trips, fares, tickets): the tax level leaves it alone. */
+  otherIncome: number;
+  /** `income` minus the tax the city currently collects per tick. */
   incomeChange: number;
-  /** Projected income minus current expenses, per tick. */
+  /** Projected income (tax and other) minus current expenses, per tick: what the money does at this level. */
   net: number;
   /**
    * What growth demand in every zone is multiplied by, before the per-zone
@@ -139,7 +144,9 @@ export function taxEffect(world: World, level: number = world.budget.taxLevel): 
   const base = bases.get(world);
   const now = taxIncomeMult(world.budget.taxLevel);
   const incomeMult = taxIncomeMult(level);
-  const current = world.budget.income;
+  // Income that is not tax, as the last tick had it; before any tick, all of the figure counts as tax.
+  const other = base?.other ?? 0;
+  const current = world.budget.income - other;
   // Income before the tax level's multiplier: as the last tick collected it, or (before any tick,
   // e.g. straight after a load) worked back from the current figure and level.
   const incomeBase = base?.income ?? (now > 0 ? current / now : 0);
@@ -151,8 +158,9 @@ export function taxEffect(world: World, level: number = world.budget.taxLevel): 
     level,
     incomeMult,
     income,
+    otherIncome: other,
     incomeChange: income - current,
-    net: income - world.budget.expenses,
+    net: income + other - world.budget.expenses,
     demandMult: taxDemandMult(level),
     exodusChance: taxExodusChance(level),
     satisfactionDelta,
