@@ -148,7 +148,10 @@ export const BALANCE = {
   //                     (runningCost): about 1.5× what it replaces at every size. ENGINEER 3's starting rates.
   //   output            Utilities only: what it supplies. Far more than any city needs.
   // Build costs are in `buildings` above.
+  //   closurePcShare    Bulldozing a service capstone charges the PC services rule for everyone left with no
+  //                     service, but never more than this share of the city's PC cap (owner 2026-11-21).
   capstones: {
+    closurePcShare: 0.5,
     kinds: {
       26: { need: 'sewage',   size: [4, 4], unlockPopulation: 10000, perResident: 0.23,  output: 1000000 },  // Sewage Works
       27: { need: 'water',    size: [4, 4], unlockPopulation: 12500, perResident: 0.085, output: 1000000 },  // Waterworks (beside water)

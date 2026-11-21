@@ -20,6 +20,7 @@
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
 import { capstoneResidents, capstoneRow, capstoneWorking } from './capstones';
+import { buildingSeats } from './serviceCapacity';
 import {
   BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_LARGE_WATER_PLANT,
   BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, ZONE_R,
@@ -108,7 +109,7 @@ export function headcountCost(world: World): HeadcountCost {
   }
   // Capstones: the extra each costs for every resident it serves.
   const capstones: Record<number, number> = {};
-  const served = capstoneResidents(world, population);
+  const served = capstoneResidents(world, population, (b) => buildingSeats(world, b.tx, b.ty)?.seated ?? 0);
   for (const k in served) {
     capstones[k] = served[k] * (capstoneRow(Number(k))?.perResident ?? 0) * perTick * charged;
     total += capstones[k];

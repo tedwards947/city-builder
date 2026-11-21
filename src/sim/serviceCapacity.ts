@@ -24,6 +24,7 @@ import type { World } from './World';
 import { ZONE_R } from './constants';
 import { BALANCE } from '../data/balance';
 import { computeServiceCoverage } from './systems/ServiceSystem';
+import { isServiceCapstone, serviceBaseKind, serviceRange } from './capstones';
 
 /** Residents a building of `kind` can serve; 0 = no limit (reach alone decides). */
 export function serviceCapacity(kind: number): number {
@@ -43,6 +44,8 @@ export interface BuildingReach {
   tiles: Int32Array;
   /** Road steps from the building to the road tile each tile sits beside (parallel to `tiles`). */
   dist: Uint16Array;
+  /** Residents this building can seat, if not its kind's capacity: Infinity for a service capstone (sim/capstones.ts). */
+  room?: number;
 }
 
 /** The reach of a `kind` building at (tx, ty), with distances, by the same road walk coverage uses. */
@@ -52,7 +55,7 @@ export function buildingReach(world: World, tx: number, ty: number, kind: number
   const tiles = Int32Array.from(covered);
   const d = new Uint16Array(tiles.length);
   for (let k = 0; k < tiles.length; k++) d[k] = dist.get(tiles[k]) ?? 0;
-  return { anchor: world.grid.idx(tx, ty), tiles, dist: d };
+  return { anchor: world.grid.idx(tx, ty), tiles, dist: d, ...(isServiceCapstone(kind) ? { room: Infinity } : {}) };
 }
 
 /** Residents of an occupied, non-abandoned home on tile `i`; 0 for anything else. */
@@ -82,10 +85,12 @@ export interface Seating {
 export function nothingIsFull(world: World, reaches: readonly BuildingReach[], capacity: number): boolean {
   if (capacity <= 0) return true;
   for (const r of reaches) {
+    const room = r.room ?? capacity;
+    if (room === Infinity) continue;
     let residents = 0;
     for (let k = 0; k < r.tiles.length; k++) {
       residents += homeResidents(world, r.tiles[k]);
-      if (residents > capacity) return false;
+      if (residents > room) return false;
     }
   }
   return true;
@@ -112,7 +117,7 @@ export function seatHomes(
   const byAnchor = reaches.map((_, k) => k).sort((x, y) => reaches[x].anchor - reaches[y].anchor);
   const { zone, devLevel, abandoned } = world.layers;
   const popPerLevel = BALANCE.growth.popPerLevel;
-  const room = capacity > 0 ? capacity : Infinity;
+  const kindRoom = capacity > 0 ? capacity : Infinity;
   const next = new Int32Array(nB);
   let unseated = 0;
   for (let d = 0, open = nB; open > 0; d++) {
@@ -120,6 +125,7 @@ export function seatHomes(
     for (let r = 0; r < nB; r++) {
       const b = byAnchor[r];
       const tiles = reaches[b].tiles, dist = reaches[b].dist, len = tiles.length;
+      const room = reaches[b].room ?? kindRoom;
       let k = next[b];
       while (k < len && dist[k] <= d) {
         const i = tiles[k++];
@@ -188,6 +194,7 @@ const cache = new WeakMap<World, Map<number, KindSeating>>();
 function kindSeating(world: World, kind: number): KindSeating {
   let byKind = cache.get(world);
   if (!byKind) { byKind = new Map(); cache.set(world, byKind); }
+  kind = serviceBaseKind(kind);   // a service capstone is seated with the small buildings of its kind
   const range = BALANCE.service.coverageRange[kind] ?? -1;
   const capacity = serviceCapacity(kind);
   const day = Math.floor(world.tick / BALANCE.ticksPerDay);
@@ -197,8 +204,8 @@ function kindSeating(world: World, kind: number): KindSeating {
   const reaches: BuildingReach[] = [];
   const indexOf = new Map<number, number>();
   for (const b of world.buildings) {
-    if (b.kind !== kind) continue;
-    const r = buildingReach(world, b.tx, b.ty, kind);
+    if (serviceBaseKind(b.kind) !== kind) continue;
+    const r = buildingReach(world, b.tx, b.ty, b.kind);
     indexOf.set(r.anchor, reaches.length);
     reaches.push(r);
   }
@@ -228,11 +235,11 @@ export function buildingSeats(world: World, tx: number, ty: number): BuildingSea
   const at = world.buildingAnchorAt(world.grid.idx(tx, ty));
   if (at < 0) return null;
   const kind = world.layers.building[at];
-  if (BALANCE.service.coverageRange[kind] === undefined) return null;
+  if (serviceRange(kind) === undefined) return null;
   const s = kindSeating(world, kind);
   const b = s.indexOf.get(at);
   if (b === undefined) return null;
-  return { capacity: s.capacity, seated: s.seating.seated[b], inReachUnseated: s.seating.inReachUnseated[b] };
+  return { capacity: s.reaches[b].room === Infinity ? 0 : s.capacity, seated: s.seating.seated[b], inReachUnseated: s.seating.inReachUnseated[b] };
 }
 
 /** Where a home is served for one kind of service. */
@@ -274,8 +281,8 @@ export interface SeatChange {
 let lastChange: { world: World; edits: number; tick: number; key: string; change: SeatChange } | null = null;
 
 function seatChange(world: World, kind: number, key: string, alter: (reaches: BuildingReach[]) => { reaches: BuildingReach[]; added: number }): SeatChange {
-  const capacity = serviceCapacity(kind);
-  const memoKey = kind + ':' + capacity + ':' + (BALANCE.service.coverageRange[kind] ?? -1) + ':' + key;
+  const capacity = serviceCapacity(serviceBaseKind(kind));
+  const memoKey = kind + ':' + capacity + ':' + (serviceRange(kind) ?? -1) + ':' + key;
   if (lastChange && lastChange.world === world && lastChange.edits === world.grid.edits && lastChange.tick === world.tick && lastChange.key === memoKey) {
     return lastChange.change;
   }

@@ -1,6 +1,7 @@
 // Capstones, phase 1 (CAPSTONE_DESIGN.md, sim/capstones.ts): the seven kinds.
 // Shapes, one per city, population unlocks, costs, and the three utility
-// capstones at work. Whole-city coverage for the four services is phase 2.
+// capstones at work. Whole-city coverage for the four services is in
+// capstoneCoverage.test.ts.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { World } from '../sim/World';
@@ -10,7 +11,7 @@ import {
   BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY, BUILDING_POWER_PLANT, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_R,
 } from '../sim/constants';
 import { capstoneFor, capstoneKinds, capstoneOutputs, capstoneRow, capstoneWorking, isCapstone } from '../sim/capstones';
-import { buildingShape, placementRules } from '../sim/buildingShapes';
+import { buildingShape, placementRules, shapeRoles } from '../sim/buildingShapes';
 import { buildingUnlocked, unlockPopulation } from '../sim/leisure';
 import { headcountCost } from '../sim/runningCost';
 import { NEEDS_ROAD } from '../sim/roadCutoff';
@@ -68,9 +69,21 @@ describe('the seven capstones', () => {
     expect(toolPrice('university')).toMatchObject({ cost: '$3,000,000' });
   });
 
-  it('are one per city, and only the Waterworks needs water beside it', () => {
+  it('the Fire Headquarters is a runway along the top, the station under its east end and tarmac beside it', () => {
+    const shape = buildingShape(BUILDING_FIRE_HQ), roles = shapeRoles(BUILDING_FIRE_HQ);
+    const of = (role: string) => shape.filter((_, k) => roles[k] === role);
+    expect(of('runway')).toEqual([0, 1, 2, 3, 4, 5, 6, 7].map((dx) => [dx, 0]));
+    expect(of('body')).toHaveLength(16);
+    for (const [dx, dy] of of('body')) { expect(dx).toBeGreaterThanOrEqual(4); expect(dy).toBeGreaterThanOrEqual(1); }
+    expect(of('apron')).toHaveLength(16);
+    // Entered from any street beside it: no frontage rule.
+    expect(of('frontage')).toHaveLength(0);
+  });
+
+  it('are one per city with one facing, and only the Waterworks needs water beside it', () => {
     for (const k of ALL) {
       expect(placementRules(k).onePerCity, String(k)).toBe(true);
+      expect(placementRules(k).noRotation, String(k)).toBe(true);
       expect(placementRules(k).needsWaterEdge === true, String(k)).toBe(k === BUILDING_WATERWORKS);
     }
     bigCity();
@@ -190,17 +203,14 @@ describe('what a capstone costs to run', () => {
     } finally { R.freeResidents = free; }
   });
 
-  it('nothing while its street is cut, and a service capstone nothing yet (no coverage until phase 2)', () => {
+  it('nothing while its street is cut', () => {
     R.freeResidents = 0;
     try {
       homes(w, 30, ROW - 1, 50, ROW - 1, 3);
       expect(w.placeBuilding(4, ROW + 1, BUILDING_NUCLEAR_PLANT)).toBe(true);
-      expect(w.placeBuilding(12, ROW + 1, BUILDING_POLICE_HQ)).toBe(true);
       for (let x = 2; x <= 9; x++) w.setRoad(x, ROW, ROAD_NONE);
       run();
-      const cost = headcountCost(w);
-      expect(cost.capstones[BUILDING_NUCLEAR_PLANT]).toBe(0);
-      expect(cost.capstones[BUILDING_POLICE_HQ]).toBe(0);
+      expect(headcountCost(w).capstones[BUILDING_NUCLEAR_PLANT]).toBe(0);
     } finally { R.freeResidents = free; }
   });
 
