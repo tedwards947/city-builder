@@ -12,7 +12,7 @@ import { airportResult, type AirportResult } from './airport';
 import { railResult, railFresh, type RailResult, type RailFresh } from './rail';
 import { landscapeResult, treeBufferResult, type LandscapeResult } from './landscape';
 import { lotsResult, type LotsResult } from './lots';
-import { stadiumResult, type StadiumResult } from './stadium';
+import { stadiumResult, type StadiumResult, type StadiumRun } from './stadium';
 import { leisureResult, type LeisureResult } from './leisure';
 import { paceResult } from './pace';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
@@ -516,8 +516,9 @@ export function runLab(o: LabOptions): Report {
         const t0 = Date.now();
         const s = stadiumResult(loadCity(city));
         report.stadiumRuns[id][city.id] = s;
-        const a = s.asIs, v = s.avenues, p = s.prepared;
-        log(`stadium ${id} ${city.id}: ${a ? `fans ${a.wantedShare}× seats (filled ${a.fill}), jam ${a.jam}, PC ${a.pcShare} of cap an event, lasting residents ${a.residents} / PC ${a.pc}, stuck by distance ${a.stuckBy.join('/')}; avenues save ${v?.pcCut ?? '-'} (${v?.stuckBy.join('/') ?? '-'}); prepared save ${p?.pcCut ?? '-'} (${p?.stuckBy.join('/') ?? '-'}), fill ${p?.fill ?? '-'}, ${p?.netPerDay ?? '-'} a day, repays in ${p?.paybackYears ?? '-'} years; rail ${s.rail && 'events' in s.rail ? `save ${s.rail.pcCut ?? '-'} (${s.rail.stuckBy.join('/')}), fill ${s.rail.fill}, lines ${s.rail.lines.join('+')}, most fans on a track tile ${s.rail.railFans} (load ${s.rail.railLoad})` : s.rail?.note ?? '-'}` : s.note} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        const fmt = (r: StadiumRun) => `fans ${r.wantedShare}× seats (filled ${r.fill}), stuck ${r.stuckShare}, smooth ${r.smooth}/${r.events.length}, PC −${r.pcLoss} +${r.pcReward} of cap an event, ${r.declined} homes down, ${r.netPerDay ?? '-'} a day`;
+        const one = s.oneLine;
+        log(`stadium ${id} ${city.id}: ${s.asBuilt ? `as built ${fmt(s.asBuilt)}; one line ${one && 'events' in one ? `(${one.line} tiles) ${fmt(one)}` : one?.note ?? '-'}` : s.note} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
         grade('stadium', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, stadium: s });
       }
     }

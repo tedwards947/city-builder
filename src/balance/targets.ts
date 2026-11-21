@@ -591,46 +591,34 @@ const LOTS_TARGETS: Omit<Target, 'suite'>[] = [
       return all(parts); } },
 ];
 
-// The stadium (owner-approved 2026-11-20, LEISURE_DESIGN.md Q6): the crowd is massive, an
-// unprepared city feels it, avenues alone do not fix it, a prepared city fixes it and the
-// stadium then pays its way. Probe on each saved city of 10k residents or more: the stadium
-// beside the homes, three events as is (against a twin), with avenues within 10 tiles, and
-// prepared (those avenues, avenues on every street the crowd jammed, an avenue ring and spurs
-// out from each side) (src/balance/stadium.ts).
+// The stadium (owner 2026-11-20, toned down; replaces #444's "real teeth" targets). The avenue
+// fixes made cities ugly: an ordinary well-built network with a station at the stadium should cope.
+// No level drops; a badly jammed event costs a little PC, a smooth one earns some back; money about
+// break-even. Probe on each saved city of 10k residents or more: the stadium beside the homes, three
+// events as built and with one subway line from the stadium (src/balance/stadium.ts).
 const stadiumOf = (c: EvalCtx): { s: StadiumResult } | Outcome => {
   if (c.cityKind === 'fresh') return NA('saved cities only');
   const s = c.stadium; if (!s) return NA('no stadium probe');
-  if (!s.asIs) return NA(s.note ?? 'no stadium');
+  if (!s.asBuilt) return NA(s.note ?? 'no stadium');
   return { s };
 };
 const STADIUM_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'stadium.crowd', metric: 'Fans who want to come at the peak ÷ seats (as is, mean of 3 events), on cities of 15k residents or more', target: '≥ 2×', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): event days draw a massive crowd.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; if (o.s.population < 15000) return NA(`under 15k residents (${o.s.population})`); return { ...range(o.s.asIs!.wantedShare, 2), note: `${Math.round(o.s.asIs!.fill * 100)}% of seats filled` }; } },
-  { id: 'stadium.jam', metric: 'Share of streets and avenues within 12 tiles the crowd alone takes over capacity, at the peak of the first event (as is), on cities of 15k residents or more', target: '≥ 30%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): you need far more road capacity than usual, or the city seizes up.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; if (o.s.population < 15000) return NA(`under 15k residents (${o.s.population})`); return range(o.s.asIs!.jam, 0.3); } },
-  { id: 'stadium.teeth', metric: 'Political capital an event costs an unprepared city ÷ its PC cap (mean of 3 events)', target: '30–60%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): it must have real teeth.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const a = o.s.asIs!; return { ...range(a.pcShare, 0.3, 0.6), note: `${a.events.map(e => e.stuckResidents).join('/')} stuck, ${a.events.map(e => e.declined).join('/')} homes down a level` }; } },
-  { id: 'stadium.lasting', metric: 'After 3 events as is, against the twin: residents lost (share) or PC lost (share of the cap), the larger', target: '≥ 3%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): a few bad events in a row hurt, not a one-day dip.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const a = o.s.asIs!; return { ...range(Math.max(-a.residents, -a.pc), 0.03), note: `residents ${a.residents}, PC ${a.pc}` }; } },
-  { id: 'stadium.notAvenues', metric: 'Share of the PC loss that avenues on every street within 10 tiles save', target: '< 70%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): fixable, but not by avenues alone.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const v = o.s.avenues; if (!v) return NA('avenue run did not place'); return v.pcCut === null ? NA('no PC loss as is') : range(v.pcCut, -Infinity, 0.6999); } },
-  { id: 'stadium.fixable', metric: 'Prepared (avenues within 10 tiles and on every street the first event\'s crowd jammed, an avenue ring and spurs out from each side): share of the PC loss saved, and seats filled', target: 'saves ≥ 70%, fills ≥ 80%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): "a really fun problem to solve", so a city that plans for it can fix it.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const p = o.s.prepared; if (!p) return NA('prepared run did not place');
-      return all({ saved: p.pcCut === null ? NA('no PC loss as is') : range(p.pcCut, 0.7), fill: range(p.fill, 0.8) }); } },
-  { id: 'stadium.rail', metric: 'Prepared plus rail (a station beside the stadium and a line from each end to a station among the homes that were stuck): share of the PC loss saved, and seats filled', target: 'saves ≥ 70%, fills ≥ 80%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): show the jam can be solved where avenues fall short (smallercity).',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const r = o.s.rail; if (!r) return NA('no rail run'); if (!('events' in r)) return NA(r.note);
-      return { ...all({ saved: r.pcCut === null ? NA('no PC loss as is') : range(r.pcCut, 0.7), fill: range(r.fill, 0.8) }), note: `lines of ${r.lines.join(' and ')} tiles; prepared alone saved ${o.s.prepared?.pcCut ?? '-'}` }; } },
-  { id: 'stadium.pays', metric: 'Prepared: tickets less upkeep a game day over whole event cycles, and years for that to repay the stadium', target: '≥ 0 a day, repays in 2–4 years', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): unique buildings cost a lot, and a stadium the city has planned for pays its way.',
-    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const p = o.s.prepared; if (!p) return NA('prepared run did not place');
-      return { ...range(p.paybackYears ?? (p.netPerDay !== null && p.netPerDay <= 0 ? Infinity : null), 2, 4), note: `${p.netPerDay ?? '-'} a day` }; } },
+  { id: 'stadium.crowd', metric: 'Fans who want to come at the peak ÷ seats (as built, mean of 3 events), on cities of 15k residents or more', target: '≥ 0.8 (the stadium fills)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): keep tickets, tourists and the event-day look; the crowd is about a third of #444\'s.',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; if (o.s.population < 15000) return NA(`under 15k residents (${o.s.population})`); return { ...range(o.s.asBuilt!.wantedShare, 0.8), note: `${Math.round(o.s.asBuilt!.fill * 100)}% of seats filled` }; } },
+  { id: 'stadium.copes', metric: 'With one subway line from the stadium (no avenues, rings or spurs): events that go smoothly (fans in ≥ 75% of those seatable, residents stuck ≤ 6%: BALANCE.leisure.event.smooth)', target: 'at least 2 of 3', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): an ordinary well-built road network with a rail station at the stadium copes.',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const r = o.s.oneLine; if (!r) return NA('no one-line run'); if (!('events' in r)) return NA(r.note);
+      return { ...range(r.smooth, 2), note: `${Math.round(r.stuckShare * 1000) / 10}% stuck, ${Math.round(r.fill * 100)}% of seats; as built ${o.s.asBuilt!.smooth}/3 smooth, ${Math.round(o.s.asBuilt!.stuckShare * 1000) / 10}% stuck` }; } },
+  { id: 'stadium.pc', metric: 'Political capital the jam costs an event, as built, ÷ the PC cap (mean of 3 events)', target: '≤ 10% (a little)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): a badly jammed event still costs a little PC; a smooth one earns some back (eventDays.test.ts; on these cities PC is at its cap, where the reward stops).',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const a = o.s.asBuilt!; return { ...range(a.pcLoss, 0, 0.1), note: `${a.smooth}/3 smooth, earned ${a.pcReward} of cap an event` }; } },
+  { id: 'stadium.noDrops', metric: 'Homes that lose a level over 3 events, as built', target: '0', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): no level drops from events.',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; return range(o.s.asBuilt!.declined, 0, 0); } },
+  { id: 'stadium.money', metric: 'Tickets less the stadium\'s upkeep, a game day over whole event cycles (as built)', target: '0 to +400 a day (break-even to slightly positive)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): the money is roughly break-even to slightly positive on a normal city.',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; return range(o.s.asBuilt!.netPerDay, 0, 400); } },
 ];
 
 // Steady attractions (owner-approved 2026-11-20, LEISURE_DESIGN.md). Probe on each saved city

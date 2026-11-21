@@ -109,7 +109,7 @@ export const BALANCE = {
     20: { cost: 8000,   maintenance: 47 },  // BUILDING_BEACH_PARK (3×2): 35 after ×0.75
     21: { cost: 4000,   maintenance: 15 },  // BUILDING_PLAZA (2×2)
     22: { cost: 250000, maintenance: 75 },  // BUILDING_MUSEUM (2×2, one per city)
-    23: { cost: 400000, maintenance: 84 },  // BUILDING_STADIUM (4×4 + plaza, one per city): stadium suite, repays in 2–4 years once the city has planned for its crowds
+    23: { cost: 400000, maintenance: 74 },  // BUILDING_STADIUM (4×4 + plaza, one per city): stadium suite, tickets less upkeep about break-even to +400 a day
     24: { cost: 2500,   maintenance: 19 },  // BUILDING_MID_PARK (2×2): 14 after ×0.75
     25: { cost: 8000,   maintenance: 47 },  // BUILDING_LIDO (3×2), as the beach park until tuned: 35 after ×0.75
   } as Record<number, { cost: number; maintenance: number }>,
@@ -153,11 +153,11 @@ export const BALANCE = {
     need: { fromLevel: 3, growthMult: 0.5 } as { fromLevel: number; growthMult: number },
     // Stadium events (sim/eventDays.ts): timed, not tied to the calendar. Times are sim ticks
     // (500 ms each at 1× speed: 120 ticks = 1 minute). Gaps 12–30 min at 1× (owner 2026-11-20:
-    // "a bit more infrequent"). Seats, fans, ticket, PC and dropAfter: ENGINEER 3, stadium suite
-    // (owner-approved targets 2026-11-20): on a 15k+ city 2–4× more fans than seats and 60–70% of
-    // streets near it jammed by the crowd alone; an unprepared city loses 20–55% of its PC cap an
-    // event; avenues near it save ~0–10% of that, fixing the streets the crowd jams saves 47–95%.
-    // touristFans, reach, jam and stuckShare are still the engine's starting numbers.
+    // "a bit more infrequent"). Toned down (owner 2026-11-20: the avenue fixes made cities ugly):
+    // ENGINEER 3, stadium suite. A third of #444's crowd (fansPerLevel 0.27, 500 seats): on 15k+ cities
+    // 1–2× more fans than seats. Only the crowd's own jam counts (jam.eventShare 1: the crowd alone fills
+    // the street), no level drops (dropAfter 0), a jam costs about 0–2% of the PC cap an event, a smooth
+    // event earns 5% of it back (up to the cap); tickets less upkeep +5 to +380 a day on the saved cities.
     //   duration           Length of an event (600 = 5 min at 1×).
     //   ramp, drain        Ticks at the start over which the crowd grows from nothing, and at the
     //                      end over which it drains (120 each = 1 min; the 3 min between is the peak).
@@ -176,13 +176,18 @@ export const BALANCE = {
     //   stuckShare         Share of the event's traffic passes a home must be stuck for it to count
     //                      as a bad event for that home.
     //   dropAfter          Bad events (net of good ones) after which a home loses a level. 0 = never.
+    //   smooth             An event where the fans in the seats are at least `minFill` of those who
+    //                      wanted to come (up to the seats) and the residents stuck are at most
+    //                      `maxStuckShare` of the population earns `pcShare` of the PC cap (up to the cap).
     event: {
       kind: 23, duration: 600, ramp: 120, drain: 120, gapMin: 1440, gapMax: 3600, firstGap: 600,
-      seats: 700, fansPerLevel: 0.8, touristFans: 40, ticket: 0.75, reach: 120,
-      jam: { load: 1, eventShare: 0.25 }, pcPerStuckResident: 0.016, stuckShare: 0.25, dropAfter: 2,
+      seats: 500, fansPerLevel: 0.27, touristFans: 40, ticket: 1, reach: 120,
+      jam: { load: 1, eventShare: 1 }, pcPerStuckResident: 0.01, stuckShare: 0.25, dropAfter: 0,
+      smooth: { minFill: 0.75, maxStuckShare: 0.06, pcShare: 0.05 },
     } as { kind: number; duration: number; ramp: number; drain: number; gapMin: number; gapMax: number; firstGap: number;
       seats: number; fansPerLevel: number; touristFans: number; ticket: number; reach: number;
-      jam: { load: number; eventShare: number }; pcPerStuckResident: number; stuckShare: number; dropAfter: number },
+      jam: { load: number; eventShare: number }; pcPerStuckResident: number; stuckShare: number; dropAfter: number;
+      smooth: { minFill: number; maxStuckShare: number; pcShare: number } },
   },
   tax: {
     // Per developed level per sim tick.
