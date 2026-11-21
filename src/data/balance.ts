@@ -100,16 +100,18 @@ export const BALANCE = {
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
     18: { cost: 60000, maintenance: 40 },  // BUILDING_SUBWAY_STATION (2× a train station: the hole is the cost) Owner-approved 2026-11-19.
-    // Leisure (LEISURE_DESIGN.md). Parks and the museum: ENGINEER 3, leisure suite (owner-approved
-    // targets 2026-11-20): a park's upkeep is about what the homes it lets grow pay in a park-poor
-    // city less a 1–2 year payback; the museum repays its cost in about 230–265 days.
-    19: { cost: 6000,   maintenance: 9 },   // BUILDING_BIG_PARK (3×3)
-    20: { cost: 8000,   maintenance: 35 },  // BUILDING_BEACH_PARK (3×2)
-    21: { cost: 4000,   maintenance: 6 },   // BUILDING_PLAZA (2×2)
+    // Leisure (LEISURE_DESIGN.md). Parks are dear to run ("upkeep is high for all"; owner 2026-11-20:
+    // they earn their keep in growth and land value, not cash). Parks that give park coverage (#447)
+    // pay maintenance.serviceMult (0.75) on these, so they are set to land at 30 / 14 / 35 a tick; the
+    // plaza is no service and pays its 15 in full. The museum: ENGINEER 3, leisure suite,
+    // repays its cost in about 230–275 days.
+    19: { cost: 6000,   maintenance: 40 },  // BUILDING_BIG_PARK (3×3): 30 a tick after the service ×0.75
+    20: { cost: 8000,   maintenance: 47 },  // BUILDING_BEACH_PARK (3×2): 35 after ×0.75
+    21: { cost: 4000,   maintenance: 15 },  // BUILDING_PLAZA (2×2)
     22: { cost: 250000, maintenance: 75 },  // BUILDING_MUSEUM (2×2, one per city)
     23: { cost: 400000, maintenance: 84 },  // BUILDING_STADIUM (4×4 + plaza, one per city): stadium suite, repays in 2–4 years once the city has planned for its crowds
-    24: { cost: 2500,   maintenance: 4 },   // BUILDING_MID_PARK (2×2)
-    25: { cost: 8000,   maintenance: 35 },  // BUILDING_LIDO (3×2), as the beach park until tuned
+    24: { cost: 2500,   maintenance: 19 },  // BUILDING_MID_PARK (2×2): 14 after ×0.75
+    25: { cost: 8000,   maintenance: 47 },  // BUILDING_LIDO (3×2), as the beach park until tuned: 35 after ×0.75
   } as Record<number, { cost: number; maintenance: number }>,
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.

@@ -517,11 +517,11 @@ export function runLab(o: LabOptions): Report {
         const s = stadiumResult(loadCity(city));
         report.stadiumRuns[id][city.id] = s;
         const a = s.asIs, v = s.avenues, p = s.prepared;
-        log(`stadium ${id} ${city.id}: ${a ? `fans ${a.wantedShare}× seats (filled ${a.fill}), jam ${a.jam}, PC ${a.pcShare} of cap an event, lasting residents ${a.residents} / PC ${a.pc}, stuck by distance ${a.stuckBy.join('/')}; avenues save ${v?.pcCut ?? '-'} (${v?.stuckBy.join('/') ?? '-'}); prepared save ${p?.pcCut ?? '-'} (${p?.stuckBy.join('/') ?? '-'}), fill ${p?.fill ?? '-'}, ${p?.netPerDay ?? '-'} a day, repays in ${p?.paybackYears ?? '-'} years` : s.note} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        log(`stadium ${id} ${city.id}: ${a ? `fans ${a.wantedShare}× seats (filled ${a.fill}), jam ${a.jam}, PC ${a.pcShare} of cap an event, lasting residents ${a.residents} / PC ${a.pc}, stuck by distance ${a.stuckBy.join('/')}; avenues save ${v?.pcCut ?? '-'} (${v?.stuckBy.join('/') ?? '-'}); prepared save ${p?.pcCut ?? '-'} (${p?.stuckBy.join('/') ?? '-'}), fill ${p?.fill ?? '-'}, ${p?.netPerDay ?? '-'} a day, repays in ${p?.paybackYears ?? '-'} years; rail ${s.rail && 'events' in s.rail ? `save ${s.rail.pcCut ?? '-'} (${s.rail.stuckBy.join('/')}), fill ${s.rail.fill}, lines ${s.rail.lines.join('+')}, most fans on a track tile ${s.rail.railFans} (load ${s.rail.railLoad})` : s.rail?.note ?? '-'}` : s.note} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
         grade('stadium', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, stadium: s });
       }
     }
-    // ── Leisure suite: museum, parks, leisure need and tourism on each saved city ──
+    // ── Leisure suite: museum, leisure need and tourism on each saved city ──
     for (const id of leisureIds) {
       applyValues(BALANCE.politicalCapital as never, shippedPc);
       report.leisureRuns[id] = {};
@@ -531,7 +531,7 @@ export function runLab(o: LabOptions): Report {
         const l = leisureResult(loadCity(city));
         report.leisureRuns[id][city.id] = l;
         const m = l.museum, t = l.tourism;
-        log(`leisure ${id} ${city.id}: museum ${m?.paybackDays ?? '-'} days (${m?.netPerDay ?? '-'} a day); need ${l.need.lacking ?? '-'} of ${l.need.homes} homes lacking; parks ${Object.entries(l.parks).map(([k, p]) => `${k}:${p?.paybackDays ?? '-'}`).join(' ')}; tourism ${t?.share ?? '-'} (${t?.income ?? '-'} a day)${l.note ? ` (${l.note})` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        log(`leisure ${id} ${city.id}: museum ${m?.paybackDays ?? '-'} days (${m?.netPerDay ?? '-'} a day); need ${l.need.lacking ?? '-'} of ${l.need.homes} homes lacking; tourism ${t?.share ?? '-'} (${t?.income ?? '-'} a day)${l.note ? ` (${l.note})` : ''} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
         grade('leisure', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, leisure: l });
       }
     }
@@ -540,8 +540,25 @@ export function runLab(o: LabOptions): Report {
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
   }
   for (const c of o.cities) report.cities.push({ id: c.id, kind: c.kind, population: population.get(c.id) ?? popOf(c) });
-  const summarize = (suite: Suite, keys: string[], into: Report['summary']) => {
-    for (const k of keys) {
+  finishReport(report, {
+    pc: variants, econ: presets, svc: svcIds, trade: tradeIds, taxdebt: taxDebtIds, airport: airportIds,
+    rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds,
+  });
+  return report;
+}
+
+/** Where each suite's summary and best live in the report. */
+const SUMMARY_FIELDS: Record<Suite, [keyof Report, keyof Report]> = {
+  pc: ['summary', 'best'], econ: ['econSummary', 'econBest'], svc: ['svcSummary', 'svcBest'], trade: ['tradeSummary', 'tradeBest'],
+  taxdebt: ['taxDebtSummary', 'taxDebtBest'], airport: ['airportSummary', 'airportBest'], rail: ['railSummary', 'railBest'],
+  landscape: ['landscapeSummary', 'landscapeBest'], lots: ['lotsSummary', 'lotsBest'], stadium: ['stadiumSummary', 'stadiumBest'],
+  leisure: ['leisureSummary', 'leisureBest'],
+};
+
+/** Count pass / fail / n/a per suite and key (variant or preset), pick each suite's best, and the economy verdict. */
+function finishReport(report: Report, keys: Partial<Record<Suite, string[]>>): void {
+  const summarize = (suite: Suite, ks: string[], into: Report['summary']) => {
+    for (const k of ks) {
       const s = { pass: 0, fail: 0, na: 0, later: 0, failing: [] as string[] };
       for (const t of report.targets) {
         if (t.suite !== suite) continue;
@@ -554,24 +571,61 @@ export function runLab(o: LabOptions): Report {
       }
       into[k] = s;
     }
-    const ranked = keys.filter(k => k !== 'Off' && k !== 'original').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
+    const ranked = ks.filter(k => k !== 'Off' && k !== 'original').map(k => ({ variant: k, pass: into[k].pass, of: into[k].pass + into[k].fail })).sort((a, b) => b.pass / Math.max(b.of, 1) - a.pass / Math.max(a.of, 1));
     if (!ranked.length) return null;
     const share = (x: { pass: number; of: number }) => x.pass / Math.max(x.of, 1);
     return { ...ranked[0], tied: ranked.slice(1).filter(x => share(x) === share(ranked[0])).map(x => x.variant) };
   };
-  report.best = summarize('pc', variants, report.summary);
-  report.econBest = summarize('econ', presets, report.econSummary);
-  report.econVerdict = presets.length ? econVerdict(report) : null;
-  report.svcBest = summarize('svc', svcIds, report.svcSummary);
-  report.tradeBest = summarize('trade', tradeIds, report.tradeSummary);
-  report.taxDebtBest = summarize('taxdebt', taxDebtIds, report.taxDebtSummary);
-  report.airportBest = summarize('airport', airportIds, report.airportSummary);
-  report.railBest = summarize('rail', railIds, report.railSummary);
-  report.landscapeBest = summarize('landscape', landscapeIds, report.landscapeSummary);
-  report.lotsBest = summarize('lots', lotsIds, report.lotsSummary);
-  report.stadiumBest = summarize('stadium', stadiumIds, report.stadiumSummary);
-  report.leisureBest = summarize('leisure', leisureIds, report.leisureSummary);
-  return report;
+  const r = report as unknown as Record<string, unknown>;
+  for (const [suite, [sumKey, bestKey]] of Object.entries(SUMMARY_FIELDS) as [Suite, [string, string]][]) {
+    const into = (r[sumKey] ??= {}) as Report['summary'];
+    r[bestKey] = summarize(suite, keys[suite] ?? [], into);
+  }
+  report.econVerdict = (keys.econ ?? []).length ? econVerdict(report) : null;
+}
+
+const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+/** `into` with everything in `from` added, recursing through plain objects (leaves from `from` win). */
+function deepMerge(into: Record<string, unknown>, from: Record<string, unknown>): Record<string, unknown> {
+  for (const [k, v] of Object.entries(from)) into[k] = isPlain(v) && isPlain(into[k]) ? deepMerge(into[k] as Record<string, unknown>, v) : v;
+  return into;
+}
+
+/**
+ * One report from several that each ran some suites on some cities (npm run
+ * balance -- --jobs N runs one child per suite and city): runs, results and
+ * cities joined, the targets in TARGETS order, summaries counted again.
+ */
+export function mergeReports(parts: Report[]): Report {
+  if (!parts.length) throw new Error('nothing to merge');
+  const out = JSON.parse(JSON.stringify(parts[0])) as Report;
+  const byId = new Map(out.targets.map(t => [t.id, t]));
+  const ids = (xs: { id: string }[]) => new Set(xs.map(x => x.id));
+  const bag = out as unknown as Record<string, Record<string, unknown>>;
+  for (const p of parts.slice(1)) {
+    for (const [k, v] of Object.entries(p)) {
+      if (k.endsWith('Runs') || k === 'runs' || k === 'probes') deepMerge((bag[k] ??= {}), v as Record<string, unknown>);
+    }
+    for (const t of p.targets) {
+      const have = byId.get(t.id);
+      if (have) deepMerge(have.results as Record<string, unknown>, t.results as Record<string, unknown>);
+      else byId.set(t.id, JSON.parse(JSON.stringify(t)));
+    }
+    const cities = ids(out.cities);
+    for (const c of p.cities) if (!cities.has(c.id)) out.cities.push(c);
+    for (const key of ['variants', 'econPresets', 'personas'] as const) {
+      const list = out[key] as { id: string }[], have = ids(list);
+      for (const x of p[key] as { id: string }[]) if (!have.has(x.id)) list.push(x);
+    }
+  }
+  out.targets = TARGETS.filter(t => byId.has(t.id)).map(t => byId.get(t.id)!);
+  out.options.suites = [...new Set(parts.flatMap(p => p.options.suites))];
+  out.options.cities = out.cities.map(c => c.id);
+  const keys: Partial<Record<Suite, string[]>> = {};
+  for (const [suite, [sumKey]] of Object.entries(SUMMARY_FIELDS) as [Suite, [keyof Report, keyof Report]][])
+    keys[suite] = [...new Set(parts.flatMap(p => Object.keys((p[sumKey] ?? {}) as object)))];
+  finishReport(out, keys);
+  return out;
 }
 
 /**

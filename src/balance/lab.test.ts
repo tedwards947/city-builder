@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BALANCE } from '../data/balance';
-import { runLab, REPORT_SCHEMA } from './lab';
+import { mergeReports, runLab, REPORT_SCHEMA } from './lab';
 import { TARGETS } from './targets';
 
 // The Balance Lab is a tool, not the game: these checks only say it runs, is
@@ -31,6 +31,14 @@ describe('balance lab', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(id).toMatch(/^(pc|econ|svc|port|goods|debt|tax|airport|rail|land|vibe|water|lots|stadium|leisure)\.[a-zA-Z.]+$/);
   });
+
+  it('two runs merged (npm run balance --jobs) report what one run of both does', () => {
+    const o = { svcPresets: ['shipped'], taxDebtPresets: ['shipped'], personas: ['planner' as const], daysFresh: 40, cities: [{ id: 'fresh', kind: 'fresh' as const, size: 128, seed: 7 }] };
+    const both = runLab({ ...o, suites: ['svc', 'taxdebt'] });
+    const merged = mergeReports([runLab({ ...o, suites: ['svc'] }), runLab({ ...o, suites: ['taxdebt'] })]);
+    const strip = (r: typeof both) => JSON.stringify({ t: r.targets.map(t => [t.id, t.results]), svc: r.svcRuns, tax: r.taxDebtRuns, s: [r.svcSummary, r.taxDebtSummary], cities: r.cities });
+    expect(strip(merged)).toBe(strip(both));
+  }, 120_000);
 
   it('is deterministic', () => {
     const a = small(), b = small();

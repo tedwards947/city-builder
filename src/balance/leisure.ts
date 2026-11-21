@@ -3,38 +3,28 @@
 // On each saved city, against twins:
 //   MUSEUM    the museum on free land beside a street, nearest the middle of the
 //             homes: days for its extra net income to repay its cost.
-//   NEED      the city as saved (1×1 parks only): share of the homes the leisure
+//   NEED      the city as saved: share of the homes the leisure
 //             need applies to (level 2 and up, growing to 3 or merging) that
 //             have no leisure in reach.
-//   PARKS     the big park, the 2×2 park and the plaza, each beside the homes:
-//             days for the extra tax from the homes and shops within 12 tiles
-//             (land value and growth), less upkeep, over the last third of the
-//             run, to repay its cost.
 //   TOURISM   an airport (built if the city has none) with and without the
 //             museum, a big park and a plaza: the extra income ÷ the city's.
 // The leisure.* targets (targets.ts) read the result.
 
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { BUILDING_AIRPORT, BUILDING_BIG_PARK, BUILDING_MID_PARK, BUILDING_MUSEUM, BUILDING_NONE, BUILDING_PLAZA, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_NONE, ZONE_R } from '../sim/constants';
+import { BUILDING_AIRPORT, BUILDING_BIG_PARK, BUILDING_MUSEUM, BUILDING_NONE, BUILDING_PLAZA, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_NONE, ZONE_R } from '../sim/constants';
 import { footprintTiles } from '../sim/buildingShapes';
 import { attractionAt, lacksLeisure } from '../sim/leisureTraffic';
-import { levelWeight } from '../sim/lots';
-import { taxIncomeMult } from '../sim/tax';
-import { ZONE_C } from '../sim/constants';
 import { placeAirport } from './airport';
 import { cloneWorld, startSim } from './world';
 
 const D = BALANCE.ticksPerDay;
-export const PARK_KINDS = [BUILDING_BIG_PARK, BUILDING_MID_PARK, BUILDING_PLAZA];
 
 export interface LeisureResult {
   population: number;
   museum: { paybackDays: number | null; netPerDay: number; fill: number | null } | null;
   /** Homes the need applies to, and the share of them with no leisure in reach. */
   need: { homes: number; lacking: number | null };
-  /** Per park kind: payback days (null: never), net a day over the last third, homes in its reach no longer lacking. */
-  parks: Record<number, { paybackDays: number | null; netPerDay: number; fill: number | null } | null>;
   tourism: { share: number | null; income: number; airportBuilt: boolean } | null;
   note?: string;
 }
@@ -83,55 +73,16 @@ function needShare(w: World): { homes: number; lacking: number | null } {
   return { homes, lacking: homes ? r3(lacking / homes) : null };
 }
 
-/** Tax a tick from the homes and shops on `tiles` (EconomySystem's sum, tile by tile, at the city's tax level). */
-function localTax(w: World, tiles: number[]): number {
-  const L = w.layers, floor = BALANCE.tax.landValueFloor, rates = w.budget.taxRates;
-  let v = 0;
-  for (const i of tiles) {
-    if (!L.devLevel[i] || L.abandoned[i] || (L.zone[i] !== ZONE_R && L.zone[i] !== ZONE_C)) continue;
-    const lvMult = floor + (1 - floor) * (L.landValue[i] / 128);
-    const edu = L.zone[i] === ZONE_R ? 1 + (L.education[i] / 255) * (BALANCE.education.taxMultiplier - 1) : 1;
-    const sick = L.zone[i] === ZONE_R ? 1 - (L.sickness[i] / 255) * BALANCE.healthcare.taxPenalty : 1;
-    v += levelWeight(L.devLevel[i]) * (L.zone[i] === ZONE_R ? rates.R : rates.C) * lvMult * edu * sick;
-  }
-  return v * taxIncomeMult(w.budget.taxLevel);
-}
-
-/** Tiles within `r` of the footprint of `kind` at (x, y). */
-function around(w: World, kind: number, x: number, y: number, r: number): number[] {
-  const { width, height } = w.grid;
-  const t = footprintTiles(width, height, x, y, kind, 0)!;
-  const xs = t.map(i => i % width), ys = t.map(i => (i - (i % width)) / width);
-  const out: number[] = [];
-  for (let yy = Math.max(0, Math.min(...ys) - r); yy <= Math.min(height - 1, Math.max(...ys) + r); yy++)
-    for (let xx = Math.max(0, Math.min(...xs) - r); xx <= Math.min(width - 1, Math.max(...xs) + r); xx++) out.push(yy * width + xx);
-  return out;
-}
-
-/** How far from a park its effect on taxes is counted (its land value reach and the leisure trips round it). */
-const LOCAL_RADIUS = 12;
-
-/**
- * `kind` beside the homes against a twin for `days`; payback from the net over the last `tail` days.
- * Ticketed kinds (the museum) use the city's money; free ones the tax from homes and shops within
- * LOCAL_RADIUS less the upkeep, since a whole city's money drifts more between twins than a park earns.
- */
+/** `kind` (a ticketed attraction) beside the homes against a twin for `days`; payback from the city's net over the last `tail` days. */
 function payback(world: World, kind: number, days: number, tail: number) {
   const a = cloneWorld(world), t = cloneWorld(world);
   const s = place(a, kind);
   if (!s) return null;
-  const local = !(BALANCE.leisure.kinds[kind]?.ticket! > 0);
-  const tiles = local ? around(a, kind, s.x, s.y, LOCAL_RADIUS) : [];
   const sa = startSim(a), st = startSim(t);
   sa.tick((days - tail) * D); st.tick((days - tail) * D);
   const ma = a.budget.money, mt = t.budget.money;
-  let tax = 0;
-  for (let d = 0; d < tail; d++) {
-    sa.tick(D); st.tick(D);
-    if (local) tax += (localTax(a, tiles) - localTax(t, tiles)) * D;
-  }
-  const upkeep = (BALANCE.buildings[kind]?.maintenance ?? 0) * D;
-  const net = local ? tax / tail - upkeep : ((a.budget.money - ma) - (t.budget.money - mt)) / tail;
+  sa.tick(tail * D); st.tick(tail * D);
+  const net = ((a.budget.money - ma) - (t.budget.money - mt)) / tail;
   const info = attractionAt(a, s.x, s.y);
   const cost = BALANCE.buildings[kind]?.cost ?? 0;
   return { paybackDays: net > 0 ? Math.round(cost / net) : null, netPerDay: r3(net), fill: info ? r3(info.arrivals / info.capacity) : null };
@@ -146,13 +97,12 @@ function incomePerDay(w: World, days: number): number {
   return inc / days;
 }
 
-export function leisureResult(saved: World, o: { museumDays?: number; parkDays?: number; tourismDays?: number } = {}): LeisureResult {
+export function leisureResult(saved: World, o: { museumDays?: number; tourismDays?: number } = {}): LeisureResult {
   const world = cloneWorld(saved);
   startSim(world).tick(2 * D);
-  const res: LeisureResult = { population: world.stats.population, museum: null, need: needShare(world), parks: {}, tourism: null };
-  const museumDays = o.museumDays ?? 60, parkDays = o.parkDays ?? 180, tourismDays = o.tourismDays ?? 20;
+  const res: LeisureResult = { population: world.stats.population, museum: null, need: needShare(world), tourism: null };
+  const museumDays = o.museumDays ?? 60, tourismDays = o.tourismDays ?? 20;
   res.museum = payback(world, BUILDING_MUSEUM, museumDays, museumDays / 2);
-  for (const k of PARK_KINDS) res.parks[k] = payback(world, k, parkDays, parkDays / 3);
   // Tourism: the airport twin, and the same with attractions.
   const base = cloneWorld(world);
   const airportBuilt = !base.buildings.some(b => b.kind === BUILDING_AIRPORT);

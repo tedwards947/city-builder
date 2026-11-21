@@ -623,6 +623,10 @@ const STADIUM_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-20): "a really fun problem to solve", so a city that plans for it can fix it.',
     evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const p = o.s.prepared; if (!p) return NA('prepared run did not place');
       return all({ saved: p.pcCut === null ? NA('no PC loss as is') : range(p.pcCut, 0.7), fill: range(p.fill, 0.8) }); } },
+  { id: 'stadium.rail', metric: 'Prepared plus rail (a station beside the stadium and a line from each end to a station among the homes that were stuck): share of the PC loss saved, and seats filled', target: 'saves ≥ 70%, fills ≥ 80%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): show the jam can be solved where avenues fall short (smallercity).',
+    evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const r = o.s.rail; if (!r) return NA('no rail run'); if (!('events' in r)) return NA(r.note);
+      return { ...all({ saved: r.pcCut === null ? NA('no PC loss as is') : range(r.pcCut, 0.7), fill: range(r.fill, 0.8) }), note: `lines of ${r.lines.join(' and ')} tiles; prepared alone saved ${o.s.prepared?.pcCut ?? '-'}` }; } },
   { id: 'stadium.pays', metric: 'Prepared: tickets less upkeep a game day over whole event cycles, and years for that to repay the stadium', target: '≥ 0 a day, repays in 2–4 years', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-20): unique buildings cost a lot, and a stadium the city has planned for pays its way.',
     evaluate: c => { const o = stadiumOf(c); if (!('s' in o)) return o; const p = o.s.prepared; if (!p) return NA('prepared run did not place');
@@ -641,20 +645,14 @@ const LEISURE_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-20): unique buildings cost a lot; a museum is not easy money.',
     evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; const m = o.l.museum; if (!m) return NA('no museum site');
       return m.paybackDays === null ? { value: null, pass: false, miss: 1, note: 'never pays back' } : { ...range(m.paybackDays, 150, 300), note: `${m.netPerDay} a day, ${Math.round((m.fill ?? 0) * 100)}% full` }; } },
-  { id: 'leisure.need', metric: 'Share of the homes the leisure need applies to (level 2 and up) with no leisure in reach, on the city as saved (1×1 parks only)', target: '20–40%', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): bigger homes need leisure nearby; 1×1 parks alone are not enough everywhere.',
+  { id: 'leisure.need', metric: 'Share of the homes the leisure need applies to (level 2 and up) with no leisure in reach, on the city as saved', target: '20–40% (advisory)', persona: 'probe', cities: 'saves', status: 'later',
+    why: 'Owner (2026-11-20): bigger homes need leisure nearby. Advisory since 2026-11-20 (owner): the share follows how many parks a city has (golden-1 10%, gen-s1 76%); kept at one park within about 8 tiles of drive.',
     evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; return { ...range(o.l.need.lacking, 0.2, 0.4), note: `${o.l.need.homes} homes` }; } },
-  { id: 'leisure.parks', metric: 'Game days for a big park, a 2×2 park and a plaza beside the homes to repay their cost from the extra net income (last 60 of 180 days, against a twin)', target: '360–720 days (1–2 game years)', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): parks earn back what they cost through the homes round them, in a year or two.',
-    evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; const parts: Record<string, Outcome> = {};
-      for (const [k, p] of Object.entries(o.l.parks)) parts[PARK_NAMES[+k] ?? k] = !p ? NA('no site') : p.paybackDays === null ? { value: null, pass: false, miss: 1, note: 'never pays back' } : range(p.paybackDays, 360, 720);
-      return all(parts); } },
   { id: 'leisure.tourism', metric: 'Extra income from a museum, a big park and a plaza in a city with an airport ÷ the city\'s income', target: '≤ 10%', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-20): tourism income is tuned together with the running costs so it is not easy money.',
     evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; const t = o.l.tourism; if (!t) return NA(o.l.note ?? 'no tourism probe');
       return { ...range(t.share, -Infinity, 0.1), note: `${t.income} a day${t.airportBuilt ? ', airport built for the probe' : ''}` }; } },
 ];
-const PARK_NAMES: Record<number, string> = { 19: 'bigPark', 24: 'midPark', 21: 'plaza' };
 
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
