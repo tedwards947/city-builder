@@ -7,6 +7,7 @@
 import { World } from '../World';
 import { BUILDING_WATER_TOWER, BUILDING_LARGE_WATER_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { capstoneOutputs } from '../capstones';
 import { spreadUtility, utilityDemand } from './utilityCoverage';
 
 export class WaterSystem {
@@ -15,7 +16,7 @@ export class WaterSystem {
   update(world: World): void {
     const totalSupply = spreadUtility(
       world, world.layers.water,
-      { [BUILDING_WATER_TOWER]: BALANCE.water.towerOutput, [BUILDING_LARGE_WATER_PLANT]: BALANCE.water.largePlantOutput },
+      { [BUILDING_WATER_TOWER]: BALANCE.water.towerOutput, [BUILDING_LARGE_WATER_PLANT]: BALANCE.water.largePlantOutput, ...capstoneOutputs('water') },
       0, BALANCE.water.propagationRange,
     );
     // Demand from developed zones (abandoned tiles consume nothing).

@@ -25,6 +25,8 @@ import { PC_SYMBOL } from './pcFormat';
 import { ordinancesShown } from './OrdinancePanel';
 import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
+import { BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY } from '../sim/constants';
+import { DEBUG } from '../debug';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
@@ -61,6 +63,9 @@ export interface ToolbarFamily {
   items: ToolbarItem[];
 }
 export type ToolbarEntry = ToolbarItem | ToolbarFamily | 'sep';
+
+/** The capstone tools are offered only with ?debug=true for now. */
+const capstonesShown = (): boolean => DEBUG;
 
 export const TOOLBAR: ToolbarEntry[] = [
   { key: 'view', icon: 'view', tool: 'none', hotkey: '1' },
@@ -123,6 +128,17 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'museum', icon: 'museum', tool: 'museum' },
     { key: 'stadium', icon: 'stadium', tool: 'stadium' },
   ] },
+  // Capstones (CAPSTONE_DESIGN.md): whole-city buildings, one of each per city, in the order they unlock.
+  // ?debug=true only until their art and whole-city coverage are in.
+  { family: 'capstones', icon: 'monument', items: [
+    { key: 'sewageWorks', icon: 'sewage', tool: 'sewageWorks', shown: capstonesShown },
+    { key: 'waterworks', icon: 'water', tool: 'waterworks', shown: capstonesShown },
+    { key: 'fireHq', icon: 'fire', tool: 'fireHq', shown: capstonesShown },
+    { key: 'policeHq', icon: 'police', tool: 'policeHq', shown: capstonesShown },
+    { key: 'generalHospital', icon: 'hospital', tool: 'generalHospital', shown: capstonesShown },
+    { key: 'nuclearPlant', icon: 'power', tool: 'nuclearPlant', shown: capstonesShown },
+    { key: 'university', icon: 'school', tool: 'university', shown: capstonesShown },
+  ] },
   // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
   { family: 'landscape', icon: 'tree', items: [
     { key: 'trees', icon: 'tree', tool: 'trees', hotkey: 'k' },
@@ -158,6 +174,7 @@ export const TOOLBAR: ToolbarEntry[] = [
 ];
 
 const BUILDING_KIND: Partial<Record<Tool, number>> = {
+  sewageWorks: BUILDING_SEWAGE_WORKS, waterworks: BUILDING_WATERWORKS, fireHq: BUILDING_FIRE_HQ, policeHq: BUILDING_POLICE_HQ, generalHospital: BUILDING_GENERAL_HOSPITAL, nuclearPlant: BUILDING_NUCLEAR_PLANT, university: BUILDING_UNIVERSITY,
   midPark: BUILDING_MID_PARK, bigPark: BUILDING_BIG_PARK, beachPark: BUILDING_BEACH_PARK, lido: BUILDING_LIDO, plaza: BUILDING_PLAZA, museum: BUILDING_MUSEUM, stadium: BUILDING_STADIUM,
   power: BUILDING_POWER_PLANT, water: BUILDING_WATER_TOWER, sewage: BUILDING_SEWAGE_PLANT,
   largePower: BUILDING_LARGE_POWER_PLANT, largeWater: BUILDING_LARGE_WATER_PLANT, largeSewage: BUILDING_LARGE_SEWAGE_PLANT, seaport: BUILDING_SEAPORT, airport: BUILDING_AIRPORT, station: BUILDING_STATION, stationL: BUILDING_STATION_L,

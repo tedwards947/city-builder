@@ -26,6 +26,7 @@
 // The renderer imports this too: engine and graphics must agree on the anchor
 // and the offsets.
 
+import { BALANCE } from '../data/balance';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM, BUILDING_MID_PARK, BUILDING_LIDO, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
@@ -214,6 +215,11 @@ setBuildingShape(BUILDING_LIDO, block(3, 2));
 setBuildingShape(BUILDING_PLAZA, block(2, 2));
 setBuildingShape(BUILDING_MUSEUM, block(2, 2));
 setBuildingShape(BUILDING_STADIUM, [...block(4, 4), [1, 4], [2, 4]]);
+// Capstones (CAPSTONE_DESIGN.md): plain blocks of the size in BALANCE.capstones.kinds, read once here.
+for (const kind in BALANCE.capstones.kinds) {
+  const [w, h] = BALANCE.capstones.kinds[kind].size;
+  setBuildingShape(Number(kind), block(Math.max(1, w), Math.max(1, h)));
+}
 // The train stations (RAIL_DESIGN.md; resized by the owner, TODO "station
 // resize"). STRAIGHT: three tiles in a row, ALL platform, the anchor at one
 // end; at rotation 0 they run east from the anchor, and track joins straight
@@ -300,6 +306,11 @@ setPlacementRules(BUILDING_LIDO, { needsWaterEdge: true });
 setPlacementRules(BUILDING_PLAZA, { noRotation: true });
 setPlacementRules(BUILDING_MUSEUM, { noRotation: true, onePerCity: true });
 setPlacementRules(BUILDING_STADIUM, { noRotation: true, onePerCity: true });
+// Capstones: one of each per city. A square one has one facing; the Waterworks is a pump and stands beside water.
+for (const kind in BALANCE.capstones.kinds) {
+  const row = BALANCE.capstones.kinds[kind];
+  setPlacementRules(Number(kind), { onePerCity: true, ...(row.size[0] === row.size[1] ? { noRotation: true } : {}), ...(row.need === 'water' ? { needsWaterEdge: true } : {}) });
+}
 
 /**
  * Tile indices a `kind` building anchored at (tx, ty) and turned `rot`

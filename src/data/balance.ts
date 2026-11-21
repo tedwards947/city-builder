@@ -22,6 +22,21 @@ export interface BuildingTrafficRow {
 }
 
 /** What one leisure building kind is (BALANCE.leisure.kinds, sim/leisure.ts). */
+export type CapstoneNeed = 'power' | 'water' | 'sewage' | 'police' | 'fire' | 'school' | 'hospital';
+
+/** One capstone kind (BALANCE.capstones.kinds; sim/capstones.ts). */
+export interface CapstoneRow {
+  need: CapstoneNeed;
+  /** Footprint at rotation 0: tiles wide, tiles deep. */
+  size: [number, number];
+  /** Residents the city must have (or have had) before it can be built. */
+  unlockPopulation: number;
+  /** Extra cost a day for each resident it serves. */
+  perResident: number;
+  /** Utilities only: what it supplies. */
+  output?: number;
+}
+
 export interface LeisureRow {
   category: 'parks' | 'unique';
   unlockPopulation: number;
@@ -112,7 +127,38 @@ export const BALANCE = {
     23: { cost: 400000, maintenance: 74 },  // BUILDING_STADIUM (4×4 + plaza, one per city): stadium suite, tickets less upkeep about break-even to +400 a day
     24: { cost: 2500,   maintenance: 19 },  // BUILDING_MID_PARK (2×2): 14 after ×0.75
     25: { cost: 8000,   maintenance: 47 },  // BUILDING_LIDO (3×2), as the beach park until tuned: 35 after ×0.75
+    // Capstones (CAPSTONE_DESIGN.md, ENGINEER 3's model 2026-11-20): the airport's band to build. No fixed
+    // upkeep: what one costs to run grows with the residents it serves (capstones.kinds[kind].perResident).
+    26: { cost: 1000000, maintenance: 0 },  // BUILDING_SEWAGE_WORKS
+    27: { cost: 1000000, maintenance: 0 },  // BUILDING_WATERWORKS
+    28: { cost: 1250000, maintenance: 0 },  // BUILDING_FIRE_HQ
+    29: { cost: 1500000, maintenance: 0 },  // BUILDING_POLICE_HQ
+    30: { cost: 2000000, maintenance: 0 },  // BUILDING_GENERAL_HOSPITAL
+    31: { cost: 2500000, maintenance: 0 },  // BUILDING_NUCLEAR_PLANT
+    32: { cost: 3000000, maintenance: 0 },  // BUILDING_UNIVERSITY
   } as Record<number, { cost: number; maintenance: number }>,
+  // ── Capstones (CAPSTONE_DESIGN.md, sim/capstones.ts) ─────────────────────────
+  // Seven whole-city buildings, one of each per city. One row per kind:
+  //   need              What it meets: a utility (power, water, sewage) or a service (police, fire, school, hospital).
+  //   size              Footprint, tiles wide × deep at rotation 0. Read when the game starts: a change needs a
+  //                     reload. The Fire Headquarters is its runway's length × 5 (owner 2026-11-21, at least 8×5);
+  //                     the General Hospital 6×4 or 6×5 (the owner is choosing).
+  //   unlockPopulation  Residents the city must have (or have had) before it can be built.
+  //   perResident       What it costs a day for each resident it serves, on top of the normal running cost
+  //                     (runningCost): about 1.5× what it replaces at every size. ENGINEER 3's starting rates.
+  //   output            Utilities only: what it supplies. Far more than any city needs.
+  // Build costs are in `buildings` above.
+  capstones: {
+    kinds: {
+      26: { need: 'sewage',   size: [4, 4], unlockPopulation: 10000, perResident: 0.23,  output: 1000000 },  // Sewage Works
+      27: { need: 'water',    size: [4, 4], unlockPopulation: 12500, perResident: 0.085, output: 1000000 },  // Waterworks (beside water)
+      28: { need: 'fire',     size: [8, 5], unlockPopulation: 15000, perResident: 0.09 },                    // Fire Headquarters, with its runway
+      29: { need: 'police',   size: [4, 4], unlockPopulation: 20000, perResident: 0.11 },                    // Police Headquarters
+      30: { need: 'hospital', size: [6, 4], unlockPopulation: 25000, perResident: 0.07 },                    // General Hospital
+      31: { need: 'power',    size: [4, 4], unlockPopulation: 30000, perResident: 0.30,  output: 1000000 },  // Nuclear Power Station
+      32: { need: 'school',   size: [8, 8], unlockPopulation: 40000, perResident: 0.06 },                    // University
+    } as Record<number, CapstoneRow>,
+  },
   // ── Outside connections (CONNECTIONS_DESIGN.md, sim/connections.ts) ─────────
   // The fixed points on the map's edges where a highway or a rail line joins the region.
   //   minSize    Maps smaller than this (the shorter side, in tiles) get no points.

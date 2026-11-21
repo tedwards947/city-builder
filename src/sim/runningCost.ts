@@ -19,6 +19,7 @@
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
+import { capstoneResidents, capstoneRow, capstoneWorking } from './capstones';
 import {
   BUILDING_FIRE, BUILDING_HOSPITAL, BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_LARGE_WATER_PLANT,
   BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_SCHOOL, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, ZONE_R,
@@ -33,6 +34,8 @@ export interface HeadcountCost {
   utilities: Record<Utility, number>;
   /** Residents each service kind covers. */
   residents: Record<number, number>;
+  /** Per tick, by capstone kind standing in the city (sim/capstones.ts): its extra per resident it serves. */
+  capstones: Record<number, number>;
   /** Per tick, all of it. */
   total: number;
   /** The share charged: (population − freeResidents) ÷ population, 0–1; every figure above is already scaled by it. */
@@ -91,11 +94,24 @@ export function headcountCost(world: World): HeadcountCost {
   };
   const utilities = { power: 0, water: 0, sewage: 0 } as Record<Utility, number>;
   for (const u of ['power', 'water', 'sewage'] as const) {
-    const out = OUTPUT[u](), small = (count[PLANTS[u].small] ?? 0) * out.small, large = (count[PLANTS[u].large] ?? 0) * out.large;
+    const out = OUTPUT[u](), large = (count[PLANTS[u].large] ?? 0) * out.large;
+    // A capstone at work supplies at the small plants' rate (CAPSTONE_DESIGN.md: measured against small plants).
+    let small = (count[PLANTS[u].small] ?? 0) * out.small;
+    for (const b of world.buildings) {
+      const row = capstoneRow(b.kind);
+      if (row && row.need === u && row.output! > 0 && capstoneWorking(world, b)) small += row.output!;
+    }
     if (small + large <= 0 || supplied[u] <= 0) continue;
     const largeShare = large / (small + large);
     utilities[u] = supplied[u] * ((1 - largeShare) * perUnitCost(u, false) + largeShare * perUnitCost(u, true)) * perTick * charged;
     total += utilities[u];
   }
-  return { services, utilities, residents, total, charged };
+  // Capstones: the extra each costs for every resident it serves.
+  const capstones: Record<number, number> = {};
+  const served = capstoneResidents(world, population);
+  for (const k in served) {
+    capstones[k] = served[k] * (capstoneRow(Number(k))?.perResident ?? 0) * perTick * charged;
+    total += capstones[k];
+  }
+  return { services, utilities, residents, capstones, total, charged };
 }

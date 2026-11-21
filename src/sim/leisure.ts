@@ -45,9 +45,9 @@ export function countsAsPark(kind: number): boolean {
   return rows()[kind]?.countsAsPark === true;
 }
 
-/** Residents a city must have had before `kind` can be built; 0 for a kind with no lock. */
+/** Residents a city must have had before `kind` can be built (a leisure kind's or a capstone's row); 0 for a kind with no lock. */
 export function unlockPopulation(kind: number): number {
-  return rows()[kind]?.unlockPopulation ?? 0;
+  return rows()[kind]?.unlockPopulation ?? BALANCE.capstones.kinds[kind]?.unlockPopulation ?? 0;
 }
 
 /**
