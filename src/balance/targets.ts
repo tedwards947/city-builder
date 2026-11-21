@@ -25,9 +25,10 @@ import type { LotsResult } from './lots';
 import type { StadiumResult } from './stadium';
 import type { LeisureResult } from './leisure';
 import type { PaceResult } from './pace';
+import type { ConnectionsResult } from './connections';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots' | 'stadium' | 'leisure';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots' | 'stadium' | 'leisure' | 'connections';
 
 export interface Outcome {
   value: unknown;
@@ -67,6 +68,8 @@ export interface EvalCtx {
   stadium?: StadiumResult | null;
   /** Leisure suite: museum, parks, leisure need and tourism probes on a saved city (src/balance/leisure.ts). */
   leisure?: LeisureResult | null;
+  /** Connections suite: highway and rail points joined on copies of a saved city (src/balance/connections.ts). */
+  connections?: ConnectionsResult | null;
   /** Economy suite, saved cities: the neutral-tax surplus and the police / fire fix (src/balance/pace.ts). */
   pace?: PaceResult | null;
 }
@@ -642,6 +645,50 @@ const LEISURE_TARGETS: Omit<Target, 'suite'>[] = [
       return { ...range(t.share, -Infinity, 0.1), note: `${t.income} a day${t.airportBuilt ? ', airport built for the probe' : ''}` }; } },
 ];
 
+// Outside connections (CONNECTIONS_DESIGN.md, phase 5; owner 2026-11-20/21). On copies of each saved
+// city the nearest highway point is joined by the shortest highway to the nearest road, then the two
+// nearest, then the nearest rail point by ground track to the city's line (src/balance/connections.ts).
+// The jam targets need a city of 20k or more (the design's "20k city") whose point meets an avenue that was not already full:
+// a street jams anything and a highway nothing, so those say little about the numbers.
+const connOf = (c: EvalCtx): { r: ConnectionsResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  const r = c.connections; if (!r) return NA('no connections probe');
+  if (r.note) return NA(r.note);
+  return { r };
+};
+const ROAD_NAMES = ['none', 'a street', 'an avenue', 'a highway'];
+const jamCase = (r: ConnectionsResult): Outcome | null => {
+  if (r.population < 20000) return NA(`under 20k residents (${r.population})`);
+  const one = r.one; if (!one) return NA('no highway point can be joined');
+  if (one.meetsClass !== 2) return NA(`the nearest point meets ${ROAD_NAMES[one.meetsClass] ?? 'a road'}, not an avenue`);
+  if (one.meetBefore >= 1) return NA(`its avenue was full before joining (${one.meetBefore})`);
+  return null;
+};
+
+const CONNECTIONS_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'connections.entryJam', metric: 'Peak load of the avenue the nearest highway point\'s road meets, that one point joined', target: '≥ 1.0 (jammed at peak)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Design target (owner 2026-11-20): a 20k city with one joined highway point has a jammed entry road at peak; the fix is a second connection.',
+    evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const na = jamCase(o.r); if (na) return na; const one = o.r.one!;
+      return { ...range(one.meetPeak, 1), note: `${one.meetBefore} before; ${one.visitorsIn} tourists, ${one.dayTrippers} day-trippers, ${one.residentsOut} out, ${one.trucks} trucks a tick` }; } },
+  { id: 'connections.twoPoints', metric: 'Peak load of that same avenue with the second-nearest highway point joined too', target: '< 1.0 (no longer jammed)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Design target (owner 2026-11-20): with two joined points the entry road copes. Visitors split between the points; residents going out fill each point\'s room either way.',
+    evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const na = jamCase(o.r); if (na) return na; const two = o.r.two; if (!two) return NA('only one highway point can be joined');
+      const v = two[0].meetPeak; return { value: v, pass: v < 1, miss: v < 1 ? 0 : r3(v - 1 + 1e-3), note: `second point's road ${two[1].meetPeak} (${two[1].meetBefore} before)` }; } },
+  { id: 'connections.exports', metric: 'Money a game day from export trucks leaving by the nearest joined highway point, where industry is within port.reach of it', target: '$500–800 a day', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): exports by highway are a small seaport, a little income for inland cities, not a new economy.',
+    evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const one = o.r.one; if (!one) return NA('no highway point can be joined');
+      if (!(one.trucks > 0)) return NA('no industry within reach of the point');
+      return { ...range(one.exportIncomePerDay, 500, 800), note: `${one.trucks} trucks a tick` }; } },
+  { id: 'connections.industryNeutral', metric: 'Industrial levels after the run with the nearest highway point joined ÷ without', target: 'within ±3%', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): highway exports earn the port\'s price with no boost to industry.',
+    evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const i = o.r.industry; if (!i) return NA('no highway point can be joined'); if (!(i.base > 0)) return NA('no industry');
+      return { ...range(i.one / i.base, 0.97, 1.03), note: `${i.base} → ${i.one} levels` }; } },
+  { id: 'connections.railIn', metric: 'Riders a tick the nearest rail point brings in (tourists and day-trippers), joined by ground track to the city\'s line; its track\'s peak load; road tiles newly at capacity', target: '≥ 40 in, track ≤ 0.8, at most 5 more jammed road tiles', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-21): rail carries a lot more than a highway (200 a tick, about 3×), spread over the stations, so it lifts visitors without jamming roads.',
+    evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const rl = o.r.rail; if (!rl) return NA('no rail probe'); if (!('inPerTick' in rl)) return NA(rl.note);
+      return all({ in: range(rl.inPerTick, 40), track: range(rl.trackPeak, 0, 0.8), jam: { ...range(rl.jammedAfter - rl.jammedBefore, -Infinity, 5), note: `${rl.jammedBefore} → ${rl.jammedAfter} jammed tiles` } }); } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
@@ -654,4 +701,5 @@ export const TARGETS: Target[] = [
   ...LOTS_TARGETS.map(t => ({ ...t, suite: 'lots' as const })),
   ...STADIUM_TARGETS.map(t => ({ ...t, suite: 'stadium' as const })),
   ...LEISURE_TARGETS.map(t => ({ ...t, suite: 'leisure' as const })),
+  ...CONNECTIONS_TARGETS.map(t => ({ ...t, suite: 'connections' as const })),
 ];

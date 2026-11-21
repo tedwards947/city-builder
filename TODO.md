@@ -163,12 +163,12 @@ Approved by the owner (2026-11-19, proposals in #305):
 - Leisure need follows park coverage (owner, 2026-11-20): `leisureGrowthMult` asks `coveredBy(world, BUILDING_PARK)` (every park kind) instead of the leisure market's reach; `leisure.need.minReach` is gone. Park ranges kept at 6 / 9 / 12 (#447): golden-1 17%, smallercity 18%, new_city2 18%, testcity1 26% of homes lacking, the park-poor gen-s1 45%. Rail on the owner's new_city2 (overloaded look): the owner keeps capacity 250 and rail.parallel; graphics reworks how rail load is shown.
 - Stadium toned down (owner, 2026-11-20): fansPerLevel 0.27, 500 seats, ticket 1, upkeep 74, `jam.eventShare` 1, pcPerStuckResident 0.01, `dropAfter` 0, and a new smooth-event reward (`smooth`: ≥ 75% of seatable fans in, ≤ 6% of residents stuck → 5% of the PC cap, reason `eventSmooth`, up to the cap). Stadium suite rebuilt: as built and with one subway line; targets stadium.crowd, .copes, .pc, .noDrops, .money (replacing #444's).
 - Free Transit costs money by city size (owner, 2026-11-21): 0.075 a resident a day in place of the fixed 700 (`dailyMoneyPerResident`, `dailyMoneyOf`). A/B on the saved cities: every city now pays $160–1,340 a day net (the fixed 700 left road cities better off with it on, since fewer car trips earn back $0.5–4k a day).
+- Connections numbers and suite (owner 2026-11-21): highway 70 in / 15 out / 10 trucks, `shopPull` 0.07, rail 200; export trucks limited at highway points only (`limitedAtEntriesOnly`, seaports unchanged). Suite `connections` (`src/balance/connections.ts`): connections.entryJam, .twoPoints (20k+, point onto an avenue), .exports, .industryNeutral, .railIn. One point jams its avenue at 1.02–1.33 on the 20–30k cities, two bring it to 0.61–0.98; one miss (suburban 25k, avenue 0.75 full before joining).
 - Paper models for the owner (2026-11-20/21, recorded by the PM): capstone costs (running cost about 1.5× what it replaces, per covered resident; $1–3M to build) and a capstone closure cap at 50% of the PC cap (CAPSTONE_DESIGN.md).
 
 Next:
-1. Highway connections numbers and lab targets (`connections.entryJam`, `.twoPoints`, `.exports`, `.industryNeutral`; proposed residentsOut 40, visitors 40), waiting on ENGINE making a point's outbound room a real limit (today every home whose nearest exit is the point drives there whatever `residentsOut` says).
-2. Capstone lab targets once the engine builds the kinds.
-3. Waiting on the owner: rates that rise with city size (after the owner plays).
+1. Capstone C3: numbers and lab targets; judge the extra running cost charged per resident seated at the capstone (vs the whole covered population).
+2. Waiting on the owner: rates that rise with city size (after the owner plays).
 
 ## UI COPY
 

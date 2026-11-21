@@ -14,6 +14,7 @@ import { landscapeResult, treeBufferResult, type LandscapeResult } from './lands
 import { lotsResult, type LotsResult } from './lots';
 import { stadiumResult, type StadiumResult, type StadiumRun } from './stadium';
 import { leisureResult, type LeisureResult } from './leisure';
+import { connectionsResult, type ConnectionsResult } from './connections';
 import { paceResult } from './pace';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
@@ -168,6 +169,9 @@ export interface Report {
   leisureSummary: Record<string, Summary>;
   leisureBest: Best | null;
   leisureRuns: Record<string, Record<string, LeisureResult>>;
+  connectionsSummary: Record<string, Summary>;
+  connectionsBest: Best | null;
+  connectionsRuns: Record<string, Record<string, ConnectionsResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -247,7 +251,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -265,6 +269,7 @@ export function runLab(o: LabOptions): Report {
   const lotsIds = suites.includes('lots') ? ['shipped'] : [];
   const stadiumIds = suites.includes('stadium') ? ['shipped'] : [];
   const leisureIds = suites.includes('leisure') ? ['shipped'] : [];
+  const connectionsIds = suites.includes('connections') ? ['shipped'] : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -317,6 +322,9 @@ export function runLab(o: LabOptions): Report {
     leisureSummary: {},
     leisureBest: null,
     leisureRuns: {},
+    connectionsSummary: {},
+    connectionsBest: null,
+    connectionsRuns: {},
     taxDebtRuns: {},
     runs: {},
     probes: {},
@@ -536,6 +544,21 @@ export function runLab(o: LabOptions): Report {
         grade('leisure', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, leisure: l });
       }
     }
+    // ── Connections suite: highway and rail points joined on copies of each saved city ──
+    for (const id of connectionsIds) {
+      applyValues(BALANCE.politicalCapital as never, shippedPc);
+      report.connectionsRuns[id] = {};
+      for (const city of o.cities) {
+        if (city.kind === 'fresh') continue;
+        const t0 = Date.now();
+        const r = connectionsResult(loadCity(city));
+        report.connectionsRuns[id][city.id] = r;
+        const hw = (h: { meetsClass: number; meetBefore: number; meetPeak: number }) => `road ${h.meetsClass} ${h.meetBefore}→${h.meetPeak}`;
+        const rl = r.rail && 'inPerTick' in r.rail ? `rail ${r.rail.inPerTick} in, track ${r.rail.trackPeak}, jammed ${r.rail.jammedBefore}→${r.rail.jammedAfter}` : `rail: ${r.rail?.note ?? '-'}`;
+        log(`connections ${id} ${city.id}: ${r.note ?? `one ${r.one ? `${hw(r.one)}, $${r.one.exportIncomePerDay} exports` : '-'}; two ${r.two ? `${hw(r.two[0])} / ${hw(r.two[1])}` : '-'}; industry ${r.industry ? `${r.industry.base}→${r.industry.one}` : '-'}; ${rl}`} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        grade('connections', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, connections: r });
+      }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -543,7 +566,7 @@ export function runLab(o: LabOptions): Report {
   for (const c of o.cities) report.cities.push({ id: c.id, kind: c.kind, population: population.get(c.id) ?? popOf(c) });
   finishReport(report, {
     pc: variants, econ: presets, svc: svcIds, trade: tradeIds, taxdebt: taxDebtIds, airport: airportIds,
-    rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds,
+    rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds, connections: connectionsIds,
   });
   return report;
 }
@@ -553,7 +576,7 @@ const SUMMARY_FIELDS: Record<Suite, [keyof Report, keyof Report]> = {
   pc: ['summary', 'best'], econ: ['econSummary', 'econBest'], svc: ['svcSummary', 'svcBest'], trade: ['tradeSummary', 'tradeBest'],
   taxdebt: ['taxDebtSummary', 'taxDebtBest'], airport: ['airportSummary', 'airportBest'], rail: ['railSummary', 'railBest'],
   landscape: ['landscapeSummary', 'landscapeBest'], lots: ['lotsSummary', 'lotsBest'], stadium: ['stadiumSummary', 'stadiumBest'],
-  leisure: ['leisureSummary', 'leisureBest'],
+  leisure: ['leisureSummary', 'leisureBest'], connections: ['connectionsSummary', 'connectionsBest'],
 };
 
 /** Count pass / fail / n/a per suite and key (variant or preset), pick each suite's best, and the economy verdict. */

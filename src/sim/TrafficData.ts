@@ -74,6 +74,11 @@ export interface MarketDef {
    * not fit stays home (counted in the field's `stranded`).
    */
   limited?: boolean;
+  /**
+   * With `limited`: only doors at an outside connection (a highway point) are limited; any other
+   * door (a seaport) takes every trip that comes, as before.
+   */
+  limitedAtEntriesOnly?: boolean;
 }
 
 export const MARKET_DEFS: readonly MarketDef[] = [
@@ -86,7 +91,10 @@ export const MARKET_DEFS: readonly MarketDef[] = [
   // so with no connected port (or the trips switched off) this market does not run at all.
   { key: 'exports',  origin: ZONE_I, dest: NO_ZONE,
     rate: () => BALANCE.port.exportTripsPerLevel, capacity: () => 0,
-    weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach },
+    weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach,
+    // Limited at highway points only (2026-11-21, ENGINEER 3): a point takes its `exportTrucks` and no
+    // more drive to it; the rest try another door (a port, another point) or stay put. Seaports unchanged.
+    limited: true, limitedAtEntriesOnly: true },
   // Homes send visitors to buildings that draw them (an airport, a landmark: BALANCE.transit.buildings).
   // No zone receives visitors, so with no such building (or the trips at 0) this market does not run.
   // Limited (2026-11-21): an airport or a highway to the region takes its room's worth and no more set out.

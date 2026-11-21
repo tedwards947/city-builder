@@ -142,6 +142,8 @@ export class TransitSystem {
   private _doorWant: Float32Array | null = null;
   private _placeRoom: Float32Array | null = null;
   private _doorShut: Uint8Array | null = null;
+  // A limited market with limitedAtEntriesOnly: the doors that are not limited (a seaport's), this market.
+  private _unlimitedDoor: ((roadTile: number) => boolean) | undefined;
   private _cost!: Float32Array;     // travel cost per road tile this iteration
   // Per road class byte: travel cost per tile (1 / speedMult). Refreshed each pass.
   private readonly _classCost: number[] = [0, 1, 1, 1];
@@ -791,6 +793,8 @@ export class TransitSystem {
       const wanted = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
       const limited = def.limited === true && def.dest === NO_ZONE;
       // A limited market: each door's room's worth sets out; the rest wait in _retryFlow for a second try.
+      const unlimitedDoor = limited && def.limitedAtEntriesOnly === true ? (ri: number) => !isEntryTile(world, ri) : undefined;
+      this._unlimitedDoor = unlimitedDoor;
       const demand = limited ? this._limitToRoom(field, this._flow, true) : wanted;
       this._openDoors(field, demand);
       this._sweep(field, this._flow, field.doorLoad, true);
@@ -1052,7 +1056,9 @@ export class TransitSystem {
     for (let k = 0; k < count; k++) {
       const i = order[k];
       if (parent[i] >= 0) continue;
-      placeRoom[doorOf[i]] += first ? doorCap[i] : room[i];
+      // A door with no limit (MarketDef.limitedAtEntriesOnly: a seaport) has room for everything.
+      const free = this._unlimitedDoor !== undefined && i < this._n && this._unlimitedDoor(i);
+      placeRoom[doorOf[i]] += free ? Infinity : first ? doorCap[i] : room[i];
       if (first) shut[i] = 0;
     }
     // Each node's place: where its quickest way ends. Doors come before what leads to them in `order`.
@@ -1089,7 +1095,7 @@ export class TransitSystem {
     let any = false;
     for (let k = 0; k < field.count && !any; k++) {
       const i = field.order[k];
-      if (field.parent[i] < 0 && shut[i] === 0 && room[i] > 1e-6) any = true;
+      if (field.parent[i] < 0 && shut[i] === 0 && (room[i] > 1e-6 || (this._unlimitedDoor !== undefined && i < this._n && this._unlimitedDoor(i)))) any = true;
     }
     if (!any) { field.stranded += turnedAway; return; }
     const route = this._retryRoute ??= makeTrafficField(NODES_PER_TILE * this._n);
