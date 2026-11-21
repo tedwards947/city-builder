@@ -308,7 +308,7 @@ export interface TranslationSchema {
       open: string;
       none: string;
       noneNote: string;
-      progressBy: Record<'homes' | 'roads' | 'lots' | 'city', string>;
+      progressBy: Record<'homes' | 'roads' | 'lots' | 'city' | 'park' | 'parkMet', string>;
       /** Why the asking homes still lack the service: every building in reach is full, or none reaches them. */
       unmet: {
         full: Record<'police' | 'fire' | 'school' | 'hospital', string>;

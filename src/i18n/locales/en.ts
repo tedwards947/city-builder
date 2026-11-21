@@ -399,6 +399,8 @@ export const en: TranslationSchema = {
         roads: "{covered}% of roads clear, {needed}% needed",
         lots: "{covered}% of lots in use, {needed}% needed",
         city: "waiting for the shortage to end",
+        park: "no park reaches this area yet",
+        parkMet: "a park reaches this area",
       },
       unmet: {
         full: { police: "nearby police stations are full", fire: "nearby fire stations are full", school: "nearby schools are full", hospital: "nearby hospitals are full" },
