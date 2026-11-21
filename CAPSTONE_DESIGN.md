@@ -29,7 +29,7 @@ Owner, 2026-11-20: these are expensive, so they should be **big and ornate**, an
 ## Proposed rules (PM defaults, open to change)
 - **One of each per city.** A separate **Capstones** toolbar category. Locked items show greyed out with the population needed.
 - **Old buildings keep working.** Nothing is removed. A small station that no longer adds coverage costs almost no PC to close (under the PC services rule, residents still covered lose very little), so the player tidies up at their own pace and gets the land back.
-- **A single point of failure.** If its road is cut or it's bulldozed, the whole city loses that need at once (police, fire, school, hospital; see Engine plan). Keeping a few old buildings is insurance. That's a fun risk, not a bug.
+- **A single point of failure.** If its road is cut or it's bulldozed, the whole city loses that need at once (all seven; see Engine plan). Keeping a few old buildings is insurance. That's a fun risk, not a bug.
 - **Affordability.** It costs about as much as the airport to build ($1–3M), and its upkeep is about **2× the upkeep of the small buildings it replaces** in a 20k city. So it's a luxury bought with convenience and land, not a saving. ENGINEER 3 tunes it so a 20k city with a healthy surplus can carry one or two, and only a strong city carries all seven.
 
 ## Questions for the owner
@@ -66,7 +66,7 @@ ENGINEER 3 measured 15 cities (10k–40k, 10 days each). The small buildings a c
 - Not modelled: the land freed by about 140 small buildings at 40k, which becomes homes and income.
 
 ## Engine plan (owner-approved 2026-11-21)
-- **Utility capstones have no road weak spot.** Power, water and sewage spread through zones, not streets, and a plant works without a road; a utility capstone is a very large output, one per city, with an unlock. (This corrects the table above.) The Waterworks still needs open water, and stops supplying if the water beside it is filled in.
+- **Utility capstones need a road too** (engine correction, 2026-11-21; the table above was right). A power, water or sewage plant needs a street or avenue beside it and serves that road network (plus a few tiles round it). So a utility capstone has the same single point of failure as the service ones: cut its street and it supplies nothing, and a district on a separate road network isn't served. It is otherwise a very large output, one per city, with an unlock. The Waterworks also needs open water, and stops supplying if the water beside it is filled in.
 - **"Joined by road"** = every home on the same road network as the capstone's street, **highways included**, so a suburb reached only by highway counts.
 - **Seats:** a home a capstone covers needs no school or hospital seat; the small buildings' seats go to nobody. This is the main engine work.
 - **Failure:** service buildings don't burn or get abandoned today, so a capstone is lost only when its road is cut or it's bulldozed. Bulldozing it charges the normal PC services rule for the whole city, **capped at 50% of the PC cap for one capstone** (owner, 2026-11-21). ENGINEER 3's model: uncapped, a city that removed its small buildings would pay 47–76% of the cap at 20k, up to 100% for the university at 40k, and the charge can take PC below 0. A city that kept small buildings pays almost nothing (residents are re-seated).
