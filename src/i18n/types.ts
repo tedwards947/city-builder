@@ -105,6 +105,7 @@ export interface TranslationSchema {
       eventLast: string;
       eventStrain: string;
       noLeisure: string;
+      leisureCrowded: string;
       tripLeisureNone: string;
       attractionVisitors: string;
       attractionEarns: string;

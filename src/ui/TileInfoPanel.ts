@@ -123,7 +123,8 @@ function tripRows(world: World, i: number): string {
     const door = world.layers.lot[i] !== 0 ? doorTile(world, i) : i;
     const strain = world.eventStrain[i], dropAfter = BALANCE.leisure.event.dropAfter;
     if (strain > 0 && dropAfter > 0) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.eventStrain", {n: strain, max: dropAfter})}</div>`;
-    if (lacksLeisure(world, i, door)) html += `<div class="ti-detail" style="color:#f0b04c">${t("ui.tileInfo.noLeisure")}</div>`;
+    const note = leisureNote(world, i, door);
+    if (note) html += `<div class="ti-detail" style="color:#f0b04c">${note}</div>`;
   }
   const T = BALANCE.transit;
   const mult = T.accessFloor + (1 - T.accessFloor) * (world.layers.accessibility[i] / 255);
@@ -411,6 +412,18 @@ function railRows(world: World, i: number, level: number = RAIL_GROUND): string 
 }
 
 /** An outside connection point: joined or not, then what comes and goes through it each tick. */
+/**
+ * The warning under a home's leisure bar, or "" when it isn't held back. Text only: the growth rule is
+ * lacksLeisure. "None" only when nothing reaches the home (the bar reads 0%); a partly served home gets the
+ * "crowded" text with the same percentage as the bar.
+ */
+export function leisureNote(world: World, i: number, door: number = i): string {
+  if (!lacksLeisure(world, i, door)) return '';
+  const reach = Math.max(0, Math.min(1, leisureReachAt(world, i, door)));
+  if (reach <= 0) return t("ui.tileInfo.noLeisure");
+  return t("ui.tileInfo.leisureCrowded", { pct: Math.round(reach * 100) });
+}
+
 export function connectionRows(world: World, i: number): string {
   const c = connectionTradeAt(world, i);
   if (!c) return "";

@@ -119,6 +119,7 @@ export const en: TranslationSchema = {
       eventLast: "Last game: {arrived} of {wanted} fans, {stuck} residents stuck",
       eventStrain: "Stuck in game traffic {n} of {max} times: it will lose a level",
       noLeisure: "No leisure in reach: grows slowly. Build a park nearby.",
+      leisureCrowded: "Leisure crowded ({pct}% served): grows a bit slower. More parks or attractions nearby would help.",
       tripLeisureNone: "none in the city",
       attractionVisitors: "Visitors: {n} of {cap} a tick",
       attractionEarns: "Earns ${amount}/tick from tickets",
