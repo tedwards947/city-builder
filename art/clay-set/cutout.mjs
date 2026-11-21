@@ -382,6 +382,11 @@ const LOT_PLOT = 202;
 const PURPLE_BG = new Set(['i-works-c.png', 'i-works-g.png']);
 // Magenta reflected in steel and glass: pulled back towards grey-blue.
 const LOT_UNTINT = new Set(['i-works-e.png', 'i-works-f.png', 'i-works-g.png', 'c-tower-i.png', 'c-mall-c.png']);
+// Low lots whose building came back behind the plot with a big plaza in front (owner, 2026-11-21):
+// pulled forward like the pairs below (pullForward), in tiles.
+const LOT_PULL = { 'c-mall-b.png': 1.4 };
+// With `force`, the rows nearest the front lip go whatever is on them (planters, benches), for a plaza with too few plain rows.
+const PULL_FORCE = new Set(['c-wide-c.png', 'c-mall-b.png']);
 mkdirSync(join(GAME_OUT, 'lots'), { recursive: true });
 for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.png')).sort()) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-lots', f), '--out', tmp], { stdio: 'ignore' });
@@ -398,6 +403,7 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
     cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
   }
   const thinned = thinLip(cut, 2);
+  const pulled = LOT_PULL[f] ? pullForward(cut, Math.round(LOT_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / 2), PULL_FORCE.has(f)) : 0;
   const { grown } = extendSlab(cut);   // generated plots come back short front to back
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
@@ -405,7 +411,7 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
-  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px`);
+  console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px${pulled ? `, pulled forward ${pulled}px` : ''}`);
 }
 // ── Merged shop pairs ───────────────────────────────────────────────────────
 // raw-pairs/c-wide-*.png: two tiles side by side (ref/anchor-2x1-wide.png);
@@ -416,11 +422,11 @@ const PAIR_PURPLE_BG = new Set(['c-tall-d.png']);
 // Magenta that tinted dark windows and glass: pulled back towards grey-blue.
 const PAIR_UNTINT = new Set(['c-wide-a.png', 'c-wide-b.png', 'c-wide-d.png', 'c-tall-b.png', 'c-tall-d.png']);
 // Pairs whose building came back at the very back of the plot, behind a big
-// plaza (owner, 2026-11-20): pull the building forward by this many tiles by
+// plaza (owner, 2026-11-20; b, d and more of c 2026-11-21): pull the building forward by this many tiles by
 // taking out plain plaza rows in front of it; extendSlab regrows the back.
-const PAIR_PULL = { 'c-wide-a.png': 0.5, 'c-wide-c.png': 0.3 };
+const PAIR_PULL = { 'c-wide-a.png': 0.5, 'c-wide-b.png': 0.5, 'c-wide-c.png': 0.5, 'c-wide-d.png': 0.6 };
 /** Removes up to `n` plain rows (no props: nearly one colour across the plot) between the building and the plot's front lip. */
-function pullForward(img, n) {
+function pullForward(img, n, force = false) {
   const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
   const lip = Math.round(plotW * 0.07);
   const plain = (y) => {
@@ -431,7 +437,7 @@ function pullForward(img, n) {
   };
   const drop = new Set();
   for (let y = p.bottom - lip; y > 0 && drop.size < n; y--) {
-    if (plain(y)) drop.add(y);
+    if (force || plain(y)) drop.add(y);
     else if (y < p.bottom - plotW * 0.5) break;   // into the building
   }
   const out = new Uint8Array(w * h * 4);
@@ -456,7 +462,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
     cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
   }
   const thinned = thinLip(cut, wide ? 2 : 1);
-  const pulled = PAIR_PULL[f] ? pullForward(cut, Math.round(PAIR_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / (wide ? 2 : 1))) : 0;
+  const pulled = PAIR_PULL[f] ? pullForward(cut, Math.round(PAIR_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / (wide ? 2 : 1)), PULL_FORCE.has(f)) : 0;
   const { grown } = extendSlab(cut, wide ? PLOT_ASPECT / 2 : PLOT_ASPECT * 2);
   const p = findPlot(cut), k = (wide ? 202 : 101) / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
