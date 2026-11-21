@@ -123,6 +123,18 @@ export function coveredBy(world: World, kind: number): ReadonlyMap<number, numbe
   return kindCoverage(world, kind).counts;
 }
 
+/**
+ * Residents of the homes the standing building `b` covers (its own coverage, whoever else covers
+ * them too). A service capstone's running cost is charged on these (sim/runningCost.ts).
+ */
+export function residentsCoveredBy(world: World, b: { kind: number; tx: number; ty: number }): number {
+  const tiles = kindCoverage(world, coverageGroup(b.kind)).own.get(world.grid.idx(b.tx, b.ty));
+  if (!tiles) return 0;
+  let n = 0;
+  for (let k = 0; k < tiles.length; k++) n += residentsAt(world, tiles[k]);
+  return n;
+}
+
 /** What a service building of `kind` placed at (tx, ty) would reach. */
 export interface ServiceReach {
   /**

@@ -159,7 +159,7 @@ export const BALANCE = {
       29: { need: 'police',   size: [4, 4], unlockPopulation: 20000, perResident: 0.11 },                    // Police Headquarters
       30: { need: 'hospital', size: [6, 4], unlockPopulation: 25000, perResident: 0.07 },                    // General Hospital
       31: { need: 'power',    size: [4, 4], unlockPopulation: 30000, perResident: 0.30,  output: 1000000 },  // Nuclear Power Station
-      32: { need: 'school',   size: [8, 8], unlockPopulation: 40000, perResident: 0.06 },                    // University
+      32: { need: 'school',   size: [8, 8], unlockPopulation: 40000, perResident: 0.07 },                    // University (0.06 → 0.07, ENGINEER 3 C3: the school's per-resident cost dilutes its premium; 1.11–1.27× → about 1.2–1.3×)
     } as Record<number, CapstoneRow>,
   },
   // ── Outside connections (CONNECTIONS_DESIGN.md, sim/connections.ts) ─────────

@@ -108,15 +108,17 @@ export function capstoneWorking(world: World, b: BuildingEntity): boolean {
 /**
  * Residents each standing capstone serves, by kind: for a utility capstone at
  * work, the whole population (it supplies the city); for a service capstone,
- * the residents seated at it, which `seatedAt` gives (sim/serviceCapacity.ts
- * buildingSeats: the homes it covers that no small building nearer has room for).
+ * every resident of the homes it covers, which `covered` gives, small
+ * buildings or not (ENGINEER 3, 2026-11-21: charging only those seated at it
+ * made a capstone plus the busier small stations cheaper than no capstone; the
+ * owner's rule is a luxury at about 1.5× what it replaces).
  */
-export function capstoneResidents(world: World, population: number, seatedAt: (b: BuildingEntity) => number): Record<number, number> {
+export function capstoneResidents(world: World, population: number, covered: (b: BuildingEntity) => number): Record<number, number> {
   const out: Record<number, number> = {};
   for (const b of world.buildings) {
     const row = rows()[b.kind];
     if (!row) continue;
-    out[b.kind] = isUtilityNeed(row.need) ? (capstoneWorking(world, b) ? population : 0) : seatedAt(b);
+    out[b.kind] = isUtilityNeed(row.need) ? (capstoneWorking(world, b) ? population : 0) : covered(b);
   }
   return out;
 }

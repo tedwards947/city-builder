@@ -15,6 +15,7 @@ import { lotsResult, type LotsResult } from './lots';
 import { stadiumResult, type StadiumResult, type StadiumRun } from './stadium';
 import { leisureResult, type LeisureResult } from './leisure';
 import { connectionsResult, type ConnectionsResult } from './connections';
+import { capstonesResult, type CapstonesResult } from './capstones';
 import { paceResult } from './pace';
 import { TAXDEBT_PRESETS, applyTaxDebtValues, taxDebtResult, type TaxDebtPreset, type TaxDebtResult } from './taxdebt';
 import { ordinancesEnabled } from '../sim/ordinances';
@@ -172,6 +173,9 @@ export interface Report {
   connectionsSummary: Record<string, Summary>;
   connectionsBest: Best | null;
   connectionsRuns: Record<string, Record<string, ConnectionsResult>>;
+  capstonesSummary: Record<string, Summary>;
+  capstonesBest: Best | null;
+  capstonesRuns: Record<string, Record<string, CapstonesResult>>;
   runs: Record<string, Record<string, Record<string, RunSummary>>>;
   probes: Record<string, Record<string, { static: StaticProbes | null; refill: { days: number | null; avgSatisfaction: number } | null }>>;
   /** Economy suite: the real-money Planner, per preset and city. */
@@ -251,7 +255,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 }
 
 export function runLab(o: LabOptions): Report {
-  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections'];
+  const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections', 'capstones'];
   const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
@@ -270,6 +274,7 @@ export function runLab(o: LabOptions): Report {
   const stadiumIds = suites.includes('stadium') ? ['shipped'] : [];
   const leisureIds = suites.includes('leisure') ? ['shipped'] : [];
   const connectionsIds = suites.includes('connections') ? ['shipped'] : [];
+  const capstonesIds = suites.includes('capstones') ? ['shipped'] : [];
   const personaIds = o.personas ?? PERSONAS.map(p => p.id);
   const daysFresh = o.daysFresh ?? 300, daysSave = o.daysSave ?? 150;
   const pcMaxPop = o.pcMaxPopulation ?? 20_000;
@@ -325,6 +330,9 @@ export function runLab(o: LabOptions): Report {
     connectionsSummary: {},
     connectionsBest: null,
     connectionsRuns: {},
+    capstonesSummary: {},
+    capstonesBest: null,
+    capstonesRuns: {},
     taxDebtRuns: {},
     runs: {},
     probes: {},
@@ -559,6 +567,19 @@ export function runLab(o: LabOptions): Report {
         grade('connections', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, connections: r });
       }
     }
+    // ── Capstones suite: each capstone alone against the small buildings it replaces, on each saved city of about 20k or more ──
+    for (const id of capstonesIds) {
+      applyValues(BALANCE.politicalCapital as never, shippedPc);
+      report.capstonesRuns[id] = {};
+      for (const city of o.cities) {
+        if (city.kind === 'fresh' || popOf(city) < 19_000) continue;
+        const t0 = Date.now();
+        const r = capstonesResult(loadCity(city));
+        report.capstonesRuns[id][city.id] = r;
+        log(`capstones ${id} ${city.id}: surplus ${r.surplusPerDay} a day; ${r.note ?? r.needs.map(n => `${n.need} ${n.smallCost}→${n.aloneCost} (${n.premium}×, cover ${n.coverage})`).join(', ')} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+        grade('capstones', id, city, { runs: {}, probes: null, refill: null, ordinancesOn: false, capstones: r });
+      }
+    }
   } finally {
     applyValues(BALANCE.politicalCapital as never, shippedPc);
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
@@ -566,7 +587,7 @@ export function runLab(o: LabOptions): Report {
   for (const c of o.cities) report.cities.push({ id: c.id, kind: c.kind, population: population.get(c.id) ?? popOf(c) });
   finishReport(report, {
     pc: variants, econ: presets, svc: svcIds, trade: tradeIds, taxdebt: taxDebtIds, airport: airportIds,
-    rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds, connections: connectionsIds,
+    rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds, connections: connectionsIds, capstones: capstonesIds,
   });
   return report;
 }
@@ -577,6 +598,7 @@ const SUMMARY_FIELDS: Record<Suite, [keyof Report, keyof Report]> = {
   taxdebt: ['taxDebtSummary', 'taxDebtBest'], airport: ['airportSummary', 'airportBest'], rail: ['railSummary', 'railBest'],
   landscape: ['landscapeSummary', 'landscapeBest'], lots: ['lotsSummary', 'lotsBest'], stadium: ['stadiumSummary', 'stadiumBest'],
   leisure: ['leisureSummary', 'leisureBest'], connections: ['connectionsSummary', 'connectionsBest'],
+  capstones: ['capstonesSummary', 'capstonesBest'],
 };
 
 /** Count pass / fail / n/a per suite and key (variant or preset), pick each suite's best, and the economy verdict. */
