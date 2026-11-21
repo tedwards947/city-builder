@@ -709,11 +709,16 @@ const extra = (n: CapstoneNeedRun) => n.aloneCost - n.smallCost;
 const fmtNeeds = (ns: CapstoneNeedRun[]) => ns.map(n => `${n.need} ${extra(n) >= 0 ? '+' : ''}${extra(n)}`).join(', ');
 
 const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
-  { id: 'capstone.premium', metric: 'Each need\'s running cost a day with its capstone alone ÷ with the small buildings it replaces (lowest of the seven)', target: '≥ 1.15 (a luxury, not a saving)', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20/21): upkeep about 2× what it replaces became a running cost of about 1.5× that grows with residents covered; never cheaper than the small buildings. Expected fail: golden-1 (0.56, hospital) is overbuilt (36 hospitals, 28 schools), and consolidating there is a fair saving; left failing on purpose rather than lowering the bar (PM 2026-11-21).',
+  { id: 'capstone.premium', metric: 'Each need\'s running cost a day with its capstone alone ÷ with the small buildings it replaces; for a utility, ÷ with the city\'s plants swapped for large ones (lowest of the seven)', target: '≥ 1.15 (a luxury, not a saving)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20/21): upkeep about 2× what it replaces became a running cost of about 1.5× that grows with residents covered; never cheaper than the small buildings. Owner (2026-11-21): the utility capstones are priced against large plants, 1.35–1.5× them; against small plants their cost is shown for information. Expected fail: golden-1 (0.56, hospital) is overbuilt (36 hospitals, 28 schools), and consolidating there is a fair saving; left failing on purpose rather than lowering the bar (PM 2026-11-21).',
     evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const ns = o.r.needs; if (!ns.length) return NA('no capstone placed');
-      const low = ns.reduce((a, b) => (b.premium < a.premium ? b : a));
-      return { ...range(low.premium, 1.15), note: `lowest ${low.need}; ${ns.map(n => `${n.need} ${n.premium}`).join(', ')}` }; } },
+      // A utility is graded against large plants (owner 2026-11-21); where they could not be placed, it is left out.
+      const utility = (n: CapstoneNeedRun) => n.need === 'power' || n.need === 'water' || n.need === 'sewage';
+      const graded = ns.flatMap(n => { const p = utility(n) ? n.largePremium : n.premium; return p === undefined ? [] : [{ need: n.need, p }]; });
+      if (!graded.length) return NA('no capstone could be graded');
+      const low = graded.reduce((a, b) => (b.p < a.p ? b : a));
+      const show = (n: CapstoneNeedRun) => utility(n) ? `${n.need} ${n.largePremium ?? '-'} (small plants ${n.premium})` : `${n.need} ${n.premium}`;
+      return { ...range(low.p, 1.15), note: `lowest ${low.need}; ${ns.map(show).join(', ')}` }; } },
   { id: 'capstone.coverage', metric: 'Share of residents (a service) or of demand (a utility) served by the capstone alone, lowest of the seven', target: '≥ 0.99 (the whole road-joined city)', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-20, Q1 A): every home joined to it by road, at any distance, with no capacity limit.',
     evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const ns = o.r.needs; if (!ns.length) return NA('no capstone placed');
@@ -728,8 +733,8 @@ const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
       if (two.length < 2) return NA('fewer than two unlocked');
       const left = r.surplusPerDay - two.reduce((s, n) => s + extra(n), 0);
       return { ...range(left, 1e-9), note: `${r.surplusPerDay} a day less ${fmtNeeds(two)}` }; } },
-  { id: 'capstone.allSeven', metric: 'Daily surplus left after all seven capstones replace their small buildings, on cities of 38k or more', target: '< 0 (only a strong city carries all seven)', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): only a strong city can carry all seven; a plain 40k city cannot.',
+  { id: 'capstone.allSeven', metric: 'Daily surplus left after all seven capstones replace their small buildings, on cities of 38k or more', target: 'information only (was < 0: only a strong city carries all seven)', persona: 'probe', cities: 'saves', status: 'later',
+    why: 'Owner (2026-11-20): only a strong city can carry all seven. Owner\'s accepted trade-off (2026-11-21): with the utility capstones priced against large plants, a healthy 40k city can carry all seven (gen-s1-t40000 keeps about $5.3k a day with six), so this is shown, not graded.',
     evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const r = o.r;
       if (r.population < 38000) return NA(`under 38k residents (${r.population})`);
       const left = r.surplusPerDay - r.needs.reduce((s, n) => s + extra(n), 0);
