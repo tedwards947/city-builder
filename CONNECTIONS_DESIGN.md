@@ -74,6 +74,13 @@ Fixed points are a new saved field (additive, no version bump). An old save gets
 - **Small rules:** day-trippers arrive as shopping trips (not attraction visits); rail arrivals pay no fare (fares stay on boarding at a station); room for residents travelling out by highway is 30 a tick to start; highway exports earn the port's $8 a truck, with no imports and no industry demand bonus.
 - **Phases, one PR each:** P1 points (generation, save, old saves, `connectionStatus`; no traffic effect, graphics can start signs); P2 highway (visitors, exports, residents out); P3 day-trippers; P4 rail in; P5 numbers and lab targets with ENGINEER 3, and rail out if wanted.
 
+## Tuned numbers (ENGINEER 3, owner-approved 2026-11-21)
+Once the outbound room became a real limit (#482), every point runs at its full outbound room, so a second point adds room rather than halving the load. What splits between points is what comes in, so the inbound side is the big one:
+- **Highway point:** 70 visitors in (tourists plus day-trippers), 15 residents out, 10 export trucks; `shopPull` 0.06. One point onto an avenue jams its entry (peak 1.05–1.13 on 20–30k cities); a second point brings the first back to about 0.7.
+- **Rail point: about 200 visitors** (owner: keep rail about 3× a highway), as long as the line holds. In practice the city's pull and shops decide how many come.
+- **Export trucks are limited at highway points** like residents (only those with room drive there); the seaport keeps its behaviour.
+- Exports earn about $630 a day when industry is within reach; industry levels don't move. Lab targets: `entryJam`, `twoPoints`, `exports`, `industryNeutral`, `railIn`.
+
 ## Who does what
 - **Engine:** entry points (map generation, save, old saves), connections as gateways in the leisure market and as export doors, rail riders entering at the edge track node, the overlay and Inspect data.
 - **Graphics:** the off-map stub and sign for highway and rail, a "joined" state, and the points shown while placing a road or track.
