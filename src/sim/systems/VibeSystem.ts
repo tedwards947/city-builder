@@ -21,6 +21,9 @@ const NEUTRAL = 128;
  * single action moves a tile by a few to a few dozen units and never saturates it.
  * Diffusion then spreads the value to neighbours and decay pulls it back to 128.
  */
+/** Even without a diffusion pass or a nudge, the city-wide averages are re-read this often. */
+const AXES_REFRESH_TICKS = 64;
+
 export class VibeSystem {
   private registeredWorld: World | null = null;
   // Scratch buffer reused across layers and runs (avoids per-run allocation).
@@ -36,6 +39,9 @@ export class VibeSystem {
   // True to start with (and for a new world), so the first update always works them out.
   private _axesStale = true;
 
+  /** Call after writing a vibe layer directly (not through a nudge), so the city-wide averages follow at once. */
+  invalidateAxes(): void { this._axesStale = true; }
+
   update(world: World): void {
     if (world !== this.registeredWorld) {
       this._register(world);
@@ -46,7 +52,8 @@ export class VibeSystem {
     const diffused = this._simulateSpatialVibes(world);
     
     // Legacy global axes (averaged from layers for global logic)
-    if (diffused || this._axesStale) {
+    // The periodic refresh bounds how long a write that bypassed this system can go unseen.
+    if (diffused || this._axesStale || world.tick % AXES_REFRESH_TICKS === 0) {
       this._updateGlobalAxes(world);
       this._axesStale = false;
     }
