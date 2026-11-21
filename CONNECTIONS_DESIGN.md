@@ -1,6 +1,6 @@
 # Outside Connections: Design
 
-*Status: all five questions decided 2026-11-20; ready for engine review (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
+*Status: all five questions decided 2026-11-20; engine plan approved; P1 next (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Today a city is an island. New maps have no highway in (the generator lays no roads), tourists come only through the $2M airport, and goods leave only by seaport. A road or a line running off the edge of the map means nothing.
@@ -65,7 +65,16 @@ Highway 30 visitors plus 10 trucks; rail 90 visitors (3×); airport stays at 60.
 ## Old saves
 Fixed points are a new saved field (additive, no version bump). An old save gets points generated the same way every time from its size and seed. A highway or track already running to the edge becomes a point where it touches, so nothing a player built stops working. The tutorial map's highway stub becomes its one highway point. The showcase is regenerated.
 
-## Who does what (once decided)
+## Engine plan (owner-approved 2026-11-20)
+- **Points are data, not roads:** tile, kind, edge, in `world.connections`. Graphics draws the stub and sign off the map; the player joins by building a highway (not a street) or track onto the point's edge tile. Classic maps (lab, tests, golden) get points without their roads changing; the showcase isn't regenerated.
+- **Old saves:** highways or track already at the edge become points first, in a fixed order, **up to the map's count**; the rest are generated from the seed on dry, empty edge tiles.
+- **Counts for other sizes:** up to 64 → 1 highway, 0 rail; up to 128 → 2 + 2; up to 256 → 3 + 3; larger → 4 + 4.
+- **Rail carries visitors in only in v1.** Residents travel out by highway or airport. Rail out is P5, only if a spike shows it's clean (it needs a door on a track node).
+- **Trips may start and end on highway tiles at points only** (in the core traffic pass, with its own tests and a perf check).
+- **Small rules:** day-trippers arrive as shopping trips (not attraction visits); rail arrivals pay no fare (fares stay on boarding at a station); room for residents travelling out by highway is 30 a tick to start; highway exports earn the port's $8 a truck, with no imports and no industry demand bonus.
+- **Phases, one PR each:** P1 points (generation, save, old saves, `connectionStatus`; no traffic effect, graphics can start signs); P2 highway (visitors, exports, residents out); P3 day-trippers; P4 rail in; P5 numbers and lab targets with ENGINEER 3, and rail out if wanted.
+
+## Who does what
 - **Engine:** entry points (map generation, save, old saves), connections as gateways in the leisure market and as export doors, rail riders entering at the edge track node, the overlay and Inspect data.
 - **Graphics:** the off-map stub and sign for highway and rail, a "joined" state, and the points shown while placing a road or track.
 - **ENGINEER 3:** the numbers, and lab targets (for example, "the entry highway of a 20k city with one connection is jammed at peak, with two it isn't").
