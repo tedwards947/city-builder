@@ -717,10 +717,10 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "bottom": 220
   },
   "lots/c-mall-b": {
-    "w": 244,
+    "w": 243,
     "h": 436,
     "left": 21,
-    "right": 222,
+    "right": 221,
     "bottom": 411
   },
   "lots/c-mall-c": {
