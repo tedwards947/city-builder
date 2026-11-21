@@ -2,7 +2,7 @@
 // what travels through a joined highway point. Visitors in, export trucks
 // out, residents travelling out, all on the point's one highway tile.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import { BUILDING_PLAZA, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R } from '../sim/constants';
@@ -169,6 +169,63 @@ describe('residents travelling out', () => {
     homes(20, 40, 3);
     w.setRoad(0, ROW, ROAD_NONE);
     expect(traffic().visitors.volume[idx(5, ROW)]).toBe(0);
+  });
+
+  // The room is a real limit (ENGINEER 3, 2026-11-21): it used to cap only what was counted,
+  // while every trip wanted still drove to the point.
+  describe('more want to leave than the point has room for', () => {
+    const T = BALANCE.transit as { tripsVisitors: number };
+    const shipped = T.tripsVisitors;
+    beforeEach(() => { T.tripsVisitors = 0.5; });
+    afterEach(() => { T.tripsVisitors = shipped; });
+    const wanted = 40 * 3 * 0.5;   // 60 a tick from 40 level-3 homes
+
+    it('only its room\'s worth drive there; the rest stay home', () => {
+      homes(20, 40, 3);
+      const t = traffic();
+      expect(wanted).toBeGreaterThan(H.residentsOut);
+      expect(t.visitors.volume[POINT]).toBeCloseTo(H.residentsOut, 2);
+      expect(t.visitors.volume[idx(10, ROW)]).toBeCloseTo(H.residentsOut, 2);     // where the highway meets the street
+      expect(t.visitors.field.demand).toBeCloseTo(H.residentsOut, 2);
+      expect(t.visitors.field.stranded).toBeCloseTo(wanted - H.residentsOut, 2);
+      expect(connectionTradeAt(w, POINT)!.residentsOut).toBeCloseTo(H.residentsOut, 2);
+    });
+
+    it('the load follows the number: half the room, half the traffic', () => {
+      homes(20, 40, 3);
+      const room = H.residentsOut;
+      (H as { residentsOut: number }).residentsOut = room / 2;
+      try {
+        expect(traffic().visitors.volume[idx(10, ROW)]).toBeCloseTo(room / 2, 2);
+      } finally { (H as { residentsOut: number }).residentsOut = room; }
+    });
+
+    it('a second point takes those the first has no room for, and the first carries no more than its room', () => {
+      homes(20, 40, 3);
+      // A highway out of the east end of the street to the east edge: every home is nearer the west point.
+      for (let x = 101; x <= 127; x++) w.setRoad(x, ROW, ROAD_HIGHWAY);
+      resetConnections(w);
+      const EAST = ROW * SIZE + 127;
+      expect(openHighways(w).map((c) => c.tile).sort((a, b) => a - b)).toEqual([POINT, EAST]);
+      const t = traffic();
+      expect(t.visitors.volume[POINT]).toBeCloseTo(H.residentsOut, 0);              // within half a trip: homes between the two split a little
+      expect(t.visitors.volume[EAST]).toBeCloseTo(wanted - H.residentsOut, 0);
+      expect(t.visitors.volume[POINT] + t.visitors.volume[EAST]).toBeCloseTo(wanted, 0);
+      expect(t.visitors.field.stranded).toBeCloseTo(0, 0);
+      expect(t.visitors.field.demand).toBeCloseTo(wanted, 0);
+      expect(connectionTradeAt(w, EAST)!.residentsOut).toBeCloseTo(wanted - H.residentsOut, 0);
+    });
+
+    it('with both points full the rest stay home', () => {
+      homes(20, 60, 3);                                        // 90 a tick, room for 60
+      for (let x = 101; x <= 127; x++) w.setRoad(x, ROW, ROAD_HIGHWAY);
+      resetConnections(w);
+      const t = traffic();
+      expect(t.visitors.volume[POINT]).toBeCloseTo(H.residentsOut, 0);              // within half a trip: homes between the two split a little
+      expect(t.visitors.volume[ROW * SIZE + 127]).toBeCloseTo(H.residentsOut, 0);
+      expect(t.visitors.volume[POINT] + t.visitors.volume[ROW * SIZE + 127]).toBeCloseTo(2 * H.residentsOut, 0);
+      expect(t.visitors.field.stranded).toBeCloseTo(90 - 2 * H.residentsOut, 0);
+    });
   });
 });
 

@@ -121,6 +121,24 @@ describe('the airport', () => {
     expect(w.traffic!.shopping.field.stranded).toBeCloseTo(3 * BALANCE.transit.tripsRtoC + 4);
   });
 
+  it('takes no more passengers than its seats: only that many drive there, shared along the frontage, and the rest stay home', () => {
+    // It used to cap only what was counted, while every trip wanted still drove to the terminal (2026-11-21).
+    T.tripsVisitors = 0.5;
+    T.buildings = { [AIRPORT]: { takes: { visitors: 40 }, incomePerTrip: { visitors: 2 } } };
+    w.placeBuilding(10, 10, AIRPORT);
+    for (let x = 4; x <= 46; x++) w.setRoad(x, 9, ROAD_STREET);
+    // 40 level-3 homes east of the terminal: 60 a tick want to fly, all arriving at the frontage's east end.
+    for (let x = 24; x <= 43; x++) for (const y of [8, 10]) { w.setZone(x, y, ZONE_R); w.layers.devLevel[idx(x, y)] = 3; }
+    const transit = new TransitSystem();
+    for (let k = 1; k <= 12; k++) { w.tick = k * T.flowInterval; transit.update(w); }
+    const visitors = w.traffic!.visitors;
+    expect(visitors.field.demand).toBeCloseTo(40, 2);
+    expect(visitors.field.stranded).toBeCloseTo(20, 2);
+    expect(visitors.volume[idx(21, 9)]).toBeCloseTo(40, 1);              // the street into the terminal carries 40, not 60
+    expect(buildingTripsAt(w, 10, 10)!.takes[0].trips).toBeCloseTo(40, 1);
+    expect(buildingTripIncome(w)).toBeCloseTo(40 * 2, 0);
+  });
+
   it('survives a save and a load', () => {
     w.placeBuilding(10, 10, AIRPORT);
     const loaded = deserialize(serialize(w));

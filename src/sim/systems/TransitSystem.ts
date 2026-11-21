@@ -92,7 +92,7 @@ import {
   type TrafficData, type TrafficField, type MarketKey,
   makeTrafficData, makeTrafficField, marketRate, marketScale, marketCapacity, marketWeight, marketReach, NO_ZONE,
   bestAccessRoad, neighbourIndex, roadCapacity, trafficVolume, travelTime,
-  hasDoorProviders, extraDoors, hasTripProviders, extraTrips, NODES_PER_TILE, railSlot } from '../TrafficData';
+  hasDoorProviders, extraDoors, hasTripProviders, extraTrips, NODES_PER_TILE, railSlot, type MarketDef } from '../TrafficData';
 import '../seaport';   // registers the seaports' doors with the markets
 import '../buildingTraffic';   // registers the doors and trips of BALANCE.transit.buildings
 import '../leisureTraffic';    // registers the attractions' doors and the tourists (LEISURE_DESIGN.md)
@@ -134,6 +134,14 @@ export class TransitSystem {
   private _doorStart!: Float32Array; // the handicap of each building door, this market (see DoorProvider)
   private _onward!: Float32Array;   // trips leaving full building doors for the zones (see _passOn)
   private _zoneRoute: TrafficField | null = null;   // the way to this market's zone doors only
+  // A limited market (see MarketDef.limited): the second try's map, its trips, each node's door,
+  // what each door is wanted for, and the doors that are full.
+  private _retryRoute: TrafficField | null = null;
+  private _retryFlow: Float32Array | null = null;
+  private _doorOf: Int32Array | null = null;
+  private _doorWant: Float32Array | null = null;
+  private _placeRoom: Float32Array | null = null;
+  private _doorShut: Uint8Array | null = null;
   private _cost!: Float32Array;     // travel cost per road tile this iteration
   // Per road class byte: travel cost per tile (1 / speedMult). Refreshed each pass.
   private readonly _classCost: number[] = [0, 1, 1, 1];
@@ -284,6 +292,7 @@ export class TransitSystem {
       this._doorStart = new Float32Array(n);
       this._onward = new Float32Array(nn);
       this._zoneRoute = null;
+      this._retryRoute = null; this._retryFlow = null; this._doorOf = null; this._doorWant = null; this._placeRoom = null; this._doorShut = null;
       this._cost = new Float32Array(nn);
       // Each node is pushed at most once per neighbour plus once as a source (portals: see _linkRail).
       this._heapKey = new Float32Array(nn * 5 + 1);
@@ -779,9 +788,13 @@ export class TransitSystem {
       this._useRail = def.rides === true && this._xCount > 0;
       this._curWeight = marketWeight(def);
       this._flood(world, def.dest, field, marketCapacity(def), def.key);
-      const demand = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
+      const wanted = this._inject(world, field, def.origin, rate, this._flow, marketReach(def), this._extraTripCount[k] > 0 ? def.key : undefined, scale);
+      const limited = def.limited === true && def.dest === NO_ZONE;
+      // A limited market: each door's room's worth sets out; the rest wait in _retryFlow for a second try.
+      const demand = limited ? this._limitToRoom(field, this._flow, true) : wanted;
       this._openDoors(field, demand);
       this._sweep(field, this._flow, field.doorLoad, true);
+      if (limited && wanted - demand > 1e-6) this._retry(world, def, field, wanted - demand);
       if (def.dest !== NO_ZONE && this._extraDoorCount[k] > 0) this._passOn(world, def.dest, marketCapacity(def), field);
       this._spill(world, field);
       moved = Math.max(moved, this._merge(world, m.volume, this._prev[k], this._unstable[k]));
@@ -823,7 +836,7 @@ export class TransitSystem {
    * With `sendersOf` given, the roads from which buildings send that market's
    * trips are destinations as well (for the way to customers and workers).
    */
-  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, market?: MarketKey, sendersOf?: MarketKey): void {
+  private _flood(world: World, zoneType: number, field: TrafficField, capPerLevel: number, market?: MarketKey, sendersOf?: MarketKey, shut?: Uint8Array): void {
     const { width, height } = world.grid;
     const roadClass = world.layers.roadClass;
     const zone      = world.layers.zone;
@@ -870,6 +883,7 @@ export class TransitSystem {
       for (let k = 0; k < roadCount; k++) bldCap[roads[k]] = 0;
       extraDoors(world, market, (ri, cap, handicap = 0) => {
         if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
+        if (shut !== undefined && shut[ri] !== 0) return;   // a full door, on a limited market's second try
         const rc = roadClass[ri];
         if (rc === ROAD_NONE || (rc === ROAD_HIGHWAY && !isEntryTile(world, ri))) return;   // a highway has doors only at an outside connection
         if (handicap > 0 && !handicapped) {
@@ -990,6 +1004,115 @@ export class TransitSystem {
     }
     field.stranded = stranded;
     return total;
+  }
+
+  /**
+   * A limited market (MarketDef.limited): cut the trips in `flow` down to what the doors of
+   * `route` have room for. Doors within SPILL_RADIUS road tiles of each other count as one place
+   * (the door tiles along an airport's front: _spill shares what arrives between them). Each trip
+   * belongs to the place its quickest way ends at; a place wanted for more than its room keeps
+   * that share of every trip that is its, and the rest is taken off `flow`. On the `first` try a
+   * place's room is its doors' capacity, what is taken off is kept in `_retryFlow`, and the doors
+   * of full places are noted in `_doorShut`, for _retry. On the second its room is what its doors
+   * have left (`_room`). Returns the trips left in `flow`.
+   */
+  private _limitToRoom(route: TrafficField, flow: Float32Array, first: boolean): number {
+    const nn = NODES_PER_TILE * this._n;
+    const doorOf = this._doorOf ??= new Int32Array(nn);
+    const want = this._doorWant ??= new Float32Array(nn);
+    const placeRoom = this._placeRoom ??= new Float32Array(nn);
+    const shut = this._doorShut ??= new Uint8Array(nn);
+    const retry = this._retryFlow ??= new Float32Array(nn);
+    const { order, count, parent, doorCap } = route;
+    const nb = this._nb, room = this._room;
+    const queue = this._bfsQueue, seen = this._bfsSeen, steps = this._bfsSteps;
+    if (first) { const nodes = this._nodes; for (let k = 0; k < this._nodeCount; k++) retry[nodes[k]] = 0; }
+
+    // Places: each door joins the place of the first door found within SPILL_RADIUS of it.
+    for (let k = 0; k < count; k++) { const i = order[k]; if (parent[i] < 0) doorOf[i] = -1; }
+    for (let k = 0; k < count; k++) {
+      const door = order[k];
+      if (parent[door] >= 0 || doorOf[door] >= 0) continue;
+      doorOf[door] = door; want[door] = 0; placeRoom[door] = 0;
+      const run = ++this._bfsRun;
+      let head = 0, tail = 0;
+      seen[door] = run; steps[door] = 0; queue[tail++] = door;
+      while (head < tail) {
+        const cur = queue[head++];
+        if (cur !== door && route.dist[cur] < Infinity && parent[cur] < 0 && doorOf[cur] < 0) doorOf[cur] = door;
+        if (steps[cur] >= SPILL_RADIUS) continue;
+        for (let d = 0; d < 4; d++) {
+          const ni = nb[cur * 4 + d];
+          if (ni < 0 || ni >= this._n || seen[ni] === run) continue;
+          seen[ni] = run; steps[ni] = steps[cur] + 1;
+          queue[tail++] = ni;
+        }
+      }
+    }
+    for (let k = 0; k < count; k++) {
+      const i = order[k];
+      if (parent[i] >= 0) continue;
+      placeRoom[doorOf[i]] += first ? doorCap[i] : room[i];
+      if (first) shut[i] = 0;
+    }
+    // Each node's place: where its quickest way ends. Doors come before what leads to them in `order`.
+    for (let k = 0; k < count; k++) { const i = order[k]; if (parent[i] >= 0) doorOf[i] = doorOf[parent[i]]; }
+    for (let k = 0; k < count; k++) { const i = order[k]; if (flow[i] > 0) want[doorOf[i]] += flow[i]; }
+    let left = 0;
+    for (let k = 0; k < count; k++) {
+      const i = order[k];
+      const f = flow[i];
+      if (!(f > 0)) continue;
+      const place = doorOf[i];
+      const fits = placeRoom[place];
+      if (want[place] <= fits) { left += f; continue; }
+      const keep = fits > 0 ? f * fits / want[place] : 0;
+      flow[i] = keep;
+      left += keep;
+      if (first) retry[i] = f - keep;
+    }
+    // A place wanted for all its room or more is full: the second try leaves its doors out.
+    if (first) for (let k = 0; k < count; k++) { const i = order[k]; if (parent[i] < 0 && want[doorOf[i]] >= placeRoom[doorOf[i]] - 1e-6) shut[i] = 1; }
+    return left;
+  }
+
+  /**
+   * A limited market's second try: the trips its full doors turned away (`_retryFlow`) look for a
+   * door that still has room, with the full ones left out. What fits is swept onto the roads and
+   * counted at those doors; what does not (no other door, none in reach, or no room there either)
+   * stays home and is added to the field's `stranded`.
+   */
+  private _retry(world: World, def: MarketDef, field: TrafficField, turnedAway: number): void {
+    const retry = this._retryFlow!, shut = this._doorShut!;
+    const room = this._room;
+    // Any door with room left? (After the first sweep a door's room is its capacity less what came.)
+    let any = false;
+    for (let k = 0; k < field.count && !any; k++) {
+      const i = field.order[k];
+      if (field.parent[i] < 0 && shut[i] === 0 && room[i] > 1e-6) any = true;
+    }
+    if (!any) { field.stranded += turnedAway; return; }
+    const route = this._retryRoute ??= makeTrafficField(NODES_PER_TILE * this._n);
+    this._flood(world, def.dest, route, marketCapacity(def), def.key, undefined, shut);
+    // Trips with no way to an open door, or one beyond the market's reach, stay home.
+    const reach = marketReach(def);
+    const nodes = this._nodes, nodeCount = this._nodeCount;
+    let trying = 0;
+    for (let k = 0; k < nodeCount; k++) {
+      const i = nodes[k];
+      if (!(retry[i] > 0)) continue;
+      if (!(route.dist[i] < Infinity) || route.dist[i] > reach) retry[i] = 0;
+      else trying += retry[i];
+    }
+    const going = trying > 0 ? this._limitToRoom(route, retry, false) : 0;
+    if (going > 0) {
+      this._sweep(route, retry, field.doorLoad, false);
+      field.demand += going;
+      let cap = 0;
+      for (let k = 0; k < field.count; k++) cap += field.doorCap[field.order[k]];
+      field.demandRatio = cap > 0 ? field.demand / cap : 0;
+    }
+    field.stranded += turnedAway - going;
   }
 
   /**
