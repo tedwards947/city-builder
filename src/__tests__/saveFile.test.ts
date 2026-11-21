@@ -1,5 +1,6 @@
 // Save files: export a city to text and load it back.
 
+import { DERIVED_LAYERS } from '../persistence/SaveFormat';
 import { describe, it, expect } from 'vitest';
 import { World } from '../sim/World';
 import { SaveManager } from '../persistence/SaveManager';
@@ -19,7 +20,7 @@ function sampleWorld(): World {
   w.layers.zone[w.grid.idx(3, 4)] = ZONE_R;
   w.layers.devLevel[w.grid.idx(3, 4)] = 2;
   w.layers.roadClass[w.grid.idx(4, 4)] = ROAD_AVENUE;
-  w.layers.roadNet[w.grid.idx(4, 4)] = 40000;        // needs 16 bits
+  w.developedSince[w.grid.idx(3, 4)] = 40000;        // needs 16 bits
   w.layers.visualVariant[w.grid.idx(3, 4)] = 201;
   w.layers.building[w.grid.idx(10, 10)] = BUILDING_POWER_PLANT;
   w.buildings.push({ tx: 10, ty: 10, kind: BUILDING_POWER_PLANT });
@@ -41,9 +42,12 @@ describe('save files', () => {
     expect(back.budget.taxRates.C).toBe(1.7);
     expect(back.character.green).toBeCloseTo(0.4);
     expect(back.buildings).toEqual([{ tx: 10, ty: 10, kind: BUILDING_POWER_PLANT }]);
+    // Every saved layer comes back as it was. (The derived layers are worked out on load.)
     for (const name of Object.keys(w.layers) as (keyof typeof w.layers)[]) {
+      if ((DERIVED_LAYERS as readonly string[]).includes(name)) continue;
       expect(Array.from(back.layers[name]), `layer ${name}`).toEqual(Array.from(w.layers[name]));
     }
+    expect(back.developedSince[back.grid.idx(3, 4)]).toBe(40000);
     expect(back.layers.roadNet).toBeInstanceOf(Uint16Array);
     expect(back.layers.zone).toBeInstanceOf(Uint8Array);
   });
@@ -54,8 +58,10 @@ describe('save files', () => {
     expect(json.format).toBe(SAVE_FILE_FORMAT);
     expect(json.version).toBe(SAVE_VERSION);
     expect(json.meta.name).toBe('Test Town');
-    expect(json.snapshot.layers.zone.type).toBe('u8');
-    expect(json.snapshot.layers.roadNet.type).toBe('u16');
+    // Layers are run-length packed since save version 12, and the derived layers are not in the file.
+    expect(json.snapshot.layers.zone.type).toBe('u8z');
+    expect(json.snapshot.layers.developedSince.type).toBe('u16z');
+    for (const name of DERIVED_LAYERS) expect(json.snapshot.layers[name], name).toBeUndefined();
     expect(decodeSaveFile(text).meta.name).toBe('Test Town');
   });
 
@@ -73,7 +79,7 @@ describe('save files', () => {
     expect(() => manager.importGame(JSON.stringify({ ...good, version: SAVE_VERSION + 1 }))).toThrow(/newer version/);
 
     const short = structuredClone(good);
-    short.snapshot.layers.zone.base64 = short.snapshot.layers.zone.base64.slice(0, 40);
+    short.snapshot.layers.zone.base64 = short.snapshot.layers.zone.base64.slice(0, 4);   // a packed layer is short: cut it to three bytes
     expect(() => manager.importGame(JSON.stringify(short))).toThrow(/layer "zone"/);
 
     const mangled = structuredClone(good);

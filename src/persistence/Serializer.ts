@@ -7,7 +7,12 @@ import { upgradeLoadedRequests } from '../sim/requests';
 import { startCountingFromNow } from '../sim/established';
 import { cleanMarkers } from '../sim/markers';
 import { cleanConnections, generateConnections } from '../sim/connections';
-import type { WorldSnapshot } from './SaveFormat';
+import { DERIVED_LAYERS, type WorldSnapshot } from './SaveFormat';
+import { NetworkSystem } from '../sim/systems/NetworkSystem';
+import { PowerSystem } from '../sim/systems/PowerSystem';
+import { WaterSystem } from '../sim/systems/WaterSystem';
+import { SewageSystem } from '../sim/systems/SewageSystem';
+import { ServiceSystem } from '../sim/systems/ServiceSystem';
 
 /**
  * Interface for a system that can bootstrap vibes during deserialization.
@@ -42,6 +47,8 @@ export function serialize(world: World): WorldSnapshot {
     connections: world.connections.map((c) => ({ kind: c.kind, tile: c.tile })),
     ...(world.eventClock ? { eventClock: { ...world.eventClock } } : {}),
     ...(world.lastEvent ? { lastEvent: { ...world.lastEvent } } : {}),
+    // The derived layers (SaveFormat.DERIVED_LAYERS: coverage, road networks, congestion, accessibility) are
+    // not saved: deserialize works them out again.
     layers: {
       terrain:   new Uint8Array(l.terrain),
       zone:      new Uint8Array(l.zone),
@@ -51,25 +58,14 @@ export function serialize(world: World): WorldSnapshot {
       vegetation: new Uint8Array(l.vegetation),
       devLevel:  new Uint8Array(l.devLevel),
       lot:       new Uint8Array(l.lot),
-      power:     new Uint8Array(l.power),
-      water:     new Uint8Array(l.water),
-      sewage:    new Uint8Array(l.sewage),
-      services:  new Uint8Array(l.services),
       landValue: new Uint8Array(l.landValue),
-      roadNet:   new Uint16Array(l.roadNet),
       pollution: new Uint8Array(l.pollution),
       crime:      new Uint8Array(l.crime),
-      police:     new Uint8Array(l.police),
-      congestion:    new Uint8Array(l.congestion),
-      accessibility: new Uint8Array(l.accessibility),
       abandoned:  new Uint8Array(l.abandoned),
       distress:   new Uint8Array(l.distress),
       fireRisk:   new Uint8Array(l.fireRisk),
       fire:       new Uint8Array(l.fire),
-      fireStation: new Uint8Array(l.fireStation),
-      school:     new Uint8Array(l.school),
       education:  new Uint8Array(l.education),
-      hospital:   new Uint8Array(l.hospital),
       sickness:   new Uint8Array(l.sickness),
       recentDeath: new Uint8Array(l.recentDeath),
       visualVariant: new Uint8Array(l.visualVariant),
@@ -133,25 +129,25 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   world.eventClock = snapshot.eventClock ? { ...snapshot.eventClock } : null;
   world.lastEvent = snapshot.lastEvent ? { smooth: false, reward: 0, ...snapshot.lastEvent } : null;   // saves before 2026-11-20 have no smooth / reward
   cleanLots(world);
-  l.power.set(snapshot.layers.power);
-  l.water.set(snapshot.layers.water);
-  l.sewage.set(snapshot.layers.sewage);
-  l.services.set(snapshot.layers.services);
+  if (snapshot.layers.power) l.power.set(snapshot.layers.power);
+  if (snapshot.layers.water) l.water.set(snapshot.layers.water);
+  if (snapshot.layers.sewage) l.sewage.set(snapshot.layers.sewage);
+  if (snapshot.layers.services) l.services.set(snapshot.layers.services);
   l.landValue.set(snapshot.layers.landValue);
-  l.roadNet.set(snapshot.layers.roadNet);
+  if (snapshot.layers.roadNet) l.roadNet.set(snapshot.layers.roadNet);
   l.pollution.set(snapshot.layers.pollution);
   l.crime.set(snapshot.layers.crime);
-  l.police.set(snapshot.layers.police);
-  l.congestion.set(snapshot.layers.congestion);
-  l.accessibility.set(snapshot.layers.accessibility);
+  if (snapshot.layers.police) l.police.set(snapshot.layers.police);
+  if (snapshot.layers.congestion) l.congestion.set(snapshot.layers.congestion);
+  if (snapshot.layers.accessibility) l.accessibility.set(snapshot.layers.accessibility);
   l.abandoned.set(snapshot.layers.abandoned);
   l.distress.set(snapshot.layers.distress);
   l.fireRisk.set(snapshot.layers.fireRisk);
   l.fire.set(snapshot.layers.fire);
-  l.fireStation.set(snapshot.layers.fireStation);
-  l.school.set(snapshot.layers.school);
+  if (snapshot.layers.fireStation) l.fireStation.set(snapshot.layers.fireStation);
+  if (snapshot.layers.school) l.school.set(snapshot.layers.school);
   l.education.set(snapshot.layers.education);
-  l.hospital.set(snapshot.layers.hospital);
+  if (snapshot.layers.hospital) l.hospital.set(snapshot.layers.hospital);
   l.sickness.set(snapshot.layers.sickness);
   l.recentDeath.set(snapshot.layers.recentDeath);
   l.visualVariant.set(snapshot.layers.visualVariant);
@@ -185,6 +181,22 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
 
   // A building kind's shape may have changed since the city was saved (the airport's runway grew).
   world.fitBuildingsToShapes();
+  // A save from version 12 on has no derived layers: work them out before anything reads them.
+  if (DERIVED_LAYERS.some((name) => !snapshot.layers[name])) rebuildDerivedLayers(world);
   upgradeLoadedRequests(world);
   return world;
+}
+
+/**
+ * Work out the layers a save no longer holds (SaveFormat.DERIVED_LAYERS) from the loaded roads and
+ * buildings: the road networks, then power, water, sewage and service coverage, each by the system
+ * that keeps it up to date in play. Congestion and accessibility are left at 0: they come from
+ * traffic, and the game runs a traffic pass before the first frame of a loaded city (main.ts).
+ */
+export function rebuildDerivedLayers(world: World): void {
+  new NetworkSystem().update(world);
+  new PowerSystem().update(world);
+  new WaterSystem().update(world);
+  new SewageSystem().update(world);
+  new ServiceSystem().update(world);
 }
