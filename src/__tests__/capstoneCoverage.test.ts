@@ -181,13 +181,14 @@ describe('running cost', () => {
   afterEach(() => { R.freeResidents = free; });
   const perTick = 1 / BALANCE.ticksPerDay;
 
-  it('a service capstone costs its rate for every resident seated at it, and the normal rate goes on for everyone covered', () => {
+  it('a service capstone costs its rate for every resident it covers, seated at a small building or not, and the normal rate goes on for everyone covered', () => {
     CAP[BUILDING_SCHOOL] = 5 * POP;
     school(); university();
     cover();
     const cost = headcountCost(w);
     const rate = BALANCE.capstones.kinds[BUILDING_UNIVERSITY].perResident;
-    expect(cost.capstones[BUILDING_UNIVERSITY]).toBeCloseTo(80 * POP * rate * perTick, 6);
+    // 85 homes covered, 5 of them seated at the school: keeping the school does not make the capstone cheaper.
+    expect(cost.capstones[BUILDING_UNIVERSITY]).toBeCloseTo(85 * POP * rate * perTick, 6);
     expect(cost.residents[BUILDING_SCHOOL]).toBe(85 * POP);
     expect(cost.services[BUILDING_SCHOOL]).toBeCloseTo(85 * POP * BALANCE.runningCost.perResident[BUILDING_SCHOOL] * perTick, 6);
   });

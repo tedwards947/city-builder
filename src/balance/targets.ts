@@ -26,9 +26,10 @@ import type { StadiumResult } from './stadium';
 import type { LeisureResult } from './leisure';
 import type { PaceResult } from './pace';
 import type { ConnectionsResult } from './connections';
+import type { CapstonesResult, CapstoneNeedRun } from './capstones';
 
 export type Status = 'graded' | 'later';
-export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots' | 'stadium' | 'leisure' | 'connections';
+export type Suite = 'pc' | 'econ' | 'svc' | 'trade' | 'taxdebt' | 'airport' | 'rail' | 'landscape' | 'lots' | 'stadium' | 'leisure' | 'connections' | 'capstones';
 
 export interface Outcome {
   value: unknown;
@@ -70,6 +71,8 @@ export interface EvalCtx {
   leisure?: LeisureResult | null;
   /** Connections suite: highway and rail points joined on copies of a saved city (src/balance/connections.ts). */
   connections?: ConnectionsResult | null;
+  /** Capstones suite: each capstone alone against the small buildings it replaces, on copies of a saved city (src/balance/capstones.ts). */
+  capstones?: CapstonesResult | null;
   /** Economy suite, saved cities: the neutral-tax surplus and the police / fire fix (src/balance/pace.ts). */
   pace?: PaceResult | null;
 }
@@ -689,6 +692,50 @@ const CONNECTIONS_TARGETS: Omit<Target, 'suite'>[] = [
       return all({ in: range(rl.inPerTick, 40), track: range(rl.trackPeak, 0, 0.8), jam: { ...range(rl.jammedAfter - rl.jammedBefore, -Infinity, 5), note: `${rl.jammedBefore} → ${rl.jammedAfter} jammed tiles` } }); } },
 ];
 
+// Capstones (CAPSTONE_DESIGN.md, C3; owner 2026-11-20/21): a luxury, not a saving. Running cost about
+// 1.5× what it replaces, charged on every resident it covers; a 20k city with a healthy surplus carries
+// one or two, only a strong city all seven. Each capstone placed alone (its need's small buildings
+// cleared) on copies of each saved city of about 20k or more (19k; src/balance/capstones.ts).
+const capOf = (c: EvalCtx): { r: CapstonesResult } | Outcome => {
+  if (c.cityKind === 'fresh') return NA('saved cities only');
+  const r = c.capstones; if (!r) return NA('no capstones probe');
+  if (r.note) return NA(r.note);
+  if (r.population < 19000) return NA(`under 19k residents (${r.population})`);
+  return { r };
+};
+const extra = (n: CapstoneNeedRun) => n.aloneCost - n.smallCost;
+const fmtNeeds = (ns: CapstoneNeedRun[]) => ns.map(n => `${n.need} ${extra(n) >= 0 ? '+' : ''}${extra(n)}`).join(', ');
+
+const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
+  { id: 'capstone.premium', metric: 'Each need\'s running cost a day with its capstone alone ÷ with the small buildings it replaces (lowest of the seven)', target: '≥ 1.15 (a luxury, not a saving)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20/21): upkeep about 2× what it replaces became a running cost of about 1.5× that grows with residents covered; never cheaper than the small buildings.',
+    evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const ns = o.r.needs; if (!ns.length) return NA('no capstone placed');
+      const low = ns.reduce((a, b) => (b.premium < a.premium ? b : a));
+      return { ...range(low.premium, 1.15), note: `lowest ${low.need}; ${ns.map(n => `${n.need} ${n.premium}`).join(', ')}` }; } },
+  { id: 'capstone.coverage', metric: 'Share of residents (a service) or of demand (a utility) served by the capstone alone, lowest of the seven', target: '≥ 0.99 (the whole road-joined city)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20, Q1 A): every home joined to it by road, at any distance, with no capacity limit.',
+    evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const ns = o.r.needs; if (!ns.length) return NA('no capstone placed');
+      const low = ns.reduce((a, b) => (b.coverage < a.coverage ? b : a));
+      return { ...range(low.coverage, 0.99), note: `lowest ${low.need}` }; } },
+  { id: 'capstone.affordTwo', metric: 'Daily surplus left after the two cheapest capstones the city has unlocked replace their small buildings, on 20–30k cities in surplus', target: '> 0 (a healthy 20k city carries one or two)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): a 20k city with a healthy surplus can carry one or two.',
+    evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const r = o.r;
+      if (r.population >= 30000) return NA(`over 30k residents (${r.population})`);
+      if (!(r.surplusPerDay > 0)) return NA(`not in surplus (${r.surplusPerDay} a day)`);
+      const two = r.needs.filter(n => n.unlockPopulation <= r.population).sort((a, b) => extra(a) - extra(b)).slice(0, 2);
+      if (two.length < 2) return NA('fewer than two unlocked');
+      const left = r.surplusPerDay - two.reduce((s, n) => s + extra(n), 0);
+      return { ...range(left, 1e-9), note: `${r.surplusPerDay} a day less ${fmtNeeds(two)}` }; } },
+  { id: 'capstone.allSeven', metric: 'Daily surplus left after all seven capstones replace their small buildings, on cities of 38k or more', target: '< 0 (only a strong city carries all seven)', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): only a strong city can carry all seven; a plain 40k city cannot.',
+    evaluate: c => { const o = capOf(c); if (!('r' in o)) return o; const r = o.r;
+      if (r.population < 38000) return NA(`under 38k residents (${r.population})`);
+      const left = r.surplusPerDay - r.needs.reduce((s, n) => s + extra(n), 0);
+      // A capstone that could not be placed (the Waterworks needs water) only adds to the cost: fewer already over the surplus is a pass.
+      if (r.needs.length < 7 && left >= 0) return NA(`only ${r.needs.length} capstones placed, and they fit (${left} a day left)`);
+      return { value: left, pass: left < 0, miss: left < 0 ? 0 : r3(left / Math.max(1, r.surplusPerDay)), note: `${r.surplusPerDay} a day less ${fmtNeeds(r.needs)}${r.needs.length < 7 ? ` (${r.needs.length} placed)` : ''}` }; } },
+];
+
 export const TARGETS: Target[] = [
   ...PC_TARGETS.map(t => ({ ...t, suite: 'pc' as const })),
   ...ECON_TARGETS.map(t => ({ ...t, suite: 'econ' as const })),
@@ -702,4 +749,5 @@ export const TARGETS: Target[] = [
   ...STADIUM_TARGETS.map(t => ({ ...t, suite: 'stadium' as const })),
   ...LEISURE_TARGETS.map(t => ({ ...t, suite: 'leisure' as const })),
   ...CONNECTIONS_TARGETS.map(t => ({ ...t, suite: 'connections' as const })),
+  ...CAPSTONE_TARGETS.map(t => ({ ...t, suite: 'capstones' as const })),
 ];
