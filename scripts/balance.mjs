@@ -44,6 +44,10 @@
 //   --days-save 150          game days on saved cities
 //   --quick                  PC variant B and preset recommended, fresh city only, 120 days: a fast check
 //   --no-saves               fresh city only
+//   --no-fresh               saved cities only (no fresh 128×128 town)
+//   --jobs N                 run one child process per suite × city, N at a time, and merge their
+//                            reports (default: one less than the machine's cores; --jobs 1 = one process)
+//   --previous <file>        the report to compare against (default: the --out file as it was)
 //   --city <file>            add a saved city (repeatable)
 //   --out <file>             where to write (default balance-results/latest.json)
 //   --summary-md <file>      also write a short markdown summary (e.g. a CI job summary)
@@ -55,7 +59,8 @@ import { createServer } from 'vite';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, basename, dirname, resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
+import { availableParallelism, tmpdir } from 'node:os';
 
 const args = process.argv.slice(2);
 const opt = (name) => { const k = args.indexOf(name); return k >= 0 ? args[k + 1] : undefined; };
@@ -78,9 +83,13 @@ if (!quick && !args.includes('--no-saves')) {
 }
 args.forEach((a, k) => { if (a === '--city' && !saves.some((s) => resolve(s.path) === resolve(args[k + 1]))) saves.push({ id: basename(args[k + 1]).replace('.citysave.json', ''), path: args[k + 1] }); });
 
-const cities = [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }, ...saves.map((s) => ({ id: s.id, kind: 'save', text: readFileSync(s.path, 'utf8') }))];
+const fresh = args.includes('--no-fresh') ? [] : [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }];
+const cities = [...fresh, ...saves.map((s) => ({ id: s.id, kind: 'save', text: readFileSync(s.path, 'utf8') }))];
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
-const previous = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : null;
+const previousPath = opt('--previous') ?? out;
+const previous = existsSync(previousPath) ? JSON.parse(readFileSync(previousPath, 'utf8')) : null;
+const ALL_SUITES = ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure'];
+const jobs = Math.max(1, Number(opt('--jobs') ?? Math.max(1, availableParallelism() - 1)));
 const tuned = opt('--tuned') ? JSON.parse(readFileSync(opt('--tuned'), 'utf8')) : null;
 const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D', 'T'];
 if (tuned && !variants.includes('T')) variants.push('T');
@@ -88,11 +97,49 @@ if (tuned && !variants.includes('T')) variants.push('T');
 let gitSha = null;
 try { gitSha = execSync('git rev-parse --short HEAD', { cwd: root }).toString().trim(); } catch { /* not a git checkout */ }
 
+/** Options passed on to every child, as given (all but the ones the parent sets per job). */
+const PASS = ['--variants', '--presets', '--svc-presets', '--trade-presets', '--taxdebt-presets', '--pc-max-pop', '--lots-max-pop', '--personas', '--days-fresh', '--days-save', '--tuned'];
+
+/** One child per suite × city, `jobs` at a time; their reports. Log lines are tagged with the job. */
+async function runChildren() {
+  const suites = opt('--suite') ? [opt('--suite')] : ALL_SUITES;
+  const passOn = PASS.flatMap((k) => (opt(k) !== undefined ? [k, opt(k)] : []));
+  if (quick) passOn.push('--quick');
+  const dir = join(tmpdir(), `balance-${process.pid}`);
+  mkdirSync(dir, { recursive: true });
+  const todo = [];
+  for (const suite of suites) {
+    if (fresh.length) todo.push({ tag: `${suite}/fresh-128`, args: ['--suite', suite, '--no-saves'] });
+    for (const sv of saves) todo.push({ tag: `${suite}/${sv.id}`, args: ['--suite', suite, '--no-saves', '--no-fresh', '--city', sv.path] });
+  }
+  console.log(`${todo.length} jobs (${suites.length} suites × ${fresh.length + saves.length} cities), ${jobs} at a time`);
+  const reports = [];
+  let next = 0;
+  const one = async () => {
+    while (next < todo.length) {
+      const job = todo[next++], file = join(dir, `${todo.indexOf(job)}.json`);
+      const childArgs = [join(root, 'scripts', 'balance.mjs'), ...job.args, ...passOn, '--jobs', '1', '--out', file, '--previous', previousPath];
+      const code = await new Promise((done) => {
+        const c = spawn(process.execPath, childArgs, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+        let buf = '';
+        const line = (chunk) => { buf += chunk; let k; while ((k = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, k); buf = buf.slice(k + 1); if (l && !/^written |^pc best:| pass \d+  fail \d+  n\/a \d+$/.test(l)) console.log(l); } };
+        c.stdout.on('data', line);
+        c.stderr.on('data', (d) => process.stderr.write(`[${job.tag}] ${d}`));
+        c.on('close', done);
+      });
+      if (code !== 0 || !existsSync(file)) { console.error(`[${job.tag}] failed (exit ${code})`); continue; }
+      reports.push(JSON.parse(readFileSync(file, 'utf8')));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(jobs, todo.length) }, one));
+  return reports;
+}
+
 const server = await createServer({ root, logLevel: 'error', server: { middlewareMode: true, hmr: false, ws: false, watch: null } });
 try {
-  const { runLab } = await server.ssrLoadModule('/src/balance/lab.ts');
+  const { runLab, mergeReports } = await server.ssrLoadModule('/src/balance/lab.ts');
   const t0 = Date.now();
-  const report = runLab({
+  const report = jobs > 1 ? mergeReports(await runChildren()) : runLab({
     suites: opt('--suite') ? [opt('--suite')] : undefined,
     variants,
     customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,

@@ -12,6 +12,12 @@
 //             out) made an avenue, then every street still jammed once that is
 //             done (one more event) as well, an avenue ring round the stadium and avenue spurs
 //             straight out from each side to the nearest road (more ways in).
+//   RAIL      PREPARED plus a subway (owner 2026-11-20: show the jam can be
+//             solved): two stations by the stadium, and a line from each end of
+//             them into each quarter round the stadium that had homes stuck
+//             (east, west, south, north), to the middle of its homes: where the fans come from;
+//             then, after one more event, the streets the crowd jams with the rail in (round the
+//             far stations, often) made avenues too.
 // The stadium.* targets (targets.ts) read the result.
 
 import type { World } from '../sim/World';
@@ -19,8 +25,10 @@ import { BALANCE } from '../data/balance';
 import { BUILDING_NONE, BUILDING_STADIUM, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_NONE, ZONE_R } from '../sim/constants';
 import { footprintTiles } from '../sim/buildingShapes';
 import { eventOn, eventIntensity, eventTicketIncome, eventVenue, stuckInEventJam, type EventResult } from '../sim/eventDays';
-import { roadCapacity, trafficVolume } from '../sim/TrafficData';
+import { railLoad, railNode, roadCapacity, trafficVolume } from '../sim/TrafficData';
 import { pcCap } from '../sim/politics';
+import { BUILDING_SUBWAY_STATION, RAIL_SUBWAY } from '../sim/constants';
+import { trackBlocker } from '../sim/rail';
 import { cloneWorld, startSim } from './world';
 
 /** Streets made avenues within this many tiles of the stadium (AVENUES and PREPARED). */
@@ -43,6 +51,9 @@ export interface StadiumRun {
   netPerDay: number | null;
   /** Residents stuck at the peak of the first event, by distance from the stadium (tiles): ≤5, ≤10, ≤20, ≤40, further. */
   stuckBy: number[];
+  /** At that peak: the most fans on any tile of subway track, and the most load (riders ÷ capacity) on one. */
+  railFans: number;
+  railLoad: number;
 }
 
 export interface StadiumResult {
@@ -59,6 +70,8 @@ export interface StadiumResult {
   };
   avenues?: StadiumRun & { pcCut: number | null };
   prepared?: StadiumRun & { pcCut: number | null; paybackYears: number | null };
+  /** PREPARED plus rail: the lines laid (track tiles each), what it saves and fills. */
+  rail?: StadiumRun & { pcCut: number | null; lines: number[] } | { note: string };
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -97,6 +110,114 @@ function bestSite(w: World): Site | null {
     best = g; bd = d;
   }
   return best;
+}
+
+// ── Rail ─────────────────────────────────────────────────────────────────────
+// A subway, since a city that needs this is too built up for ground track: a
+// station entrance is one tile (a home or shop lot is cleared for it, as a
+// player would), its platform runs west–east underneath, and the tunnel goes
+// under anything.
+
+const STATION_NEAR = 8;      // the stadium's station: its entrance within this many tiles of the stadium
+const STATION_FAR = 15;      // the other stations: at least this far from the stadium's
+const FAR_TRIES = 8;
+
+/** Subway entrances (platform west–east at rot 0, north–south at rot 1) beside a street, on land with no building, road or merged lot, nearest (cx, cy) first; none on `keep`. */
+function entranceSites(w: World, cx: number, cy: number, keep: Set<number>, rot: number): { x: number; y: number; d: number }[] {
+  const { width, height } = w.grid;
+  const [ax, ay] = rot === 0 ? [1, 0] : [0, 1];
+  const out: { x: number; y: number; d: number }[] = [];
+  for (let y = 3; y < height - 3; y++) for (let x = 3; x < width - 3; x++) {
+    const i = y * width + x;
+    if (keep.has(i) || w.layers.terrain[i] === TERRAIN_WATER || w.layers.building[i] !== BUILDING_NONE || w.layers.roadClass[i] !== ROAD_NONE || w.layers.lot[i] !== 0) continue;
+    if (![i - 1, i + 1, i - width, i + width].some(j => isRoad(w, j))) continue;
+    let ok = true;
+    for (let k = -2; k <= 2 && ok; k++) if (trackBlocker(w, x + k * ax, y + k * ay, RAIL_SUBWAY) !== null) ok = false;
+    if (!ok || !w.checkPlacement(x, y, BUILDING_SUBWAY_STATION, rot).ok) continue;
+    out.push({ x, y, d: Math.max(Math.abs(x - cx), Math.abs(y - cy)) });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+
+/** The shortest tunnel from tile a to tile b (both included) where subway track may go. */
+function tunnel(w: World, a: number, b: number): number[] | null {
+  const { width, height } = w.grid;
+  const prev = new Int32Array(width * height).fill(-2);
+  prev[a] = -1;
+  let q = [a];
+  while (q.length) {
+    const nq: number[] = [];
+    for (const i of q) {
+      if (i === b) { const path: number[] = []; for (let k = i; k >= 0; k = prev[k]) path.push(k); return path.reverse(); }
+      const x = i % width, y = (i - x) / width;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+        const j = yy * width + xx;
+        if (prev[j] !== -2 || (j !== b && trackBlocker(w, xx, yy, RAIL_SUBWAY) !== null)) continue;
+        prev[j] = i; nq.push(j);
+      }
+    }
+    q = nq;
+  }
+  return null;
+}
+
+// The four lines: out of the west–east station's east and west ends, and the north–south station's south and north ends.
+const SIDES = [
+  { name: 'east', rot: 0, dir: [1, 0] }, { name: 'west', rot: 0, dir: [-1, 0] },
+  { name: 'south', rot: 1, dir: [0, 1] }, { name: 'north', rot: 1, dir: [0, -1] },
+] as const;
+
+/**
+ * Two subway stations by the stadium (platforms west–east and north–south) and
+ * up to four lines, one into each quarter round the stadium that had homes stuck
+ * (east, west, south, north), to a station at the middle of that quarter's homes, on `w` before the stadium is
+ * placed. Track tiles of each line laid.
+ */
+function railPlan(w: World, s: Site, stuck: number[], why: string[] = []): number[] {
+  const { width } = w.grid;
+  const keep = new Set([...s.foot, ...s.ring]);
+  const xs = s.foot.map(i => i % width), ys = s.foot.map(i => (i - (i % width)) / width);
+  const sx = (Math.min(...xs) + Math.max(...xs)) / 2, sy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const hub: Record<number, { x: number; y: number }> = {};
+  for (const rot of [0, 1]) {
+    const site = entranceSites(w, sx, sy, keep, rot).find(p => p.d <= STATION_NEAR + 3);
+    if (site && w.placeBuilding(site.x, site.y, BUILDING_SUBWAY_STATION, rot)) hub[rot] = site;
+    else why.push(`no ${rot ? 'north–south' : 'west–east'} station site by the stadium`);
+  }
+  // Each stuck home goes to the quarter its direction from the stadium is nearest.
+  const quarter = (i: number) => { const dx = i % width - sx, dy = (i - (i % width)) / width - sy; return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'east' : 'west') : (dy >= 0 ? 'south' : 'north'); };
+  const lines: number[] = [];
+  for (const side of SIDES) {
+    const home = hub[side.rot];
+    if (!home) continue;
+    // Where that quarter's fans come from: its homes STATION_FAR or more out, weighted by level.
+    let gx = 0, gy = 0, wsum = 0;
+    for (let q = 0; q < w.index.zonedCount; q++) {
+      const i = w.index.zoned[q];
+      if (w.layers.zone[i] !== ZONE_R || !w.layers.devLevel[i] || quarter(i) !== side.name) continue;
+      const x = i % width, y = (i - x) / width;
+      if (Math.max(Math.abs(x - sx), Math.abs(y - sy)) < STATION_FAR) continue;
+      gx += x * w.layers.devLevel[i]; gy += y * w.layers.devLevel[i]; wsum += w.layers.devLevel[i];
+    }
+    if (stuck.filter(i => quarter(i) === side.name).length < 3 || wsum === 0) { why.push(`${side.name}: no stuck homes or no homes out there`); continue; }
+    gx /= wsum; gy /= wsum;
+    const start = w.grid.idx(home.x + 2 * side.dir[0], home.y + 2 * side.dir[1]);
+    let tried = 0, laid = false;
+    for (const far of entranceSites(w, gx, gy, keep, side.rot).filter(p => Math.max(Math.abs(p.x - home.x), Math.abs(p.y - home.y)) >= STATION_FAR).slice(0, FAR_TRIES)) {
+      tried++;
+      const end = w.grid.idx(far.x - 2 * side.dir[0], far.y - 2 * side.dir[1]);
+      const path = tunnel(w, start, end);
+      if (!path || !w.placeBuilding(far.x, far.y, BUILDING_SUBWAY_STATION, side.rot)) continue;
+      if (!path.every(i => (w.layers.rail[i] & RAIL_SUBWAY) !== 0 || w.layTrack(i % width, (i - (i % width)) / width, RAIL_SUBWAY))) { why.push(`${side.name}: tunnel refused`); break; }
+      lines.push(path.length);
+      laid = true;
+      break;
+    }
+    if (!laid) why.push(`${side.name}: ${tried} far sites tried`);
+  }
+  return lines;
 }
 
 function avenues(w: World, s: Site): void {
@@ -160,11 +281,11 @@ function jammedStreets(w: World, into: Set<number>): void {
   }
 }
 
-interface Played { run: StadiumRun; jam: number; jammed: Set<number> }
+interface Played { run: StadiumRun; jam: number; jammed: Set<number>; stuck: number[] }
 
 const BANDS = [5, 10, 20, 40, Infinity];
 /** Residents stuck in the event's jam on the last pass, by distance band from the stadium. */
-function stuckByDistance(w: World, s: Site): number[] {
+function stuckByDistance(w: World, s: Site, tiles?: number[]): number[] {
   const { width } = w.grid;
   const xs = s.foot.map(i => i % width), ys = s.foot.map(i => (i - (i % width)) / width);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -175,6 +296,7 @@ function stuckByDistance(w: World, s: Site): number[] {
     const x = i % width, y = (i - x) / width;
     const d = Math.max(x < x0 ? x0 - x : x > x1 ? x - x1 : 0, y < y0 ? y0 - y : y > y1 ? y - y1 : 0);
     out[BANDS.findIndex(b => d <= b)] += BALANCE.growth.popPerLevel[w.layers.devLevel[i]] ?? 0;
+    tiles?.push(i);
   }
   return out;
 }
@@ -185,6 +307,7 @@ function play(w: World, s: Site, events: number, cap: number, twin?: World): Pla
   const out: StadiumRun['events'] = [];
   const starts: number[] = [];
   const jammed = new Set<number>();
+  let stuck: number[] = [], railFans = 0, railMax = 0;
   let last = w.lastEvent, was = false, jam = 0, stuckBy: number[] = BANDS.map(() => 0), tickets = 0, ticketsAtStart: number[] = [];
   const limit = BALANCE.leisure.event.firstGap + events * (BALANCE.leisure.event.duration + BALANCE.leisure.event.gapMax) + 10;
   for (let k = 0; k < limit && out.length < events; k++) {
@@ -195,7 +318,14 @@ function play(w: World, s: Site, events: number, cap: number, twin?: World): Pla
     tickets += eventTicketIncome(w);
     if (on && out.length === 0 && w.tick % BALANCE.transit.flowInterval === 0 && eventIntensity(w) >= 0.999) {
       const j = crowdJam(w, s);
-      if (j >= jam) { jam = j; stuckBy = stuckByDistance(w, s); }
+      if (j >= jam) {
+        jam = j; stuck = []; stuckBy = stuckByDistance(w, s, stuck);
+        railFans = 0; railMax = 0;
+        const t = w.traffic!;
+        for (let k = 0; k < w.layers.rail.length; k++) if (w.layers.rail[k] & RAIL_SUBWAY) {
+          railFans = Math.max(railFans, t.event.volume[railNode(t, k, RAIL_SUBWAY)]); railMax = Math.max(railMax, railLoad(t, k, RAIL_SUBWAY));
+        }
+      }
       jammedStreets(w, jammed);
     }
     if (w.lastEvent && w.lastEvent !== last) {
@@ -213,7 +343,7 @@ function play(w: World, s: Site, events: number, cap: number, twin?: World): Pla
     const upkeep = BALANCE.buildings[BUILDING_STADIUM]?.maintenance ?? 0;
     netPerDay = r3(((ticketsAtStart[n] - ticketsAtStart[0]) / ticks - upkeep) * BALANCE.ticksPerDay);
   }
-  return { run: { events: out, pcShare: r3(mean(e => e.pc) / cap), fill: r3(mean(e => e.arrived) / seats), wantedShare: r3(mean(e => e.wanted) / seats), netPerDay, stuckBy }, jam: r3(jam), jammed };
+  return { run: { events: out, pcShare: r3(mean(e => e.pc) / cap), fill: r3(mean(e => e.arrived) / seats), wantedShare: r3(mean(e => e.wanted) / seats), netPerDay, stuckBy, railFans: r3(railFans), railLoad: r3(railMax) }, jam: r3(jam), jammed, stuck };
 }
 
 /** The probe (see the top of this file) on copies of `world`. */
@@ -253,5 +383,14 @@ export function stadiumResult(saved: World, events = 3): StadiumResult {
     const cost = BALANCE.buildings[BUILDING_STADIUM]?.cost ?? 0;
     res.prepared = { ...r, pcCut: cut(r), paybackYears: r.netPerDay !== null && r.netPerDay > 0 ? r3(cost / r.netPerDay / YEAR_DAYS) : null };
   }
+  let lines: number[] = [];
+  const why: string[] = [];
+  const withRail = (jams: Set<number>) => build(w => { why.length = 0; lines = railPlan(w, s, asIs.stuck, why); prepare(w, s, jams); });
+  // The rail moves the jam (to the far stations' streets): one more look, and those streets fixed too.
+  const railLook = withRail(seen), railSeen = new Set(seen);
+  if (railLook && lines.length) for (const i of play(railLook, s, 1, cap).jammed) railSeen.add(i);
+  const rl = withRail(railSeen);
+  if (!rl || !lines.length) res.rail = { note: rl ? `no line could be laid: ${why.join('; ')}` : 'placement refused' };
+  else { const r = play(rl, s, events, cap).run; res.rail = { ...r, pcCut: cut(r), lines }; }
   return res;
 }
