@@ -163,6 +163,7 @@ export const VARIANT_VALUES = {
         enactCost: 18,
         dailyUpkeep: 0.12,
         dailyMoney: 300,
+        dailyMoneyPerResident: 0,
         modifiers: {
           trafficTrips: 0.8
         }
@@ -355,6 +356,7 @@ export const VARIANT_VALUES = {
         enactCost: 30,
         dailyUpkeep: 0.2,
         dailyMoney: 500,
+        dailyMoneyPerResident: 0,
         modifiers: {
           trafficTrips: 0.8
         }
@@ -547,6 +549,7 @@ export const VARIANT_VALUES = {
         enactCost: 45,
         dailyUpkeep: 0.3,
         dailyMoney: 500,
+        dailyMoneyPerResident: 0,
         modifiers: {
           trafficTrips: 0.8
         }
@@ -739,6 +742,7 @@ export const VARIANT_VALUES = {
         enactCost: 30,
         dailyUpkeep: 0.16,
         dailyMoney: 700,
+        dailyMoneyPerResident: 0,
         modifiers: {
           trafficTrips: 0.7
         }

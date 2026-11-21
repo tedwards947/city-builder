@@ -5,7 +5,7 @@
 
 import type { World } from '../sim/World';
 import {
-  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance, ordinancesEnabled, enactBlocker, dailyUpkeepOf,
+  ORDINANCES, ordinanceState, enactOrdinance, repealOrdinance, ordinancesEnabled, enactBlocker, dailyUpkeepOf, dailyMoneyOf,
 } from '../sim/ordinances';
 import type { OrdinanceDef, OrdinanceId, OrdinanceState } from '../sim/ordinances';
 import { t } from '../i18n';
@@ -33,7 +33,8 @@ export function ordinanceUpkeep(world: World): number {
  * it comes from the engine, not the table.
  */
 export function ordinancePrice(world: World, o: OrdinanceDef): { enact: string; keep: string } {
-  const { enactCost, dailyMoney } = o.numbers;
+  const { enactCost } = o.numbers;
+  const dailyMoney = Math.round(dailyMoneyOf(world, o.id));
   const dailyUpkeep = dailyUpkeepOf(world, o.id);
   const keep: string[] = [];
   if (dailyUpkeep > 0) keep.push(PC_SYMBOL + ' ' + pcAmount(dailyUpkeep));

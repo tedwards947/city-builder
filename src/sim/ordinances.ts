@@ -55,7 +55,8 @@ export type OrdinanceModifier = typeof ORDINANCE_MODIFIERS[number];
 interface OrdinanceNumbers {
   enactCost: number;
   dailyUpkeep: number;   // PC per game day
-  dailyMoney: number;    // money per game day (Free Transit)
+  dailyMoney: number;    // money per game day, fixed
+  dailyMoneyPerResident?: number; // and per resident per game day (Free Transit)
   modifiers: Record<string, number>;
 }
 
@@ -190,10 +191,16 @@ export function dailyUpkeepOf(world: World, id: OrdinanceId): number {
   return (numbersOf(id)?.dailyUpkeep ?? 0) * upkeepScale(world);
 }
 
+/** The money an ordinance costs to keep up per game day in this city: `dailyMoney` + `dailyMoneyPerResident` × population. */
+export function dailyMoneyOf(world: World, id: OrdinanceId | string): number {
+  const n = numbersOf(id);
+  return n ? n.dailyMoney + (n.dailyMoneyPerResident ?? 0) * world.stats.population : 0;
+}
+
 /**
  * One game day of upkeep for the active, unsuspended ordinances. PC upkeep
  * scales with the cap (upkeepScale), takes what PC there is and never pushes
- * it below 0; money upkeep is a fixed amount, paid like any other running cost.
+ * it below 0; money upkeep (dailyMoneyOf: fixed, plus any per resident) is paid like any other running cost.
  */
 export function payUpkeep(world: World): void {
   const { active, suspended } = world.politics.ordinances;
@@ -203,7 +210,7 @@ export function payUpkeep(world: World): void {
     const n = numbersOf(id);
     if (!n) continue;
     pc += n.dailyUpkeep;
-    money += n.dailyMoney;
+    money += dailyMoneyOf(world, id);
   }
   pc *= upkeepScale(world);
   const take = Math.min(pc, Math.max(0, world.budget.politicalCapital));

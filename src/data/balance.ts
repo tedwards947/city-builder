@@ -892,11 +892,14 @@ export const BALANCE = {
       curfew: { enactCost: 17, dailyUpkeep: 0.36, dailyMoney: 0, modifiers: { crime: 0.55, commercialIncome: 0.9 } },
       cleanAirAct: { enactCost: 20, dailyUpkeep: 0.3, dailyMoney: 0, modifiers: { industrialPollution: 0.15, industrialGrowth: 0.8 } },
       businessIncentives: { enactCost: 17, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { commercialDemand: 1.4, industrialDemand: 1.4, commercialIncome: 0.8, industrialIncome: 0.8 } },
-      freeTransit: { enactCost: 20, dailyUpkeep: 0.24, dailyMoney: 700, modifiers: { trafficTrips: 0.7 } },
+      // Free Transit's money cost grows with the city (owner 2026-11-21, ENGINEER 3's A/B check): fares lost
+      // plus 0.075 a resident a day, so every saved city pays about $0.4–1.8k a day net of what fewer car
+      // trips earn back (the fixed 700 left cities with little rail better off with it on).
+      freeTransit: { enactCost: 20, dailyUpkeep: 0.24, dailyMoney: 0, dailyMoneyPerResident: 0.075, modifiers: { trafficTrips: 0.7 } },
       fastTrackPermits: { enactCost: 13, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { growth: 1.8, pollution: 1.15, crime: 1.15 } },
       eminentDomain: { enactCost: 27, dailyUpkeep: 0.32, dailyMoney: 0, modifiers: { displacementCost: 0.4, satisfaction: 0.88 } },
       heritageProtection: { enactCost: 20, dailyUpkeep: 0.24, dailyMoney: 0, modifiers: { establishedLandValue: 1.3, establishedDemolitionCost: 4 } },
-    } as Record<string, { enactCost: number; dailyUpkeep: number; dailyMoney: number; modifiers: Record<string, number> }>,
+    } as Record<string, { enactCost: number; dailyUpkeep: number; dailyMoney: number; dailyMoneyPerResident?: number; modifiers: Record<string, number> }>,
     // Opening a service building earns PC for the residents it covers; closing
     // one costs what they lose (see sim/serviceValue.ts).
     // A value of 0 switches that kind off.

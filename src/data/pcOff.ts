@@ -73,6 +73,7 @@ export const PC_OFF: Record<string, unknown> = {
       enactCost: 0,
       dailyUpkeep: 0,
       dailyMoney: 0,
+      dailyMoneyPerResident: 0,
       modifiers: { trafficTrips: 1 },
     },
     fastTrackPermits: {
