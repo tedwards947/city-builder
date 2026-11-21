@@ -1,6 +1,6 @@
 # Outside Connections: Design
 
-*Status: proposal (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
+*Status: Q1 decided; Q2–Q5 open (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Today a city is an island. New maps have no highway in (the generator lays no roads), tourists come only through the $2M airport, and goods leave only by seaport. A road or a line running off the edge of the map means nothing.
@@ -34,9 +34,15 @@ Outside connections make the edge matter. Joining a highway or a rail line to th
 **Pull becomes the limit.** Visitors = the city's pull, capped by all its gateways together. A mid-size city today has a pull of about 30–60, so one rail connection alone already lifts the cap above it, and a second connection adds nothing. For connections to matter, pull has to grow too (Q4).
 
 ## Questions for the owner
-### Q1. Where can a connection be?
-- **A. Fixed entry points on each map.** *(PM pick)* Each map has 2–4 highway points and 1–2 rail points on its edges, shown as a road or track running off the map with a sign. You build out to one to join it. Where they sit shapes the city, the number of gateways is fixed so capacity can't be spammed, and it's how most city builders do it.
-- **B. Anything that reaches the edge.** Any highway or ground track touching the map edge is a connection. Freer, but 20 stubs would mean 20× the capacity, so it needs a cap per city.
+### Q1. Where can a connection be? **Decided (owner, 2026-11-20): A, fixed entry points, scaled with map size.**
+Each map has fixed highway and rail entry points on its edges, shown as a road or track running off the map with a sign. You build out to one to join it. The number grows with the map (owner: "2× highway, 2× rail for small, etc."; the larger sizes are the PM's default):
+| Map | Size | Highway points | Rail points |
+|---|---|---|---|
+| Tutorial | 48×48 | 1 (its existing stub) | 0 |
+| Small | 128×128 | 2 | 2 |
+| Medium | 256×256 | 3 | 3 |
+| Large | 512×512 | 4 | 4 |
+Points are spread over different edges, never in water, and not right next to each other. Rejected: B, anything that reaches the edge (it needs a cap, or 20 stubs give 20× the capacity).
 
 ### Q2. What comes through?
 - **Visitors** in (owner: yes).
