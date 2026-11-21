@@ -173,7 +173,7 @@ addTripProvider((world, market, add) => {
   for (const g of gates) total += g.capacity;
   if (!(total > 0)) return;
   const fans = Math.min(total, cfg().touristFans) * scale;
-  for (const g of gates) for (const ri of g.roads) add(ri, fans * g.capacity / total / g.roads.length);
+  for (const g of gates) for (const ri of g.roads) add(ri, fans * g.capacity / total / g.roads.length, g.level);
 });
 
 /** Fans in the seats on the last traffic pass (0 between events). */

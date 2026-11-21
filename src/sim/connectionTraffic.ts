@@ -31,7 +31,8 @@
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
 import { addDoorProvider, addTripProvider, servedAtDoors } from './TrafficData';
-import { ZONE_C } from './constants';
+import { RAIL_GROUND, ZONE_C } from './constants';
+import { openRails } from './connectionRail';
 import { levelWeight } from './lots';
 import { connectionOn, isJoined, openHighways, type Connection } from './connections';
 import { gatewayCapacity, touristsArriving } from './leisureTraffic';
@@ -62,29 +63,43 @@ function commerceLevels(world: World): number {
   return levels;
 }
 
-/**
- * Day-trippers a tick arriving by all the open highway points together: the
- * shops' pull, in whole trips, up to the room the highways have left after
- * the tourists they bring.
- */
-export function dayTrippers(world: World): number {
-  const cfg = H();
-  const points = openHighways(world).length;
-  if (points === 0 || !(cfg.shopPull > 0) || !(cfg.visitors > 0)) return 0;
-  const total = gatewayCapacity(world);
-  const room = points * cfg.visitors;
-  const tourists = total > 0 ? touristsArriving(world) * room / total : 0;
-  // Whole trips, so a shop growing a level does not start a new traffic pass each time.
-  return Math.max(0, Math.min(Math.floor(commerceLevels(world) * cfg.shopPull), Math.floor(room - tourists)));
+/** What an open point can bring in a tick: a highway's or a rail line's `visitors`. 0 for a point that is not open. */
+function visitorsRoom(world: World, c: Connection): number {
+  if (c.kind === 'highway') return openHighways(world).includes(c) ? Math.max(0, H().visitors) : 0;
+  return openRails(world).includes(c) ? Math.max(0, BALANCE.connections.rail.visitors) : 0;
 }
 
-// Day-trippers start at the open highway points, shared evenly, as shopping trips.
+/** What the open highway and rail points can bring in together. */
+function connectionsRoom(world: World): number {
+  return openHighways(world).length * Math.max(0, H().visitors) + openRails(world).length * Math.max(0, BALANCE.connections.rail.visitors);
+}
+
+/**
+ * Day-trippers a tick arriving by all the open highway and rail points
+ * together: the shops' pull, in whole trips, up to the room the points have
+ * left after the tourists they bring.
+ */
+export function dayTrippers(world: World): number {
+  const pull = H().shopPull;
+  if (!(pull > 0)) return 0;
+  const room = connectionsRoom(world);
+  if (!(room > 0)) return 0;
+  const total = gatewayCapacity(world);
+  const tourists = total > 0 ? touristsArriving(world) * room / total : 0;
+  // Whole trips, so a shop growing a level does not start a new traffic pass each time.
+  return Math.max(0, Math.min(Math.floor(commerceLevels(world) * pull), Math.floor(room - tourists)));
+}
+
+// Day-trippers start at the open points as shopping trips, shared by what each point can bring:
+// on a highway point's tile, or riding in on a rail point's track.
 addTripProvider((world, market, add) => {
   if (market !== 'shopping') return;
   const trips = dayTrippers(world);
   if (!(trips > 0)) return;
-  const points = openHighways(world);
-  for (const c of points) add(c.tile, trips / points.length);
+  const room = connectionsRoom(world);
+  const byRoad = Math.max(0, H().visitors), byRail = Math.max(0, BALANCE.connections.rail.visitors);
+  if (byRoad > 0) for (const c of openHighways(world)) add(c.tile, trips * byRoad / room);
+  if (byRail > 0) for (const c of openRails(world)) add(c.tile, trips * byRail / room, RAIL_GROUND);
 });
 
 /** Export trucks a tick the highway point took on the last traffic pass (up to its room). */
@@ -106,7 +121,7 @@ export interface ConnectionTrade {
   kind: Connection['kind'];
   /** A highway (or ground track) stands on its tile. */
   joined: boolean;
-  /** It carries traffic: joined, a highway point, and not the tutorial city. (Rail points carry nothing yet.) */
+  /** It carries traffic: a highway point with a highway on it, or a rail point whose track leads to a station with a road. Never in the tutorial city. */
   open: boolean;
   /** Tourists arriving through it, and the most it can bring. */
   visitorsIn: number;
@@ -126,21 +141,23 @@ export interface ConnectionTrade {
 export function connectionTradeAt(world: World, i: number): ConnectionTrade | null {
   const c = connectionOn(world, i);
   if (!c) return null;
-  const open = openHighways(world).includes(c);
+  const room = visitorsRoom(world, c);
+  const highway = c.kind === 'highway';
+  const open = highway ? openHighways(world).includes(c) : room > 0;
   const cfg = H();
   const total = open ? gatewayCapacity(world) : 0;
-  const exports = open ? trucksAt(world, c) : 0;
+  const exports = open && highway ? trucksAt(world, c) : 0;
   return {
     kind: c.kind,
     joined: isJoined(world, c),
     open,
-    visitorsIn: total > 0 ? touristsArriving(world) * cfg.visitors / total : 0,
-    visitorsCapacity: c.kind === 'highway' ? cfg.visitors : 0,
-    dayTrippers: open ? dayTrippers(world) / openHighways(world).length : 0,
+    visitorsIn: total > 0 ? touristsArriving(world) * room / total : 0,
+    visitorsCapacity: highway ? cfg.visitors : BALANCE.connections.rail.visitors,
+    dayTrippers: room > 0 ? dayTrippers(world) * room / connectionsRoom(world) : 0,
     exports,
     exportCapacity: c.kind === 'highway' ? cfg.exportTrucks : 0,
     income: exports * BALANCE.port.exportIncomePerTrip,
-    residentsOut: open ? servedAtDoors([c.tile], world.traffic?.visitors.field, cfg.residentsOut) : 0,
+    residentsOut: open && highway ? servedAtDoors([c.tile], world.traffic?.visitors.field, cfg.residentsOut) : 0,
     residentsOutCapacity: c.kind === 'highway' ? cfg.residentsOut : 0,
   };
 }

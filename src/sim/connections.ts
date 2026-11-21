@@ -22,7 +22,8 @@
 //                    becomes a point first, up to the map's count; the rest
 //                    are chosen as above, from the map as it then is.
 //
-// What travels through a point is in sim/connectionTraffic.ts.
+// What travels through a point is in sim/connectionTraffic.ts (the highway)
+// and sim/connectionRail.ts (which rail points are open).
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';

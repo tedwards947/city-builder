@@ -28,14 +28,16 @@
 
 import type { World, BuildingEntity } from './World';
 import { BALANCE, type LeisureRow } from '../data/balance';
-import { BUILDING_PARK, ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
+import { BUILDING_PARK, ROAD_NONE, ROAD_HIGHWAY, ZONE_R, RAIL_GROUND } from './constants';
 import { coveredBy } from './serviceValue';
 import { openHighways } from './connections';
+import { openRails } from './connectionRail';
 import { addDoorProvider, addTripProvider, servedAtDoors, type TrafficField } from './TrafficData';
 
 const rows = (): Record<number, LeisureRow> => BALANCE.leisure.kinds;
 const gateways = (): Record<number, number> => BALANCE.leisure.gateways;
 const highwayVisitors = (): number => Math.max(0, BALANCE.connections.highway.visitors);
+const railVisitors = (): number => Math.max(0, BALANCE.connections.rail.visitors);
 
 const roadCache = new WeakMap<World, { edits: number; byAnchor: Map<number, number[]> }>();
 
@@ -100,13 +102,17 @@ export function gatewayCapacity(world: World): number {
     if (accessRoads(world, b).length > 0) cap += g[b.kind];
   }
   cap += openHighways(world).length * highwayVisitors();
+  cap += openRails(world).length * railVisitors();
   return cap;
 }
 
+/** A gateway: what it can bring in (tourists a tick) and the tiles they arrive on. With `level`, they arrive on that track (a RAIL_ bit), already on a train. */
+export interface Gateway { capacity: number; roads: number[]; level?: number }
+
 /** Every gateway a road reaches: what it can bring in (tourists a tick) and its access roads. */
-export function gatewayRoads(world: World): { capacity: number; roads: number[] }[] {
+export function gatewayRoads(world: World): Gateway[] {
   const g = gateways();
-  const out: { capacity: number; roads: number[] }[] = [];
+  const out: Gateway[] = [];
   for (const b of world.buildings) {
     if (!(g[b.kind] > 0)) continue;
     const roads = accessRoads(world, b);
@@ -115,6 +121,9 @@ export function gatewayRoads(world: World): { capacity: number; roads: number[] 
   // A joined highway point (sim/connections.ts) is a gateway too: its one tile is where they arrive.
   const visitors = highwayVisitors();
   if (visitors > 0) for (const c of openHighways(world)) out.push({ capacity: visitors, roads: [c.tile] });
+  // So is a joined rail point: they ride in on its track and get off at a station.
+  const riders = railVisitors();
+  if (riders > 0) for (const c of openRails(world)) out.push({ capacity: riders, roads: [c.tile], level: RAIL_GROUND });
   return out;
 }
 
@@ -157,7 +166,7 @@ addTripProvider((world, market, add) => {
     const total = gatewayCapacity(world);
     // Each gateway brings its share of the tourists, spread over its roads.
     for (const gate of gatewayRoads(world)) {
-      for (const ri of gate.roads) add(ri, tourists * gate.capacity / total / gate.roads.length);
+      for (const ri of gate.roads) add(ri, tourists * gate.capacity / total / gate.roads.length, gate.level);
     }
     return;
   }

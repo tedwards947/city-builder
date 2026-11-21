@@ -151,8 +151,13 @@ export function extraDoors(world: World, market: MarketKey, add: (roadTile: numb
  * each source: a street or avenue tile (anything else is ignored) and the
  * trips per tick starting there (0 or less is ignored). Must be a pure
  * function of the world and the balance numbers, like a DoorProvider.
+ *
+ * With `railLevel` (a RAIL_ bit) the trips start on that level's track on the
+ * tile instead: riders already on a train. Only an outside rail connection's
+ * tile is taken (sim/connectionRail.ts), and only a market whose trips ride
+ * can carry them; anywhere else they are ignored.
  */
-export type TripProvider = (world: World, market: MarketKey, add: (roadTile: number, trips: number) => void) => void;
+export type TripProvider = (world: World, market: MarketKey, add: (roadTile: number, trips: number, railLevel?: number) => void) => void;
 
 const tripProviders: TripProvider[] = [];
 
@@ -168,7 +173,7 @@ export function hasTripProviders(): boolean {
 }
 
 /** Every extra source of `market`'s trips, from every provider. */
-export function extraTrips(world: World, market: MarketKey, add: (roadTile: number, trips: number) => void): void {
+export function extraTrips(world: World, market: MarketKey, add: (roadTile: number, trips: number, railLevel?: number) => void): void {
   for (const provider of tripProviders) provider(world, market, add);
 }
 
