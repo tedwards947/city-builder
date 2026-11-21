@@ -26,7 +26,6 @@ import { ordinancesShown } from './OrdinancePanel';
 import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
 import { BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY } from '../sim/constants';
-import { DEBUG } from '../debug';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
@@ -49,6 +48,8 @@ export interface ToolbarItem {
   hotkey?: string;
   /** If given and it returns false, the item is left out (a feature not switched on yet). */
   shown?: () => boolean;
+  /** If given and above 0, the item is locked until the city has this many residents (shown greyed out with the number). */
+  lockedAt?: () => number;
   /** If given and above 0, a small number on the tile (things waiting). */
   count?: () => number;
   /** Extra class for the icon (the zone colours). */
@@ -64,8 +65,11 @@ export interface ToolbarFamily {
 }
 export type ToolbarEntry = ToolbarItem | ToolbarFamily | 'sep';
 
-/** The capstone tools are offered only with ?debug=true for now. */
-const capstonesShown = (): boolean => DEBUG;
+/**
+ * Residents a capstone still needs before it can be built (0 once unlocked), set by main.ts from
+ * sim/leisure.ts buildingUnlocked/unlockPopulation. Locked capstones show greyed out with that number.
+ */
+export const capstoneLocks = { need: (_tool: Tool): number => 0 };
 
 export const TOOLBAR: ToolbarEntry[] = [
   { key: 'view', icon: 'view', tool: 'none', hotkey: '1' },
@@ -131,13 +135,13 @@ export const TOOLBAR: ToolbarEntry[] = [
   // Capstones (CAPSTONE_DESIGN.md): whole-city buildings, one of each per city, in the order they unlock.
   // ?debug=true only until their art and whole-city coverage are in.
   { family: 'capstones', icon: 'monument', items: [
-    { key: 'sewageWorks', icon: 'sewage', tool: 'sewageWorks', shown: capstonesShown },
-    { key: 'waterworks', icon: 'water', tool: 'waterworks', shown: capstonesShown },
-    { key: 'fireHq', icon: 'fire', tool: 'fireHq', shown: capstonesShown },
-    { key: 'policeHq', icon: 'police', tool: 'policeHq', shown: capstonesShown },
-    { key: 'generalHospital', icon: 'hospital', tool: 'generalHospital', shown: capstonesShown },
-    { key: 'nuclearPlant', icon: 'power', tool: 'nuclearPlant', shown: capstonesShown },
-    { key: 'university', icon: 'school', tool: 'university', shown: capstonesShown },
+    { key: 'sewageWorks', icon: 'sewage', tool: 'sewageWorks', lockedAt: () => capstoneLocks.need('sewageWorks') },
+    { key: 'waterworks', icon: 'water', tool: 'waterworks', lockedAt: () => capstoneLocks.need('waterworks') },
+    { key: 'fireHq', icon: 'fire', tool: 'fireHq', lockedAt: () => capstoneLocks.need('fireHq') },
+    { key: 'policeHq', icon: 'police', tool: 'policeHq', lockedAt: () => capstoneLocks.need('policeHq') },
+    { key: 'generalHospital', icon: 'hospital', tool: 'generalHospital', lockedAt: () => capstoneLocks.need('generalHospital') },
+    { key: 'nuclearPlant', icon: 'power', tool: 'nuclearPlant', lockedAt: () => capstoneLocks.need('nuclearPlant') },
+    { key: 'university', icon: 'school', tool: 'university', lockedAt: () => capstoneLocks.need('university') },
   ] },
   // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
   { family: 'landscape', icon: 'tree', items: [
@@ -308,7 +312,7 @@ export class Toolbar {
    * switched on or off while the game runs), and otherwise does nothing.
    */
   syncShown(): void {
-    const sig = TOOLBAR.map(e => e === 'sep' || isFamily(e) ? '' : (e.shown ? (e.shown() ? '1' : '0') : '') + (e.count ? e.count() : '')).join(',');
+    const sig = TOOLBAR.map(e => e === 'sep' ? '' : isFamily(e) ? e.items.map(i => (i.lockedAt?.() ?? 0) > 0 ? 'L' : '').join('') : (e.shown ? (e.shown() ? '1' : '0') : '') + (e.count ? e.count() : '')).join(',');
     if (sig === this.shownSig) return;
     this.shownSig = sig;
     this.render();
@@ -399,7 +403,7 @@ export class Toolbar {
       b.addEventListener('click', () => {
         const opening = this.open !== e.family;
         this.open = opening ? e.family : null;
-        if (opening && face?.tool !== undefined) this.pick(face);   // one click re-arms the last member
+        if (opening && face?.tool !== undefined && !((face.lockedAt?.() ?? 0) > 0)) this.pick(face);   // one click re-arms the last member (not a locked one)
         this.render();
       });
       this.hover(b, () => this.open === e.family ? null : face ? this.itemTip(face) : { name: t('ui.toolbar.' + e.family) });
@@ -421,7 +425,8 @@ export class Toolbar {
     for (const item of f.items) {
       if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
       if (item.sepBefore) fly.append(node('div', 'tb-fly-sep'));
-      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulses(item) ? ' tb-pulse' : ''),
+      const need = item.lockedAt?.() ?? 0;
+      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulses(item) ? ' tb-pulse' : '') + (need > 0 ? ' locked' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);
@@ -429,8 +434,10 @@ export class Toolbar {
         row.appendChild(node('span', 'tb-pc')).textContent = PC_SYMBOL + ' ' + t('ui.toolbar.pcNearHomes');
       }
       const cost = item.tool !== undefined ? toolPrice(item.tool).cost : undefined;
-      if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '').replace(' / tree', '');
-      row.addEventListener('click', () => { this.open = null; this.pick(item); this.render(); });
+      if (need > 0) row.appendChild(node('span', 'tb-lock')).textContent = t('ui.toolbar.lockedAt', { n: need.toLocaleString('en-US') });
+      else if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '').replace(' / tree', '');
+      if (need > 0) row.setAttribute('aria-disabled', 'true');
+      row.addEventListener('click', () => { if (need > 0) return; this.open = null; this.pick(item); this.render(); });
       this.hover(row, () => this.itemTip(item), fly);
       fly.append(row);
     }

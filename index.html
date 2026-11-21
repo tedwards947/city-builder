@@ -142,6 +142,10 @@
     .tb-row.on .tb-ico { color: #fff; }
     .tb-pc { color: #7dd8c0; font-size: 11px; margin-left: -2px; }
     .tb-cost { color: #7dd87d; margin-left: auto; padding-left: 16px; font-size: 12px; }
+    .tb-row.locked { cursor: default; color: #8d979f; }
+    .tb-row.locked .tb-ico { filter: grayscale(1); opacity: 0.45; }
+    .tb-row.locked:hover { background: none; }
+    .tb-lock { color: #c9b27a; margin-left: auto; padding-left: 16px; font-size: 12px; white-space: nowrap; }
     .tb-mode { margin-top: 6px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.12); }
     .tb-seg { display: flex; gap: 3px; }
     .tb-seg button { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #dfe7ee; border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; line-height: 1.3; cursor: pointer; text-align: left; }

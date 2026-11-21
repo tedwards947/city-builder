@@ -9,6 +9,7 @@
 //   clay/*             sprites, trees, roads and cars, badges, routes
 
 import { drawLeisureBuilding } from './clay/leisureArt';
+import { drawCapstone, isCapstoneArt } from './clay/capstoneArt';
 import { isLeisureKind } from '../sim/leisure';
 import { eventStatus } from '../sim/eventDays';
 import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
@@ -721,6 +722,13 @@ export class CanvasRenderer {
         drawRailTile(ctx, railLinks(world, i), X(ax + dx), Y(ay + dy), tile);
       });
       return;
+    }
+    // Capstones (clay/capstoneArt.ts): the painted block, plus its trees, runway, intake pipes and parked aircraft in code.
+    // The art has one facing: a turned one (only until the engine fixes their facing) shows the stand-in.
+    if (isCapstoneArt(kind) && rot === 0) {
+      const tile = camera.zoom * TILE_SIZE;   // exact: see the merged lots
+      const wc = water ? { x: X(water.x) + tile / 2, y: Y(water.y) + tile / 2 } : null;
+      if (drawCapstone(ctx, kind, X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, wc)) return;
     }
     // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
     if (isLeisureKind(kind)) {

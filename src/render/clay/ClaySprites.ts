@@ -234,6 +234,16 @@ export function pairClaySprite(name: string): ClaySprite | undefined {
   return sprites.get('pairs/' + name);
 }
 
+/** A capstone's clay sprite (public/sprites/clay/capstones/<name>.png, clay/capstoneArt.ts), or undefined until it has loaded. */
+export function capstoneClaySprite(name: string): ClaySprite | undefined {
+  return sprites.get('capstones/' + name);
+}
+
+/** A garden tree's cut-out (public/sprites/clay/props), once loaded: for art that places the game's own trees. */
+export function clayTreeImage(name: TreeName): HTMLImageElement | undefined {
+  return trees[name];
+}
+
 /** A leisure building's clay sprite (public/sprites/clay/leisure/<name>.png, clay/leisureArt.ts), or undefined until it has loaded. */
 export function leisureClaySprite(name: string): ClaySprite | undefined {
   return sprites.get('leisure/' + name);

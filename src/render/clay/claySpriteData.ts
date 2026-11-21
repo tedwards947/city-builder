@@ -1136,6 +1136,55 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "right": 226,
     "bottom": 219
   },
+  "capstones/sewage-c": {
+    "w": 484,
+    "h": 484,
+    "left": 39,
+    "right": 442,
+    "bottom": 431
+  },
+  "capstones/water-b": {
+    "w": 485,
+    "h": 525,
+    "left": 38,
+    "right": 441,
+    "bottom": 494
+  },
+  "capstones/fire-c": {
+    "w": 487,
+    "h": 487,
+    "left": 40,
+    "right": 442,
+    "bottom": 437
+  },
+  "capstones/police-b": {
+    "w": 487,
+    "h": 487,
+    "left": 39,
+    "right": 442,
+    "bottom": 445
+  },
+  "capstones/hospital-6x4": {
+    "w": 724,
+    "h": 724,
+    "left": 57,
+    "right": 661,
+    "bottom": 641
+  },
+  "capstones/nuclear-a": {
+    "w": 485,
+    "h": 722,
+    "left": 38,
+    "right": 442,
+    "bottom": 677
+  },
+  "capstones/uni-b": {
+    "w": 970,
+    "h": 970,
+    "left": 77,
+    "right": 885,
+    "bottom": 873
+  },
   "leisure/beach-a-wide": {
     "w": 384,
     "h": 345,

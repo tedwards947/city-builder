@@ -21,7 +21,7 @@ import { SewageSystem } from '../sim/systems/SewageSystem';
 import { PollutionSystem } from '../sim/systems/PollutionSystem';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { serialize, deserialize } from '../persistence/Serializer';
-import { toolbarItems, toolPrice } from '../ui/Toolbar';
+import { toolbarItems, toolPrice, capstoneLocks } from '../ui/Toolbar';
 import { landWorld, homes } from './pcTestWorld';
 
 const ALL = [BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY];
@@ -110,10 +110,17 @@ describe('the seven capstones', () => {
     expect(back.canPlaceBuilding(40, ROW + 1, BUILDING_UNIVERSITY)).toBe(false);
   });
 
-  it('are offered by the toolbar with ?debug=true only, for now', () => {
+  it('are offered by the toolbar to everyone, greyed out with the residents they need until unlocked', () => {
     const tools = toolbarItems().filter((i) => ['sewageWorks', 'waterworks', 'fireHq', 'policeHq', 'generalHospital', 'nuclearPlant', 'university'].includes(i.tool as string));
     expect(tools).toHaveLength(7);
-    for (const i of tools) expect(i.shown?.(), i.key).toBe(false);
+    const was = capstoneLocks.need;
+    try {
+      capstoneLocks.need = (tool) => (tool === 'university' ? 40000 : 0);
+      for (const i of tools) {
+        expect(i.shown, i.key).toBeUndefined();
+        expect(i.lockedAt?.(), i.key).toBe(i.tool === 'university' ? 40000 : 0);
+      }
+    } finally { capstoneLocks.need = was; }
   });
 });
 
