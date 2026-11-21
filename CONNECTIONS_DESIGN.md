@@ -1,6 +1,6 @@
 # Outside Connections: Design
 
-*Status: Q1 decided; Q2–Q5 open (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
+*Status: Q1–Q3 decided; Q4–Q5 open (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Today a city is an island. New maps have no highway in (the generator lays no roads), tourists come only through the $2M airport, and goods leave only by seaport. A road or a line running off the edge of the map means nothing.
@@ -44,13 +44,13 @@ Each map has fixed highway and rail entry points on its edges, shown as a road o
 | Large | 512×512 | 4 | 4 |
 Points are spread over different edges, never in water, and not right next to each other. Rejected: B, anything that reaches the edge (it needs a cap, or 20 stubs give 20× the capacity).
 
-### Q2. What comes through?
+### Q2. What comes through? **Decided (owner, 2026-11-20): the PM picks below.**
 - **Visitors** in (owner: yes).
 - **Exports by highway** *(PM pick: yes)*: industry trucks drive out to a joined highway, like a small seaport (10 trucks a tick against the port's 15). Inland maps (Lakes) get a trade route. Rail freight stays out (it would need a freight yard).
 - **Residents travelling out** *(PM pick: yes)*: the `visitors` market (homes → airport today) also uses the connections, so a busy highway is busy both ways.
 - **Commuters** in and out (residents working in the region, outsiders filling jobs) *(PM pick: later)*. It's the biggest change to balance, because it lets a town grow without its own jobs.
 
-### Q3. The capacity numbers
+### Q3. The capacity numbers **Decided (owner, 2026-11-20): the PM pick, ENGINEER 3 tunes from there.**
 Highway 30 visitors plus 10 trucks; rail 90 visitors (3×); airport stays at 60. *(PM pick: these as the starting point, then ENGINEER 3 tunes them in the lab.)* Alternative: rail at 2× (60) so the airport keeps more of its point.
 
 ### Q4. Pull has to grow
