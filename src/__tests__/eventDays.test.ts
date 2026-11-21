@@ -69,12 +69,12 @@ beforeEach(() => { LE.gateways = {}; });
 afterEach(() => { Object.assign(EV, JSON.parse(JSON.stringify(shipped.event))); LE.gateways = { ...shipped.gateways }; });
 
 describe('stadium events', () => {
-  it('ship about five minutes long with a ramp, a peak and a drain, 7 to 20 minutes apart', () => {
+  it('ship about five minutes long with a ramp, a peak and a drain, 12 to 30 minutes apart', () => {
     const s = shipped.event;
     expect(s.kind).toBe(BUILDING_STADIUM);
     expect(s.duration).toBe(600);                              // 5 min at 500 ms a tick
     expect(s.ramp + s.drain).toBeLessThan(s.duration);
-    expect([s.gapMin, s.gapMax]).toEqual([840, 2400]);
+    expect([s.gapMin, s.gapMax]).toEqual([1440, 3600]);          // owner 2026-11-20: a bit more infrequent
     expect(s.firstGap).toBeGreaterThan(0);
     expect(s.seats).toBeGreaterThan(0);
     expect(s.dropAfter).toBeGreaterThan(1);                    // one bad event is not a disaster
@@ -201,8 +201,8 @@ describe('the events clock', () => {
     expect(new Set(gaps).size).toBeGreaterThan(100);
     const sorted = [...gaps].sort((a, b) => a - b);
     const median = sorted[100];
-    expect(median).toBeGreaterThan(1000);                            // about 10 minutes (1200 ticks) is typical
-    expect(median).toBeLessThan(1500);
+    expect(median).toBeGreaterThan(1700);                            // about 16 minutes (1980 ticks) is typical
+    expect(median).toBeLessThan(2300);
     expect(Array.from({ length: 200 }, (_, k) => eventGap(w, k + 1))).toEqual(gaps);
     const untouched = landWorld(SIZE).rng();
     const again = landWorld(SIZE);
@@ -211,6 +211,7 @@ describe('the events clock', () => {
   });
 
   it('the first event comes firstGap after the stadium is built, the next a gap after it ends; no stadium, no clock', () => {
+    EV.fansPerLevel = 0.15;   // a crowd this small town's street can carry, so every fan arrives
     w = landWorld(SIZE);
     for (let x = 2; x <= 93; x++) w.setRoad(x, ROW, ROAD_STREET);
     for (let k = 0; k < 20; k++) zone(10 + k, ROW + 1, 3);
@@ -320,7 +321,7 @@ describe('the event jam', () => {
     w.events.on('tileDeclined', (e) => { if ((e as { reason: string }).reason === 'event') declines.push((e as { level: number }).level); });
     let next = START;
     const event = () => { const r = hold(next)!; next += 400; return r; };
-    expect(EV.dropAfter).toBe(3);
+    EV.dropAfter = 3;   // the walk-through below counts to three (shipped: 2, ENGINEER 3)
     expect(event().declined).toBe(0);
     expect(w.eventStrain[stuck]).toBe(1);
     expect(w.eventStrain[fine]).toBe(0);

@@ -152,8 +152,10 @@ Approved by the owner (2026-11-19, proposals in #305):
 - rail.suburb access floor 30% → 25% (owner, 2026-11-19): gen-s1 sat at 29.8% after the station resize and the crossing change.
 - Running costs that grow with the city (owner, 2026-11-20, pacing option A): `sim/runningCost.ts`, charged in EconomySystem. Per covered resident: police 0.03, fire 0.02, school 0.04, hospital 0.04 a day. Per unit of power, water and sewage supplied: 0.05, 0.06 and 0.04 (large plants ×0.6). The first 1,000 residents are free. Police capacity 3,000 and fire 4,000, so a growing city outgrows its stations. New targets: econ.pace (surplus per resident by size band), econ.firstYearBank (30–60k at day 300), econ.fixCost (`src/balance/pace.ts`). Planner bank at day 300 is about 50k (was 93–178k). Golden: expenses +15–21%, money at 400 ticks −25%; residents unchanged. Lots suite 14/0 after leisure. Open for the owner: econ.fixCost and econ.matureSurplus still fail on mature cities (golden-1 0.35 a resident at neutral tax), because one flat per-resident rate can't suit both young and mature cities. Option: rates that rise with city size. The UI lines go to ENGINEER 2.
 
+- Stadium and leisure suites and numbers (owner-approved targets 2026-11-20). Stadium (`--suite stadium`): seats 700, fansPerLevel 0.8, ticket 0.75, pcPerStuckResident 0.016, dropAfter 2, upkeep 84 (was 200), gaps 12–30 min at 1× (owner's playtest). Leisure (`--suite leisure`): museum cost 250,000 (was 60,000), ticket 3.5 (was 6), upkeep 75; big park / plaza / 2×2 park upkeep 9 / 6 / 4 (was 30 / 15 / 14), land value bonus 30 / 40 / 20; `leisure.need.minReach` 0.45 (a 1×1 park within about 8 tiles of drive). `cities/smallercity.citysave.json` joins the standard lab cities. Open for the owner: see the PR (lasting harm, the leisure need and park payback depend on how many parks a city has, dropAfter 1 or 2).
+
 Next:
-1. Leisure and tourism numbers, including stadium crowd size and PC (owner wants it "massive" with real teeth), tuned together with the running costs.
+1. Nothing queued. Waiting on the owner: rates that rise with city size (after the owner plays).
 
 ## DESIGN
 

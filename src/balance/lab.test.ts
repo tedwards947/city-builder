@@ -14,7 +14,7 @@ describe('balance lab', () => {
     const r = small();
     expect(JSON.stringify(BALANCE)).toBe(before);
     expect(r.schema).toBe(REPORT_SCHEMA);
-    expect(r.targets.map(t => t.id)).toEqual(TARGETS.filter(t => t.suite !== 'rail' && t.suite !== 'lots').map(t => t.id));
+    expect(r.targets.map(t => t.id)).toEqual(TARGETS.filter(t => t.suite !== 'rail' && t.suite !== 'lots' && t.suite !== 'stadium' && t.suite !== 'leisure').map(t => t.id));
     for (const t of r.targets) if (t.suite !== 'trade' && t.suite !== 'airport' && t.suite !== 'rail' && t.suite !== 'landscape') for (const v of t.suite === 'pc' ? ['Off', 'B'] : t.suite === 'econ' ? ['shipped', 'recommended'] : t.suite === 'taxdebt' ? ['shipped'] : ['nocap', 'shipped']) expect(t.results[v]?.fresh).toBeDefined();
     expect(r.econRuns.recommended.fresh.econ.moneyStart).toBeGreaterThan(0);
     expect(r.runs.B.fresh.planner.end.population).toBeGreaterThan(0);
@@ -29,7 +29,7 @@ describe('balance lab', () => {
   it('target ids are unique and stable in form', () => {
     const ids = TARGETS.map(t => t.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^(pc|econ|svc|port|goods|debt|tax|airport|rail|land|vibe|water|lots)\.[a-zA-Z.]+$/);
+    for (const id of ids) expect(id).toMatch(/^(pc|econ|svc|port|goods|debt|tax|airport|rail|land|vibe|water|lots|stadium|leisure)\.[a-zA-Z.]+$/);
   });
 
   it('is deterministic', () => {
