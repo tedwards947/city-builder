@@ -176,6 +176,7 @@ export const en: TranslationSchema = {
     },
     route: { jobs: "work: {time} of {limit}", shops: "shops: {time} of {limit}", customers: "customers: {time} of {limit}", workers: "workers: {time} of {limit}", none: "no shops or jobs in reach", noCustomers: "no customers in reach", noWorkers: "no workers in reach" },
     trafficOverlay: { stationRiders: "{n} riders", stationNoRoad: "No road" },
+    trafficLegend: { roads: "Roads", track: "Track", commute: "Commute", onHover: "On hover", empty: "Empty", free: "Free", busy: "Busy", full: "Full", over2: "2× over", over4: "4× over", riders: "Riders", overCapacity: "Over capacity", short: "Short", long: "Long", cutOff: "Cut off", market: { shopping: "Shopping", jobs: "To work", goods: "Goods", exports: "Exports", visitors: "Visitors", leisure: "Leisure", event: "Event" } },
     rail: { offMap: "Off the map", blocked: "Something is in the way", hasTrack: "Track is already here", crossing: "Track can only cross a straight street or avenue", noRoute: "No way for track from the start to here" },
     airport: { noRoad: "⚠ No road to the terminal: build a street along its north side", roadHere: "Road here" },
     stadiumPin: { live: "Game on!", inMin: "Kick-off in {n} min", inSec: "Kick-off in {n} s" },
