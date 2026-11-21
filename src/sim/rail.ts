@@ -16,6 +16,7 @@ import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
 import { buildingShape, hasPlatforms, platformSides, rampLevel, subwayPlatform } from './buildingShapes';
+import { transitIsFree } from './ordinances';
 import { railVolume } from './TrafficData';
 
 /** Directions as bits, for railLinks. */
@@ -337,8 +338,9 @@ export function stationGrowthMask(world: World): Uint8Array | null {
   return mask;
 }
 
-/** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare. */
+/** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare; 0 under Free Transit (ridership is unchanged). */
 export function railFareIncome(world: World): number {
+  if (transitIsFree(world)) return 0;
   const boardings = world.traffic?.rail.boardings ?? 0;
   return boardings > 0 ? boardings * BALANCE.rail.fare : 0;
 }

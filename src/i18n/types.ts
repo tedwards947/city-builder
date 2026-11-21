@@ -72,6 +72,7 @@ export interface TranslationSchema {
       stationNoRoad: string;
       stationBoardings: string;
       stationEarns: string;
+      stationFree: string;
       railTrack: string;
       nearStation: string;
       railElevated: string;
