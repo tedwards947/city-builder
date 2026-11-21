@@ -218,6 +218,8 @@ q. **Bigger parks count for park coverage** (owner, 2026-11-20; ENGINEER 2, numb
 
 r. **Outside connections, highway and rail** (owner, 2026-11-20; workshop in progress, see CONNECTIONS_DESIGN.md). Entry points at the map edge that bring visitors in (rail about 3× a highway), let exports out by highway, and carry residents travelling out. Owner decided Q1–Q5 on 2026-11-20. Next: engine review and phase plan (ENGINE), stub art (GRAPHICS), numbers (ENGINEER 3).
 
+s. **Capstone buildings** (owner, 2026-11-20; workshop in progress, see CAPSTONE_DESIGN.md). One very expensive building each for education, police, fire, health, power, water and sewage that covers the whole city; its own toolbar category, unlocked by population, affordable only to well-run cities.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
