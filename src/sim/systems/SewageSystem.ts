@@ -6,6 +6,7 @@
 import { World } from '../World';
 import { BUILDING_SEWAGE_PLANT, BUILDING_LARGE_SEWAGE_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { capstoneOutputs } from '../capstones';
 import { spreadUtility, utilityDemand } from './utilityCoverage';
 
 export class SewageSystem {
@@ -14,7 +15,7 @@ export class SewageSystem {
   update(world: World): void {
     const totalSupply = spreadUtility(
       world, world.layers.sewage,
-      { [BUILDING_SEWAGE_PLANT]: BALANCE.sewage.plantOutput, [BUILDING_LARGE_SEWAGE_PLANT]: BALANCE.sewage.largePlantOutput },
+      { [BUILDING_SEWAGE_PLANT]: BALANCE.sewage.plantOutput, [BUILDING_LARGE_SEWAGE_PLANT]: BALANCE.sewage.largePlantOutput, ...capstoneOutputs('sewage') },
       0, BALANCE.sewage.propagationRange,
     );
     // Demand from high-density developed zones (abandoned tiles consume nothing).

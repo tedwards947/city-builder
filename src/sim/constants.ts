@@ -55,6 +55,15 @@ export const BUILDING_PLAZA      = 21;  // 2×2 plaza with a monument, repeatabl
 export const BUILDING_MUSEUM     = 22;  // 2×2, one per city
 export const BUILDING_STADIUM    = 23;  // 4×4 bowl plus a 2-tile entrance plaza, one per city
 export const BUILDING_LIDO       = 25;  // 3×2 seaside lido at the water's edge, repeatable (owner 2026-11-20: a second beach park type)
+// Capstones (CAPSTONE_DESIGN.md; sizes, unlocks and numbers in BALANCE.capstones, rules in sim/capstones.ts):
+// one of each per city, numbered in the order they unlock.
+export const BUILDING_SEWAGE_WORKS     = 26;
+export const BUILDING_WATERWORKS       = 27;  // a pump station: beside water
+export const BUILDING_FIRE_HQ          = 28;  // with a runway
+export const BUILDING_POLICE_HQ        = 29;
+export const BUILDING_GENERAL_HOSPITAL = 30;
+export const BUILDING_NUCLEAR_PLANT    = 31;
+export const BUILDING_UNIVERSITY       = 32;
 export const BUILDING_MID_PARK   = 24;  // 2×2 park, repeatable (owner 2026-11-20: a size between the 1×1 park and the 3×3)
 
 

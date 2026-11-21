@@ -7,6 +7,7 @@
 import { World } from '../World';
 import { BUILDING_POWER_PLANT, BUILDING_LARGE_POWER_PLANT } from '../constants';
 import { BALANCE } from '../../data/balance';
+import { capstoneOutputs } from '../capstones';
 import { spreadUtility, utilityDemand } from './utilityCoverage';
 
 export class PowerSystem {
@@ -15,7 +16,7 @@ export class PowerSystem {
   update(world: World): void {
     const totalSupply = spreadUtility(
       world, world.layers.power,
-      { [BUILDING_POWER_PLANT]: BALANCE.power.plantOutput, [BUILDING_LARGE_POWER_PLANT]: BALANCE.power.largePlantOutput },
+      { [BUILDING_POWER_PLANT]: BALANCE.power.plantOutput, [BUILDING_LARGE_POWER_PLANT]: BALANCE.power.largePlantOutput, ...capstoneOutputs('power') },
       0, BALANCE.power.propagationRange,
     );
     // Demand from developed zones (abandoned tiles consume nothing).

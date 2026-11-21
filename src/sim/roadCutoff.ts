@@ -4,20 +4,24 @@
 // snapshot before each action and compares after; the toast and the red
 // outline during a drag come from that.
 //
-// Parks are left out on purpose (owner: they can be decorative). Utilities
-// are left out because they work without a road (power and water spread
-// through zones, not streets).
+// Parks are left out on purpose (owner: they can be decorative). The small
+// and large utility plants are left out too, though they also need a street
+// or avenue to supply (systems/utilityCoverage.ts): a shortage warning covers
+// them. The capstones are all in: losing one loses the whole city's supply or
+// service at once.
 
 import type { World } from './World';
 import {
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
   BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION,
+  BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY,
 } from './constants';
 
 /** Kinds that do nothing without a street or avenue (World.buildingAccessRoads). */
 export const NEEDS_ROAD: ReadonlySet<number> = new Set([
   BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
   BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION,
+  BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY,
 ]);
 
 /** Anchor tile → kind, for every NEEDS_ROAD building that has a road right now. */
