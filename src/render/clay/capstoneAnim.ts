@@ -176,7 +176,7 @@ export function drawCapstoneFlights(ctx: Ctx, world: World, ox: number, oy: numb
   if (reduced) return;
   const sec = now / 1000;
   think(world, sec);
-  const cw = ctx.canvas.width, ch = ctx.canvas.height;
+  const cw = ctx.canvas?.width ?? 1e9, ch = ctx.canvas?.height ?? 1e9;   // a test's stand-in context may have no canvas
   for (const [anchor, f] of flights) {
     const t = sec - f.start, p = pose(f, t);
     if (p.done) {
