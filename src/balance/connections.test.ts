@@ -23,6 +23,11 @@ describe('balance lab: connections targets', () => {
     for (const k of ['entryJam', 'twoPoints', 'exports', 'industryNeutral', 'railIn']) expect(g[k].pass, k).toBe(true);
     expect(grade({ ...city, one: { ...city.one!, meetPeak: 0.9 } }).entryJam.pass).toBe(false);
     expect(grade({ ...city, two: [hw(1.1), hw(0.5)] }).twoPoints.pass).toBe(false);
+    // Graded on the load the joins add: an avenue already 0.75 full that one point takes to 1.69 and
+    // two to 1.32 passes (0.57 ÷ 0.94 = 0.61), though its peak stays over 1.
+    const busy = { ...city, one: { ...hw(1.69, 0.75), exportIncomePerDay: 0 }, two: [hw(1.32, 0.75), hw(1.2)] as [ReturnType<typeof hw>, ReturnType<typeof hw>] };
+    expect(grade(busy).twoPoints).toMatchObject({ value: 0.606, pass: true });
+    expect(grade({ ...busy, two: [hw(1.5, 0.75), hw(1.2)] }).twoPoints.pass).toBe(false);   // 0.80
     expect(grade({ ...city, industry: { base: 500, one: 450 } }).industryNeutral.pass).toBe(false);
     expect(grade({ ...city, rail: { inPerTick: 120, trackPeak: 0.9, jammedBefore: 30, jammedAfter: 30, cleared: 0 } }).railIn.pass).toBe(false);
   });
@@ -33,6 +38,7 @@ describe('balance lab: connections targets', () => {
     expect(grade({ ...city, one: { ...city.one!, meetsClass: 3 } }).twoPoints.pass).toBeNull();
     expect(grade({ ...city, one: { ...city.one!, meetBefore: 1.2 } }).entryJam.pass).toBeNull();
     expect(grade({ ...city, two: undefined }).twoPoints.pass).toBeNull();
+    expect(grade({ ...city, one: { ...city.one!, meetPeak: 0.2 } }).twoPoints.pass).toBeNull();   // joining added nothing
   });
 
   it('exports are n/a with no industry in reach; everything is n/a on fresh maps and where nothing can be joined', () => {

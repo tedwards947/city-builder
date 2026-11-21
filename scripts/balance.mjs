@@ -28,11 +28,12 @@
 // "stadium" the stadium targets under the shipped numbers (the stadium beside the homes on each saved
 // city, three events as is against a twin, with avenues within 10 tiles, and prepared); "leisure"
 // the steady-attraction targets (museum and parks against twins, the leisure need, tourism); "connections"
-// the outside-connection targets (highway points and a rail point joined on copies of each saved city).
+// the outside-connection targets (highway points and a rail point joined on copies of each saved city); "capstones"
+// each capstone alone against the small buildings it replaces (saved cities of about 20k or more).
 // Cities above 20k residents only run the econ, lots, stadium and leisure suites (--pc-max-pop to change; it applies to svc too).
 //
 // Options:
-//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots|stadium|leisure|connections  one suite only (default all twelve)
+//   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots|stadium|leisure|connections|capstones  one suite only (default all thirteen)
 //   --variants Off,A,B,C,D   which PC number sets (default all five)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
@@ -89,7 +90,7 @@ const cities = [...fresh, ...saves.map((s) => ({ id: s.id, kind: 'save', text: r
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
 const previousPath = opt('--previous') ?? out;
 const previous = existsSync(previousPath) ? JSON.parse(readFileSync(previousPath, 'utf8')) : null;
-const ALL_SUITES = ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections'];
+const ALL_SUITES = ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections', 'capstones'];
 const jobs = Math.max(1, Number(opt('--jobs') ?? Math.max(1, availableParallelism() - 1)));
 const tuned = opt('--tuned') ? JSON.parse(readFileSync(opt('--tuned'), 'utf8')) : null;
 const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D', 'T'];
@@ -176,6 +177,7 @@ try {
   for (const [v, s] of Object.entries(report.stadiumSummary ?? {})) console.log(`stadium ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.leisureSummary ?? {})) console.log(`leisure ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   for (const [v, s] of Object.entries(report.connectionsSummary ?? {})) console.log(`connections ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
+  for (const [v, s] of Object.entries(report.capstonesSummary ?? {})) console.log(`capstones ${v.padEnd(7)} pass ${s.pass}  fail ${s.fail}  n/a ${s.na}`);
   if (report.econVerdict) console.log('\n' + report.econVerdict);
   if (opt('--summary-md')) writeFileSync(opt('--summary-md'), summaryMd(report));
 } finally {
@@ -198,7 +200,7 @@ function summaryMd(r) {
     if (o.trend === 'fixed') fixed.push(`\`${t.id}\` ${key} @ ${city}`);
   }
   let md = `## Balance Lab\n\n${r.cities.map(c => `${c.id} (${c.population.toLocaleString('en')})`).join(', ')}. ${r.durationSec}s${r.gitSha ? `, ${r.gitSha}` : ''}.\n\n`;
-  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest) + rows('2×2 lots suite (shipped numbers)', r.lotsSummary ?? {}, r.lotsBest) + rows('Stadium suite (shipped numbers)', r.stadiumSummary ?? {}, r.stadiumBest) + rows('Leisure suite (shipped numbers)', r.leisureSummary ?? {}, r.leisureBest) + rows('Connections suite (shipped numbers)', r.connectionsSummary ?? {}, r.connectionsBest);
+  md += rows('PC suite (per variant)', r.summary, r.best) + rows('Economy suite (per preset)', r.econSummary, r.econBest) + rows('Services suite (per capacity preset)', r.svcSummary ?? {}, r.svcBest) + rows('Trade suite (per seaport / goods preset)', r.tradeSummary ?? {}, r.tradeBest) + rows('Debt / tax suite (per preset)', r.taxDebtSummary ?? {}, r.taxDebtBest) + rows('Airport suite (shipped numbers)', r.airportSummary ?? {}, r.airportBest) + rows('Rail suite (shipped numbers)', r.railSummary ?? {}, r.railBest) + rows('Landscape suite (shipped numbers)', r.landscapeSummary ?? {}, r.landscapeBest) + rows('2×2 lots suite (shipped numbers)', r.lotsSummary ?? {}, r.lotsBest) + rows('Stadium suite (shipped numbers)', r.stadiumSummary ?? {}, r.stadiumBest) + rows('Leisure suite (shipped numbers)', r.leisureSummary ?? {}, r.leisureBest) + rows('Connections suite (shipped numbers)', r.connectionsSummary ?? {}, r.connectionsBest) + rows('Capstones suite (shipped numbers)', r.capstonesSummary ?? {}, r.capstonesBest);
   md += `### Since the last run\n\n${broke.length ? `Newly failing (${broke.length}):\n${broke.map(b => `- ${b}`).join('\n')}` : 'Nothing newly failing.'}${fixed.length ? `\n\nNewly passing (${fixed.length}): ${fixed.join(', ')}` : ''}\n`;
   if (r.econVerdict) md += `\n### Economy verdict\n\n${r.econVerdict.split('\n').map(l => `- ${l}`).join('\n')}\n`;
   return md;

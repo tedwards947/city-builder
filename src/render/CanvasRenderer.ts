@@ -10,6 +10,7 @@
 
 import { drawLeisureBuilding } from './clay/leisureArt';
 import { drawCapstone, isCapstoneArt } from './clay/capstoneArt';
+import { drawCapstoneFlights } from './clay/capstoneAnim';
 import { isLeisureKind } from '../sim/leisure';
 import { eventStatus } from '../sim/eventDays';
 import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
@@ -289,6 +290,8 @@ export class CanvasRenderer {
       this._drawSubwayRampShades(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED);
+      // Capstone aircraft in the air or taxiing (clay/capstoneAnim.ts), above the buildings.
+      drawCapstoneFlights(ctx, world, ox, oy, ts, now);
       if (underground) {
         drawSubwayLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
         drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_SUBWAY);
@@ -728,7 +731,7 @@ export class CanvasRenderer {
     if (isCapstoneArt(kind) && rot === 0) {
       const tile = camera.zoom * TILE_SIZE;   // exact: see the merged lots
       const wc = water ? { x: X(water.x) + tile / 2, y: Y(water.y) + tile / 2 } : null;
-      if (drawCapstone(ctx, kind, X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, wc)) return;
+      if (drawCapstone(ctx, kind, X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, wc, now, anchor)) return;
     }
     // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
     if (isLeisureKind(kind)) {

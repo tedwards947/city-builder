@@ -4,7 +4,7 @@ import { World } from '../World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ZONE_I, ROAD_NONE } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { isServiceKind } from '../serviceValue';
-import { ordinanceModifier } from '../ordinances';
+import { ordinanceModifier, ordinanceMoneyPerTick } from '../ordinances';
 import { updateDebt, type DebtWarnings } from '../debt';
 import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
 import { goodsIncomeMult } from '../goods';
@@ -95,7 +95,7 @@ export class EconomySystem {
     const buildingMaintenance = world.buildings.reduce(
       (sum, b) => sum + (BALANCE.buildings[b.kind]?.maintenance ?? 0) * (isServiceKind(b.kind) ? serviceMult : 1), 0);
     // Plus what serving the residents costs: per resident covered, per unit of utility supplied.
-    const expenses = roadMaintenance + buildingMaintenance + headcountCost(world).total;
+    const expenses = roadMaintenance + buildingMaintenance + headcountCost(world).total + ordinanceMoneyPerTick(world);
     world.budget.money += income - expenses;
     world.budget.income = income;
     world.budget.expenses = expenses;

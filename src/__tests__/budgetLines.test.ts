@@ -8,6 +8,7 @@ import { budgetLines } from '../ui/EconPanel';
 import { ZONE_R, ZONE_C, BUILDING_POWER_PLANT, BUILDING_POLICE, ROAD_STREET, TERRAIN_GRASS } from '../sim/constants';
 import { makeTrafficData } from '../sim/TrafficData';
 import { BALANCE } from '../data/balance';
+import { enactOrdinance } from '../sim/ordinances';
 
 let w: World;
 
@@ -33,6 +34,22 @@ beforeEach(() => {
 });
 
 describe('budget lines', () => {
+  it('count an enacted ordinance\'s money cost in expenses, on its own line, and still add up', () => {
+    w.stats.population = 20_000;
+    w.budget.politicalCapital = 100;
+    tick();
+    const off = budgetLines(w);
+    expect(off.ordinances).toBe(0);
+    expect(enactOrdinance(w, 'freeTransit')).toBe(true);
+    const before = w.budget.money;
+    tick();
+    const l = budgetLines(w);
+    expect(l.ordinances).toBeGreaterThan(0);
+    expect(w.budget.expenses).toBeGreaterThan(off.upkeep + off.running);
+    expect(l.tax + l.other - l.upkeep - l.running - l.ordinances).toBeCloseTo(l.net, 6);
+    expect(l.net).toBeCloseTo(w.budget.money - before, 6);
+  });
+
   it('sum to the net, and the net is what the money does each tick', () => {
     const before = w.budget.money;
     tick();

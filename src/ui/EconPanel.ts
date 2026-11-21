@@ -4,6 +4,7 @@
 import type { World } from '../sim/World';
 import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
+import { ordinanceMoneyPerTick } from '../sim/ordinances';
 import { taxLevelRange, setTaxLevel, taxEffect } from '../sim/tax';
 import { headcountCost } from '../sim/runningCost';
 import { pcCap } from '../sim/politics';
@@ -36,11 +37,12 @@ function demandColor(d: number): string {
  * money does (budget.income − budget.expenses once the tax level is the one last collected at). `tax`
  * and `net` follow the tax `level` (default: the current one), so the slider previews the whole sum.
  */
-export function budgetLines(world: World, level: number = world.budget.taxLevel): { tax: number; other: number; upkeep: number; running: number; net: number } {
+export function budgetLines(world: World, level: number = world.budget.taxLevel): { tax: number; other: number; upkeep: number; running: number; ordinances: number; net: number } {
   const e = taxEffect(world, level);
-  const running = Math.min(headcountCost(world).total, world.budget.expenses);
-  const upkeep = world.budget.expenses - running;
-  return { tax: e.income, other: e.otherIncome, upkeep, running, net: e.net };
+  const ordinances = Math.min(ordinanceMoneyPerTick(world), world.budget.expenses);
+  const running = Math.min(headcountCost(world).total, world.budget.expenses - ordinances);
+  const upkeep = world.budget.expenses - ordinances - running;
+  return { tax: e.income, other: e.otherIncome, upkeep, running, ordinances, net: e.net };
 }
 
 export class EconPanel {
@@ -74,6 +76,7 @@ export class EconPanel {
     set('econ-other-income', perDay(lines.other));
     set('econ-upkeep', perDay(-lines.upkeep));
     set('econ-running', perDay(-lines.running));
+    set('econ-ordinances', perDay(-lines.ordinances));
     set('econ-tax-net', perDay(lines.net), lines.net);
     // Satisfaction is 0–1; shown as percentage points gained or lost to the tax level.
     const sat = Math.round(e.satisfactionDelta * 100);

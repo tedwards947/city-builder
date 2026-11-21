@@ -4,7 +4,7 @@ import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   ORDINANCES, ORDINANCE_IDS, ORDINANCE_MODIFIERS, enactOrdinance, repealOrdinance, ordinanceModifier, ordinanceState,
-  upkeepScale, dailyUpkeepOf, dailyMoneyOf,
+  upkeepScale, dailyUpkeepOf, dailyMoneyOf, ordinanceMoneyPerTick,
   enactBlocker, ordinancesEnabled,
 } from '../sim/ordinances';
 import { OrdinanceSystem } from '../sim/systems/OrdinanceSystem';
@@ -110,7 +110,8 @@ describe('OrdinanceSystem', () => {
     const sys = new OrdinanceSystem();
     for (let t = 1; t <= BALANCE.ticksPerDay; t++) { w.tick = t; sys.update(w); }
     expect(w.budget.politicalCapital).toBe(7);
-    expect(w.budget.money).toBe(money - 50);
+    expect(w.budget.money).toBe(money);                       // money is charged per tick by EconomySystem
+    expect(ordinanceMoneyPerTick(w) * BALANCE.ticksPerDay).toBeCloseTo(50);
     w.budget.politicalCapital = 2;
     w.tick = 2 * BALANCE.ticksPerDay; sys.update(w);
     expect(w.budget.politicalCapital).toBe(0);                // took the last 2, not 3
@@ -135,7 +136,8 @@ describe('OrdinanceSystem', () => {
       w.budget.politicalCapital = 100;
       w.tick = BALANCE.ticksPerDay; new OrdinanceSystem().update(w);
       expect(w.budget.politicalCapital).toBe(99);
-      expect(w.budget.money).toBe(money - 50);
+      expect(ordinanceMoneyPerTick(w) * BALANCE.ticksPerDay).toBeCloseTo(50);
+      expect(w.budget.money).toBe(money);
     } finally {
       pc.capPerResident = 0;
     }
@@ -150,7 +152,8 @@ describe('OrdinanceSystem', () => {
     enactOrdinance(w, 'freeTransit');
     const money = w.budget.money;
     w.tick = BALANCE.ticksPerDay; new OrdinanceSystem().update(w);
-    expect(w.budget.money).toBeCloseTo(money - 1510);
+    expect(w.budget.money).toBe(money);
+    expect(ordinanceMoneyPerTick(w) * BALANCE.ticksPerDay).toBeCloseTo(1510);
     w.stats.population = 40_000;                              // twice the city, twice the per-resident part
     expect(dailyMoneyOf(w, 'freeTransit')).toBeCloseTo(3010);
   });
