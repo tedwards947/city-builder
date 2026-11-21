@@ -645,9 +645,9 @@ const LEISURE_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-20): unique buildings cost a lot; a museum is not easy money.',
     evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; const m = o.l.museum; if (!m) return NA('no museum site');
       return m.paybackDays === null ? { value: null, pass: false, miss: 1, note: 'never pays back' } : { ...range(m.paybackDays, 150, 300), note: `${m.netPerDay} a day, ${Math.round((m.fill ?? 0) * 100)}% full` }; } },
-  { id: 'leisure.need', metric: 'Share of the homes the leisure need applies to (level 2 and up) with no leisure in reach, on the city as saved', target: '20–40% (advisory)', persona: 'probe', cities: 'saves', status: 'later',
-    why: 'Owner (2026-11-20): bigger homes need leisure nearby. Advisory since 2026-11-20 (owner): the share follows how many parks a city has (golden-1 10%, gen-s1 76%); kept at one park within about 8 tiles of drive.',
-    evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; return { ...range(o.l.need.lacking, 0.2, 0.4), note: `${o.l.need.homes} homes` }; } },
+  { id: 'leisure.need', metric: 'Share of the homes the leisure need applies to (level 2 and up) that no park covers, on the city as saved', target: '10–30% in a city built with parks (advisory)', persona: 'probe', cities: 'saves', status: 'later',
+    why: 'Owner (2026-11-20): bigger homes need a park nearby; the need follows park coverage. About 10–30% lacking in a city whose player built parks where asked, and a park-poor city feels it clearly (gen-s1 45%). Advisory: the share follows how many parks a city has.',
+    evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; return { ...range(o.l.need.lacking, 0.1, 0.3), note: `${o.l.need.homes} homes` }; } },
   { id: 'leisure.tourism', metric: 'Extra income from a museum, a big park and a plaza in a city with an airport ÷ the city\'s income', target: '≤ 10%', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-20): tourism income is tuned together with the running costs so it is not easy money.',
     evaluate: c => { const o = leisureOf(c); if (!('l' in o)) return o; const t = o.l.tourism; if (!t) return NA(o.l.note ?? 'no tourism probe');

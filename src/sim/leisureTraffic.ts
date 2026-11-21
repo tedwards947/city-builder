@@ -27,7 +27,8 @@
 
 import type { World, BuildingEntity } from './World';
 import { BALANCE, type LeisureRow } from '../data/balance';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
+import { BUILDING_PARK, ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
+import { coveredBy } from './serviceValue';
 import { addDoorProvider, addTripProvider, servedAtDoors, type TrafficField } from './TrafficData';
 
 const rows = (): Record<number, LeisureRow> => BALANCE.leisure.kinds;
@@ -254,20 +255,35 @@ export function leisureReachAt(world: World, i: number, door: number = i): numbe
   return best < reach ? 1 - best / reach : 0;
 }
 
+const parkCache = new WeakMap<World, { tick: number; edits: number; cov: ReadonlyMap<number, number> }>();
+
+/** Park coverage (every kind in the park group), asked for once a tick at most: growth asks home by home. */
+function parkCoverage(world: World): ReadonlyMap<number, number> {
+  const c = parkCache.get(world);
+  if (c && c.tick === world.tick && c.edits === world.grid.edits) return c.cov;
+  const cov = coveredBy(world, BUILDING_PARK);
+  parkCache.set(world, { tick: world.tick, edits: world.grid.edits, cov });
+  return cov;
+}
+
 /**
  * What a home's chance to grow to `toLevel` is multiplied by for want of
  * leisure (BALANCE.leisure.need): `growthMult` when `toLevel` is at or past
- * `fromLevel` and no attraction is in reach of tile `i` (leisureReachAt at or
- * below `minReach`), otherwise 1. Also 1 in the tutorial city and before the
- * first traffic pass (nothing is known yet). `door` as in leisureReachAt.
+ * `fromLevel` and no park covers tile `i` (or its `door`, for a merged lot),
+ * otherwise 1. Owner 2026-11-20: the need follows park coverage
+ * (BALANCE.service.coverageRange for each park kind, along streets and
+ * avenues), not the leisure market's reach; beaches still draw trips and
+ * tourists from far away, but only a park that covers a home counts for its
+ * growth. Also 1 in the tutorial city.
  */
 export function leisureGrowthMult(world: World, i: number, toLevel: number, door: number = i): number {
   const need = BALANCE.leisure.need;
-  if (need.growthMult === 1 || toLevel < need.fromLevel || world.tutorial || !world.traffic) return 1;
-  return leisureReachAt(world, i, door) > need.minReach ? 1 : need.growthMult;
+  if (need.growthMult === 1 || toLevel < need.fromLevel || world.tutorial) return 1;
+  const cov = parkCoverage(world);
+  return cov.has(i) || cov.has(door) ? 1 : need.growthMult;
 }
 
-/** Whether the home on tile `i` is being held back for want of leisure: it is at the level just below the need (or above) and none is in reach. For Inspect. */
+/** Whether the home on tile `i` is being held back for want of leisure: it is at the level just below the need (or above) and no park covers it. For Inspect. */
 export function lacksLeisure(world: World, i: number, door: number = i): boolean {
   const need = BALANCE.leisure.need;
   if (world.layers.zone[i] !== ZONE_R || world.layers.devLevel[i] + 1 < need.fromLevel) return false;
