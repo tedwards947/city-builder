@@ -755,6 +755,14 @@ const statSewage = document.getElementById('stat-sewage')!;
 const statServices   = document.getElementById('stat-services')!;
 const statCongestion = document.getElementById('stat-congestion')!;
 const statDate   = document.getElementById('stat-date')!;
+// The HUD is checked every frame but a node is only touched when its text changed (a text write
+// replaces the node and can cost a layout). Keyed on the value, so money after a build still shows at once.
+const hudText = new WeakMap<Element, string>();
+function setHud(el: Element, text: string): void {
+  if (hudText.get(el) === text) return;
+  hudText.set(el, text);
+  el.textContent = text;
+}
 
 function formatMoney(n: number): string {
   const sign = n < 0 ? '-' : '';
@@ -930,15 +938,15 @@ function frame(now: number): void {
   econPanel.update();
   const { rDemand, cDemand, iDemand } = state.world.stats;
   demandChart.update(state.world.tick, rDemand, cDemand, iDemand);
-  if (hoverTile) statTile.textContent = `${hoverTile.tx}, ${hoverTile.ty}`;
-  statCam.textContent   = `${Math.round(camera.x)}, ${Math.round(camera.y)}`;
-  statZoom.textContent  = camera.zoom.toFixed(2) + '×';
+  if (hoverTile) setHud(statTile, `${hoverTile.tx}, ${hoverTile.ty}`);
+  setHud(statCam, `${Math.round(camera.x)}, ${Math.round(camera.y)}`);
+  setHud(statZoom, camera.zoom.toFixed(2) + '×');
   const pc = state.world.budget.politicalCapital;
   // Shown as "pc / cap". One-off bonuses can lift it past the cap: the bar
   // stays full and the figure brightens.
   const pcMax = pcCap(state.world);
   const pcOver = Math.floor(pc) > pcMax;
-  statPC.textContent = pcOfCap(pc, pcMax);
+  setHud(statPC, pcOfCap(pc, pcMax));
   statPC.classList.toggle('critical', pc < pcMax * 0.2);
   statPC.classList.toggle('low',      pc >= pcMax * 0.2 && pc < pcMax * 0.5);
   statPC.classList.toggle('over',     pcOver);
@@ -952,7 +960,7 @@ function frame(now: number): void {
   // Over the cap the banked extra slowly fades: "−0.4/day" beside the brightened figure.
   const rateText = pcHudRate(pcPerDay, overCapFadePerDay(state.world), pcOver, Math.floor(pc) >= pcMax,
     { bonus: t('ui.hud.pcBonus'), full: t('ui.hud.pcFull') });
-  statPCRate.textContent = inDebt ? (t('ui.hud.pcDebt') + ' ' + rateText).trim() : rateText;
+  setHud(statPCRate, inDebt ? (t('ui.hud.pcDebt') + ' ' + rateText).trim() : rateText);
   statPC.classList.toggle('debt', inDebt);
   statPCRate.classList.toggle('debt', inDebt);
   pcBar.parentElement!.classList.toggle('debt', inDebt);
@@ -961,23 +969,23 @@ function frame(now: number): void {
   pcBar.classList.toggle('draining', draining);
   (pcBar as HTMLElement).style.width = Math.max(0, Math.min(100, (pc / pcMax) * 100)).toFixed(1) + '%';
   (pcBar as HTMLElement).style.background = pcOver ? '#c9fff1' : pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
-  statMoney.textContent = formatMoney(state.world.budget.money);
+  setHud(statMoney, formatMoney(state.world.budget.money));
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
   debtUi.update();
   toastPanel.checkFull(state.world);
-  statPop.textContent   = state.world.stats.population.toLocaleString();
+  setHud(statPop, state.world.stats.population.toLocaleString());
   // Demand / supply; red while demand outruns supply.
   const utility = (el: HTMLElement, demand: number, supply: number) => {
-    el.textContent = `${demand} / ${supply}`;
+    setHud(el, `${demand} / ${supply}`);
     el.classList.toggle('short', demand > supply);
   };
   const stats = state.world.stats;
   utility(statPower, stats.powerDemand, stats.powerSupply);
   utility(statWater, stats.waterDemand, stats.waterSupply);
   utility(statSewage, stats.sewageDemand, stats.sewageSupply);
-  statServices.textContent   = `${state.world.stats.servicesCoveredZones}`;
-  statCongestion.textContent = `${state.world.stats.avgCongestion}`;
-  statDate.textContent       = formatDate(state.world.tick);
+  setHud(statServices, `${state.world.stats.servicesCoveredZones}`);
+  setHud(statCongestion, `${state.world.stats.avgCongestion}`);
+  setHud(statDate, formatDate(state.world.tick));
   requestAnimationFrame(frame);
 }
 

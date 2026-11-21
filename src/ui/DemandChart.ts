@@ -18,10 +18,23 @@ export class DemandChart {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly buf: Sample[] = [];
   private lastTick = -1;
+  // The canvas size, read when it changes (not every frame), and whether a redraw is due.
+  private cssW = 0;
+  private cssH = 0;
+  private dirty = true;
 
   constructor() {
     this.canvas = document.getElementById('demand-chart') as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
+    this._measure();
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this._measure()).observe(this.canvas);
+    window.addEventListener('resize', () => this._measure()); // also catches a zoom (devicePixelRatio) change
+  }
+
+  private _measure(): void {
+    this.cssW = this.canvas.offsetWidth;
+    this.cssH = this.canvas.offsetHeight;
+    this.dirty = true;
   }
 
   /** Call every render frame; only records a new sample when the tick advances. */
@@ -30,7 +43,10 @@ export class DemandChart {
       this.lastTick = tick;
       this.buf.push({ r, c, i });
       if (this.buf.length > MAX_SAMPLES) this.buf.shift();
+      this.dirty = true;
     }
+    if (!this.dirty) return;
+    this.dirty = false;
     this._draw();
   }
 
@@ -38,8 +54,8 @@ export class DemandChart {
     const canvas = this.canvas;
     const ctx = this.ctx;
     const dpr = window.devicePixelRatio || 1;
-    const W = canvas.offsetWidth  * dpr;
-    const H = canvas.offsetHeight * dpr;
+    const W = this.cssW * dpr;
+    const H = this.cssH * dpr;
 
     // Sync backing store size if needed
     if (canvas.width !== W || canvas.height !== H) {
