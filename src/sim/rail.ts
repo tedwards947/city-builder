@@ -11,6 +11,7 @@
 // the platform, and nothing beside them; no track may be laid beside a
 // platform (side-on), on the ground or, for a subway platform, underground.
 
+import { reservedAgainst } from './connections';
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
@@ -176,6 +177,8 @@ export function trackBlocker(world: World, tx: number, ty: number, level: number
   const i = world.grid.idx(tx, ty);
   if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : besideSubwayPlatform(world).has(i) ? 'blocked' : null;
   if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE) return 'blocked';
+  // An outside connection's tile: ground track on a rail point, nothing else on the surface.
+  if (reservedAgainst(world, i, level === RAIL_GROUND ? 'rail' : null)) return 'blocked';
   if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : null;
   if (L.rail[i] & RAIL_GROUND) return 'hasTrack';
   if (besideGroundPlatform(world, i)) return 'blocked';

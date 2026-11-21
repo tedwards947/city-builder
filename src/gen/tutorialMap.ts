@@ -11,6 +11,7 @@
 // (a highway that ends on land); a Focus marker labelled "power" is optional
 // and shows the suggested spot for the plant.
 
+import { resetConnections } from '../sim/connections';
 import { World } from '../sim/World';
 import { ROAD_HIGHWAY, TERRAIN_GRASS, TERRAIN_WATER, VEG_NONE } from '../sim/constants';
 import { mulberry32 } from '../sim/rng';
@@ -66,6 +67,7 @@ export function buildTutorialMap(): World {
   }
   // The highway stub: in from the west edge, ending on open land.
   for (let x = 0; x <= 7; x++) w.setRoad(x, row, ROAD_HIGHWAY);
+  resetConnections(w);   // the stub is the map's one outside connection
   // Where the first ten tiles of street end: a spot for the power plant.
   w.markers.push({ x: 18, y: row, kind: 'focus', label: 'power' });
   w.budget.money = TUTORIAL.startMoney;

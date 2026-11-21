@@ -4,6 +4,7 @@
 
 import type { EventResult, EventClock } from './eventDays';
 import type { Marker } from './markers';
+import { generateConnections, reservedAgainst, type Connection } from './connections';
 import type { TutorialState } from '../tutorial/types';
 import { Grid } from './Grid';
 import type { OpenRequest } from './requests';
@@ -247,6 +248,8 @@ export class World {
   lastEvent: EventResult | null = null;
   /** Points on the map that are not part of the city (sim/markers.ts): the title tour's focus points. Saved. The sim never reads it. */
   markers: Marker[] = [];
+  /** The fixed points on the map's edges where a highway or a rail line joins the region (sim/connections.ts). Saved. */
+  connections: Connection[] = [];
   /** Set while this is the tutorial city (tutorial/rules.ts): the tutorial-only rules apply. Saved. */
   tutorial?: TutorialState;
   /** What upgrading an old save changed that the player should be told once (persistence/SaveFormat.ts upgradeNotes). Not saved. */
@@ -361,6 +364,7 @@ export class World {
       generateForests(this.layers.vegetation, this.layers.terrain, width, height, seed, terrainOptions.vegAmount ?? 'low');
       this.grid.markAllDirty();
     }
+    this.connections = generateConnections(this);
   }
 
   private _generateTerrain(): void {
@@ -533,6 +537,7 @@ export class World {
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
     if (z !== ZONE_NONE && (this.layers.rail[i] & RAIL_SURFACE) !== 0) return false;   // a zone may stand over a subway
+    if (z !== ZONE_NONE && reservedAgainst(this, i, null)) return false;                // an outside connection's tile takes its own road or track only
     if (this.layers.zone[i] !== z) {
       this.razeLot(i);
       this.layers.devLevel[i] = 0;
@@ -551,6 +556,8 @@ export class World {
     const i = this.grid.idx(tx, ty);
     if (this.layers.building[i] !== BUILDING_NONE) return false;
     if (r !== ROAD_NONE && trackBlocksRoad(this, i, r)) return false;
+    // An outside connection's tile: a highway on a highway point, no road on a rail point.
+    if (r !== ROAD_NONE && reservedAgainst(this, i, r === ROAD_HIGHWAY ? 'highway' : null)) return false;
     const prev = this.layers.roadClass[i];
     this.layers.roadClass[i] = r;
     if (r !== ROAD_NONE) {
@@ -647,7 +654,7 @@ export class World {
         if (roles[k] === 'dock') {
           if (this.layers.terrain[i] !== TERRAIN_WATER || this.layers.building[i] !== BUILDING_NONE || this.layers.roadClass[i] !== ROAD_NONE || (this.layers.rail[i] & RAIL_SURFACE) !== 0) blocked.push(i);
           else if (!open[i]) notOpenWater.push(i);
-        } else if (!this.isBuildable(x, y) || this.layers.roadClass[i] !== ROAD_NONE || (this.layers.rail[i] & RAIL_SURFACE) !== 0) {
+        } else if (!this.isBuildable(x, y) || reservedAgainst(this, i, null) || this.layers.roadClass[i] !== ROAD_NONE || (this.layers.rail[i] & RAIL_SURFACE) !== 0) {
           blocked.push(i);
         }
       }
@@ -661,7 +668,7 @@ export class World {
       // ground or elevated track. Anything may stand over a subway.
       const surface = this.layers.rail[i] & RAIL_SURFACE;
       const railFree = railFits(roles[k], kind, surface);
-      if (!this.isBuildable(x, y) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
+      if (!this.isBuildable(x, y) || reservedAgainst(this, i, null) || (tiles.length > 1 && this.layers.roadClass[i] !== ROAD_NONE) || !railFree) blocked.push(i);
     }
     // No track of a platform's level may run beside it (a tile off the map has none).
     const beside = platformSides(kind, rot);

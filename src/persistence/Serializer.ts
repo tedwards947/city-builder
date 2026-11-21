@@ -6,6 +6,7 @@ import { World } from '../sim/World';
 import { upgradeLoadedRequests } from '../sim/requests';
 import { startCountingFromNow } from '../sim/established';
 import { cleanMarkers } from '../sim/markers';
+import { cleanConnections, generateConnections } from '../sim/connections';
 import type { WorldSnapshot } from './SaveFormat';
 
 /**
@@ -38,6 +39,7 @@ export function serialize(world: World): WorldSnapshot {
     buildings: world.buildings.map(b => ({ ...b })),
     ...(world.markers.length > 0 ? { markers: world.markers.map(m => ({ ...m })) } : {}),
     ...(world.tutorial ? { tutorial: { ...world.tutorial } } : {}),
+    connections: world.connections.map((c) => ({ kind: c.kind, tile: c.tile })),
     ...(world.eventClock ? { eventClock: { ...world.eventClock } } : {}),
     ...(world.lastEvent ? { lastEvent: { ...world.lastEvent } } : {}),
     layers: {
@@ -126,6 +128,8 @@ export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstra
   if (snapshot.layers.lotStreak) world.lotStreak.set(snapshot.layers.lotStreak);
   if (snapshot.layers.eventStrain) world.eventStrain.set(snapshot.layers.eventStrain);
   if (snapshot.layers.eventStuck) world.eventStuck.set(snapshot.layers.eventStuck);
+  // Outside connections: as saved, or (a save from before them) worked out from the loaded map.
+  world.connections = snapshot.connections ? cleanConnections(snapshot.connections, snapshot.width, snapshot.height) : generateConnections(world);
   world.eventClock = snapshot.eventClock ? { ...snapshot.eventClock } : null;
   world.lastEvent = snapshot.lastEvent ? { smooth: false, reward: 0, ...snapshot.lastEvent } : null;   // saves before 2026-11-20 have no smooth / reward
   cleanLots(world);
