@@ -2,6 +2,8 @@
 
 Buildings are drawn from **clay image sprites**. Until an image has loaded, the renderer's flat chunk-layer drawing (`src/render/flatTiles.ts`, painted by `paintChunk` in `src/render/chunkPainter.ts`) shows instead. The old code-drawn vector sprites and the Shift+S sandbox were removed.
 
+**Scale (standing rule, owner 2026-11-20):** every new or redrawn asset (buildings, props, vehicles, effects) follows the metre in `docs/SCALE.md`: 1 tile = 17 m, 11 px a 3 m floor in a 128 px sprite, towers only on 2×2 lots and at most 26 floors. Check new art with `art/clay-set/scale/measure.html` before it goes on a review page. A departure from SCALE.md needs the owner's OK and goes into that doc.
+
 ## Clay image sprites
 
 - Source art: `art/clay-set/raw/*.png` (1024px, solid magenta background), generated with the nanobanana MCP by editing from `art/clay-set/ref/anchor.png` so every sprite shares the same camera and square plot. Image calls are billed to the user: ask before generating.
@@ -41,7 +43,7 @@ All code-drawn, in `roads.ts` (no images).
 
 ### Merged 2×2 lots
 
-`bigLots.ts` draws a merged lot (BIG_LOTS_DESIGN.md) once, from its bottom-left quarter, over the four tiles: code-drawn massing in the clay look at the docs/SCALE.md metre (towers up to 20 floors, courtyard blocks, slabs, malls, works), baked per look and tile size. `planBigLot` (pure, tested) picks the form from the zone and the anchor's `visualVariant`. A tall one fades while the pointer is on a tile behind it (hover-to-hide), and Views › Low buildings caps everything at 3 floors. Clay image art will replace the massing.
+`bigLots.ts` draws a merged lot (BIG_LOTS_DESIGN.md) once, from its bottom-left quarter, over the four tiles: code-drawn massing in the clay look at the docs/SCALE.md metre (towers up to 26 floors, courtyard blocks, slabs, malls, works), baked per look and tile size. `planBigLot` (pure, tested) picks the form from the zone and the anchor's `visualVariant`. A tall one fades while the pointer is on a tile behind it (hover-to-hide), and Views › Low buildings caps everything at 3 floors. Clay image art will replace the massing.
 
 ### Problem indicators
 

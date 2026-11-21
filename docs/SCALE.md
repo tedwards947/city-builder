@@ -4,7 +4,7 @@ One metre for every asset. Set 2026-11-19; the owner's picks from round 1 are be
 
 ## Owner's picks (round 1, 2026-11-20)
 
-- **Towers are 2×2 only, at true height** (the same metre as the houses), **20 floors at most**. Heights vary below that; some 2×2 buildings are low, like a shopping mall.
+- **Towers are 2×2 only, at true height** (the same metre as the houses), **26 floors at most** (owner raised it from 20, 2026-11-20). Heights vary below that; some 2×2 buildings are low, like a shopping mall.
 - **1×1 level 3: a 4-floor mid-rise**, about 12 m square.
 - **Trucks: real length** (9 m). **Parked cars and garden trees: full size.**
 - **Cars stay as they are**. **Train cars stay** at ¾ tile. **Buses later.**
