@@ -153,6 +153,12 @@ export function ordinanceModifier(world: World, name: OrdinanceModifier): number
   return m;
 }
 
+/** Whether Free Transit is in force (enacted and not suspended): rail fares are 0 while it is. */
+export function transitIsFree(world: World): boolean {
+  const { active, suspended } = world.politics.ordinances;
+  return active.includes('freeTransit') && !suspended.includes('freeTransit');
+}
+
 /** Suspend everything while PC is 0 or below; resume once it is above 0. Cheap: call every tick. */
 export function updateSuspension(world: World): void {
   const o = world.politics.ordinances;

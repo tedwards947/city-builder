@@ -4,6 +4,7 @@
 
 import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_SURFACE } from '../sim/constants';
 import { railLinks, stationGrowthMask, stationPeak } from '../sim/rail';
+import { transitIsFree } from '../sim/ordinances';
 import { railCapacity, railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
@@ -411,7 +412,8 @@ function stationRows(world: World, tx: number, ty: number, kind: number): string
     const boardings = world.traffic?.rail.stations.find((s) => s.anchor === anchor)?.boardings ?? 0;
     html += `<div class="ti-detail">${t("ui.tileInfo.stationBoardings", {n: Math.round(boardings).toLocaleString("en-US")})}</div>`;
     const fares = boardings * BALANCE.rail.fare;
-    if (fares > 0) html += `<div class="ti-detail">${t("ui.tileInfo.stationEarns", {amount: Math.round(fares).toLocaleString("en-US")})}</div>`;
+    if (transitIsFree(world)) html += `<div class="ti-detail">${t("ui.tileInfo.stationFree")}</div>`;
+    else if (fares > 0) html += `<div class="ti-detail">${t("ui.tileInfo.stationEarns", {amount: Math.round(fares).toLocaleString("en-US")})}</div>`;
   }
   // Riders on its track: the busiest platform tile, whichever tile was clicked. (Riders get on
   // and off at one platform tile, so the others can be empty at a station that is working.)
