@@ -543,7 +543,7 @@ for (const { src, id: name, n, untint } of LEISURE) {
 // beach parks. Trees are left out of the art and placed in code
 // (clay/capstoneArt.ts). Game ids are `capstones/<id>`.
 const CAPSTONES = [
-  { src: 'sewage-c', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4 }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
+  { src: 'sewage-c', w: 4, d: 4 }, { src: 'sewage-d', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4 }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
   { src: 'hospital-6x4', w: 6, d: 4 }, { src: 'nuclear-a', w: 4, d: 4 }, { src: 'uni-b', w: 8, d: 8 },
 ];
 /** The anchors' plots are drawn this deep (front to back, per unit of width) for a square lot. */
