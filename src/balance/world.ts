@@ -11,6 +11,7 @@ import { createSystems } from '../sim/createSystems';
 import { CommandHistory } from '../commands/CommandHistory';
 import { decodeSaveFile } from '../persistence/SaveFile';
 import { serialize, deserialize } from '../persistence/Serializer';
+import { DERIVED_LAYERS } from '../persistence/SaveFormat';
 import { VibeSystem } from '../sim/systems/VibeSystem';
 
 /** Where a city comes from. File reading happens in the runner, so specs carry text. */
@@ -43,9 +44,19 @@ export function loadCity(spec: CitySpec): World {
   return spec.kind === 'save' ? loadSaveText(spec.text) : freshWorld(spec.size, spec.seed);
 }
 
-/** An independent copy of a world, through the save format (serialize copies every layer). */
+/**
+ * An independent copy of a world, through the save format. Since save version 12 serialize leaves out
+ * the derived layers (SaveFormat.DERIVED_LAYERS) and a load works them out again, with congestion and
+ * accessibility at 0 until traffic runs. A copy must match its source exactly (the landscape probes
+ * settle land value without traffic), so the derived layers are carried over as they are, and the
+ * load has nothing to rebuild.
+ */
 export function cloneWorld(world: World): World {
-  return deserialize(serialize(world));
+  const snapshot = serialize(world);
+  const layers = snapshot.layers as Record<string, Uint8Array | Uint16Array>;
+  const from = world.layers as unknown as Record<string, Uint8Array | Uint16Array>;
+  for (const name of DERIVED_LAYERS) layers[name] = from[name].slice();
+  return deserialize(snapshot);
 }
 
 /** Fresh systems, settled traffic and a command history, as startGame does. */
