@@ -228,19 +228,19 @@ function tank(ctx: Ctx, x: number, y: number, r: number, T: number, sec: number,
   ctx.fillStyle = 'rgba(30,25,20,0.22)'; ctx.beginPath(); ctx.ellipse(x + wall * 0.9, y + wall * 0.7, r, r * tl, 0, 0, Math.PI * 2); ctx.fill();
   // The outer wall: the ground circle and the band up to the rim, lit from the left.
   const side = ctx.createLinearGradient(x - r, 0, x + r, 0);
-  side.addColorStop(0, '#a85a3e'); side.addColorStop(0.55, '#8e4630'); side.addColorStop(1, '#6a3222');
+  side.addColorStop(0, '#7e523d'); side.addColorStop(0.55, '#674231'); side.addColorStop(1, '#4b2f22');
   ctx.fillStyle = side; ctx.beginPath(); ctx.ellipse(x, y + wall, r, r * tl, 0, 0, Math.PI); ctx.lineTo(x - r, y); ctx.ellipse(x, y, r, r * tl, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill();
   // Brick courses on the wall, and a darker course along its foot.
   if (wall >= 4) { ctx.strokeStyle = 'rgba(60,28,18,0.28)'; ctx.lineWidth = 1; for (const f of [0.35, 0.65]) { ctx.beginPath(); ctx.ellipse(x, y + wall * f, r, r * tl, 0, 0.08, Math.PI - 0.08); ctx.stroke(); } }
   ctx.strokeStyle = 'rgba(40,20,12,0.35)'; ctx.lineWidth = Math.max(1, wall * 0.18); ctx.beginPath(); ctx.ellipse(x, y + wall * 0.88, r, r * tl, 0, 0.15, Math.PI - 0.15); ctx.stroke();
   // The rim's top: brick coping, lit from the upper left, with a pale stone edge on the inside.
   const top = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-  top.addColorStop(0, '#c27a5a'); top.addColorStop(1, '#93503a');
+  top.addColorStop(0, '#8c604a'); top.addColorStop(1, '#6a4534');
   ctx.fillStyle = top; ctx.beginPath(); ctx.ellipse(x, y, r, r * tl, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = 'rgba(232,218,192,0.75)'; ctx.lineWidth = Math.max(0.8, lip * 0.28); ctx.beginPath(); ctx.ellipse(x, y, ri + lip * 0.15, (ri + lip * 0.15) * tl, 0, 0, Math.PI * 2); ctx.stroke();
   // Inside: the far inner wall (seen above the water), then the water, lower than the rim.
   ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, ri, ri * tl, 0, 0, Math.PI * 2); ctx.clip();
-  ctx.fillStyle = '#5e3324'; ctx.fillRect(x - ri, y - ri * tl, ri * 2, ri * 2 * tl);
+  ctx.fillStyle = '#4a3226'; ctx.fillRect(x - ri, y - ri * tl, ri * 2, ri * 2 * tl);
   const g = ctx.createRadialGradient(x - ri * 0.35, y + drop - ri * 0.35, 0, x, y + drop, ri);
   g.addColorStop(0, '#666a54'); g.addColorStop(1, '#3f4235');
   ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y + drop, ri, ri * tl, 0, 0, Math.PI * 2); ctx.fill();
