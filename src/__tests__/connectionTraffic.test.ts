@@ -89,10 +89,14 @@ describe('visitors in', () => {
   });
 
   it('no more than it can bring, however strong the pull', () => {
-    for (const x of [20, 30, 40, 50, 60, 70, 80]) plaza(x);
-    expect(cityPull(w)).toBeGreaterThan(H.visitors);
-    expect(touristsArriving(w)).toBe(H.visitors);
-    expect(traffic().leisure.volume[POINT]).toBeCloseTo(H.visitors, 3);
+    const room = H.visitors;
+    (H as { visitors: number }).visitors = 30;                 // below the seven plazas' pull
+    try {
+      for (const x of [20, 30, 40, 50, 60, 70, 80]) plaza(x);
+      expect(cityPull(w)).toBeGreaterThan(H.visitors);
+      expect(touristsArriving(w)).toBe(H.visitors);
+      expect(traffic().leisure.volume[POINT]).toBeCloseTo(H.visitors, 3);
+    } finally { (H as { visitors: number }).visitors = room; }
   });
 
   it('with the highway off the point there is no gateway, and nobody comes', () => {
@@ -123,6 +127,16 @@ describe('exports out', () => {
     traffic();
     expect(connectionTradeAt(w, POINT)!.exports).toBeCloseTo(H.exportTrucks, 3);
     expect(connectionExportIncome(w)).toBeCloseTo(H.exportTrucks * BALANCE.port.exportIncomePerTrip, 3);
+  });
+
+  it('trucks it has no room for do not drive to it: the road carries its room\'s worth (a seaport is not limited)', () => {
+    industry(15, 80, 3);                                                        // 24 trucks a tick wanted
+    const t = traffic();
+    const wanted = 80 * 3 * BALANCE.port.exportTripsPerLevel;
+    expect(wanted).toBeGreaterThan(H.exportTrucks);
+    expect(t.exports.volume[POINT]).toBeCloseTo(H.exportTrucks * BALANCE.port.truckWeight, 2);
+    expect(t.exports.volume[idx(10, ROW)]).toBeCloseTo(H.exportTrucks * BALANCE.port.truckWeight, 2);
+    expect(t.exports.field.stranded).toBeCloseTo((wanted - H.exportTrucks) * BALANCE.port.truckWeight, 2);
   });
 
   it('the money reaches the budget', () => {
@@ -175,9 +189,10 @@ describe('residents travelling out', () => {
   // while every trip wanted still drove to the point.
   describe('more want to leave than the point has room for', () => {
     const T = BALANCE.transit as { tripsVisitors: number };
-    const shipped = T.tripsVisitors;
-    beforeEach(() => { T.tripsVisitors = 0.5; });
-    afterEach(() => { T.tripsVisitors = shipped; });
+    const shipped = T.tripsVisitors, room = H.residentsOut;
+    // Room for 30 a point, so two points can take the 60 the homes below want.
+    beforeEach(() => { T.tripsVisitors = 0.5; (H as { residentsOut: number }).residentsOut = 30; });
+    afterEach(() => { T.tripsVisitors = shipped; (H as { residentsOut: number }).residentsOut = room; });
     const wanted = 40 * 3 * 0.5;   // 60 a tick from 40 level-3 homes
 
     it('only its room\'s worth drive there; the rest stay home', () => {

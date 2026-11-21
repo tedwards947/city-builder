@@ -99,6 +99,7 @@ describe('seaport trade', () => {
     expect(portTradeAt(w, 10, 10)).toMatchObject({ exports: 2, exportCapacity: 2, income: 4 });
     expect(exportIncome(w)).toBeCloseTo(4);
     expect(w.traffic!.exports.field.demandRatio).toBeCloseTo(4.5 / 2);
+    expect(w.traffic!.exports.field.stranded).toBe(0);         // a port is not limited (only highway points are): every truck still drives to it
   });
 
   it('with no road to its yard a port trades nothing, and the export market does not run', () => {

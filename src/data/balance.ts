@@ -191,12 +191,17 @@ export const BALANCE = {
     //                 commerce level in the city. They come by highway only, enter as shopping trips at the
     //                 point's tile, and fill what room the highways' `visitors` have left after the tourists.
     //                 0 = none. At 0.02 a city with 1,500 commerce levels fills one highway.
-    highway: { visitors: 30, exportTrucks: 10, residentsOut: 30, shopPull: 0.02 },
+    // ENGINEER 3, connections suite (owner 2026-11-21): inbound-heavy, so a second point splits the load. Residents
+    // going out want far more room than points have (100–200 a tick stranded at 20–30k), so each joined point
+    // runs full outbound either way; what splits is what comes in. One point onto an avenue jams it at peak
+    // (1.02–1.33 at 20–30k), two don't (0.61–0.98). Export trucks are limited at the points (TrafficData).
+    highway: { visitors: 70, exportTrucks: 10, residentsOut: 15, shopPull: 0.07 },
     // What a joined rail point carries, per tick (sim/connectionRail.ts). Owner 2026-11-20: 3× a highway;
     // PLACEHOLDER. Visitors in only: tourists, and day-trippers at highway.shopPull, who ride in from the
     // point's track and get off at whichever station suits them. They pay no fare. No freight, and
     // residents do not ride out (rail out is after v1).
-    rail: { visitors: 90 },
+    rail: { visitors: 200 }, // owner 2026-11-21: about 3× a highway. new_city2: 122 in (pull and shops are the limit), track 0.49
+
   },
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
