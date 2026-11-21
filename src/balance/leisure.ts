@@ -5,7 +5,7 @@
 //             homes: days for its extra net income to repay its cost.
 //   NEED      the city as saved: share of the homes the leisure
 //             need applies to (level 2 and up, growing to 3 or merging) that
-//             have no leisure in reach.
+//             no park covers.
 //   TOURISM   an airport (built if the city has none) with and without the
 //             museum, a big park and a plaza: the extra income ÷ the city's.
 // The leisure.* targets (targets.ts) read the result.

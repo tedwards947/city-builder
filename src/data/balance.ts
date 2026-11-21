@@ -145,15 +145,12 @@ export const BALANCE = {
     // Tourists = the city's pull (the sum of its attractions' `pull`), capped by the gateways'
     // total. Only the airport for now (border connections later). PLACEHOLDER.
     gateways: { 13: 60 } as Record<number, number>,
-    // Homes need leisure in reach to keep growing (owner 2026-11-20): a home growing to
-    // `fromLevel` or beyond (to level 3, and four homes merging into a 2×2 tower) with no
-    // attraction in reach (sim/leisureTraffic.ts leisureReachAt above `minReach`) has its chance
-    // multiplied by `growthMult`. Lower levels are not affected. growthMult 1 = off.
-    // PLACEHOLDER: slows, does not stop, so cities built before leisure do not freeze.
-    // minReach 0.45 (ENGINEER 3, owner-approved target leisure.need): a home with no attraction
-    // nearer than about 8 street tiles of drive (a 1×1 park) counts as having none. testcity1 32%
-    // lacking; golden-1 (111 parks) 10%, gen-s1 (8 parks) 76%.
-    need: { fromLevel: 3, growthMult: 0.5, minReach: 0.45 } as { fromLevel: number; growthMult: number; minReach: number },
+    // Homes need leisure to keep growing (owner 2026-11-20): a home growing to `fromLevel` or
+    // beyond (to level 3, and four homes merging into a 2×2 tower) that no park covers (park
+    // coverage, service.coverageRange of each park kind; owner 2026-11-20, not the leisure
+    // market's reach) has its chance multiplied by `growthMult`. Lower levels are not affected.
+    // growthMult 1 = off. Slows, does not stop, so cities built before leisure do not freeze.
+    need: { fromLevel: 3, growthMult: 0.5 } as { fromLevel: number; growthMult: number },
     // Stadium events (sim/eventDays.ts): timed, not tied to the calendar. Times are sim ticks
     // (500 ms each at 1× speed: 120 ticks = 1 minute). Gaps 12–30 min at 1× (owner 2026-11-20:
     // "a bit more infrequent"). Seats, fans, ticket, PC and dropAfter: ENGINEER 3, stadium suite
@@ -246,6 +243,8 @@ export const BALANCE = {
     // are limited by capacity instead (owner's services numbers, 2026-11-17;
     // they were 8 and 8). A hospital keeps a real reach so it cannot be
     // hidden away in an industrial district.
+    // Park ranges (ENG2 #447, kept by ENGINEER 3 2026-11-20 against the leisure need, which follows park
+    // coverage): cities built with parks have 17–26% of homes lacking leisure, the park-poor gen-s1 45%.
     coverageRange: { 4: 15, 5: 15, 6: 20, 7: 30, 8: 6, 24: 9, 19: 12, 20: 12, 25: 12 } as Record<number, number>,
     // Residents one building can serve, by building kind (6 school, 7
     // hospital): a home is covered only if a building in reach has room for

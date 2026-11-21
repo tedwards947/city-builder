@@ -255,12 +255,12 @@ describe('homes need leisure to keep growing', () => {
   const home = (x: number) => idx(x, ROW + 1);
 
   it('ships slowing (not stopping) growth to level 3 and beyond', () => {
-    expect(shipped.need).toEqual({ fromLevel: 3, growthMult: 0.5, minReach: 0.45 });
+    expect(shipped.need).toEqual({ fromLevel: 3, growthMult: 0.5 });
   });
 
-  it('a home growing to level 3 with no leisure in reach has half the chance; lower levels are not touched', () => {
+  it('a home growing to level 3 that no park covers has half the chance; lower levels are not touched', () => {
     homes(10, 4);
-    north(80, BUILDING_PARK, 1);                              // a park far beyond its reach
+    north(80, BUILDING_PARK, 1);                              // a park far beyond its coverage
     traffic();
     expect(leisureReachAt(w, home(10))).toBe(0);
     expect(leisureGrowthMult(w, home(10), 3)).toBe(0.5);
@@ -272,21 +272,32 @@ describe('homes need leisure to keep growing', () => {
     expect(lacksLeisure(w, home(11))).toBe(false);
   });
 
-  it('a small park nearby is enough', () => {
-    LE.need.minReach = 0;   // any reach at all (shipped 0.45 wants one within about 8 tiles of drive)
+  it('a small park that covers the home is enough; one beyond its coverage is not', () => {
     homes(10, 4);
-    north(20, BUILDING_PARK, 1);
+    north(14, BUILDING_PARK, 1);                              // within the 1×1 park's road steps
     traffic();
-    expect(leisureReachAt(w, home(10))).toBeGreaterThan(0);
     expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
     expect(lacksLeisure(w, home(10))).toBe(false);
+    w = landWorld(SIZE);
+    for (let x = 2; x <= 93; x++) w.setRoad(x, ROW, ROAD_STREET);
+    homes(10, 4);
+    north(20 + BALANCE.service.coverageRange[BUILDING_PARK], BUILDING_PARK, 1);
+    traffic();
+    expect(leisureReachAt(w, home(10))).toBeGreaterThan(0);   // leisure trips still reach it …
+    expect(lacksLeisure(w, home(10))).toBe(true);             // … but only coverage counts for growth (owner 2026-11-20)
   });
 
-  it('is off at growthMult 1, in the tutorial city and before the first traffic pass', () => {
+  it('a museum next door draws leisure trips but does not count: it is no park', () => {
     homes(10, 4);
-    expect(leisureGrowthMult(w, home(10), 3)).toBe(1);       // no traffic pass yet
+    north(14, BUILDING_MUSEUM);
     traffic();
-    expect(leisureGrowthMult(w, home(10), 3)).toBe(0.5);
+    expect(leisureReachAt(w, home(10))).toBeGreaterThan(0.5);
+    expect(lacksLeisure(w, home(10))).toBe(true);
+  });
+
+  it('is off at growthMult 1 and in the tutorial city; it needs no traffic pass', () => {
+    homes(10, 4);
+    expect(leisureGrowthMult(w, home(10), 3)).toBe(0.5);     // coverage is known before any traffic pass
     LE.need.growthMult = 1;
     expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
     LE.need.growthMult = 0.5;
@@ -294,13 +305,14 @@ describe('homes need leisure to keep growing', () => {
     expect(leisureGrowthMult(w, home(10), 3)).toBe(1);
   });
 
-  it('level-2 homes reach level 3 about twice as fast with a park in reach', () => {
+  it('level-2 homes reach level 3 about twice as fast with a park covering them', () => {
     // Two identical towns, one with a park. Everything a home needs to grow is switched on by hand.
     const grown = (withPark: boolean) => {
       const world = landWorld(SIZE);
       for (let x = 2; x <= 93; x++) world.setRoad(x, ROW, ROAD_STREET);
       const lots: number[] = [];
-      for (let x = 4; x <= 63; x++) for (const y of [ROW - 1, ROW + 1]) {
+      // Homes within the 1×1 park's coverage of x = 30 (BALANCE.service.coverageRange).
+      for (let x = 26; x <= 34; x++) for (const y of [ROW - 1, ROW + 1]) {
         if (y === ROW - 1 && x >= 30 && x <= 31) continue;
         const i = world.grid.idx(x, y);
         world.layers.zone[i] = ZONE_R; world.layers.devLevel[i] = 2; lots.push(i);
@@ -314,7 +326,6 @@ describe('homes need leisure to keep growing', () => {
       for (let k = 1; k <= 400; k++) { world.tick = k * BALANCE.growth.tickInterval; g.update(world); }
       return lots.filter(i => L.devLevel[i] === 3).length / lots.length;
     };
-    LE.need.minReach = 0;   // the park 26 tiles along the street counts (shipped 0.45 wants it within about 8)
     const without = grown(false), withPark = grown(true);
     expect(withPark).toBeGreaterThan(without * 1.4);
     expect(without).toBeGreaterThan(0);                        // slowed, not stopped
