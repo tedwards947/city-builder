@@ -31,9 +31,5 @@ export class PowerSystem {
       world.events.emit('powerRestored', { supply: totalSupply, demand: totalDemand });
     }
     this._inShortage = shortage;
-
-    // Mark all chunks dirty — power state may have changed across many tiles.
-    // (Cheap: the renderer only redraws chunks whose content really changed.)
-    world.grid.markAllDirty();
   }
 }

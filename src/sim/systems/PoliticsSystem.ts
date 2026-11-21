@@ -25,23 +25,51 @@ export interface SatisfactionFactor {
 }
 
 // ── Built-in factors ──────────────────────────────────────────────────────────
+//
+// All four read the same developed zone tiles, so they share one pass over
+// them (the census) while `satisfaction()` runs; asked on its own, a factor
+// takes the census itself. Whole-number counts either way, so the values are
+// exactly what four separate passes gave.
+
+interface Census {
+  /** Developed zone tiles of any kind, and how many of them have power and water; their crime, added up. */
+  developed: number; powered: number; watered: number; crimeSum: number;
+  /** Developed homes, and how many a service building covers. */
+  homes: number; homesServed: number;
+}
+
+function takeCensus(world: World): Census {
+  const { zone, devLevel, services, power, water, crime } = world.layers;
+  const { zoned, zonedCount } = world.index;
+  const c: Census = { developed: 0, powered: 0, watered: 0, crimeSum: 0, homes: 0, homesServed: 0 };
+  for (let k = 0; k < zonedCount; k++) {
+    const i = zoned[k];
+    const z = zone[i];
+    if (z === ZONE_NONE || devLevel[i] === 0) continue;
+    c.developed++;
+    if (power[i]) c.powered++;
+    if (water[i]) c.watered++;
+    c.crimeSum += crime[i];
+    if (z === ZONE_R) { c.homes++; if (services[i]) c.homesServed++; }
+  }
+  return c;
+}
+
+/** The census being shared while satisfaction() runs its factors, taken when the first factor asks. */
+let shared: { world: World; census: Census | null } | null = null;
+
+function census(world: World): Census {
+  if (shared && shared.world === world) return shared.census ??= takeCensus(world);
+  return takeCensus(world);
+}
 
 /** Fraction of developed residential zones with service-building coverage. */
 const servicesCoverageFactor: SatisfactionFactor = {
   name: 'servicesCoverage',
   compute(world) {
-    const { zone, devLevel, services } = world.layers;
-    const { zoned, zonedCount } = world.index;
-    let total = 0, covered = 0;
-    for (let k = 0; k < zonedCount; k++) {
-      const i = zoned[k];
-      if (zone[i] === ZONE_R && devLevel[i] > 0) {
-        total++;
-        if (services[i]) covered++;
-      }
-    }
+    const c = census(world);
     // No residents yet → neutral (1) so early game doesn't drag PC down.
-    return total === 0 ? 1 : covered / total;
+    return c.homes === 0 ? 1 : c.homesServed / c.homes;
   },
 };
 
@@ -49,17 +77,8 @@ const servicesCoverageFactor: SatisfactionFactor = {
 const powerCoverageFactor: SatisfactionFactor = {
   name: 'powerCoverage',
   compute(world) {
-    const { zone, devLevel, power } = world.layers;
-    const { zoned, zonedCount } = world.index;
-    let total = 0, covered = 0;
-    for (let k = 0; k < zonedCount; k++) {
-      const i = zoned[k];
-      if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
-        total++;
-        if (power[i]) covered++;
-      }
-    }
-    return total === 0 ? 1 : covered / total;
+    const c = census(world);
+    return c.developed === 0 ? 1 : c.powered / c.developed;
   },
 };
 
@@ -67,17 +86,8 @@ const powerCoverageFactor: SatisfactionFactor = {
 const waterCoverageFactor: SatisfactionFactor = {
   name: 'waterCoverage',
   compute(world) {
-    const { zone, devLevel, water } = world.layers;
-    const { zoned, zonedCount } = world.index;
-    let total = 0, covered = 0;
-    for (let k = 0; k < zonedCount; k++) {
-      const i = zoned[k];
-      if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
-        total++;
-        if (water[i]) covered++;
-      }
-    }
-    return total === 0 ? 1 : covered / total;
+    const c = census(world);
+    return c.developed === 0 ? 1 : c.watered / c.developed;
   },
 };
 
@@ -85,18 +95,9 @@ const waterCoverageFactor: SatisfactionFactor = {
 const crimeFactor: SatisfactionFactor = {
   name: 'crime',
   compute(world) {
-    const { zone, devLevel, crime } = world.layers;
-    const { zoned, zonedCount } = world.index;
-    let total = 0, sum = 0;
-    for (let k = 0; k < zonedCount; k++) {
-      const i = zoned[k];
-      if (zone[i] !== ZONE_NONE && devLevel[i] > 0) {
-        total++;
-        sum += crime[i];
-      }
-    }
-    if (total === 0) return 1;
-    const avg = sum / total;
+    const c = census(world);
+    if (c.developed === 0) return 1;
+    const avg = c.crimeSum / c.developed;
     // Map 0-255 crime to 1-0 satisfaction.
     return Math.max(0, 1 - (avg / 255));
   },
@@ -139,14 +140,18 @@ export class PoliticsSystem {
     let weightedSum = 0;
     let weightTotal = 0;
     this.lastFactors.length = 0;
-    for (const factor of this.factors) {
-      const w = weights[factor.name] ?? 0;
-      if (w === 0) continue;
-      const value = factor.compute(world);
-      this.lastFactors.push({ name: factor.name, value, weight: w });
-      weightedSum += value * w;
-      weightTotal += w;
-    }
+    // The built-in factors share one pass over the developed zones while this runs.
+    shared = { world, census: null };
+    try {
+      for (const factor of this.factors) {
+        const w = weights[factor.name] ?? 0;
+        if (w === 0) continue;
+        const value = factor.compute(world);
+        this.lastFactors.push({ name: factor.name, value, weight: w });
+        weightedSum += value * w;
+        weightTotal += w;
+      }
+    } finally { shared = null; }
     return weightTotal > 0 ? weightedSum / weightTotal : 0;
   }
 

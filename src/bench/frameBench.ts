@@ -102,7 +102,14 @@ async function main(): Promise<unknown> {
     roadTool: shot(() => renderer.render(world, camera, { hoverTile: mid, tool: 'road', now: clock })),
     coverage: shot(() => renderer.render(world, camera, { hoverTile: mid, tool: 'police', coveragePreview: coverage, now: clock })),
   };
-  return { tick, view: `${VIEW_W}×${VIEW_H}`, views, extras };
+  // The frame right after a sim tick, standing still: what a tick makes the renderer check or redraw.
+  // Measured last, so the ticks do not change the pictures above.
+  const afterTick = [];
+  for (const zoom of [0.5, 1, 2.5]) {
+    camera.zoom = zoom; centre(); frames(90);
+    afterTick.push({ zoom, frame: summary(frames(60, () => scheduler.tick())) });
+  }
+  return { tick, view: `${VIEW_W}×${VIEW_H}`, views, extras, afterTick };
 }
 
 main()

@@ -85,9 +85,9 @@ export function serialize(world: World): WorldSnapshot {
 }
 
 export function deserialize(snapshot: WorldSnapshot, bootstrapper?: VibeBootstrapper): World {
-  // Construct the world with the original seed — terrain is regenerated
-  // deterministically, then overwritten by the snapshot (same bytes).
-  const world = new World(snapshot.width, snapshot.height, snapshot.seed);
+  // A world with no map: every layer, and the outside connection points, come from the snapshot below.
+  // (It used to generate the seed's map first, only to overwrite it.)
+  const world = new World(snapshot.width, snapshot.height, snapshot.seed, {}, false);
 
   world.tick = snapshot.tick;
 
