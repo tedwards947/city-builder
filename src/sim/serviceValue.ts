@@ -33,7 +33,8 @@
 // frame walks the roads once for the hovered tile and no more.
 
 import type { World } from './World';
-import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY } from './constants';
+import { ZONE_R, ROAD_NONE, ROAD_HIGHWAY, BUILDING_PARK } from './constants';
+import { countsAsPark } from './leisure';
 import { BALANCE } from '../data/balance';
 import { computeServiceCoverage } from './systems/ServiceSystem';
 import { footprintTiles, footprintEdge } from './buildingShapes';
@@ -80,19 +81,28 @@ interface KindCoverage {
 
 const cache = new WeakMap<World, Map<number, KindCoverage>>();
 
-/** Coverage of every standing building of `kind`, remembered until the map changes. */
+/**
+ * The kind whose coverage and value `kind` shares: every park (the 1×1, the 2×2, the big park, the
+ * beach park, the lido) is "a park" to residents, requests and the service rule; the rest are their own.
+ */
+export function coverageGroup(kind: number): number {
+  return countsAsPark(kind) && BALANCE.service.coverageRange[kind] !== undefined ? BUILDING_PARK : kind;
+}
+
+/** Coverage of every standing building of `kind` (for the park, of any park kind), remembered until the map changes. */
 function kindCoverage(world: World, kind: number): KindCoverage {
   let byKind = cache.get(world);
   if (!byKind) { byKind = new Map(); cache.set(world, byKind); }
-  const range = BALANCE.service.coverageRange[kind] ?? -1;
+  let range = BALANCE.service.coverageRange[kind] ?? -1;
+  if (kind === BUILDING_PARK) for (const b of world.buildings) if (coverageGroup(b.kind) === kind) range = range * 31 + (BALANCE.service.coverageRange[b.kind] ?? 0);
   const have = byKind.get(kind);
   if (have && have.edits === world.grid.edits && have.range === range) return have;
 
   const counts = new Map<number, number>();
   const own = new Map<number, Int32Array>();
   for (const b of world.buildings) {
-    if (b.kind !== kind) continue;
-    const tiles = Int32Array.from(computeServiceCoverage(world, b.tx, b.ty, kind));
+    if (coverageGroup(b.kind) !== kind) continue;
+    const tiles = Int32Array.from(computeServiceCoverage(world, b.tx, b.ty, b.kind));
     own.set(world.grid.idx(b.tx, b.ty), tiles);
     for (let k = 0; k < tiles.length; k++) counts.set(tiles[k], (counts.get(tiles[k]) ?? 0) + 1);
   }
@@ -213,11 +223,11 @@ export function serviceOpeningValue(
   world: World, tx: number, ty: number, kind: number,
   cfg: ServiceValueConfig = BALANCE.politicalCapital.service,
 ): ServiceValuePart[] {
-  const rate = cfg.perResident[kind] ?? 0;
+  const rate = cfg.perResident[kind] ?? cfg.perResident[coverageGroup(kind)] ?? 0;
   if (rate <= 0) return [];
   if (hasCapacity(kind)) return seatParts(world, seatsIfOpened(world, tx, ty, kind), rate, cfg);
   const parts: ServiceValuePart[] = [];
-  const { counts } = kindCoverage(world, kind);
+  const { counts } = kindCoverage(world, coverageGroup(kind));
   const width = world.grid.width;
   for (const i of computeServiceCoverage(world, tx, ty, kind)) {
     const pop = residentsAt(world, i);
@@ -245,10 +255,10 @@ export function serviceClosureValue(
   const at = world.buildingAnchorAt(world.grid.idx(tx, ty));
   if (at < 0) return [];
   const kind = world.layers.building[at];
-  const rate = cfg.perResident[kind] ?? 0;
+  const rate = cfg.perResident[kind] ?? cfg.perResident[coverageGroup(kind)] ?? 0;
   if (rate <= 0) return [];
   if (hasCapacity(kind)) return seatParts(world, seatsIfClosed(world, at, kind), rate, cfg);
-  const { counts, own } = kindCoverage(world, kind);
+  const { counts, own } = kindCoverage(world, coverageGroup(kind));
   const tiles = own.get(at);
   if (!tiles) return [];
   const parts: ServiceValuePart[] = [];
