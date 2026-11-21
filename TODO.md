@@ -205,6 +205,10 @@ n. **Revisit Political Capital** (owner, 2026-11-19): "political capital is a ba
 
 o. **Inspect while paused.** Done: see ENGINEER 2 item 7 (#441).
 
+p. **Open requests are hard to see above ground** (owner, 2026-11-20; GRAPHICS). In the underground view the request area stands out well against the black background. Above ground it is often hard to see, because its selection box is green and home lots are green too. Give the request area a colour or style that contrasts with every zone colour (and with the green of parks and trees), e.g. a non-green outline with a darker edge, a dashed or animated border, or a light dimming outside the area. Check it at several zoom levels and on a phone.
+
+q. **Bigger parks count for park coverage** (owner, 2026-11-20; ENGINEER 2, numbers ENGINEER 3). Only the 1×1 park gave park coverage (6 road steps), so a 2×2 park, big park, beach park or lido couldn't meet a park request. Every park now counts, and bigger ones reach further: 1×1 6, 2×2 about 9, big park / beach park / lido about 12.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
