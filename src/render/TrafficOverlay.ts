@@ -3,9 +3,12 @@
 //   Roads:  coloured by volume / capacity, and the scale keeps going past
 //           100% so an overloaded road reads differently from a full one.
 //   Track:  (every level: elevated with a white edge, subway dashed)
-//           a line along the track, coloured by riders / capacity on the
-//           roads' scale. A junction is a disc (it carries less, so it fills
-//           first); an overloaded one gets a white ring and a "!".
+//           a dark line with riders streaming along it as dots, both ways:
+//           more dots, more riders. A full line is a line doing its job, so
+//           the dots stay white up to 100%, turn amber when busy (100–115%)
+//           and red past 115%, where they also slow and bunch. Only an
+//           overloaded junction gets a disc with a "!". Zoomed far out, where
+//           dots would be too small, the line itself takes those colours.
 //   Stations: a label with the riders using the station per tick, or "no road".
 //   Zones:  tinted by commute (accessibility): short → long → cut off.
 //   Hover:  a building shows the route its trips take (homes: to shops and
@@ -25,8 +28,9 @@ import { rampLevel } from '../sim/buildingShapes';
 import { t } from '../i18n';
 import {
   type TrafficData, type TrafficField, type MarketKey, MARKET_DEFS,
-  bestAccessRoad, neighbourIndex, shownRoadLoad, railLoad, NODES_PER_TILE,
+  bestAccessRoad, neighbourIndex, shownRoadLoad, railLoad, railVolume, NODES_PER_TILE,
 } from '../sim/TrafficData';
+import { BALANCE } from '../data/balance';
 
 type Ctx = CanvasRenderingContext2D;
 type RGB = readonly [number, number, number];
@@ -40,6 +44,21 @@ const LOAD_STOPS: readonly (readonly [number, RGB])[] = [
   [4,    [95, 20, 170]],
 ];
 const EMPTY_ROAD = 'rgb(70,78,84)';
+
+// Rail riders (owner's pick E, 2026-11-21): a full line is working, so load only shows past 100%.
+const RAIL_BUSY = 1.0;        // amber from here…
+const RAIL_OVER = 1.15;       // …red from here (the junction disc too)
+const RIDER = '#f4f7fa', RIDER_BUSY = 'rgb(245,170,30)', RIDER_OVER = 'rgb(235,45,35)';
+const TRACK = 'rgb(56,66,82)', TRACK_SUBWAY = 'rgb(84,96,116)';
+/** Dot colour for track at this load. */
+export function riderColor(load: number): string {
+  return load >= RAIL_OVER ? RIDER_OVER : load >= RAIL_BUSY ? RIDER_BUSY : RIDER;
+}
+/** How fast the dots move at this load (1 = free running): busy lines slow down, overloaded ones crawl. */
+function riderSpeed(load: number): number {
+  return load >= RAIL_OVER ? 0.3 : load >= RAIL_BUSY ? 0.6 : 1;
+}
+const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Commute scale for zone tiles: [accessibility 0-1, colour].
 const COMMUTE_STOPS: readonly (readonly [number, RGB])[] = [
@@ -192,9 +211,13 @@ export class TrafficOverlay {
     const { width } = world.grid;
     const rail = world.layers.rail;
     const half = ts / 2;
-    const line = Math.max(3, ts * 0.36);
+    const line = Math.max(4, ts * 0.42);
     const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];                         // N, E, S, W: the LINK_ bits in order
     const junctions: { x: number; y: number; load: number }[] = [];
+    // Dots need room: below this a dot would be a speck, so the line itself carries the load colours.
+    const dots = ts >= 8;
+    // Each half of a tile's track (centre → edge, or a ramp's centre → its other end) the riders flow along.
+    const flows: { x: number; y: number; vx: number; vy: number; load: number; vol: number; sub: boolean }[] = [];
     ctx.lineCap = 'round';
     // Lowest level first: subway (a thinner, dashed line with a dark edge), ground, then elevated
     // (with a white edge, so it reads as passing over). Two passes per level, so one tile's edge
@@ -214,7 +237,9 @@ export class TrafficOverlay {
             const load = data ? railLoad(data, i, level) : 0;
             const cx = camera.worldToScreenX(Projection.tileToWorldX(tx)) + half;
             const cy = camera.worldToScreenY(Projection.tileToWorldY(ty)) + half;
-            ctx.strokeStyle = pass === 1 ? loadColor(load) : level === RAIL_ELEVATED ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
+            const top = dots || load < RAIL_BUSY ? (level === RAIL_SUBWAY ? TRACK_SUBWAY : TRACK) : riderColor(load);
+            ctx.strokeStyle = pass === 1 ? top : level === RAIL_ELEVATED ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
+            const vol = pass === 1 && dots && data ? railVolume(data, i, level) : 0;
             ctx.lineWidth = pass === 0 ? wide + 3 : wide;
             ctx.beginPath();
             if (links === 0) { ctx.moveTo(cx - 0.01, cy); ctx.lineTo(cx + 0.01, cy); }
@@ -222,6 +247,7 @@ export class TrafficOverlay {
               if (!(links & (1 << d))) continue;
               ctx.moveTo(cx, cy);
               ctx.lineTo(cx + DX[d] * half, cy + DY[d] * half);
+              if (vol > 0) flows.push({ x: cx, y: cy, vx: DX[d], vy: DY[d], load, vol, sub: level === RAIL_SUBWAY });
             }
             // A ramp joins its two ends across the levels: draw each end up to the middle of the ramp.
             const kind = world.layers.building[i];
@@ -232,6 +258,7 @@ export class TrafficOverlay {
                 const ox = other.tile % width - tx, oy = (other.tile - other.tile % width) / width - ty;
                 ctx.moveTo(cx, cy);
                 ctx.lineTo(cx + ox * half, cy + oy * half);
+                if (vol > 0) flows.push({ x: cx, y: cy, vx: ox, vy: oy, load, vol, sub: level === RAIL_SUBWAY });
               }
             }
             ctx.stroke();
@@ -243,21 +270,20 @@ export class TrafficOverlay {
     }
     ctx.setLineDash([]);
     ctx.lineCap = 'round';
-    // Junctions on top: the weak points, so the ones to look at.
+    this._drawRiders(ctx, flows, half, line, reducedMotion ? 0 : performance.now() / 1000);
+    // Only an overloaded junction is marked: the one place worth fixing.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const j of junctions) {
-      const over = j.load > 1;
-      const r = Math.max(5, ts * (over ? 0.42 : 0.3));
+      if (j.load < RAIL_OVER) continue;
+      const r = Math.max(5, ts * 0.42);
       ctx.beginPath(); ctx.arc(j.x, j.y, r + 2, 0, Math.PI * 2);
-      ctx.fillStyle = over ? '#fff' : 'rgba(0,0,0,0.85)'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fill();
       ctx.beginPath(); ctx.arc(j.x, j.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = loadColor(j.load); ctx.fill();
-      if (over) {
-        ctx.font = `bold ${Math.max(10, Math.round(r * 1.5))}px sans-serif`;
-        ctx.fillStyle = '#fff';
-        ctx.fillText('!', j.x, j.y + 1);
-      }
+      ctx.fillStyle = RIDER_OVER; ctx.fill();
+      ctx.font = `bold ${Math.max(10, Math.round(r * 1.5))}px sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText('!', j.x, j.y + 1);
     }
     // Stations: riders boarding, at the middle of the building.
     const stations = data?.rail.stations ?? [];
@@ -287,6 +313,38 @@ export class TrafficOverlay {
       }
     }
     ctx.textAlign = 'start';
+  }
+
+  /**
+   * Riders as dots streaming along each half-tile of track, in two lanes (one each way, on the
+   * right of the direction of travel). The phase depends only on the time, so a dot leaving one
+   * tile's edge arrives at its neighbour's at the same moment. More riders, more dots; past
+   * 100% they turn amber, past 115% red, and they slow down and bunch.
+   */
+  private _drawRiders(ctx: Ctx, flows: { x: number; y: number; vx: number; vy: number; load: number; vol: number; sub: boolean }[],
+    half: number, line: number, sec: number): void {
+    if (flows.length === 0) return;
+    const r = Math.max(1.2, Math.min(2.6, half * 0.1)), off = line * 0.24;
+    const most = Math.max(1, Math.floor(half / (r * 2.2)));               // dots a lane can hold without touching
+    const unit = BALANCE.rail.capacity;
+    for (const f of flows) {
+      const len = Math.hypot(f.vx, f.vy), ux = f.vx / len, uy = f.vy / len;
+      // A full line fills about three quarters of the lane; an overloaded one packs it.
+      const n = Math.max(1, Math.min(Math.round(most * len), Math.round(f.vol / unit * most * 0.8 * len)));
+      const phase = sec * 1.2 * riderSpeed(f.load) / len;
+      const rr = f.sub ? r * 0.8 : r;
+      ctx.fillStyle = riderColor(f.load);
+      ctx.beginPath();
+      for (let j = 0; j < n; j++) {
+        const a = j / n + phase, u = a - Math.floor(a);
+        // Outbound (along the half, its lane on the right: (−uy, ux)) and inbound (back towards the centre, the other side).
+        const ox = f.x + f.vx * half * u - uy * off, oy = f.y + f.vy * half * u + ux * off;
+        const ix = f.x + f.vx * half * (1 - u) + uy * off, iy = f.y + f.vy * half * (1 - u) - ux * off;
+        ctx.moveTo(ox + rr, oy); ctx.arc(ox, oy, rr, 0, Math.PI * 2);
+        ctx.moveTo(ix + rr, iy); ctx.arc(ix, iy, rr, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
   }
 
   private _drawTrace(
@@ -437,7 +495,7 @@ export class TrafficOverlay {
         [loadColor(1), 'Full'], [loadColor(2), '2× over'], [loadColor(4), '4× over'],
       ]],
       ['Track', [
-        [loadColor(0.05), 'A line, on the roads\' scale (white edge: elevated; dashed: subway)'], ['#fff', 'Disc: a junction; white ring and ! when over capacity'],
+        [RIDER, 'Riders, both ways (more dots, more riders)'], [RIDER_BUSY, 'Busy: 100–115% full'], [RIDER_OVER, 'Over 115%: slow, bunched; ! at a junction'],
       ]],
       ['Commute', [
         [scale(COMMUTE_STOPS, 1), 'Short'], [scale(COMMUTE_STOPS, 0.5), 'Long'], [scale(COMMUTE_STOPS, 0), 'Cut off'],
