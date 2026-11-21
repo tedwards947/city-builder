@@ -96,7 +96,7 @@ export function headcountCost(world: World): HeadcountCost {
   const utilities = { power: 0, water: 0, sewage: 0 } as Record<Utility, number>;
   for (const u of ['power', 'water', 'sewage'] as const) {
     const out = OUTPUT[u](), large = (count[PLANTS[u].large] ?? 0) * out.large;
-    // A capstone at work supplies at the small plants' rate (CAPSTONE_DESIGN.md: measured against small plants).
+    // A capstone at work supplies at the small plants' rate per unit; its extra per-resident rate is set against large plants (CAPSTONE_DESIGN.md, owner 2026-11-21).
     let small = (count[PLANTS[u].small] ?? 0) * out.small;
     for (const b of world.buildings) {
       const row = capstoneRow(b.kind);
