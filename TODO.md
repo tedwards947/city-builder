@@ -241,6 +241,8 @@ r. **Outside connections, highway and rail** (owner, 2026-11-20; workshop in pro
 
 s. **Capstone buildings** (owner, 2026-11-20; workshop in progress, see CAPSTONE_DESIGN.md). One very expensive building each for education, police, fire, health, power, water and sewage that covers the whole city; its own toolbar category, unlocked by population, affordable only to well-run cities.
 
+t. **Outside code review (Gemini)** (owner, 2026-11-21: after capstones and connections, "up to y'all"). Triage list and plan in docs/REVIEW_2026-11-21.md: utility passes dirtying every chunk each tick, per-frame HUD and chart redraws, derived layers in saves, generating a map before loading a save, CanvasRenderer size, a vitest exclude. Check each item against main first; some are already fixed.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
