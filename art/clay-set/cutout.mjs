@@ -256,7 +256,7 @@ const PLOT_ASPECT = 0.905;
 // Tall buildings came back on a slab that is too short front to back. Grow the
 // slab backwards to the standard shape, behind whatever stands on it, with
 // slab texture taken from the clear strip along its front.
-function extendSlab(img, aspect = PLOT_ASPECT) {
+function extendSlab(img, aspect = PLOT_ASPECT, forceFlat = false) {
   const { w, h, rgba } = img;
   const p = findPlot(img), plotW = p.right - p.left + 1;
   const wantTop = Math.round(p.bottom + 1 - plotW * aspect);
@@ -280,7 +280,7 @@ function extendSlab(img, aspect = PLOT_ASPECT) {
   const rows = [];
   for (let y = Math.round(p.bottom - plotW * 0.06); y > p.bottom - plotW * 0.45 && rows.length < 48; y--) if (plain(y)) rows.push(y);
   let flat = null;
-  if (rows.length < 6) {
+  if (rows.length < 6 || forceFlat) {
     // The median colour of the ground along the front strip.
     const ch = [[], [], []];
     for (let y = Math.round(p.bottom - plotW * 0.095); y <= p.bottom - plotW * 0.06; y++) for (let x = x0; x <= x1; x++) { const d = (y * w + x) * 4; if (rgba[d + 3] > 250) for (let c = 0; c < 3; c++) ch[c].push(rgba[d + c]); }
@@ -387,6 +387,9 @@ const LOT_UNTINT = new Set(['i-works-e.png', 'i-works-f.png', 'i-works-g.png', '
 const LOT_PULL = { 'c-mall-b.png': 1.4 };
 // With `force`, the rows nearest the front lip go whatever is on them (planters, benches), for a plaza with too few plain rows.
 const PULL_FORCE = new Set(['c-wide-c.png', 'c-mall-b.png']);
+// Works standing at the back of the lot behind a busy yard, so they sat higher on screen than the lots
+// beside them (owner, 2026-11-21): [tiles to pull forward, share of the depth from the front to the building].
+const LOT_SINK = { 'i-works-a.png': [0.4, 0.47], 'i-works-b.png': [0.3, 0.37], 'i-works-d.png': [0.3, 0.31], 'i-works-e.png': [0.4, 0.38], 'i-works-g.png': [0.3, 0.36], 'i-works-h.png': [0.3, 0.48] };
 mkdirSync(join(GAME_OUT, 'lots'), { recursive: true });
 for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.png')).sort()) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-lots', f), '--out', tmp], { stdio: 'ignore' });
@@ -403,8 +406,10 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
     cut.rgba[d] = Math.max(0, cut.rgba[d] - m * 0.95); cut.rgba[d + 2] = Math.max(0, cut.rgba[d + 2] - m * 0.55);
   }
   const thinned = thinLip(cut, 2);
-  const pulled = LOT_PULL[f] ? pullForward(cut, Math.round(LOT_PULL[f] * (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / 2), PULL_FORCE.has(f)) : 0;
-  const { grown } = extendSlab(cut);   // generated plots come back short front to back
+  const tileRows = (findPlot(cut).right - findPlot(cut).left + 1) * PLOT_ASPECT / 2;
+  const pulled = LOT_PULL[f] ? pullForward(cut, Math.round(LOT_PULL[f] * tileRows), PULL_FORCE.has(f))
+    : LOT_SINK[f] ? sinkForward(cut, Math.round(LOT_SINK[f][0] * tileRows), LOT_SINK[f][1]) : 0;
+  const { grown } = extendSlab(cut, PLOT_ASPECT, !!LOT_SINK[f]);   // generated plots come back short front to back
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'lots/' + f.replace(/\.png$/, '');
@@ -440,6 +445,29 @@ function pullForward(img, n, force = false) {
     if (force || plain(y)) drop.add(y);
     else if (y < p.bottom - plotW * 0.5) break;   // into the building
   }
+  const out = new Uint8Array(w * h * 4);
+  let dy = h - 1;
+  for (let y = h - 1; y >= 0; y--) { if (drop.has(y)) continue; out.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), dy * w * 4); dy--; }
+  img.rgba.set(out);
+  return drop.size;
+}
+/**
+ * Like pullForward for a yard full of props (trucks, pallets, parking lines): takes out the `n` quietest rows
+ * between the front lip and `band` (share of the plot's depth from the front, where the building stands),
+ * so props are thinned only where the yard has no plain rows left. Rows busier than `maxBusy` are kept.
+ */
+function sinkForward(img, n, band, maxBusy = 0.3) {
+  const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
+  const lip = Math.round(plotW * 0.07), top = Math.round(p.bottom - plotW * PLOT_ASPECT * band);
+  const x0 = p.left + Math.round(plotW * 0.04), x1 = p.right - Math.round(plotW * 0.04);
+  const busy = (y) => {
+    const lum = []; for (let x = x0; x <= x1; x++) { const d = (y * w + x) * 4; lum.push(rgba[d + 3] < 250 ? -999 : rgba[d] + rgba[d + 1] + rgba[d + 2]); }
+    const sorted = [...lum].sort((a, b) => a - b), med = sorted[sorted.length >> 1];
+    return lum.filter((v) => Math.abs(v - med) > 36).length / lum.length;
+  };
+  const rows = [];
+  for (let y = p.bottom - lip; y > top; y--) rows.push([y, busy(y)]);
+  const drop = new Set(rows.filter(([, b]) => b <= maxBusy).sort((a, b) => a[1] - b[1]).slice(0, n).map(([y]) => y));
   const out = new Uint8Array(w * h * 4);
   let dy = h - 1;
   for (let y = h - 1; y >= 0; y--) { if (drop.has(y)) continue; out.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), dy * w * 4); dy--; }
