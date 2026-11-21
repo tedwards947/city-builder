@@ -16,8 +16,9 @@ import { isLargeBuilding } from '../sim/buildingShapes';
 import { BIG_SLAB } from './clay/bigBuildings';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
-  ZONE_NONE, ROAD_NONE, VEG_NONE, BUILDING_NONE, RAIL_GROUND, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY,
+  ZONE_NONE, ROAD_NONE, ROAD_HIGHWAY, VEG_NONE, BUILDING_NONE, RAIL_GROUND, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY,
 } from '../sim/constants';
+import { offMapSide } from './clay/connectionStubs';
 import type { ChunkPainter } from './ChunkCache';
 
 /** Tile size (px) from which trees are clay sprites drawn per frame; below it they are flat marks in the chunk layer. */
@@ -169,13 +170,17 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
         else drawFlatZoneBuilding(chunkCtx, zone, dev, sxi, syi, tsi, ts, localP, isAbandoned, visualVariant % 4);
       }
 
+      // A highway or track on an outside connection's tile runs on off the map (clay/connectionStubs.ts).
       if (road !== ROAD_NONE) {
-        drawClayRoad(chunkCtx, drawnRoadAt(world, tx, ty), drawnRoadsAround(world, tx, ty), terrain === TERRAIN_WATER, sxi, syi, Math.ceil(ts));
+        const around = drawnRoadsAround(world, tx, ty), off = road === ROAD_HIGHWAY ? offMapSide(world, i, 'highway') : -1;
+        if (off >= 0) around[off] = ROAD_HIGHWAY;
+        drawClayRoad(chunkCtx, drawnRoadAt(world, tx, ty), around, terrain === TERRAIN_WATER, sxi, syi, Math.ceil(ts));
       }
 
       // Ground track (clay/rail.ts); a station's platform track is drawn over its picture instead.
       if ((world.layers.rail[i] & RAIL_GROUND) !== 0 && building === BUILDING_NONE) {
-        drawRailTile(chunkCtx, railLinks(world, i), sxi, syi, Math.ceil(ts), road !== ROAD_NONE, terrain === TERRAIN_WATER);
+        const off = offMapSide(world, i, 'rail');
+        drawRailTile(chunkCtx, railLinks(world, i) | (off >= 0 ? 1 << off : 0), sxi, syi, Math.ceil(ts), road !== ROAD_NONE, terrain === TERRAIN_WATER);
       }
 
       if (building !== BUILDING_NONE) {
