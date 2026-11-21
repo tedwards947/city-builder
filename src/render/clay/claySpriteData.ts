@@ -1143,6 +1143,13 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "right": 442,
     "bottom": 431
   },
+  "capstones/sewage-d": {
+    "w": 486,
+    "h": 486,
+    "left": 39,
+    "right": 442,
+    "bottom": 429
+  },
   "capstones/water-b": {
     "w": 485,
     "h": 525,

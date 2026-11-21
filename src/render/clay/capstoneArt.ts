@@ -43,7 +43,7 @@ interface Art {
 
 const row = (xs: readonly number[], y: number): Pt[] => xs.map((x) => [x, y] as const);
 const ART: Record<number, Art> = {
-  [BUILDING_SEWAGE_WORKS]: { name: 'sewage-c', bx: 0, by: 0, bw: 4, bd: 4, trees: [...row([6, 14, 22, 46, 54, 62], 51), ...row([6, 14, 22, 46, 54, 62], 63)] },
+  [BUILDING_SEWAGE_WORKS]: { name: 'sewage-d', bx: 0, by: 0, bw: 4, bd: 4, trees: [...row([6, 13, 20, 48, 55, 62], 51), ...row([6, 13, 20, 48, 55, 62], 63)] },
   [BUILDING_WATERWORKS]: { name: 'water-b', bx: 0, by: 0, bw: 4, bd: 4, trees: row([5, 14.7, 24.3, 43.7, 53.3, 63], 64.5) },
   [BUILDING_FIRE_HQ]: { name: 'fire-c', bx: 4, by: 1, bw: 4, bd: 4, trees: row([5, 13, 21, 29], 62) },
   [BUILDING_POLICE_HQ]: { name: 'police-b', bx: 0, by: 0, bw: 4, bd: 4, trees: row([10, 20, 48, 58], 53.5), pad: { x: 34, y: 24, z: 30, heli: 'heli-police' } },
@@ -203,39 +203,83 @@ function windsock(ctx: Ctx, x: number, y: number, T: number, sec: number): void 
   ctx.fillStyle = '#f07a2a'; ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x + l * Math.cos(sway), y - h + l * Math.sin(sway) + 1); ctx.lineTo(x, y - h + Math.max(3, T * 0.06)); ctx.fill();
 }
 // Moving parts painted over the art, placed in the sprite's own pixels (cut sprite, capstones/<name>.png).
-/** The sewage works' four settling tanks: centre and water radii, sprite pixels. */
-const TANKS: readonly [number, number][] = [[97, 118], [197, 118], [297, 118], [393, 118]];
-const TANK_R = [38.5, 33] as const;
-/** Clock faces: sprite name → centre and radius in its pixels. */
-const CLOCKS: Record<string, readonly [number, number, number]> = { 'sewage-c': [241, 215, 10], 'uni-b': [422, 672, 9] };
+/** The sewage works' four settling tanks: rim centres in sprite pixels, and the outer rim radius (sprite px, covers the painted rim). */
+const TANKS: readonly [number, number][] = [[99, 120], [199, 120], [299, 120], [391, 120]];
+const TANK_R = 41;
+/** How far the tanks' round tops lean back: their depth on screen as a share of their width (owner, 2026-11-21: "tilted backward"). */
+const TANK_TILT = 0.72;
+/** Clock faces: sprite name → centre, then half-width and half-height of the face, in its pixels. */
+const CLOCKS: Record<string, readonly [number, number, number, number]> = { 'sewage-d': [241.5, 246.5, 10.5, 8.8], 'uni-b': [422, 672, 9, 9] };
 /** A sprite pixel on screen, for a sprite drawn by drawClaySprite at (L, top) with a plot `side` wide. */
 function spritePx(m: { left: number; right: number; bottom: number }, L: number, top: number, side: number, px: number, py: number): [number, number, number] {
   const plotW = m.right - m.left + 1, kx = side / plotW, ky = side / (plotW * 0.905);
   return [L - m.left * kx + px * kx, top - (m.bottom + 1 - plotW * 0.905) * ky + py * ky, kx];
 }
-/** A settling tank's bridge turning slowly over fresh water (the painted one is covered). */
-function sweeper(ctx: Ctx, x: number, y: number, rx: number, ry: number, sec: number, k: number): void {
-  const g = ctx.createRadialGradient(x - rx * 0.3, y - ry * 0.3, 0, x, y, rx);
-  g.addColorStop(0, '#62624e'); g.addColorStop(1, '#45463a');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+/**
+ * A settling tank, drawn whole on the paving: its round top leans back (TANK_TILT) like the painted
+ * fountain, and heights rise straight up at 0.12 tile per 3 m. So the rim is an ellipse lifted 2 m
+ * above the ground one, the front of the wall shows below it, a sliver of the inside wall
+ * shows at the back above the water, and the bridge turns at rim height with its shadow on the water.
+ * (x, y): the rim's centre on screen; r: the outer rim radius; T: px a tile.
+ */
+function tank(ctx: Ctx, x: number, y: number, r: number, T: number, sec: number, k: number): void {
+  const tl = TANK_TILT, wall = 2 * HM * T, lip = Math.max(1, 0.9 / 17 * T), drop = 0.9 * HM * T, ri = r - lip;
+  // Shadow on the paving, falling right.
+  ctx.fillStyle = 'rgba(30,25,20,0.22)'; ctx.beginPath(); ctx.ellipse(x + wall * 0.9, y + wall * 0.7, r, r * tl, 0, 0, Math.PI * 2); ctx.fill();
+  // The outer wall: the ground circle and the band up to the rim, lit from the left.
+  const side = ctx.createLinearGradient(x - r, 0, x + r, 0);
+  side.addColorStop(0, '#7e523d'); side.addColorStop(0.55, '#674231'); side.addColorStop(1, '#4b2f22');
+  ctx.fillStyle = side; ctx.beginPath(); ctx.ellipse(x, y + wall, r, r * tl, 0, 0, Math.PI); ctx.lineTo(x - r, y); ctx.ellipse(x, y, r, r * tl, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill();
+  // Brick courses on the wall, and a darker course along its foot.
+  if (wall >= 4) { ctx.strokeStyle = 'rgba(60,28,18,0.28)'; ctx.lineWidth = 1; for (const f of [0.35, 0.65]) { ctx.beginPath(); ctx.ellipse(x, y + wall * f, r, r * tl, 0, 0.08, Math.PI - 0.08); ctx.stroke(); } }
+  ctx.strokeStyle = 'rgba(40,20,12,0.35)'; ctx.lineWidth = Math.max(1, wall * 0.18); ctx.beginPath(); ctx.ellipse(x, y + wall * 0.88, r, r * tl, 0, 0.15, Math.PI - 0.15); ctx.stroke();
+  // The rim's top: brick coping, lit from the upper left, with a pale stone edge on the inside.
+  const top = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+  top.addColorStop(0, '#8c604a'); top.addColorStop(1, '#6a4534');
+  ctx.fillStyle = top; ctx.beginPath(); ctx.ellipse(x, y, r, r * tl, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(232,218,192,0.75)'; ctx.lineWidth = Math.max(0.8, lip * 0.28); ctx.beginPath(); ctx.ellipse(x, y, ri + lip * 0.15, (ri + lip * 0.15) * tl, 0, 0, Math.PI * 2); ctx.stroke();
+  // Inside: the far inner wall (seen above the water), then the water, lower than the rim.
+  ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, ri, ri * tl, 0, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = '#4a3226'; ctx.fillRect(x - ri, y - ri * tl, ri * 2, ri * 2 * tl);
+  const g = ctx.createRadialGradient(x - ri * 0.35, y + drop - ri * 0.35, 0, x, y + drop, ri);
+  g.addColorStop(0, '#666a54'); g.addColorStop(1, '#3f4235');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y + drop, ri, ri * tl, 0, 0, Math.PI * 2); ctx.fill();
+  // The sky caught on the far side of the water.
+  ctx.strokeStyle = 'rgba(190,205,200,0.18)'; ctx.lineWidth = Math.max(1, ri * 0.08); ctx.beginPath(); ctx.ellipse(x, y + drop, ri * 0.88, ri * 0.88 * tl, 0, Math.PI * 1.15, Math.PI * 1.6); ctx.stroke();
   const a = still ? 0.6 : sec * Math.PI * 2 / 50 + k * 1.7, c = Math.cos(a), s = Math.sin(a);
-  // A pale wake behind the bridge, the bridge (walkway and railing), and the centre pier.
-  ctx.strokeStyle = 'rgba(200,205,180,0.25)'; ctx.lineWidth = Math.max(1, rx * 0.12);
-  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, a - 0.5, a - 0.05); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, a + Math.PI - 0.5, a + Math.PI - 0.05); ctx.stroke();
-  ctx.strokeStyle = '#6d6a62'; ctx.lineWidth = Math.max(1.5, rx * 0.13);
-  ctx.beginPath(); ctx.moveTo(x - c * rx, y - s * ry + 1); ctx.lineTo(x + c * rx, y + s * ry + 1); ctx.stroke();
-  ctx.strokeStyle = '#d9d5ca'; ctx.lineWidth = Math.max(1, rx * 0.09);
-  ctx.beginPath(); ctx.moveTo(x - c * rx, y - s * ry); ctx.lineTo(x + c * rx, y + s * ry); ctx.stroke();
-  ctx.fillStyle = '#bdb8ab'; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.12, ry * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  // A faint wake trailing the bridge, and the bridge's shadow on the water.
+  ctx.strokeStyle = 'rgba(205,210,185,0.2)'; ctx.lineWidth = Math.max(1, ri * 0.1);
+  for (const b of [a, a + Math.PI]) { ctx.beginPath(); ctx.ellipse(x, y + drop, ri * 0.75, ri * 0.75 * tl, 0, b - 0.55, b - 0.08); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(20,22,16,0.35)'; ctx.lineWidth = Math.max(1.5, ri * 0.1);
+  ctx.beginPath(); ctx.moveTo(x - c * ri + drop * 0.6, y - s * ri * tl + drop * 1.6); ctx.lineTo(x + c * ri + drop * 0.6, y + s * ri * tl + drop * 1.6); ctx.stroke();
+  ctx.restore();
+  // The bridge at rim height: a grey walkway with a pale handrail, and the centre pier.
+  ctx.strokeStyle = '#77736b'; ctx.lineWidth = Math.max(1.5, ri * 0.09);
+  ctx.beginPath(); ctx.moveTo(x - c * ri, y - s * ri * tl); ctx.lineTo(x + c * ri, y + s * ri * tl); ctx.stroke();
+  ctx.strokeStyle = 'rgba(225,220,205,0.85)'; ctx.lineWidth = Math.max(0.6, ri * 0.03);
+  ctx.beginPath(); ctx.moveTo(x - c * ri, y - s * ri * tl - ri * 0.03); ctx.lineTo(x + c * ri, y + s * ri * tl - ri * 0.03); ctx.stroke();
+  ctx.fillStyle = '#9b968b'; ctx.beginPath(); ctx.ellipse(x, y, ri * 0.11, ri * 0.11 * tl, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#c4beb1'; ctx.beginPath(); ctx.ellipse(x - ri * 0.03, y - ri * 0.03, ri * 0.06, ri * 0.06 * tl, 0, 0, Math.PI * 2); ctx.fill();
 }
-/** A clock face showing the player's own time of day (the game's days pass in seconds). */
-function clock(ctx: Ctx, x: number, y: number, r: number): void {
-  ctx.fillStyle = '#f4efe0'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#3a3226'; ctx.lineWidth = Math.max(0.8, r * 0.14); ctx.stroke();
+/**
+ * A clock face showing the player's own time of day, over the painted one: (x, y) its centre, rx and ry
+ * its half-width and half-height (a face on an upright wall is a little shorter than wide here).
+ */
+function clock(ctx: Ctx, x: number, y: number, rx: number, ry: number): void {
+  // Bronze bezel, then an aged ivory face lit from the upper left.
+  ctx.fillStyle = '#5b4632'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(x - rx * 0.35, y - ry * 0.35, 0, x, y, rx);
+  g.addColorStop(0, '#e4dac2'); g.addColorStop(1, '#bfb293');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.84, ry * 0.84, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+  const r = rx * 0.84;
+  ctx.fillStyle = '#3a3226';
+  if (r >= 5) for (let i = 0; i < 12; i++) { const t = i / 12 * Math.PI * 2; ctx.fillRect(Math.cos(t) * r * 0.8 - 0.5, Math.sin(t) * r * 0.8 - 0.5, 1, 1); }
   const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60;
-  const hand = (turn: number, len: number, w: number): void => { const a = turn * Math.PI * 2 - Math.PI / 2; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); ctx.stroke(); };
-  ctx.lineCap = 'round'; hand(h / 12, r * 0.5, Math.max(1, r * 0.16)); hand(m / 60, r * 0.78, Math.max(0.8, r * 0.1)); ctx.lineCap = 'butt';
+  ctx.strokeStyle = '#2e271d';
+  const hand = (turn: number, len: number, w: number): void => { const a = turn * Math.PI * 2 - Math.PI / 2; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len); ctx.stroke(); };
+  ctx.lineCap = 'round'; hand(h / 12, r * 0.5, Math.max(1, r * 0.16)); hand(m / 60, r * 0.75, Math.max(0.8, r * 0.1)); ctx.lineCap = 'butt';
+  ctx.restore();
 }
 
 /** Four lights round a roof pad, blinking in turn (green, or red for the hospital's). */
@@ -258,9 +302,9 @@ export function drawCapstone(ctx: Ctx, kind: number, sx: number, sy: number, w: 
   // drawClaySprite fits a plot `tile` wide and as deep; a wider-than-deep plot shifts up so its front meets the lot's.
   const top = Tp + (a.bd - a.bw) * T;
   drawClaySprite(ctx, sprite, L, top, a.bw * T);
-  if (kind === BUILDING_SEWAGE_WORKS && T >= 10) TANKS.forEach(([px, py], k) => { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, px, py); sweeper(ctx, x, y, TANK_R[0] * kx, TANK_R[1] * kx, now / 1000, k); });
+  if (kind === BUILDING_SEWAGE_WORKS && T >= 10) TANKS.forEach(([px, py], k) => { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, px, py); tank(ctx, x, y, TANK_R * kx, T, now / 1000, k); });
   const face = CLOCKS[a.name];
-  if (face && T >= 14) { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, face[0], face[1]); clock(ctx, x, y, face[2] * kx); }
+  if (face && T >= 14) { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, face[0], face[1]); clock(ctx, x, y, face[2] * kx, face[3] * kx / 0.905); }
   if (T >= 6) {
     a.trees.map((p, i) => [p[0], p[1], i % 4 === 2 ? 'tree-autumn' : 'tree'] as const).sort((p, q) => p[1] - q[1])
       .forEach(([x, y, n]) => { const [px, py] = ground(x, y, L, Tp, a.bd, T); tree(ctx, n, px, py, T); });
@@ -276,7 +320,7 @@ export function drawCapstone(ctx: Ctx, kind: number, sx: number, sy: number, w: 
     if (T >= 8) { windsock(ctx, sx + (w - 0.35) * T, sy + 0.95 * T, T, sec); blink(ctx, L + 3.5 * T, Tp + 1.3 * T, T, sec, '255,170,40', 1.4); }
   }
   if (kind === BUILDING_NUCLEAR_PLANT && T >= 6) for (const u of [0.96, 3.02]) { steam(ctx, L + u * T, Tp - 1.3 * T, T, sec + u * 2.3); if (T >= 10) rimLights(ctx, L + u * T, Tp - 1.3 * T, T, sec); }
-  if (kind === BUILDING_SEWAGE_WORKS && T >= 10) fountain(ctx, L + 2.0 * T, Tp + 3.29 * T, T, sec);
+  if (kind === BUILDING_SEWAGE_WORKS && T >= 10) fountain(ctx, L + 2.01 * T, Tp + 3.26 * T, T, sec);
   void drawRotor;
   return true;
 }
