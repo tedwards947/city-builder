@@ -477,6 +477,9 @@ const LEISURE = [
   { src: 'bigpark-a', id: 'bigpark-a', n: 3 }, { src: 'bigpark-b', id: 'bigpark-b', n: 3 },
   { src: 'park2-a', id: 'midpark-a', n: 2 }, { src: 'park2-b', id: 'midpark-b', n: 2 },
   { src: 'monument-a', id: 'plaza-a', n: 2, untint: true }, { src: 'monument-b', id: 'plaza-b', n: 2 },
+  // Park variety round (2026-11-21, owner took all twelve): seven 1×1 park looks on ref/anchor.png, five 2×2 parks.
+  ...['playground', 'garden', 'dogpark', 'court', 'skate', 'meadow', 'duckpond'].map(k => ({ src: 'p1-' + k, id: 'park1-' + k, n: 1 })),
+  ...['japanese', 'adventure', 'sunken', 'orchard', 'wetland'].map(k => ({ src: 'p2-' + k, id: 'midpark-' + k, n: 2 })),
 ];
 mkdirSync(join(GAME_OUT, 'leisure'), { recursive: true });
 for (const { src, id: name, n, untint } of LEISURE) {

@@ -1052,6 +1052,90 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "right": 226,
     "bottom": 219
   },
+  "leisure/park1-playground": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/park1-garden": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/park1-dogpark": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/park1-court": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/park1-skate": {
+    "w": 118,
+    "h": 118,
+    "left": 9,
+    "right": 109,
+    "bottom": 102
+  },
+  "leisure/park1-meadow": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/park1-duckpond": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "leisure/midpark-japanese": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "leisure/midpark-adventure": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "leisure/midpark-sunken": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
+  "leisure/midpark-orchard": {
+    "w": 247,
+    "h": 247,
+    "left": 23,
+    "right": 223,
+    "bottom": 212
+  },
+  "leisure/midpark-wetland": {
+    "w": 255,
+    "h": 255,
+    "left": 25,
+    "right": 226,
+    "bottom": 219
+  },
   "leisure/beach-a-wide": {
     "w": 384,
     "h": 345,

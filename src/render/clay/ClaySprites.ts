@@ -33,6 +33,13 @@ const PLOT_ASPECT = 0.905;
 /** A vibe axis must lean at least this far (of -1..1) before a variant is used. */
 const VIBE_THRESHOLD = 0.25;
 
+/**
+ * The 1×1 park's looks: today's fountain park, then the park variety round (owner took all seven, 2026-11-21):
+ * playground, community garden, dog park, basketball court, skate plaza, wildflower meadow, duck pond.
+ * The tile's visualVariant picks one.
+ */
+const PARK_DESIGNS = ['park', ...['playground', 'garden', 'dogpark', 'court', 'skate', 'meadow', 'duckpond'].map(k => 'leisure/park1-' + k)];
+
 const ZONE_PREFIX: Record<number, string> = { [ZONE_R]: 'res', [ZONE_C]: 'com', [ZONE_I]: 'ind' };
 const BUILDING_ID: Record<number, string> = {
   [BUILDING_POWER_PLANT]: 'power',
@@ -199,6 +206,7 @@ export function clayVibeFor(vibe: VibeState): ClayVibe {
  */
 export function pickClaySprite(zone: number, building: number, dev: number, vibe: VibeState, abandoned: boolean, lotId = 0): ClaySprite | undefined {
   if (sprites.size === 0) return undefined;
+  if (building === BUILDING_PARK) return sprites.get(PARK_DESIGNS[lotId % PARK_DESIGNS.length]) ?? sprites.get('park');
   if (building !== BUILDING_NONE) return sprites.get(BUILDING_ID[building]);
   const prefix = ZONE_PREFIX[zone];
   if (!prefix || dev < 1) return undefined;
