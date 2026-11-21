@@ -246,6 +246,7 @@ describe('systems that skip empty land give the whole-map answer', () => {
     const i = w.grid.idx(20, 20);
     w.layers.vibeGreen[i] = 255;                       // straight into the layer
     w.tick = 1;                                        // not a diffusion tick
+    vibes.invalidateAxes();                            // the hook for a write that bypasses the system
     vibes.update(w);
     const n = w.layers.vibeGreen.length;
     const mean = w.layers.vibeGreen.reduce((s, v) => s + v, 0) / n;

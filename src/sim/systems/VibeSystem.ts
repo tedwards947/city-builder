@@ -21,6 +21,9 @@ const NEUTRAL = 128;
  * single action moves a tile by a few to a few dozen units and never saturates it.
  * Diffusion then spreads the value to neighbours and decay pulls it back to 128.
  */
+/** Even without a diffusion pass or a nudge, the city-wide averages are re-read this often. */
+const AXES_REFRESH_TICKS = 64;
+
 export class VibeSystem {
   private registeredWorld: World | null = null;
   // Scratch buffer reused across layers and runs (avoids per-run allocation).
@@ -32,16 +35,28 @@ export class VibeSystem {
     vibeEgalitarian: new FieldBounds(), vibeGreen: new FieldBounds(), vibePlanned: new FieldBounds(),
   };
 
+  // The city-wide averages only change when a layer does: on a diffusion tick, or after a nudge.
+  // True to start with (and for a new world), so the first update always works them out.
+  private _axesStale = true;
+
+  /** Call after writing a vibe layer directly (not through a nudge), so the city-wide averages follow at once. */
+  invalidateAxes(): void { this._axesStale = true; }
+
   update(world: World): void {
     if (world !== this.registeredWorld) {
       this._register(world);
+      this._axesStale = true;
     }
     
     // Slow spatial diffusion and decay
-    this._simulateSpatialVibes(world);
+    const diffused = this._simulateSpatialVibes(world);
     
     // Legacy global axes (averaged from layers for global logic)
-    this._updateGlobalAxes(world);
+    // The periodic refresh bounds how long a write that bypassed this system can go unseen.
+    if (diffused || this._axesStale || world.tick % AXES_REFRESH_TICKS === 0) {
+      this._updateGlobalAxes(world);
+      this._axesStale = false;
+    }
   }
 
   /**
@@ -164,13 +179,16 @@ export class VibeSystem {
     const i = world.grid.idx(tx, ty);
     const current = world.layers[layer][i];
     world.layers[layer][i] = Math.max(0, Math.min(255, current + byteDelta));
+    this._axesStale = true;
     world.grid.markDirty(tx, ty);
   }
 
-  private _simulateSpatialVibes(world: World): void {
+  /** Returns whether a diffusion pass ran. */
+  private _simulateSpatialVibes(world: World): boolean {
     // Spatial simulation runs at a slow cadence to save CPU.
-    if (world.tick % BALANCE.vibe.simInterval !== 0) return;
+    if (world.tick % BALANCE.vibe.simInterval !== 0) return false;
     this._diffuse(world, true);
+    return true;
   }
 
   /**
