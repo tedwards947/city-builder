@@ -1,3 +1,5 @@
+import { DERIVED_LAYERS } from '../persistence/SaveFormat';
+import { rebuildDerivedLayers } from '../persistence/Serializer';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
 import { serialize, deserialize } from '../persistence/Serializer';
@@ -88,17 +90,31 @@ describe('Serializer round-trip', () => {
     w.layers.vegetation[i] = 1;
 
     const restored = deserialize(serialize(w));
+    // Every layer that is saved. (The derived ones are not, since save version 12: see below.)
     const layers = [
       'terrain', 'zone', 'roadClass', 'building', 'devLevel', 'pollution',
-      'crime', 'sickness', 'education', 'congestion', 'vegetation',
-      'abandoned', 'distress', 'fireRisk', 'fire', 'fireStation',
-      'police', 'school', 'hospital', 'recentDeath', 'accessibility',
+      'crime', 'sickness', 'education', 'vegetation',
+      'abandoned', 'distress', 'fireRisk', 'fire', 'recentDeath',
       'visualVariant'
     ] as const;
     for (const layer of layers) {
       expect(Array.from(restored.layers[layer])).toEqual(Array.from(w.layers[layer]));
     }
-    expect(Array.from(restored.layers.roadNet)).toEqual(Array.from(w.layers.roadNet));
+  });
+
+  it('does not save the derived layers: a load works them out from the roads and buildings', () => {
+    const w = makeWorld();
+    const i = w.grid.idx(5, 5);
+    w.layers.congestion[i] = 80;                      // whatever the layers held is not kept
+    w.layers.power[i] = 1;
+    const snap = serialize(w);
+    for (const name of DERIVED_LAYERS) expect(name in snap.layers, name).toBe(false);
+    const restored = deserialize(snap);
+    expect(restored.layers.congestion[i]).toBe(0);    // traffic fills it in on the first pass
+    // The rest are what the systems give for this map.
+    const fresh = deserialize(snap);
+    rebuildDerivedLayers(fresh);
+    for (const name of DERIVED_LAYERS) expect(Array.from(restored.layers[name]), name).toEqual(Array.from(fresh.layers[name]));
   });
 
   it('preserves all stats exactly', () => {

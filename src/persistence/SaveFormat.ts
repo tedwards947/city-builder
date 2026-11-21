@@ -14,10 +14,21 @@
 //  11 — merged 2×2 lots: devLevel may be 4, with the new `lot` layer (sim/lots.ts). Nothing to upgrade: an
 //       older save has no merged lots. The number went up so that an older build refuses a newer save
 //       rather than misreading level 4.
+//  12 — the derived layers are no longer saved (DERIVED_LAYERS below: coverage, the road networks, congestion
+//       and accessibility); a load works them out from the roads and buildings (Serializer.ts). A save FILE
+//       also stores each layer run-length packed (SaveFile.ts). Nothing to upgrade: an older save still has
+//       the layers and they are used as they are. The number went up so that an older build refuses a newer
+//       save rather than loading a city with no coverage.
 
 import { shrinkStations } from './stationResize';
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
+
+/**
+ * Layers that are worked out whole from the roads, the buildings and the last traffic pass, with no
+ * memory of their own. Not saved since version 12: a save from before has them, a newer one does not.
+ */
+export const DERIVED_LAYERS = ['power', 'water', 'sewage', 'services', 'police', 'fireStation', 'school', 'hospital', 'roadNet', 'congestion', 'accessibility'] as const;
 
 // ── Data shapes ──────────────────────────────────────────────────────────────
 
@@ -98,6 +109,7 @@ export interface WorldSnapshot {
   upgradeNotes?: { stationsRebuilt?: number };
   // Typed arrays are stored as-is — IndexedDB handles structured clone.
   // For wire transport (Phase 8), Serializer will convert to/from ArrayBuffer.
+  // The layers marked optional that are in DERIVED_LAYERS are in saves up to version 11 only.
   layers: {
     terrain:   Uint8Array;
     zone:      Uint8Array;
@@ -107,25 +119,25 @@ export interface WorldSnapshot {
     devLevel:  Uint8Array;
     /** Merged 2×2 lots (sim/lots.ts). Optional: saves from before version 11 have none. */
     lot?:      Uint8Array;
-    power:     Uint8Array;
-    water:     Uint8Array;
-    sewage:    Uint8Array;
-    services:  Uint8Array;
+    power?:     Uint8Array;
+    water?:     Uint8Array;
+    sewage?:    Uint8Array;
+    services?:  Uint8Array;
     landValue: Uint8Array;
-    roadNet:   Uint16Array;
+    roadNet?:   Uint16Array;
     pollution: Uint8Array;
     crime:      Uint8Array;
-    police:     Uint8Array;
-    congestion:    Uint8Array;
-    accessibility: Uint8Array;
+    police?:     Uint8Array;
+    congestion?:    Uint8Array;
+    accessibility?: Uint8Array;
     abandoned:  Uint8Array;
     distress:   Uint8Array;
     fireRisk:   Uint8Array;
     fire:       Uint8Array;
-    fireStation: Uint8Array;
-    school:     Uint8Array;
+    fireStation?: Uint8Array;
+    school?:     Uint8Array;
     education:  Uint8Array;
-    hospital:   Uint8Array;
+    hospital?:   Uint8Array;
     sickness:   Uint8Array;
     recentDeath: Uint8Array;
     visualVariant: Uint8Array;
@@ -147,7 +159,7 @@ export interface WorldSnapshot {
 }
 
 export interface SaveRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   userId: string;
   slot: number;
   meta: SaveMeta;
@@ -204,7 +216,8 @@ export function migrate(raw: unknown): SaveRecord {
   if ((rec as { version: number }).version === 8) rec = upgradeV8toV9(rec);
   if ((rec as { version: number }).version === 9) rec = { ...rec, version: 10, snapshot: shrinkStations(rec.snapshot) };
   if ((rec as { version: number }).version === 10) rec = { ...rec, version: 11 };
-  if ((rec as { version: number }).version === 11) return rec;
+  if ((rec as { version: number }).version === 11) rec = { ...rec, version: 12 };   // nothing to change: its derived layers are used as saved
+  if ((rec as { version: number }).version === 12) return rec;
   if ((rec as { version: number }).version > SAVE_VERSION) throw new NewerSaveError((rec as { version: number }).version);
   throw new Error(`Unknown save version: ${(rec as { version: number }).version}`);
 }
