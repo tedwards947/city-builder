@@ -1,6 +1,6 @@
 # Outside Connections: Design
 
-*Status: Q1–Q3 decided; Q4–Q5 open (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
+*Status: all five questions decided 2026-11-20; ready for engine review (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Today a city is an island. New maps have no highway in (the generator lays no roads), tourists come only through the $2M airport, and goods leave only by seaport. A road or a line running off the edge of the map means nothing.
@@ -53,12 +53,12 @@ Points are spread over different edges, never in water, and not right next to ea
 ### Q3. The capacity numbers **Decided (owner, 2026-11-20): the PM pick, ENGINEER 3 tunes from there.**
 Highway 30 visitors plus 10 trucks; rail 90 visitors (3×); airport stays at 60. *(PM pick: these as the starting point, then ENGINEER 3 tunes them in the lab.)* Alternative: rail at 2× (60) so the airport keeps more of its point.
 
-### Q4. Pull has to grow
+### Q4. Pull has to grow **Decided (owner, 2026-11-20): A, day-trippers come for shops too.**
 - **A. Day-trippers come for shops too.** *(PM pick)* Highway and rail visitors also count part of the city's shop tiles as pull (a shopping trip from the next town), so a big commercial city draws day-trippers without attractions. The airport stays attractions only.
 - **B. Raise attraction pull.** Simpler, but then a city with no attractions gets nobody by road.
 - **C. Leave it.** A second connection mostly adds export and traffic room, not visitors.
 
-### Q5. Does a connection cost anything?
+### Q5. Does a connection cost anything? **Decided (owner, 2026-11-20): A, free to join.**
 - **A. Free to join.** *(PM pick)* You pay for the road or track out to it, and that's the price.
 - **B. A one-off fee or PC cost** (a regional agreement). It's a sink, but an odd one for a road.
 
