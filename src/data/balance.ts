@@ -138,7 +138,11 @@ export const BALANCE = {
     //   visitors      Tourists it can bring in (the airport brings 60): a gateway like the airport.
     //   exportTrucks  Export trucks it can take (a seaport takes 15), each earning port.exportIncomePerTrip.
     //   residentsOut  Residents travelling out it can take (the visitors market; the airport takes 100). They pay nothing.
-    highway: { visitors: 30, exportTrucks: 10, residentsOut: 30 },
+    //   shopPull      Day-trippers (owner 2026-11-20): shoppers from the next town a tick for each developed
+    //                 commerce level in the city. They come by highway only, enter as shopping trips at the
+    //                 point's tile, and fill what room the highways' `visitors` have left after the tourists.
+    //                 0 = none. At 0.02 a city with 1,500 commerce levels fills one highway.
+    highway: { visitors: 30, exportTrucks: 10, residentsOut: 30, shopPull: 0.02 },
   },
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.

@@ -5,11 +5,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
-import { BUILDING_PLAZA, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, ZONE_I, ZONE_R } from '../sim/constants';
+import { BUILDING_PLAZA, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, ZONE_C, ZONE_I, ZONE_R } from '../sim/constants';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { EconomySystem } from '../sim/systems/EconomySystem';
 import { connectionOn, isEntryTile, openHighways, resetConnections } from '../sim/connections';
-import { connectionExportIncome, connectionTradeAt } from '../sim/connectionTraffic';
+import { connectionExportIncome, connectionTradeAt, dayTrippers } from '../sim/connectionTraffic';
+import { beginTutorial, endTutorial } from '../tutorial/rules';
 import { cityPull, gatewayCapacity, gatewayRoads, hasGateway, touristsArriving } from '../sim/leisureTraffic';
 import { addDoorProvider, addTripProvider, trafficVolume } from '../sim/TrafficData';
 import { landWorld } from './pcTestWorld';
@@ -168,6 +169,76 @@ describe('residents travelling out', () => {
     homes(20, 40, 3);
     w.setRoad(0, ROW, ROAD_NONE);
     expect(traffic().visitors.volume[idx(5, ROW)]).toBe(0);
+  });
+});
+
+describe('day-trippers', () => {
+  const shops = (x: number, n: number, level = 3) => { for (let k = 0; k < n; k++) zone(x + k, ROW - 1, ZONE_C, level); };
+  const levels = (n: number, level = 3) => n * (BALANCE.growth.levelWeight[level] ?? level);
+
+  it('shoppers from the next town come for the shops: shopPull a commerce level, in whole trips, as shopping trips from the point', () => {
+    shops(20, 60);
+    const want = Math.floor(levels(60) * H.shopPull);
+    expect(want).toBeGreaterThan(0);
+    expect(dayTrippers(w)).toBe(want);
+    const t = traffic();
+    // No homes: every shopping trip on the road is a day-tripper, and they all come in along the highway.
+    expect(t.shopping.volume[POINT]).toBeCloseTo(want, 3);
+    expect(t.shopping.volume[idx(5, ROW)]).toBeCloseTo(want, 3);
+    expect(t.shopping.field.stranded).toBe(0);
+    expect(connectionTradeAt(w, POINT)!.dayTrippers).toBe(want);
+  });
+
+  it('a city with no shops gets none, and abandoned shops do not count', () => {
+    expect(dayTrippers(w)).toBe(0);
+    shops(20, 60);
+    for (let x = 20; x < 80; x++) w.layers.abandoned[idx(x, ROW - 1)] = 1;
+    expect(dayTrippers(w)).toBe(0);
+  });
+
+  it('no more than the room the highway has', () => {
+    const pull = H.shopPull;
+    (H as { shopPull: number }).shopPull = 1;
+    try {
+      shops(20, 60);
+      expect(dayTrippers(w)).toBe(H.visitors);
+    } finally { (H as { shopPull: number }).shopPull = pull; }
+  });
+
+  it('tourists come first: day-trippers fill what room they leave', () => {
+    const pull = H.shopPull;
+    (H as { shopPull: number }).shopPull = 1;
+    try {
+      shops(50, 40);
+      plaza(20); plaza(30);
+      const tourists = touristsArriving(w);
+      expect(tourists).toBeGreaterThan(0);
+      expect(dayTrippers(w)).toBe(Math.floor(H.visitors - tourists));
+    } finally { (H as { shopPull: number }).shopPull = pull; }
+  });
+
+  it('none without a joined highway, and none at shopPull 0', () => {
+    shops(20, 60);
+    const pull = H.shopPull;
+    (H as { shopPull: number }).shopPull = 0;
+    try { expect(dayTrippers(w)).toBe(0); } finally { (H as { shopPull: number }).shopPull = pull; }
+    w.setRoad(0, ROW, ROAD_NONE);
+    expect(dayTrippers(w)).toBe(0);
+    expect(traffic().shopping.volume[idx(5, ROW)]).toBe(0);
+  });
+});
+
+describe('the tutorial city', () => {
+  it('the connection is off during the tutorial and on from the moment it ends', () => {
+    plaza(40); industry(60, 10);
+    beginTutorial(w);
+    expect(openHighways(w)).toEqual([]);
+    expect(hasGateway(w)).toBe(false);
+    expect(trafficVolume(traffic(), POINT)).toBe(0);
+    endTutorial(w);
+    expect(openHighways(w).map((c) => c.tile)).toEqual([POINT]);
+    expect(hasGateway(w)).toBe(true);
+    expect(trafficVolume(traffic(), POINT)).toBeGreaterThan(0);
   });
 });
 
