@@ -18,6 +18,7 @@ import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawE
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
+import { drawConnectionStubs, drawConnectionHints } from './clay/connectionStubs';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
 import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
 import { buildingKindForPlacing } from '../input/InputController';
@@ -269,6 +270,9 @@ export class CanvasRenderer {
     // 1. The static layer.
     this.chunks.update(world, bounds, camera.zoom, now);
     this.chunks.draw(ctx, world, camera, bounds);
+    // 1a. Outside connections: the stubs and signs off the map's edge (clay/connectionStubs.ts).
+    const ox0 = camera.worldToScreenX(Projection.tileToWorldX(0)), oy0 = camera.worldToScreenY(Projection.tileToWorldY(0));
+    drawConnectionStubs(ctx, world, ox0, oy0, ts, cw, ch);
 
     // 1b. Ships, on the water and under everything that stands (cranes reach over them).
     this._drawShips(ctx, world, camera, bounds, now);
@@ -313,6 +317,7 @@ export class CanvasRenderer {
     if (roadPreview !== null) this._drawRoadPreview(ctx, world, camera, ts, roadPreview);
     if (zonePreview !== null) this._drawZonePreview(ctx, camera, ts, zonePreview);
     if (landscape !== null) this._drawLandscapePreview(ctx, world, camera, ts, landscape);
+    drawConnectionHints(ctx, world, ox0, oy0, ts, now, tool === 'highway' ? 'highway' : tool === 'rail' ? 'rail' : null);
     if (hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) this._drawHover(ctx, world, camera, ts, hoverTile, tool, pcPreview !== null && !pcPreview.ok, pcPreview?.warning === true);
 
     const tlsx = camera.worldToScreenX(0);

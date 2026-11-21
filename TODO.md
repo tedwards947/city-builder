@@ -217,7 +217,7 @@ p. **Open requests are hard to see above ground** (owner, 2026-11-20; GRAPHICS).
 
 q. **Bigger parks count for park coverage** (owner, 2026-11-20; ENGINEER 2, numbers ENGINEER 3). Only the 1×1 park gave park coverage (6 road steps), so a 2×2 park, big park, beach park or lido couldn't meet a park request. Every park now counts, and bigger ones reach further: 1×1 6, 2×2 about 9, big park / beach park / lido about 12.
 
-r. **Outside connections, highway and rail** (owner, 2026-11-20; workshop in progress, see CONNECTIONS_DESIGN.md). Entry points at the map edge that bring visitors in (rail about 3× a highway), let exports out by highway, and carry residents travelling out. Owner decided Q1–Q5 on 2026-11-20. Next: engine review and phase plan (ENGINE), stub art (GRAPHICS), numbers (ENGINEER 3).
+r. **Outside connections, highway and rail** (owner, 2026-11-20; workshop in progress, see CONNECTIONS_DESIGN.md). Entry points at the map edge that bring visitors in (rail about 3× a highway), let exports out by highway, and carry residents travelling out. Owner decided Q1–Q5 on 2026-11-20. Next: engine review and phase plan (ENGINE), numbers (ENGINEER 3). **Stub art done** (GRAPHICS, clay/connectionStubs.ts): off-map highway or track fading into the dark with a green or blue sign, dimmed until joined; an amber outline marks an unjoined point and pulses while the highway or track tool is held; joined road or track runs on into the stub.
 
 s. **Capstone buildings** (owner, 2026-11-20; workshop in progress, see CAPSTONE_DESIGN.md). One very expensive building each for education, police, fire, health, power, water and sewage that covers the whole city; its own toolbar category, unlocked by population, affordable only to well-run cities.
 
