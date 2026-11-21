@@ -15,16 +15,16 @@ A capstone is the reward for running a big city well. It replaces dozens of smal
 | Running costs | Each covered resident costs a little a day (`headcountCost`), plus building upkeep. | Keep paying the per-resident cost (it grows with the city either way) plus a big upkeep. |
 
 ## The seven (looks are the graphics' and owner's call)
-Owner, 2026-11-20: these are expensive, so they should be **big and ornate**, and the police and fire HQs get **their own animations** (a police helicopter, a firefighting plane). The animations are looks only unless the owner decides otherwise.
+Owner, 2026-11-20: these are expensive, so they should be **big and ornate**, and the police and fire HQs get **their own animations** (a police helicopter, a firefighting plane). The animations are looks only unless the owner decides otherwise. Art picks from graphics' code-drawn mock-ups (3 variants each), owner 2026-11-20, are in the table; paid images come after, with the owner's OK.
 | Need | Working name | Footprint (SCALE.md) |
 |---|---|---|
-| Education | University | 4×4 campus |
-| Police | Police Headquarters, big and ornate, with a rooftop helipad and a **police helicopter** that flies patrols over the city | 4×4 |
-| Fire | Fire Headquarters, big and ornate, with a **firefighting plane** that flies out to fires | 4×4 |
-| Health | General Hospital | 4×3 |
-| Power | **Nuclear Power Station** (owner, 2026-11-20): cooling towers, no smoke | 4×4 |
-| Water | Waterworks (reservoir and filter beds; whether it must sit by water is for later) | 4×4 |
-| Sewage | Sewage Works | 4×4 |
+| Education | University (art not picked yet) | **8×8** campus (owner, 2026-11-20) |
+| Police | Police Headquarters, big and ornate, with a rooftop helipad and a **police helicopter** that flies patrols over the city. Art: **B, brutalist** | 4×4 |
+| Fire | Fire Headquarters, big and ornate, with a **firefighting plane** (water bomber) that flies out to fires from **its own runway**. Art: **C, modern** | **10×4 or 12×4** (owner OK'd a bigger footprint for the runway; length to be picked) |
+| Health | General Hospital. Art: **A, modern** | 4×3 |
+| Power | **Nuclear Power Station** (owner, 2026-11-20): cooling towers, no smoke. Art: **A, twin cooling towers** | 4×4 |
+| Water | Waterworks, redone as a **large pumping station** (round 2 has 3 options) | 4×4 |
+| Sewage | Sewage Works. Art: **C, Victorian pumping station** | 4×4 |
 
 ## Proposed rules (PM defaults, open to change)
 - **One of each per city.** A separate **Capstones** toolbar category. Locked items show greyed out with the population needed.
