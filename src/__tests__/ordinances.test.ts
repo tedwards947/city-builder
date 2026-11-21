@@ -4,7 +4,7 @@ import { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
   ORDINANCES, ORDINANCE_IDS, ORDINANCE_MODIFIERS, enactOrdinance, repealOrdinance, ordinanceModifier, ordinanceState,
-  upkeepScale, dailyUpkeepOf,
+  upkeepScale, dailyUpkeepOf, dailyMoneyOf,
   enactBlocker, ordinancesEnabled,
 } from '../sim/ordinances';
 import { OrdinanceSystem } from '../sim/systems/OrdinanceSystem';
@@ -139,6 +139,20 @@ describe('OrdinanceSystem', () => {
     } finally {
       pc.capPerResident = 0;
     }
+  });
+
+  it('money upkeep can grow with the city: dailyMoney plus dailyMoneyPerResident × population', () => {
+    table.freeTransit.dailyMoney = 10;
+    (table.freeTransit as Numbers & { dailyMoneyPerResident?: number }).dailyMoneyPerResident = 0.075;
+    const w = world(100);
+    w.stats.population = 20_000;
+    expect(dailyMoneyOf(w, 'freeTransit')).toBeCloseTo(1510);
+    enactOrdinance(w, 'freeTransit');
+    const money = w.budget.money;
+    w.tick = BALANCE.ticksPerDay; new OrdinanceSystem().update(w);
+    expect(w.budget.money).toBeCloseTo(money - 1510);
+    w.stats.population = 40_000;                              // twice the city, twice the per-resident part
+    expect(dailyMoneyOf(w, 'freeTransit')).toBeCloseTo(3010);
   });
 
   it('suspends at PC 0 or below (no effect, no upkeep) and resumes above 0', () => {
