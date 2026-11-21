@@ -1,5 +1,5 @@
 import type { Instrument } from './types';
-import { marimba, tone } from './sfx/synth';
+import { kalimba, marimba, noise, tone } from './sfx/synth';
 
 // Instruments for tracks that name one per voice (Track.instruments), built from the same wood sounds as
 // the sound effects (sfx/synth.ts). Each call schedules one note on `out` at `t`, `dur` seconds as written.
@@ -26,7 +26,112 @@ export function playInstrument(ctx: Ctx, out: AudioNode, inst: Instrument, f: nu
       }
       return;
     }
+    case 'kalimba':
+      kalimba(ctx, out, { t, f, d: clamp(0.8 * Math.sqrt(500 / f), 0.3, 1.2), peak: 0.26 * v });
+      return;
+    case 'steelpan': return steelpan(ctx, out, f, t, dur, v);
+    case 'pluck': {
+      // A synth pluck: a bright saw whose filter snaps shut, over a sine for body.
+      const d = clamp(0.16 + dur * 0.3, 0.18, 0.55);
+      tone(ctx, out, { t, f, type: 'sawtooth', a: 0.002, d, peak: 0.26 * v, lp: Math.min(f * 7, 9000), lp2: Math.max(f * 1.1, 300), Q: 2 });
+      tone(ctx, out, { t, f, a: 0.002, d: d * 0.8, peak: 0.26 * v });
+      return;
+    }
+    case 'flute': return flute(ctx, out, f, t, dur, v);
+    case 'vox': return vox(ctx, out, f, t, dur, v);
+    case 'pad': {
+      // Two detuned saws behind a soft low-pass. The slow attack swells into each note, so a pad written
+      // as one chord per beat breathes like the sidechain pump of a dance mix.
+      const a = Math.min(dur * 0.45, 0.35), hold = Math.max(0.01, dur - a);
+      for (const detune of [-9, 9]) {
+        tone(ctx, out, { t, f, type: 'sawtooth', detune, a, hold, d: 0.3, peak: 0.04 * v, lp: 1500, lp2: 800, Q: 0.5 });
+      }
+      return;
+    }
+    case 'sub': {
+      // A round sine bass, with a filtered octave so it still reads on small speakers.
+      const hold = Math.max(0.01, dur * 0.8);
+      tone(ctx, out, { t, f, a: 0.006, hold, d: 0.12, peak: 0.1 * v });
+      tone(ctx, out, { t, f: f * 2, type: 'triangle', a: 0.006, hold, d: 0.1, peak: 0.05 * v, lp: 900 });
+      return;
+    }
+    case 'kick':
+      // A soft, round kick: a sine that drops from 150 Hz to 48 Hz, with a muffled beater.
+      tone(ctx, out, { t, f: 150, f2: 48, glide: 0.1, a: 0.002, d: 0.34, peak: 0.33 * v });
+      noise(ctx, out, { t, d: 0.015, peak: 0.05 * v, type: 'lowpass', f: 1400 });
+      return;
+    case 'clap':
+      // Three quick hand slaps and a short tail.
+      for (const dt of [0, 0.011, 0.022]) noise(ctx, out, { t: t + dt, a: 0.001, d: 0.012, peak: 0.8 * v, f: 1400, Q: 1.1 });
+      noise(ctx, out, { t: t + 0.03, a: 0.001, d: 0.13, peak: 0.6 * v, f: 1300, Q: 0.9 });
+      return;
+    case 'shaker':
+      noise(ctx, out, { t, a: 0.008, d: 0.05, peak: 0.45 * v, type: 'highpass', f: 6500, Q: 0.7 });
+      return;
   }
+}
+
+/** Steel pan: a strong fundamental with the octave blooming in a moment late and a quick third partial. */
+function steelpan(ctx: Ctx, out: AudioNode, f: number, t: number, dur: number, v: number): void {
+  const ring = clamp(0.8 * Math.sqrt(400 / f), 0.35, 1.1);
+  const stroke = (at: number, k: number, stick: boolean) => {
+    tone(ctx, out, { t: at, f, a: 0.004, d: ring, peak: 0.24 * v * k });
+    tone(ctx, out, { t: at, f: f * 2, a: 0.018, d: ring * 0.55, peak: 0.1 * v * k });
+    tone(ctx, out, { t: at, f: f * 3.01, a: 0.002, d: ring * 0.22, peak: 0.035 * v * k });
+    if (stick) noise(ctx, out, { t: at, d: 0.012, peak: 0.035 * v, f: Math.min(f * 4, 5000), Q: 1.5 });
+  };
+  stroke(t, 1, true);
+  if (dur < 1.2) return;
+  // Pan players roll long notes too.
+  for (let at = t + 0.09, i = 0; at < t + dur - 0.05; at += 0.09, i++) stroke(at + (Math.random() - 0.5) * 0.008, i % 2 ? 0.34 : 0.42, false);
+}
+
+/** Pan flute: a breathy sine that scoops up into the note, with a chiff of air at the start. */
+function flute(ctx: Ctx, out: AudioNode, f: number, t: number, dur: number, v: number): void {
+  const hold = Math.max(0.01, dur - 0.08);
+  const vib: [number, number] | null = dur > 0.45 ? [5.2, f * 0.005] : null;
+  tone(ctx, out, { t, f: f * 0.985, f2: f, glide: 0.05, a: 0.05, hold, d: 0.18, peak: 0.1 * v, vib });
+  tone(ctx, out, { t, f: f * 2, a: 0.05, hold, d: 0.12, peak: 0.011 * v });
+  noise(ctx, out, { t, a: 0.03, hold: hold * 0.6, d: 0.15, peak: 0.022 * v, f, Q: 5 }); // breath around the pitch
+  noise(ctx, out, { t, a: 0.004, d: 0.045, peak: 0.025 * v, f: Math.min(f * 3, 6000), Q: 1 }); // the chiff
+}
+
+/** A vocal chop: a sung "ah" (a saw through three vowel formants) over a sine, sliding up into the pitch. */
+function vox(ctx: Ctx, out: AudioNode, f: number, t: number, dur: number, v: number): void {
+  const a = 0.012, hold = Math.max(0.01, dur * 0.85 - a), d = 0.1, end = t + a + hold + d;
+  const peak = 0.18 * v;
+  const g = ctx.createGain();
+  g.gain.value = 0; // silent before the note, as in sfx/synth.ts env()
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.linearRampToValueAtTime(peak * 0.8, t + a + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, end);
+  g.connect(out);
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(f * 0.97, t);
+  osc.frequency.exponentialRampToValueAtTime(f, t + 0.04);
+  for (const [fc, Q, amp] of [[800, 4, 1], [1250, 5, 0.6], [2600, 8, 0.25]]) {
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = fc; bp.Q.value = Q;
+    const fg = ctx.createGain();
+    fg.gain.value = amp;
+    osc.connect(bp); bp.connect(fg); fg.connect(g);
+  }
+  const body = ctx.createOscillator();
+  body.frequency.setValueAtTime(f * 0.97, t);
+  body.frequency.exponentialRampToValueAtTime(f, t + 0.04);
+  const bg = ctx.createGain();
+  bg.gain.value = 0.35;
+  body.connect(bg); bg.connect(g);
+  const stops = [osc, body];
+  if (dur > 0.5) { // a little vibrato on held notes
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 5.5; lg.gain.value = f * 0.006;
+    lfo.connect(lg); lg.connect(osc.frequency); lg.connect(body.frequency);
+    stops.push(lfo);
+  }
+  for (const s of stops) { s.start(t); s.stop(end + 0.05); }
 }
 
 /** A small warm wooden room: returns its input, feeding `dest` dry plus a 0.9 s reverb. */

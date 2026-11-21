@@ -12,7 +12,7 @@ function displayName(trackName: string): string {
 }
 
 /** Song picker sections, in display order. */
-const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['classical', 'Classical'], ['country', 'Country'], ['edm', 'Electronic']];
+const STYLES: [Track['genre'], string][] = [['ambient', 'Ambient'], ['classical', 'Classical'], ['country', 'Country'], ['edm', 'Electronic'], ['tropical', 'Tropical House']];
 
 /** The effects volume the panel's FX slider controls (SoundEffects implements this). */
 export interface EffectsSettings {
