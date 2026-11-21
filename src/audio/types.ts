@@ -7,12 +7,17 @@ export interface Note {
   vel?: number;
 }
 
-/** Instruments for tracks that name one per voice (see instruments.ts). marimba: long notes are rolled. */
-export type Instrument = 'marimba';
+/**
+ * Instruments for tracks that name one per voice (see instruments.ts). marimba and steelpan roll long notes.
+ * The drums (kick, clap, shaker) ignore the note's pitch.
+ */
+export type Instrument =
+  | 'marimba' | 'kalimba' | 'steelpan' | 'pluck' | 'flute' | 'vox' | 'pad' | 'sub'
+  | 'kick' | 'clap' | 'shaker';
 
 export interface Track {
   name: string;
-  genre: 'edm' | 'country' | 'ambient' | 'classical';
+  genre: 'edm' | 'country' | 'ambient' | 'classical' | 'tropical';
   bpm: number;
   patterns: Note[][][]; // patterns[patternIndex][voiceIndex][noteIndex]
   sequence: number[]; // order of pattern indices to play
