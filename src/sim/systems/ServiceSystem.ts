@@ -9,6 +9,7 @@
 // limited number of residents: a home every building in reach is too full for
 // is left out of that kind's coverage. See sim/serviceCapacity.ts.
 
+import { markLayerChanges } from '../layerDirty';
 import { serviceBaseKind, serviceRange } from '../capstones';
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL } from '../constants';
@@ -192,6 +193,7 @@ export class ServiceSystem {
 
     const L = world.layers;
     L.services.set(this._final[0]);
+    markLayerChanges(world, L.services);   // the one coverage layer the map is drawn from
     L.police.set(this._final[1]);
     L.fireStation.set(this._final[2]);
     L.school.set(this._final[3]);
