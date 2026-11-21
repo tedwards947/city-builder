@@ -8,6 +8,7 @@
 import { levelWeight } from '../lots';
 import type { World } from '../World';
 import { ROAD_NONE, ROAD_HIGHWAY } from '../constants';
+import { markLayerChanges } from '../layerDirty';
 import { footprintTiles, footprintEdge, hasNeededWater } from '../buildingShapes';
 
 /**
@@ -49,22 +50,23 @@ export function spreadUtility(
       for (const i of tiles) layer[i] = 1;
     }
   }
-  if (served.size === 0) return supply;
-
   // 2. Every tile of a served network is covered, and so is everything within
   //    `range` tiles of it.
-  const { roads, roadCount } = world.index;
-  for (let k = 0; k < roadCount; k++) {
-    const i = roads[k];
-    if (roadClass[i] === ROAD_NONE || !served.has(roadNet[i])) continue;
-    const x = i % width, y = (i - x) / width;
-    const xa = x - range < 0 ? 0 : x - range, xb = x + range >= width ? width - 1 : x + range;
-    const ya = y - range < 0 ? 0 : y - range, yb = y + range >= height ? height - 1 : y + range;
-    for (let ny = ya; ny <= yb; ny++) {
-      const row = ny * width;
-      for (let nx = xa; nx <= xb; nx++) layer[row + nx] = 1;
+  if (served.size > 0) {
+    const { roads, roadCount } = world.index;
+    for (let k = 0; k < roadCount; k++) {
+      const i = roads[k];
+      if (roadClass[i] === ROAD_NONE || !served.has(roadNet[i])) continue;
+      const x = i % width, y = (i - x) / width;
+      const xa = x - range < 0 ? 0 : x - range, xb = x + range >= width ? width - 1 : x + range;
+      const ya = y - range < 0 ? 0 : y - range, yb = y + range >= height ? height - 1 : y + range;
+      for (let ny = ya; ny <= yb; ny++) {
+        const row = ny * width;
+        for (let nx = xa; nx <= xb; nx++) layer[row + nx] = 1;
+      }
     }
   }
+  markLayerChanges(world, layer);   // only what changed: none, on most ticks
   return supply;
 }
 

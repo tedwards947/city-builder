@@ -31,7 +31,5 @@ export class WaterSystem {
       world.events.emit('waterRestored', { supply: totalSupply, demand: totalDemand });
     }
     this._inShortage = shortage;
-
-    world.grid.markAllDirty();
   }
 }

@@ -287,7 +287,12 @@ export class World {
     this._indexPinned = false;
   }
 
-  constructor(width: number, height: number, seed = 1, terrainOptions: TerrainOptions = {}) {
+  /**
+   * `generate` false makes a world with no map at all: bare land, no trees and no outside connection
+   * points. For loading a save, which fills every layer itself (persistence/Serializer.ts): generating
+   * a map only to overwrite it was most of the time a load took.
+   */
+  constructor(width: number, height: number, seed = 1, terrainOptions: TerrainOptions = {}, generate = true) {
     this.grid = new Grid(width, height);
     this.seed = seed;
     this.terrainOptions = terrainOptions;
@@ -355,6 +360,7 @@ export class World {
     this.events = new EventBus();
     this.roadNetDirty = true;
     this.layers.landValue.fill(BALANCE.landValue.base);
+    if (!generate) return;
     const kind = mapKindFor(terrainOptions.mapType ?? 'classic', seed);
     if (kind === null) {
       this._generateTerrain();

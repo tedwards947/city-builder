@@ -30,7 +30,5 @@ export class SewageSystem {
       world.events.emit('sewageRestored', { supply: totalSupply, demand: totalDemand });
     }
     this._inShortage = shortage;
-
-    world.grid.markAllDirty();
   }
 }

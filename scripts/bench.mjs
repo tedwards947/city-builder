@@ -56,6 +56,8 @@ function printFrames(r) {
     console.log(`    panning          ${spread(v.panning)}`);
     console.log(`    while zooming    ${spread(v.zooming)}`);
     console.log(`    after zooming    ${spread(v.afterZoom)}`);
+    const ticked = r.afterTick?.find((a) => a.zoom === v.zoom);
+    if (ticked) console.log(`    after a sim tick ${spread(ticked.frame)}`);
     console.log(`    first frame      ${ms(v.firstFrameMs)}`);
     console.log(`    picture          ${v.picture}   (same code and city give the same value; a change means the look changed)`);
   }
@@ -82,7 +84,7 @@ function runInBrowser(server, chrome) {
 
     const { port } = server.httpServer.address();
     child = spawn(chrome, [
-      '--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-extensions',
+      '--headless=new', '--mute-audio', '--no-first-run', '--no-default-browser-check', '--disable-extensions',
       '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
       // Draw on the CPU. With the GPU, Chrome moves canvases between GPU and CPU
       // as it likes and the same frame measures anywhere from 2 to 50 ms. CPU
