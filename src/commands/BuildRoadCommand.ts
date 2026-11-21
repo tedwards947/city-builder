@@ -6,6 +6,7 @@ import type { World } from '../sim/World';
 import { ROAD_NONE, ROAD_STREET, ROAD_HIGHWAY, TERRAIN_WATER } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { trackBlocksRoad } from '../sim/rail';
+import { reservedAgainst } from '../sim/connections';
 import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges, zonesCutOffByHighway } from '../sim/politics';
 
 // Builds a new road OR upgrades an existing road to a higher class.
@@ -34,6 +35,8 @@ export function roadBuildCost(world: World, tx: number, ty: number, targetClass:
   const current = world.layers.roadClass[world.grid.idx(tx, ty)];
   if (current >= targetClass) return 0;
   if (trackBlocksRoad(world, world.grid.idx(tx, ty), targetClass)) return null;
+  // An outside connection's tile (sim/connections.ts): a highway on a highway point, no road on a rail point.
+  if (reservedAgainst(world, world.grid.idx(tx, ty), targetClass === ROAD_HIGHWAY ? 'highway' : null)) return null;
   const mult = world.getTerrain(tx, ty) === TERRAIN_WATER ? BALANCE.costs.bridgeMultiplier : 1;
   const currentCost = current !== ROAD_NONE ? BALANCE.roadClasses[current].cost : 0;
   return (BALANCE.roadClasses[targetClass].cost - currentCost) * mult;

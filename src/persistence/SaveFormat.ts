@@ -85,6 +85,8 @@ export interface WorldSnapshot {
   markers?: { x: number; y: number; kind: string; zoom?: number; label?: string }[];
   /** Added without a version bump: written only while the city is the tutorial city (tutorial/rules.ts). */
   tutorial?: { step: number; service?: string; forHome?: boolean };
+  /** world.connections (sim/connections.ts): the outside connection points. Added without a version bump: missing = worked out on load from the map (what already runs to the edge first). */
+  connections?: { kind: string; tile: number }[];
   /** world.eventClock (sim/eventDays.ts). Added without a version bump: missing = the first event is set from the load. */
   eventClock?: { start: number; n: number; judged: number; wanted: number; arrived: number; stuckNow: number; pc: number; pcOwed: number };
   /** The last event's result (sim/eventDays.ts). Added without a version bump: missing = none yet. */

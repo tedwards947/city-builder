@@ -2,6 +2,7 @@
 // and the water tools would do. The quotes are pure: they change nothing. The
 // commands in src/commands (TreeCommands.ts, EditWaterCommand.ts) apply them.
 
+import { reservedAgainst } from './connections';
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
 import { RAIL_SURFACE, BUILDING_NONE, ROAD_NONE, TERRAIN_GRASS, TERRAIN_SAND, TERRAIN_WATER, VEG_NONE, VEG_TREE_6, ZONE_NONE } from './constants';
@@ -105,7 +106,7 @@ export function waterQuote(world: World, tiles: readonly number[], add: boolean)
     seen.add(i);
     const isWater = L.terrain[i] === TERRAIN_WATER;
     if (isWater === add) continue;
-    if (L.roadClass[i] !== ROAD_NONE || (L.rail[i] & RAIL_SURFACE) !== 0 || (!add && L.building[i] !== BUILDING_NONE)) { blocked.push(i); continue; }
+    if (L.roadClass[i] !== ROAD_NONE || (L.rail[i] & RAIL_SURFACE) !== 0 || (!add && L.building[i] !== BUILDING_NONE) || (add && reservedAgainst(world, i, null))) { blocked.push(i); continue; }
     out.push(i);
     if (!add) continue;
     const target = L.building[i] !== BUILDING_NONE ? world.buildingAnchorAt(i) : L.zone[i] !== ZONE_NONE ? i : -1;

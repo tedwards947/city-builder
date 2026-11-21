@@ -5,6 +5,7 @@ import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
 import { ZONE_NONE, ZONE_R, ZONE_C, ROAD_NONE } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { reservedAgainst } from '../sim/connections';
 import { NO_PC_CHARGES, pcQuote, chargeQuote, refundCharges } from '../sim/politics';
 
 // Paints a zone onto a tile.
@@ -38,6 +39,7 @@ export class PaintZoneCommand extends Command {
     if (!world.isBuildable(this.tx, this.ty)) return false;
     const i = world.grid.idx(this.tx, this.ty);
     if (world.layers.roadClass[i] !== ROAD_NONE) return false;
+    if (reservedAgainst(world, i, null)) return false;   // an outside connection's tile (sim/connections.ts)
 
     const sameZone = world.layers.zone[i] === this.newZone;
     const isAbandoned = world.layers.abandoned[i] !== 0;

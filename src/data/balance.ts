@@ -113,6 +113,27 @@ export const BALANCE = {
     24: { cost: 2500,   maintenance: 19 },  // BUILDING_MID_PARK (2×2): 14 after ×0.75
     25: { cost: 8000,   maintenance: 47 },  // BUILDING_LIDO (3×2), as the beach park until tuned: 35 after ×0.75
   } as Record<number, { cost: number; maintenance: number }>,
+  // ── Outside connections (CONNECTIONS_DESIGN.md, sim/connections.ts) ─────────
+  // The fixed points on the map's edges where a highway or a rail line joins the region.
+  //   minSize    Maps smaller than this (the shorter side, in tiles) get no points.
+  //   counts     Points by map size: the first row whose `upTo` is at least the shorter side
+  //              (the last row for anything bigger). Owner 2026-11-20: small 2+2, medium 3+3,
+  //              large 4+4, the tutorial 1 highway.
+  //   minGap     No two points nearer than this share of the shorter side.
+  //   cornerGap  No generated point nearer a corner than this share of the shorter side.
+  //   inland     A generated point needs dry land this many tiles in from the edge (its own tile included).
+  connections: {
+    minSize: 48,
+    counts: [
+      { upTo: 64,  highway: 1, rail: 0 },
+      { upTo: 128, highway: 2, rail: 2 },
+      { upTo: 256, highway: 3, rail: 3 },
+      { upTo: 512, highway: 4, rail: 4 },
+    ] as { upTo: number; highway: number; rail: number }[],
+    minGap: 0.2,
+    cornerGap: 0.12,
+    inland: 4,
+  },
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.
   //   category          'parks' (Parks and leisure: repeatable) or 'unique' (Unique buildings: one per city).
