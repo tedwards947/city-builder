@@ -792,6 +792,19 @@ const ZONE_PREVIEW_COLOR: Record<number, string> = {
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
 
+/**
+ * The tiles a service building would cover where the pointer is. Worked out again only when the
+ * tile, the kind or the map (grid.edits goes up on every tile change) is different, not every frame.
+ */
+let coverageCache: { world: World; tx: number; ty: number; kind: number; edits: number; covered: Set<number> } | null = null;
+function cachedCoveragePreview(world: World, tx: number, ty: number, kind: number): Set<number> {
+  const c = coverageCache;
+  if (c && c.world === world && c.tx === tx && c.ty === ty && c.kind === kind && c.edits === world.grid.edits) return c.covered;
+  const covered = computeServiceCoverage(world, tx, ty, kind);
+  coverageCache = { world, tx, ty, kind, edits: world.grid.edits, covered };
+  return covered;
+}
+
 function frame(now: number): void {
   state.scheduler.update(now);
   // A road edit shows in the traffic straight away, even while paused.
@@ -815,7 +828,7 @@ function frame(now: number): void {
   if (!titleUp && !autosaveHeld) autosave.tick(now, state.scheduler.speed === 0);
   const serviceKind = SERVICE_TOOL_KIND[currentTool];
   const coveragePreview = (serviceKind !== undefined && hoverTile)
-    ? computeServiceCoverage(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
+    ? cachedCoveragePreview(state.world, hoverTile.tx, hoverTile.ty, serviceKind)
     : null;
   // Auto road mode: the road that a click would build now, and its price.
   // Zone fill mode: the lots a click would zone now, and their price.
