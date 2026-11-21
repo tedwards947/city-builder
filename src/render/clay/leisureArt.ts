@@ -25,7 +25,9 @@ const DESIGNS: Record<number, readonly string[]> = {
   [BUILDING_MUSEUM]: ['museum'],
   [BUILDING_STADIUM]: ['stadium'],
   [BUILDING_BIG_PARK]: ['bigpark-a', 'bigpark-b'],
-  [BUILDING_MID_PARK]: ['midpark-a', 'midpark-b'],
+  // Pond park and formal garden, then the park variety round (2026-11-21): Japanese garden, adventure play park,
+  // sunken concrete park, orchard and allotments, wetland.
+  [BUILDING_MID_PARK]: ['midpark-a', 'midpark-b', 'midpark-japanese', 'midpark-adventure', 'midpark-sunken', 'midpark-orchard', 'midpark-wetland'],
   [BUILDING_PLAZA]: ['plaza-a', 'plaza-b'],
 };
 /** Kinds drawn wide (3×2) or tall (2×3) by how they are turned: `<name>-wide` / `<name>-tall`. */
