@@ -216,6 +216,8 @@ p. **Open requests are hard to see above ground** (owner, 2026-11-20; GRAPHICS).
 
 q. **Bigger parks count for park coverage** (owner, 2026-11-20; ENGINEER 2, numbers ENGINEER 3). Only the 1×1 park gave park coverage (6 road steps), so a 2×2 park, big park, beach park or lido couldn't meet a park request. Every park now counts, and bigger ones reach further: 1×1 6, 2×2 about 9, big park / beach park / lido about 12.
 
+r. **Outside connections, highway and rail** (owner, 2026-11-20; workshop in progress, see CONNECTIONS_DESIGN.md). Entry points at the map edge that bring visitors in (rail about 3× a highway), let exports out by highway, and carry residents travelling out. Nothing built until the owner decides Q1–Q5.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
