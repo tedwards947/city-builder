@@ -202,6 +202,42 @@ function windsock(ctx: Ctx, x: number, y: number, T: number, sec: number): void 
   ctx.fillStyle = '#d8d8d8'; ctx.fillRect(x - 0.5, y - h, Math.max(1, T * 0.012), h);
   ctx.fillStyle = '#f07a2a'; ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x + l * Math.cos(sway), y - h + l * Math.sin(sway) + 1); ctx.lineTo(x, y - h + Math.max(3, T * 0.06)); ctx.fill();
 }
+// Moving parts painted over the art, placed in the sprite's own pixels (cut sprite, capstones/<name>.png).
+/** The sewage works' four settling tanks: centre and water radii, sprite pixels. */
+const TANKS: readonly [number, number][] = [[97, 118], [197, 118], [297, 118], [393, 118]];
+const TANK_R = [38.5, 33] as const;
+/** Clock faces: sprite name → centre and radius in its pixels. */
+const CLOCKS: Record<string, readonly [number, number, number]> = { 'sewage-c': [241, 215, 10], 'uni-b': [422, 672, 9] };
+/** A sprite pixel on screen, for a sprite drawn by drawClaySprite at (L, top) with a plot `side` wide. */
+function spritePx(m: { left: number; right: number; bottom: number }, L: number, top: number, side: number, px: number, py: number): [number, number, number] {
+  const plotW = m.right - m.left + 1, kx = side / plotW, ky = side / (plotW * 0.905);
+  return [L - m.left * kx + px * kx, top - (m.bottom + 1 - plotW * 0.905) * ky + py * ky, kx];
+}
+/** A settling tank's bridge turning slowly over fresh water (the painted one is covered). */
+function sweeper(ctx: Ctx, x: number, y: number, rx: number, ry: number, sec: number, k: number): void {
+  const g = ctx.createRadialGradient(x - rx * 0.3, y - ry * 0.3, 0, x, y, rx);
+  g.addColorStop(0, '#62624e'); g.addColorStop(1, '#45463a');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  const a = still ? 0.6 : sec * Math.PI * 2 / 50 + k * 1.7, c = Math.cos(a), s = Math.sin(a);
+  // A pale wake behind the bridge, the bridge (walkway and railing), and the centre pier.
+  ctx.strokeStyle = 'rgba(200,205,180,0.25)'; ctx.lineWidth = Math.max(1, rx * 0.12);
+  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, a - 0.5, a - 0.05); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, a + Math.PI - 0.5, a + Math.PI - 0.05); ctx.stroke();
+  ctx.strokeStyle = '#6d6a62'; ctx.lineWidth = Math.max(1.5, rx * 0.13);
+  ctx.beginPath(); ctx.moveTo(x - c * rx, y - s * ry + 1); ctx.lineTo(x + c * rx, y + s * ry + 1); ctx.stroke();
+  ctx.strokeStyle = '#d9d5ca'; ctx.lineWidth = Math.max(1, rx * 0.09);
+  ctx.beginPath(); ctx.moveTo(x - c * rx, y - s * ry); ctx.lineTo(x + c * rx, y + s * ry); ctx.stroke();
+  ctx.fillStyle = '#bdb8ab'; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.12, ry * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+}
+/** A clock face showing the player's own time of day (the game's days pass in seconds). */
+function clock(ctx: Ctx, x: number, y: number, r: number): void {
+  ctx.fillStyle = '#f4efe0'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#3a3226'; ctx.lineWidth = Math.max(0.8, r * 0.14); ctx.stroke();
+  const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60;
+  const hand = (turn: number, len: number, w: number): void => { const a = turn * Math.PI * 2 - Math.PI / 2; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); ctx.stroke(); };
+  ctx.lineCap = 'round'; hand(h / 12, r * 0.5, Math.max(1, r * 0.16)); hand(m / 60, r * 0.78, Math.max(0.8, r * 0.1)); ctx.lineCap = 'butt';
+}
+
 /** Four lights round a roof pad, blinking in turn (green, or red for the hospital's). */
 function padLights(ctx: Ctx, x: number, y: number, T: number, sec: number, red: boolean): void {
   const r = 6 / 17 * T;
@@ -220,7 +256,11 @@ export function drawCapstone(ctx: Ctx, kind: number, sx: number, sy: number, w: 
   if (kind === BUILDING_WATERWORKS && water) intakePipes(ctx, sx, sy, w, d, T, water.x, water.y);
   const L = sx + a.bx * T, Tp = sy + a.by * T;
   // drawClaySprite fits a plot `tile` wide and as deep; a wider-than-deep plot shifts up so its front meets the lot's.
-  drawClaySprite(ctx, sprite, L, Tp + (a.bd - a.bw) * T, a.bw * T);
+  const top = Tp + (a.bd - a.bw) * T;
+  drawClaySprite(ctx, sprite, L, top, a.bw * T);
+  if (kind === BUILDING_SEWAGE_WORKS && T >= 10) TANKS.forEach(([px, py], k) => { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, px, py); sweeper(ctx, x, y, TANK_R[0] * kx, TANK_R[1] * kx, now / 1000, k); });
+  const face = CLOCKS[a.name];
+  if (face && T >= 14) { const [x, y, kx] = spritePx(sprite.meta, L, top, a.bw * T, face[0], face[1]); clock(ctx, x, y, face[2] * kx); }
   if (T >= 6) {
     a.trees.map((p, i) => [p[0], p[1], i % 4 === 2 ? 'tree-autumn' : 'tree'] as const).sort((p, q) => p[1] - q[1])
       .forEach(([x, y, n]) => { const [px, py] = ground(x, y, L, Tp, a.bd, T); tree(ctx, n, px, py, T); });
