@@ -5,6 +5,7 @@
 import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_SURFACE } from '../sim/constants';
 import { railLinks, stationGrowthMask, stationPeak } from '../sim/rail';
 import { transitIsFree } from '../sim/ordinances';
+import { connectionTradeAt } from '../sim/connectionTraffic';
 import { railCapacity, railLoad, railVolume } from '../sim/TrafficData';
 import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
@@ -401,6 +402,24 @@ function railRows(world: World, i: number, level: number = RAIL_GROUND): string 
   return html;
 }
 
+/** An outside connection point: joined or not, then what comes and goes through it each tick. */
+export function connectionRows(world: World, i: number): string {
+  const c = connectionTradeAt(world, i);
+  if (!c) return "";
+  const n = (v: number): string => (Math.round(v * 10) / 10).toLocaleString("en-US");
+  if (!c.joined) {
+    const how = c.kind === 'highway' ? t("ui.tileInfo.connectionBuildHighway") : t("ui.tileInfo.connectionBuildRail");
+    return `<div class="ti-detail">${t("ui.tileInfo.connectionPoint")}</div><div class="ti-detail" style="color:#e8b030">${how}</div>`;
+  }
+  let html = `<div class="ti-detail">${t("ui.tileInfo.connectionPoint")}</div><div class="ti-detail">${t("ui.tileInfo.connectionJoined")}</div>`;
+  if (c.open) {
+    html += `<div class="ti-detail">${t("ui.tileInfo.connectionVisitors", {n: n(c.visitorsIn), cap: n(c.visitorsCapacity)})}</div>`;
+    html += `<div class="ti-detail">${t("ui.tileInfo.connectionExports", {n: n(c.exports), cap: n(c.exportCapacity), amount: Math.round(c.income).toLocaleString("en-US")})}</div>`;
+    html += `<div class="ti-detail">${t("ui.tileInfo.connectionResidents", {n: n(c.residentsOut), cap: n(c.residentsOutCapacity)})}</div>`;
+  }
+  return html;
+}
+
 /** A train station: what it does, then riders boarding and fares, or the warning that it has no road. Upkeep either way. */
 function stationRows(world: World, tx: number, ty: number, kind: number): string {
   const i = world.grid.idx(tx, ty);
@@ -470,6 +489,7 @@ export class TileInfoPanel {
       html += `<div class="ti-detail" style="color:#e8b030">${t("ui.paused.coverage")}</div>`;
     }
     html += `<div class="ti-coord">${t("ui.tileInfo.coords", {tx, ty})}</div>`;
+    html += connectionRows(world, i);
 
     // ── Building tile ──────────────────────────────────────────────────────────
     if (building !== 0) {

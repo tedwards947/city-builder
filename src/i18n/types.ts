@@ -73,6 +73,13 @@ export interface TranslationSchema {
       stationBoardings: string;
       stationEarns: string;
       stationFree: string;
+      connectionPoint: string;
+      connectionBuildHighway: string;
+      connectionBuildRail: string;
+      connectionJoined: string;
+      connectionVisitors: string;
+      connectionExports: string;
+      connectionResidents: string;
       railTrack: string;
       nearStation: string;
       railElevated: string;
