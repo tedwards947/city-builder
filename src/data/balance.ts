@@ -133,6 +133,12 @@ export const BALANCE = {
     minGap: 0.2,
     cornerGap: 0.12,
     inland: 4,
+    // What a joined highway point carries, per tick (sim/connectionTraffic.ts). Owner 2026-11-20;
+    // PLACEHOLDERS for the Balance Lab. It all enters and leaves on the point's one highway tile (200 a tick).
+    //   visitors      Tourists it can bring in (the airport brings 60): a gateway like the airport.
+    //   exportTrucks  Export trucks it can take (a seaport takes 15), each earning port.exportIncomePerTrip.
+    //   residentsOut  Residents travelling out it can take (the visitors market; the airport takes 100). They pay nothing.
+    highway: { visitors: 30, exportTrucks: 10, residentsOut: 30 },
   },
   // ── Leisure and tourism (LEISURE_DESIGN.md, sim/leisure.ts) ──────────────────
   // One row per leisure building kind. ALL PLACEHOLDERS until the Balance Lab sets them.

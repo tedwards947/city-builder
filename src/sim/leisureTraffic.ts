@@ -1,7 +1,8 @@
 // Leisure in the traffic system (LEISURE_DESIGN.md): the `leisure` market.
 //
 //   WHO GOES   Homes send leisure trips (BALANCE.leisure.tripsPerLevel per
-//              level). TOURISTS arrive at the gateways (the airport): as many
+//              level). TOURISTS arrive at the gateways (the airport, and each
+//              highway joined to the region: sim/connectionTraffic.ts): as many
 //              as the city's PULL, the sum of `pull` over its attractions that
 //              a road reaches, but no more than the gateways can bring
 //              (BALANCE.leisure.gateways). No gateway on a road: no tourists,
@@ -29,10 +30,12 @@ import type { World, BuildingEntity } from './World';
 import { BALANCE, type LeisureRow } from '../data/balance';
 import { BUILDING_PARK, ROAD_NONE, ROAD_HIGHWAY, ZONE_R } from './constants';
 import { coveredBy } from './serviceValue';
+import { openHighways } from './connections';
 import { addDoorProvider, addTripProvider, servedAtDoors, type TrafficField } from './TrafficData';
 
 const rows = (): Record<number, LeisureRow> => BALANCE.leisure.kinds;
 const gateways = (): Record<number, number> => BALANCE.leisure.gateways;
+const highwayVisitors = (): number => Math.max(0, BALANCE.connections.highway.visitors);
 
 const roadCache = new WeakMap<World, { edits: number; byAnchor: Map<number, number[]> }>();
 
@@ -96,6 +99,7 @@ export function gatewayCapacity(world: World): number {
     if (!(g[b.kind] > 0)) continue;
     if (accessRoads(world, b).length > 0) cap += g[b.kind];
   }
+  cap += openHighways(world).length * highwayVisitors();
   return cap;
 }
 
@@ -108,6 +112,9 @@ export function gatewayRoads(world: World): { capacity: number; roads: number[] 
     const roads = accessRoads(world, b);
     if (roads.length > 0) out.push({ capacity: g[b.kind], roads });
   }
+  // A joined highway point (sim/connections.ts) is a gateway too: its one tile is where they arrive.
+  const visitors = highwayVisitors();
+  if (visitors > 0) for (const c of openHighways(world)) out.push({ capacity: visitors, roads: [c.tile] });
   return out;
 }
 
@@ -147,13 +154,10 @@ addTripProvider((world, market, add) => {
   if (market === 'leisure') {
     const tourists = touristsArriving(world);
     if (!(tourists > 0)) return;
-    const g = gateways();
     const total = gatewayCapacity(world);
-    for (const b of world.buildings) {
-      if (!(g[b.kind] > 0)) continue;
-      const roads = accessRoads(world, b);
-      // Each gateway brings its share of the tourists, spread over its roads.
-      for (const ri of roads) add(ri, tourists * g[b.kind] / total / roads.length);
+    // Each gateway brings its share of the tourists, spread over its roads.
+    for (const gate of gatewayRoads(world)) {
+      for (const ri of gate.roads) add(ri, tourists * gate.capacity / total / gate.roads.length);
     }
     return;
   }

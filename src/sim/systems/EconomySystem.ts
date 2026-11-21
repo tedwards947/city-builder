@@ -9,6 +9,7 @@ import { updateDebt, type DebtWarnings } from '../debt';
 import { taxIncomeMult, noteIncomeBeforeTaxLevel } from '../tax';
 import { goodsIncomeMult } from '../goods';
 import { exportIncome } from '../seaport';
+import { connectionExportIncome } from '../connectionTraffic';
 import { buildingTripIncome } from '../buildingTraffic';
 import { leisureTicketIncome } from '../leisureTraffic';
 import { eventTicketIncome } from '../eventDays';
@@ -77,6 +78,7 @@ export class EconomySystem {
     // (Added one at a time, in this order, so the total stays bit for bit what it was.)
     const taxed = income;
     income += exportIncome(world);
+    income += connectionExportIncome(world);   // trucks leaving by a highway to the region: 0 with none joined
     income += buildingTripIncome(world);
     income += leisureTicketIncome(world);
     income += eventTicketIncome(world);
