@@ -27,6 +27,8 @@ export function progressPercents(p: Pick<RequestProgress, 'covered' | 'coveredNe
 export function progressView(world: World, req: OpenRequest): ProgressView {
   const p = requestProgress(world, req);
   if (p.unit === 'city') return { text: t('ui.requests.progressBy.city'), bar: null };
+  // "Any park nearby" is all-or-nothing: no percentages to show.
+  if (req.kind === 'park') return { text: t(p.met ? 'ui.requests.progressBy.parkMet' : 'ui.requests.progressBy.park'), bar: null };
   const bar = progressPercents(p);
   const why = unmetKey(req.kind, p.unmetReason);
   return { text: t('ui.requests.progressBy.' + p.unit, bar) + (why ? ' · ' + t(why) : ''), bar };

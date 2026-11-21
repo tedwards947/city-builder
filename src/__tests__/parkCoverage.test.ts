@@ -8,6 +8,8 @@ import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { coveredBy, serviceOpeningValue, serviceClosureValue, coverageGroup } from '../sim/serviceValue';
 import { ROAD_STREET, BUILDING_PARK, BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_PLAZA, BUILDING_MUSEUM } from '../sim/constants';
 import { BALANCE } from '../data/balance';
+import { isMet, requestProgress, type OpenRequest } from '../sim/requests';
+import { progressView } from '../ui/requestInfo';
 import { landWorld, home } from './pcTestWorld';
 
 const cfg = BALANCE.politicalCapital.service as { perResident: Record<number, number> };
@@ -67,5 +69,18 @@ describe('park coverage by kind', () => {
     const close = serviceClosureValue(w, 10, 8);
     expect(close.length).toBe(open.length);
     expect(close.every(p => p.amount < 0)).toBe(true);
+  });
+});
+
+describe('park request: any park nearby', () => {
+  it('stays open with no park reaching its homes, and is met once one reaches any of them', () => {
+    const homes = [2, 20, 40].map(x => w.grid.idx(x, 11));
+    const req: OpenRequest = { id: 1, kind: 'park', openedTick: 0, deadlineTick: 9999, needAtOpen: 1, seed: homes[0], homes, x0: 2, y0: 11, x1: 40, y1: 11 };
+    expect(isMet(w, req)).toBe(false);
+    expect(progressView(w, req)).toMatchObject({ text: 'no park reaches this area yet', bar: null });
+    expect(h.run(new PlaceBuildingCommand(30, 8, BUILDING_MID_PARK))).toBe(true);   // reaches the home at x = 40 only
+    expect(requestProgress(w, req).met).toBe(true);
+    expect(isMet(w, req)).toBe(true);
+    expect(progressView(w, req).text).toBe('a park reaches this area');
   });
 });

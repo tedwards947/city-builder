@@ -827,7 +827,9 @@ export const BALANCE = {
       // on this many daily checks in a row. Both default to 1 (the reading
       // of the day, met at once).
       kinds: {
-        park: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
+        // A park request asks when most of a neighbourhood lacks a park (askAt), and is met as soon as any
+        // park reaches any of its asking homes: they all lack one when it opens, so need < 1 (owner 2026-11-20).
+        park: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.9999 },
         police: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
         fire: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25 },
         school: { days: 20, reward: 5.91, penalty: 8, askAt: 0.5, metAt: 0.25, smoothDays: 3, holdDays: 3 },
