@@ -1,6 +1,6 @@
 # Capstone Buildings: Design
 
-*Status: all four questions decided 2026-11-20; engine review and ENGINEER 3's cost check next. The PM walks the questions with the owner one at a time.*
+*Status: all decided; engine plan approved 2026-11-21. C1 next. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Owner: "really expensive [buildings] that solve an entire city's need for something: education, police, fire, hospital, power, water, sewage. Separate toolbar category, unlocked at a population level, and expensive enough to build and maintain that only really well-run cities can afford."
@@ -23,13 +23,13 @@ Owner, 2026-11-20: these are expensive, so they should be **big and ornate**, an
 | Fire | Fire Headquarters, big and ornate, with a **firefighting plane** (water bomber) that flies out to fires from **its own runway**. Art: **C, modern**: 4×4 buildings plus a code-drawn runway whose length is a setting | **10×4 or longer** |
 | Health | General Hospital, with a **medevac helicopter**. Art: **A, modern** | 4×3 |
 | Power | **Nuclear Power Station** (owner, 2026-11-20): cooling towers, no smoke. Art: **A, twin cooling towers** | 4×4 |
-| Water | Waterworks. Art: **art deco pump hall** | 4×4 |
+| Water | Waterworks. Art: **art deco pump hall**. **Must sit beside open water** (owner, 2026-11-21: it's a pump station), like the large water plant | 4×4 |
 | Sewage | Sewage Works. Art: **C, Victorian pumping station** | 4×4 |
 
 ## Proposed rules (PM defaults, open to change)
 - **One of each per city.** A separate **Capstones** toolbar category. Locked items show greyed out with the population needed.
 - **Old buildings keep working.** Nothing is removed. A small station that no longer adds coverage costs almost no PC to close (under the PC services rule, residents still covered lose very little), so the player tidies up at their own pace and gets the land back.
-- **A single point of failure.** If its road is cut, or it burns down or gets abandoned, the whole city loses that need at once. Keeping a few old buildings is insurance. That's a fun risk, not a bug.
+- **A single point of failure.** If its road is cut or it's bulldozed, the whole city loses that need at once (police, fire, school, hospital; see Engine plan). Keeping a few old buildings is insurance. That's a fun risk, not a bug.
 - **Affordability.** It costs about as much as the airport to build ($1–3M), and its upkeep is about **2× the upkeep of the small buildings it replaces** in a 20k city. So it's a luxury bought with convenience and land, not a saving. ENGINEER 3 tunes it so a 20k city with a healthy surplus can carry one or two, and only a strong city carries all seven.
 
 ## Questions for the owner
@@ -64,6 +64,14 @@ ENGINEER 3 measured 15 cities (10k–40k, 10 days each). The small buildings a c
 - **Build cost (airport band):** sewage $1.0M, water $1.0M, fire $1.25M, police $1.5M, hospital $2.0M, nuclear $2.5M, university $3.0M. Played cities hold $2–30M, so upkeep, not the build cost, is the real limit.
 - **Utilities are measured against small plants (owner, 2026-11-20).** A city that has already moved to large plants (about half the utility upkeep) finds a utility capstone about 2× pricier, which is fair: it has less of a chore left to solve.
 - Not modelled: the land freed by about 140 small buildings at 40k, which becomes homes and income.
+
+## Engine plan (owner-approved 2026-11-21)
+- **Utility capstones have no road weak spot.** Power, water and sewage spread through zones, not streets, and a plant works without a road; a utility capstone is a very large output, one per city, with an unlock. (This corrects the table above.) The Waterworks still needs open water, and stops supplying if the water beside it is filled in.
+- **"Joined by road"** = every home on the same road network as the capstone's street, **highways included**, so a suburb reached only by highway counts.
+- **Seats:** a home a capstone covers needs no school or hospital seat; the small buildings' seats go to nobody. This is the main engine work.
+- **Failure:** service buildings don't burn or get abandoned today, so a capstone is lost only when its road is cut or it's bulldozed. Bulldozing it charges the normal PC services rule for the whole city, **uncapped until ENGINEER 3 models the number**.
+- **Entrance:** any street or avenue beside it; no frontage rule. Runway 10×4 by default, length a setting.
+- **Phases, one PR each:** C1 the seven kinds (shapes, one per city, unlocks, costs, per-resident running cost in `BALANCE.capstones`; debug-only until art; the three utility capstones fully work); C2 whole-city coverage for police, fire, school and hospital (network-wide, no seats; PC rule, requests, Inspect, cut-off warning); C3 numbers with ENGINEER 3 and the data graphics needs for the police helicopter, medevac helicopter and water bomber (looks only). No save version bump.
 
 ## Who does what (once decided)
 - **Engine:** seven building kinds, one per city, population unlocks (reuse `unlockPopulation` and `onePerCity` from leisure), whole-city coverage as an extra source in the coverage layers, utility output.
