@@ -1,6 +1,6 @@
 # Capstone Buildings: Design
 
-*Status: all decided; engine plan approved 2026-11-21. C1 next. The PM walks the questions with the owner one at a time.*
+*Status: **built and live** (2026-11-21): C1 kinds (#486), C2 whole-city coverage (#488), C3 numbers and lab suite (#499, #505), art and toolbar (#492), animations (#500). Owner playtest pending.*
 
 ## Why
 Owner: "really expensive [buildings] that solve an entire city's need for something: education, police, fire, hospital, power, water, sewage. Separate toolbar category, unlocked at a population level, and expensive enough to build and maintain that only really well-run cities can afford."

@@ -1,6 +1,6 @@
 # Outside Connections: Design
 
-*Status: all five questions decided 2026-11-20; engine plan approved; P1 next (owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
+*Status: **built and tuned** (2026-11-21): P1–P4 (#465, #472, #476, #479), outbound-room fix (#482), numbers and lab suite (#496, #504), signs (#469), Inspect (#475). Left: rail riders out (P5) and commuters, both later. (Owner asked 2026-11-20: "outside connections now... only highways and rail", with capacity for each and visitors included). Nothing decided yet. The PM walks the questions with the owner one at a time.*
 
 ## Why
 Today a city is an island. New maps have no highway in (the generator lays no roads), tourists come only through the $2M airport, and goods leave only by seaport. A road or a line running off the edge of the map means nothing.
