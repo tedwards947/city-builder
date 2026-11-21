@@ -20,10 +20,10 @@ Owner, 2026-11-20: these are expensive, so they should be **big and ornate**, an
 |---|---|---|
 | Education | University. Art: **B** | **8×8** campus (owner, 2026-11-20) |
 | Police | Police Headquarters, big and ornate, with a rooftop helipad and a **police helicopter** that flies patrols over the city. Art: **B, brutalist** | 4×4 |
-| Fire | Fire Headquarters, big and ornate, with a **firefighting plane** (water bomber) that flies out to fires from **its own runway**. Art: **C, modern**: 4×4 buildings plus a code-drawn runway whose length is a setting | **10×4 or longer** |
-| Health | General Hospital, with a **medevac helicopter**. Art: **A, modern** | 4×3 |
-| Power | **Nuclear Power Station** (owner, 2026-11-20): cooling towers, no smoke. Art: **A, twin cooling towers** | 4×4 |
-| Water | Waterworks. Art: **art deco pump hall**. **Must sit beside open water** (owner, 2026-11-21: it's a pump station), like the large water plant | 4×4 |
+| Fire | Fire Headquarters, big and ornate, with a **firefighting plane** (water bomber) that flies out to fires from **its own runway**. Art: **C, modern**: a runway row, the 4×4 block, and a code-drawn apron and taxiway (the bomber taxis like the airport's planes); runway length is a setting | **runway length × 5, at least 8×5** |
+| Health | General Hospital, now a **teaching hospital with a medical school**, with a **medevac helicopter**. Art: **A, modern** | **6×4 or 6×5** (owner picking) |
+| Power | **Nuclear Power Station** (owner, 2026-11-20): cooling towers, no smoke. Art: **A, twin cooling towers**, with light steam | 4×4 |
+| Water | Waterworks. Art: **art deco pump hall with intake pipes**. **Must sit beside open water** (owner, 2026-11-21: it's a pump station), like the large water plant | 4×4 |
 | Sewage | Sewage Works. Art: **C, Victorian pumping station** | 4×4 |
 
 ## Proposed rules (PM defaults, open to change)
@@ -70,7 +70,7 @@ ENGINEER 3 measured 15 cities (10k–40k, 10 days each). The small buildings a c
 - **"Joined by road"** = every home on the same road network as the capstone's street, **highways included**, so a suburb reached only by highway counts.
 - **Seats:** a home a capstone covers needs no school or hospital seat; the small buildings' seats go to nobody. This is the main engine work.
 - **Failure:** service buildings don't burn or get abandoned today, so a capstone is lost only when its road is cut or it's bulldozed. Bulldozing it charges the normal PC services rule for the whole city, **capped at 50% of the PC cap for one capstone** (owner, 2026-11-21). ENGINEER 3's model: uncapped, a city that removed its small buildings would pay 47–76% of the cap at 20k, up to 100% for the university at 40k, and the charge can take PC below 0. A city that kept small buildings pays almost nothing (residents are re-seated).
-- **Entrance:** any street or avenue beside it; no frontage rule. Runway 10×4 by default, length a setting.
+- **Entrance:** any street or avenue beside it; no frontage rule. Fire HQ: runway length × 5, at least 8×5, length a setting.
 - **Phases, one PR each:** C1 the seven kinds (shapes, one per city, unlocks, costs, per-resident running cost in `BALANCE.capstones`; debug-only until art; the three utility capstones fully work); C2 whole-city coverage for police, fire, school and hospital (network-wide, no seats; PC rule, requests, Inspect, cut-off warning); C3 numbers with ENGINEER 3 and the data graphics needs for the police helicopter, medevac helicopter and water bomber (looks only). No save version bump.
 
 ## Who does what (once decided)
