@@ -817,7 +817,7 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   "lots/i-works-d": {
     "w": 256,
     "h": 256,
-    "left": 25,
+    "left": 26,
     "right": 226,
     "bottom": 220
   },
@@ -843,11 +843,11 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "bottom": 217
   },
   "lots/i-works-h": {
-    "w": 255,
-    "h": 255,
+    "w": 256,
+    "h": 256,
     "left": 25,
-    "right": 226,
-    "bottom": 219
+    "right": 227,
+    "bottom": 220
   },
   "lots/r-court-a": {
     "w": 255,
