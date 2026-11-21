@@ -188,6 +188,7 @@ export const en: TranslationSchema = {
       otherIncome: "Other income (trade, fares, tickets)",
       upkeep: "Building and road upkeep",
       runningCosts: "Running costs (per resident)",
+      ordinances: "Ordinances",
       satisfaction: "Satisfaction",
       growth: "Growth",
       polCapital: "Pol. capital",

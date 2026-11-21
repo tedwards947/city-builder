@@ -204,16 +204,30 @@ export function dailyMoneyOf(world: World, id: OrdinanceId | string): number {
  */
 export function payUpkeep(world: World): void {
   const { active, suspended } = world.politics.ordinances;
-  let pc = 0, money = 0;
+  let pc = 0;
   for (const id of active) {
     if (suspended.includes(id)) continue;
     const n = numbersOf(id);
     if (!n) continue;
     pc += n.dailyUpkeep;
-    money += dailyMoneyOf(world, id);
   }
   pc *= upkeepScale(world);
   const take = Math.min(pc, Math.max(0, world.budget.politicalCapital));
   if (take > 0) changePc(world, -take, 'ordinanceUpkeep');
-  if (money > 0) world.budget.money -= money;
+}
+
+/**
+ * What the active, unsuspended ordinances cost in money per tick. EconomySystem
+ * counts it in `budget.expenses` and pays it with the other running costs, so
+ * the budget panel's lines add up.
+ */
+export function ordinanceMoneyPerTick(world: World): number {
+  const { active, suspended } = world.politics.ordinances;
+  if (active.length === 0) return 0;
+  let money = 0;
+  for (const id of active) {
+    if (suspended.includes(id)) continue;
+    money += dailyMoneyOf(world, id);
+  }
+  return money > 0 ? money / BALANCE.ticksPerDay : 0;
 }

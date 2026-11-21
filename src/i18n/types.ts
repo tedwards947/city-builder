@@ -144,6 +144,7 @@ export interface TranslationSchema {
       otherIncome: string;
       upkeep: string;
       runningCosts: string;
+      ordinances: string;
       satisfaction: string;
       growth: string;
       polCapital: string;
