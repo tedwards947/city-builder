@@ -165,6 +165,22 @@ Approved by the owner (2026-11-19, proposals in #305):
 Next:
 1. Nothing queued. Waiting on the owner: rates that rise with city size (after the owner plays).
 
+## UI COPY
+
+Player-facing text (`src/i18n/locales/en.ts`). From the 2026-11-21 copy pass: the clear fixes are in. These need the owner's call first.
+
+### Next (ranked)
+
+1. **Two buildings called "Park".** `toolbar.park` / `buildings.park` (3-tile range) and `toolbar.midPark` / `buildings.midPark` (2×2). Suggest renaming the service one (e.g. "Pocket park"). Also pick one group label: "Leisure" or "Parks and leisure".
+2. **Hand-typed numbers in tooltips.** `toolbarDesc.plant` (350 MW), `largePlant` (4,200 MW), `largeWater` (1,250), `largeSewage` (1,500) and the service ranges are typed in. `balance.ts` marks the large-plant outputs PLACEHOLDER. Build them from the balance values. Also drop "coal" from the plant tooltip unless the coal plant is real.
+3. **One time unit for players.** Tile info says "/tick" for upkeep, output and capacity, and "/day" for running cost; the HUD and toasts use days. `Toolbar.ts` adds "/tick" by hand. "ticks" also appears in `ticksLeft`, `recentDeath` and `tileInfo.output`/`capacity`.
+4. **Demolition verb.** "Clear" (toolbar), "Demolish" (tooltips), "bulldoze" (trees tooltip, road requests), "Demolishing" (political capital text). Suggest "Bulldoze" throughout, since the tool's code name is `bulldoze`.
+5. **Spelling.** Most strings are UK ("neighbourhood", "centre", "harbours"); `toolbarDesc.vibe` is US ("neighborhood"). Pick one.
+6. **Warning caps.** "✗ NO ROAD TO THE TERMINAL", "✗ NO ROAD TO THE STATION" and similar are all caps; "✗ NO ROAD: build…" is sentence case. Suggest caps only for state tags (ABANDONED, ON FIRE!).
+7. **Political capital label.** "Pol. Capital" (HUD), "Pol. capital" (econ), "political capital" (tooltips, toasts). Pick one for players.
+8. **"MegaDrug"** in `commercialBrands`. The other parody names are light ("Fruit", "Run", "StarCoffee"); this one is a drug joke. Owner's call.
+9. **Long descriptions.** `toolbarDesc.track` is about 60 words; `seaport`, `station`, `stationL`, `airport`, `trackElevated`, `trackSubway` are two or three sentences. Most descriptions are one line. Trim, and move the how-to into the tutorial or inspect text.
+
 ## DESIGN
 
 Raised by the owner. Lettered, not ranked.
