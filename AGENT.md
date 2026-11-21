@@ -67,6 +67,8 @@ src/
 index.html
 ```
 
+**Art scale:** all art follows `docs/SCALE.md` (1 tile = 17 m, towers on 2×2 only, at most 26 floors); see the scale rule in `src/render/clay/SPRITE_GUIDE.md`.
+
 ---
 
 Detailed reference (World, layers, systems order, EventBus, commands, how to add X, constants, debug tools, Balance Lab): docs/ARCHITECTURE.md — read only the section you need.
