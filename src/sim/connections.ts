@@ -22,7 +22,7 @@
 //                    becomes a point first, up to the map's count; the rest
 //                    are chosen as above, from the map as it then is.
 //
-// This phase is the points alone: nothing travels through them yet.
+// What travels through a point is in sim/connectionTraffic.ts.
 
 import type { World } from './World';
 import { BALANCE } from '../data/balance';
@@ -79,6 +79,31 @@ export function reservedAgainst(world: World, i: number, kind: ConnectionKind | 
 /** Whether the point has been joined: a highway (or ground track) stands on its tile. */
 export function isJoined(world: World, c: Connection): boolean {
   return c.kind === 'highway' ? world.layers.roadClass[c.tile] === ROAD_HIGHWAY : (world.layers.rail[c.tile] & RAIL_GROUND) !== 0;
+}
+
+const NO_POINTS: readonly Connection[] = [];
+
+/**
+ * The highway points that carry traffic (sim/connectionTraffic.ts): those a
+ * highway stands on. None in the tutorial city, where the stub is only the
+ * road in.
+ */
+export function openHighways(world: World): readonly Connection[] {
+  if (world.connections.length === 0 || world.tutorial) return NO_POINTS;
+  const road = world.layers.roadClass;
+  let all = true, any = false;
+  for (const c of world.connections) {
+    if (c.kind === 'highway' && road[c.tile] === ROAD_HIGHWAY) any = true; else all = false;
+  }
+  if (!any) return NO_POINTS;
+  return all ? world.connections : world.connections.filter((c) => c.kind === 'highway' && road[c.tile] === ROAD_HIGHWAY);
+}
+
+/** Whether trips may start and end on highway tile `i`: only on an open highway point. Every other highway tile has no doors. */
+export function isEntryTile(world: World, i: number): boolean {
+  if (world.connections.length === 0 || world.tutorial) return false;
+  for (const c of world.connections) if (c.tile === i) return c.kind === 'highway' && world.layers.roadClass[i] === ROAD_HIGHWAY;
+  return false;
 }
 
 export interface ConnectionStatus extends Connection {

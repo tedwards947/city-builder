@@ -81,6 +81,7 @@
 
 import { doorTile, levelWeight } from '../lots';
 import { World } from '../World';
+import { isEntryTile } from '../connections';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
 import { hasPlatforms, rampLevel, shapeRoles } from '../buildingShapes';
@@ -869,7 +870,7 @@ export class TransitSystem {
       extraDoors(world, market, (ri, cap, handicap = 0) => {
         if (!(cap > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
-        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) return;
+        if (rc === ROAD_NONE || (rc === ROAD_HIGHWAY && !isEntryTile(world, ri))) return;   // a highway has doors only at an outside connection
         if (handicap > 0 && !handicapped) {
           // The first handicap of this flood: every door so far starts at 0.
           handicapped = true;
@@ -888,7 +889,7 @@ export class TransitSystem {
       extraTrips(world, sendersOf, (ri, trips) => {
         if (!(trips > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
-        if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) doorCap[ri] += trips;
+        if (rc !== ROAD_NONE && (rc !== ROAD_HIGHWAY || isEntryTile(world, ri))) doorCap[ri] += trips;
       });
     }
 
@@ -969,7 +970,7 @@ export class TransitSystem {
       extraTrips(world, market, (ri, n) => {
         if (!(n > 0) || ri < 0 || ri >= roadClass.length) return;
         const rc = roadClass[ri];
-        if (rc === ROAD_NONE || rc === ROAD_HIGHWAY) return;
+        if (rc === ROAD_NONE || (rc === ROAD_HIGHWAY && !isEntryTile(world, ri))) return;   // trips start on a highway only at an outside connection
         const trips = n * scale;
         if (nowhere || !(field.dist[ri] < Infinity) || field.dist[ri] > reach) { stranded += trips; return; }
         flow[ri] += trips;

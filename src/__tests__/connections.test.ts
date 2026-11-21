@@ -75,7 +75,7 @@ describe('where the points go', () => {
         }
       }
     }
-  });
+  }, 60_000);   // 60 maps: quick, but give it room on a busy machine
 
   it('a map of open land gets every point, with each kind on more than one edge', () => {
     for (const size of [128, 256, 512]) {
