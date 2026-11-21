@@ -71,7 +71,7 @@ describe('ToastPanel', () => {
   it('shows toast when powerShortage occurs', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('powerShortage', { supply: 0, demand: 100, deficit: 100 });
-    expect(showToastSpy).toHaveBeenCalledWith('Resource Shortage', expect.stringContaining('100 MW'), 'alert');
+    expect(showToastSpy).toHaveBeenCalledWith('Resource shortage', expect.stringContaining('100 MW'), 'alert');
   });
 
   it('enforces max toasts limit', () => {
@@ -91,7 +91,7 @@ describe('ToastPanel', () => {
   it('shows toast when building is abandoned', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('tileAbandoned', { tx: 1, ty: 1, zone: 1, level: 2 });
-    expect(showToastSpy).toHaveBeenCalledWith('Building Abandoned', expect.stringContaining('level 2'), 'warning', { x0: 1, y0: 1, x1: 1, y1: 1 });
+    expect(showToastSpy).toHaveBeenCalledWith('Building abandoned', expect.stringContaining('level 2'), 'warning', { x0: 1, y0: 1, x1: 1, y1: 1 });
   });
 
   it('does NOT show toast when low-level building is abandoned', () => {
@@ -111,7 +111,7 @@ describe('ToastPanel', () => {
     const showToastSpy = vi.spyOn(toastPanel, 'showToast');
     world.events.emit('fireReport', { burning: 3, started: 3, damaged: 2, tx: 5, ty: 6 });
     expect(showToastSpy).toHaveBeenCalledTimes(1);
-    expect(showToastSpy).toHaveBeenCalledWith('Fire Alert', '3 fires burning with no fire station in reach · 2 buildings damaged', 'alert', { x0: 5, y0: 6, x1: 5, y1: 6 });
+    expect(showToastSpy).toHaveBeenCalledWith('Fire alert', '3 fires burning with no fire station in reach · 2 buildings damaged', 'alert', { x0: 5, y0: 6, x1: 5, y1: 6 });
   });
 
   it('words the fire report for one fire, no damage, and damage alone', () => {

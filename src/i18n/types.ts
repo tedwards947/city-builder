@@ -134,6 +134,7 @@ export interface TranslationSchema {
     airport: { noRoad: string; roadHere: string };
     stadiumPin: { live: string; inMin: string; inSec: string };
     trafficOverlay: { stationRiders: string; stationNoRoad: string };
+    trafficLegend: { roads: string; track: string; commute: string; onHover: string; empty: string; free: string; busy: string; full: string; over2: string; over4: string; riders: string; overCapacity: string; short: string; long: string; cutOff: string; market: { shopping: string; jobs: string; goods: string; exports: string; visitors: string; leisure: string; event: string } };
     rail: { offMap: string; blocked: string; hasTrack: string; crossing: string; noRoute: string };
     econ: {
       title: string;

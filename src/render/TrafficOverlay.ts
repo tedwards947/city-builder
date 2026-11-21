@@ -78,15 +78,6 @@ const MARKET_COLOR: Record<MarketKey, string> = {
   leisure: '#7fd6c2',
   event: '#ffd166',
 };
-const MARKET_LABEL: Record<MarketKey, string> = {
-  shopping: 'Shopping',
-  jobs: 'To work',
-  goods: 'Fetching goods',
-  exports: 'Exports to a port',
-  visitors: 'Visitors',
-  leisure: 'Leisure',
-  event: 'Event',
-};
 
 function scale(stops: readonly (readonly [number, RGB])[], v: number): string {
   if (v <= stops[0][0]) return rgb(stops[0][1]);
@@ -185,7 +176,8 @@ export class TrafficOverlay {
 
     this._drawRail(ctx, world, camera, data, bounds, ts);
 
-    if (data && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty)) {
+    const tracing = !!(data && hoverTile && world.grid.inBounds(hoverTile.tx, hoverTile.ty));
+    if (tracing && data && hoverTile) {
       this._drawTrace(ctx, world, camera, data, hoverTile.ty * width + hoverTile.tx, bounds, ts);
       // The fills above covered the renderer's hover outline; put it back.
       const sx = camera.worldToScreenX(Projection.tileToWorldX(hoverTile.tx));
@@ -195,7 +187,7 @@ export class TrafficOverlay {
       ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(ts) - 1, Math.ceil(ts) - 1);
     }
 
-    this._drawLegend(ctx, camera);
+    this._drawLegend(ctx, camera, tracing);
     ctx.restore();
   }
 
@@ -488,20 +480,21 @@ export class TrafficOverlay {
     ctx.stroke();
   }
 
-  private _drawLegend(ctx: Ctx, camera: Camera): void {
+  private _drawLegend(ctx: Ctx, camera: Camera, showTrace: boolean): void {
+    // The "On hover" row only while a trace is on screen: it is the key for those colours.
     const rows: [string, [string, string][]][] = [
-      ['Roads', [
-        [EMPTY_ROAD, 'Empty'], [loadColor(0.05), 'Free'], [loadColor(0.5), 'Busy'],
-        [loadColor(1), 'Full'], [loadColor(2), '2× over'], [loadColor(4), '4× over'],
+      [t("ui.trafficLegend.roads"), [
+        [EMPTY_ROAD, t("ui.trafficLegend.empty")], [loadColor(0.05), t("ui.trafficLegend.free")], [loadColor(0.5), t("ui.trafficLegend.busy")],
+        [loadColor(1), t("ui.trafficLegend.full")], [loadColor(2), t("ui.trafficLegend.over2")], [loadColor(4), t("ui.trafficLegend.over4")],
       ]],
-      ['Track', [
-        [RIDER, 'Riders, both ways (more dots, more riders)'], [RIDER_BUSY, 'Busy: 100–115% full'], [RIDER_OVER, 'Over 115%: slow, bunched; ! at a junction'],
+      [t("ui.trafficLegend.track"), [
+        [RIDER, t("ui.trafficLegend.riders")], [RIDER_BUSY, t("ui.trafficLegend.busy")], [RIDER_OVER, t("ui.trafficLegend.overCapacity")],
       ]],
-      ['Commute', [
-        [scale(COMMUTE_STOPS, 1), 'Short'], [scale(COMMUTE_STOPS, 0.5), 'Long'], [scale(COMMUTE_STOPS, 0), 'Cut off'],
+      [t("ui.trafficLegend.commute"), [
+        [scale(COMMUTE_STOPS, 1), t("ui.trafficLegend.short")], [scale(COMMUTE_STOPS, 0.5), t("ui.trafficLegend.long")], [scale(COMMUTE_STOPS, 0), t("ui.trafficLegend.cutOff")],
       ]],
-      ['Hover', MARKET_DEFS.map((def): [string, string] => [MARKET_COLOR[def.key], MARKET_LABEL[def.key]])],
     ];
+    if (showTrace) rows.push([t("ui.trafficLegend.onHover"), MARKET_DEFS.map((def): [string, string] => [MARKET_COLOR[def.key], t(`ui.trafficLegend.market.${def.key}`)])]);
     ctx.font = '11px sans-serif';
     ctx.textBaseline = 'middle';
     const rowH = 16;

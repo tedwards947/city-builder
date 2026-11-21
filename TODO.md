@@ -161,9 +161,29 @@ Approved by the owner (2026-11-19, proposals in #305):
 - Owner's answers on #444 (2026-11-20): level drop after 2 bad events kept; leisure need kept at one park within ~8 tiles, its 20–40% target advisory (park capacity deferred); park upkeep back to 30 / 15 / 14, `leisure.parks` target dropped (parks earn their keep in growth and land value). Stadium suite gained the subway plan and `stadium.rail` (see the PR for what it saves). On smallercity the beach park and lido reach far: their appeal lets them count for homes up to ~38 tiles of drive (1×1 park ~8).
 - Leisure need follows park coverage (owner, 2026-11-20): `leisureGrowthMult` asks `coveredBy(world, BUILDING_PARK)` (every park kind) instead of the leisure market's reach; `leisure.need.minReach` is gone. Park ranges kept at 6 / 9 / 12 (#447): golden-1 17%, smallercity 18%, new_city2 18%, testcity1 26% of homes lacking, the park-poor gen-s1 45%. Rail on the owner's new_city2 (overloaded look): the owner keeps capacity 250 and rail.parallel; graphics reworks how rail load is shown.
 - Stadium toned down (owner, 2026-11-20): fansPerLevel 0.27, 500 seats, ticket 1, upkeep 74, `jam.eventShare` 1, pcPerStuckResident 0.01, `dropAfter` 0, and a new smooth-event reward (`smooth`: ≥ 75% of seatable fans in, ≤ 6% of residents stuck → 5% of the PC cap, reason `eventSmooth`, up to the cap). Stadium suite rebuilt: as built and with one subway line; targets stadium.crowd, .copes, .pc, .noDrops, .money (replacing #444's).
+- Free Transit costs money by city size (owner, 2026-11-21): 0.075 a resident a day in place of the fixed 700 (`dailyMoneyPerResident`, `dailyMoneyOf`). A/B on the saved cities: every city now pays $160–1,340 a day net (the fixed 700 left road cities better off with it on, since fewer car trips earn back $0.5–4k a day).
+- Paper models for the owner (2026-11-20/21, recorded by the PM): capstone costs (running cost about 1.5× what it replaces, per covered resident; $1–3M to build) and a capstone closure cap at 50% of the PC cap (CAPSTONE_DESIGN.md).
 
 Next:
-1. Nothing queued. Waiting on the owner: rates that rise with city size (after the owner plays).
+1. Highway connections numbers and lab targets (`connections.entryJam`, `.twoPoints`, `.exports`, `.industryNeutral`; proposed residentsOut 40, visitors 40), waiting on ENGINE making a point's outbound room a real limit (today every home whose nearest exit is the point drives there whatever `residentsOut` says).
+2. Capstone lab targets once the engine builds the kinds.
+3. Waiting on the owner: rates that rise with city size (after the owner plays).
+
+## UI COPY
+
+Player-facing text (`src/i18n/locales/en.ts`). From the 2026-11-21 copy pass: the clear fixes are in. These need the owner's call first.
+
+### Next (ranked)
+
+1. **Two buildings called "Park".** `toolbar.park` / `buildings.park` (3-tile range) and `toolbar.midPark` / `buildings.midPark` (2×2). Suggest renaming the service one (e.g. "Pocket park"). Also pick one group label: "Leisure" or "Parks and leisure".
+2. **Hand-typed numbers in tooltips.** `toolbarDesc.plant` (350 MW), `largePlant` (4,200 MW), `largeWater` (1,250), `largeSewage` (1,500) and the service ranges are typed in. `balance.ts` marks the large-plant outputs PLACEHOLDER. Build them from the balance values. Also drop "coal" from the plant tooltip unless the coal plant is real.
+3. **One time unit for players.** Tile info says "/tick" for upkeep, output and capacity, and "/day" for running cost; the HUD and toasts use days. `Toolbar.ts` adds "/tick" by hand. "ticks" also appears in `ticksLeft`, `recentDeath` and `tileInfo.output`/`capacity`.
+4. **Demolition verb.** "Clear" (toolbar), "Demolish" (tooltips), "bulldoze" (trees tooltip, road requests), "Demolishing" (political capital text). Suggest "Bulldoze" throughout, since the tool's code name is `bulldoze`.
+5. **Spelling.** Most strings are UK ("neighbourhood", "centre", "harbours"); `toolbarDesc.vibe` is US ("neighborhood"). Pick one.
+6. **Warning caps.** "✗ NO ROAD TO THE TERMINAL", "✗ NO ROAD TO THE STATION" and similar are all caps; "✗ NO ROAD: build…" is sentence case. Suggest caps only for state tags (ABANDONED, ON FIRE!).
+7. **Political capital label.** "Pol. Capital" (HUD), "Pol. capital" (econ), "political capital" (tooltips, toasts). Pick one for players.
+8. **"MegaDrug"** in `commercialBrands`. The other parody names are light ("Fruit", "Run", "StarCoffee"); this one is a drug joke. Owner's call.
+9. **Long descriptions.** `toolbarDesc.track` is about 60 words; `seaport`, `station`, `stationL`, `airport`, `trackElevated`, `trackSubway` are two or three sentences. Most descriptions are one line. Trim, and move the how-to into the tutorial or inspect text.
 
 ## DESIGN
 
