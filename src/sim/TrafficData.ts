@@ -30,7 +30,7 @@ export interface TrafficField {
   demandRatio: number;
   /** Trips put on the road toward this destination type on the last iteration. */
   demand: number;
-  /** Trips that origins wanted to make but could not: no road, no route to any door, or out of reach. */
+  /** Trips that origins wanted to make but could not: no road, no route to any door, out of reach, or (a limited market) no room at any door. */
   stranded: number;
   /**
    * True when some door of this map starts at more than 0 (a door provider gave it a handicap):
@@ -67,6 +67,13 @@ export interface MarketDef {
   rides?: boolean;
   /** Its doors come and go by themselves (a stadium event): when they do, the pass settles as it does after a road edit. */
   occasional?: boolean;
+  /**
+   * No more trips set out than the doors have room for (a building-only market). Without it every
+   * trip wanted drives to its nearest door, full or not. With it, each door takes its room's worth
+   * of the trips nearest it; the rest try the doors that still have room, once, and what still does
+   * not fit stays home (counted in the field's `stranded`).
+   */
+  limited?: boolean;
 }
 
 export const MARKET_DEFS: readonly MarketDef[] = [
@@ -82,7 +89,8 @@ export const MARKET_DEFS: readonly MarketDef[] = [
     weight: () => BALANCE.port.truckWeight, reach: () => BALANCE.port.reach },
   // Homes send visitors to buildings that draw them (an airport, a landmark: BALANCE.transit.buildings).
   // No zone receives visitors, so with no such building (or the trips at 0) this market does not run.
-  { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0, rides: true },
+  // Limited (2026-11-21): an airport or a highway to the region takes its room's worth and no more set out.
+  { key: 'visitors', origin: ZONE_R, dest: NO_ZONE, rate: () => BALANCE.transit.tripsVisitors, capacity: () => 0, rides: true, limited: true },
   // Leisure (LEISURE_DESIGN.md, sim/leisureTraffic.ts): homes, and tourists arriving at a gateway,
   // go to attractions. No zone receives them, so with no attraction on a road the market does not run.
   // An attraction's appeal is a head start (a door handicap), so people weigh appeal against travel time.

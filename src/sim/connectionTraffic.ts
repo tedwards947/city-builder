@@ -19,7 +19,9 @@
 //                  airport brings none: it counts attractions only.
 //   RESIDENTS OUT  Homes send it visitors (a door in the 'visitors' market,
 //                  beside the airport's), up to `residentsOut` a tick. They
-//                  pay nothing.
+//                  pay nothing. The room is a real limit (the market is
+//                  `limited`): no more set out for the point than it takes;
+//                  the rest try another point or the airport, or stay home.
 //
 // Everything enters and leaves on the point's own tile, so it all drives the
 // road the player built inward from it. The traffic pass lets trips start and
