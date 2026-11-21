@@ -425,6 +425,7 @@ export interface TranslationSchema {
       shortcut: string;
       free: string;
       pcNearHomes: string;
+      lockedAt: string;
       pcWithin: string;
       pcAvoid: string;
       pcEarns: string;

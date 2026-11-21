@@ -507,6 +507,50 @@ for (const { src, id: name, n, untint } of LEISURE) {
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
   console.log(`${id}: ${game.w}×${game.h}, slab grown by ${grown}px, lip thinned ${thinned}px`);
 }
+// ── Capstones ───────────────────────────────────────────────────────────────
+// raw-capstones/: the owner's picks (capstone review, 2026-11-21), painted from
+// true-scale massing guides on the 4×4 anchor's camera. w × d: the plot in tiles
+// (the fire HQ's is its 4×4 block; its runway and tarmac are drawn in code).
+// A 2:3 canvas can come back with the plot too deep: squashed back like the
+// beach parks. Trees are left out of the art and placed in code
+// (clay/capstoneArt.ts). Game ids are `capstones/<id>`.
+const CAPSTONES = [
+  { src: 'sewage-c', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4 }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
+  { src: 'hospital-6x4', w: 6, d: 4 }, { src: 'nuclear-a', w: 4, d: 4 }, { src: 'uni-b', w: 8, d: 8 },
+];
+/** The anchors' plots are drawn this deep (front to back, per unit of width) for a square lot. */
+const ANCHOR_DEPTH = 723 / 852;
+mkdirSync(join(GAME_OUT, 'capstones'), { recursive: true });
+for (const { src, w, d } of CAPSTONES) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-capstones', src + '.png'), '--out', tmp], { stdio: 'ignore' });
+  let cut = cutout(readBmp(tmp));
+  const thinned = thinLip(cut, w);
+  const p0 = findPlot(cut), want = (p0.right - p0.left + 1) * ANCHOR_DEPTH * d / w, depth = p0.bottom - plotTop(cut);
+  let squash = 1;
+  if (depth > want * 1.02) { squash = want / depth; cut = resample(cut, cut.w, Math.round(cut.h * squash)); }
+  const { grown } = extendSlab(cut, PLOT_ASPECT * d / w);
+  const p = findPlot(cut), k = w * 101 / (p.right - p.left + 1);
+  const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
+  const id = 'capstones/' + src;
+  writePalettePng(join(GAME_OUT, id + '.png'), game);
+  const gp = findPlot(game);
+  gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
+  console.log(`${id}: ${game.w}×${game.h}, squash ${squash.toFixed(2)}, slab grown by ${grown}px, lip thinned ${thinned}px`);
+}
+// The capstones' aircraft, side on, nose right: trimmed and scaled to their real
+// length at 256 px a tile (twice the clay sprites', so they stay crisp in flight).
+const AIRCRAFT = [{ src: 'heli-police', m: 13 }, { src: 'heli-medevac', m: 13 }, { src: 'plane-bomber', m: 20 }];
+for (const { src, m } of AIRCRAFT) {
+  execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-capstones', src + '.png'), '--out', tmp], { stdio: 'ignore' });
+  const cut = cutout(readBmp(tmp));
+  let x0 = cut.w, x1 = 0, y0 = cut.h, y1 = 0;
+  for (let y = 0; y < cut.h; y++) for (let x = 0; x < cut.w; x++) if (cut.rgba[(y * cut.w + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const tw = x1 - x0 + 1, th = y1 - y0 + 1, trim = { w: tw, h: th, rgba: new Uint8Array(tw * th * 4) };
+  for (let y = 0; y < th; y++) trim.rgba.set(cut.rgba.subarray(((y0 + y) * cut.w + x0) * 4, ((y0 + y) * cut.w + x1 + 1) * 4), y * tw * 4);
+  const W = Math.round(m / 17 * 256), game = resample(trim, W, Math.round(th * W / tw));
+  writePalettePng(join(GAME_OUT, 'capstones', src + '.png'), game);
+  console.log(`capstones/${src}: ${game.w}×${game.h}`);
+}
 // Beach parks (3×2, turned to face the water): the owner's A (boardwalk beach,
 // kind 20) and B (seaside lido, its own kind), each wide (rot 0/2, on
 // ref/anchor-3x2-wide.png) and tall (rot 1/3, ref/anchor-2x3-tall.png).
