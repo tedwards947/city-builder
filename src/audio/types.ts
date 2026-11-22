@@ -9,15 +9,16 @@ export interface Note {
 
 /**
  * Instruments for tracks that name one per voice (see instruments.ts). marimba and steelpan roll long notes.
- * The drums (kick, clap, shaker) ignore the note's pitch.
+ * The drums (kick, clap, shaker, snare, ching, chap, cowbell) ignore the note's pitch.
  */
 export type Instrument =
-  | 'marimba' | 'kalimba' | 'steelpan' | 'pluck' | 'flute' | 'vox' | 'pad' | 'sub'
-  | 'kick' | 'clap' | 'shaker';
+  | 'marimba' | 'kalimba' | 'steelpan' | 'pluck' | 'flute' | 'vox' | 'pad' | 'sub' | 'bass'
+  | 'kick' | 'clap' | 'shaker' | 'snare'
+  | 'khaen' | 'phin' | 'ching' | 'chap' | 'cowbell';
 
 export interface Track {
   name: string;
-  genre: 'edm' | 'country' | 'ambient' | 'classical' | 'tropical';
+  genre: 'edm' | 'country' | 'ambient' | 'classical' | 'tropical' | 'molam';
   bpm: number;
   patterns: Note[][][]; // patterns[patternIndex][voiceIndex][noteIndex]
   sequence: number[]; // order of pattern indices to play

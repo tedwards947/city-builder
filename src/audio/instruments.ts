@@ -68,7 +68,65 @@ export function playInstrument(ctx: Ctx, out: AudioNode, inst: Instrument, f: nu
     case 'shaker':
       noise(ctx, out, { t, a: 0.008, d: 0.05, peak: 0.45 * v, type: 'highpass', f: 6500, Q: 0.7 });
       return;
+    case 'khaen': return khaen(ctx, out, f, t, dur, v);
+    case 'phin': {
+      // The phin, a three-string lute (played electric in modern molam): a twangy pick whose bright filter
+      // snaps down with a little resonance, the string bending into pitch, over a triangle for body.
+      const ring = clamp(0.3 + dur * 0.35, 0.3, 0.9);
+      tone(ctx, out, { t, f: f * 1.012, f2: f, glide: 0.03, type: 'sawtooth', a: 0.002, d: ring, peak: 0.2 * v, lp: Math.min(f * 10, 9000), lp2: Math.max(f * 1.6, 450), Q: 4 });
+      tone(ctx, out, { t, f, type: 'triangle', a: 0.002, d: ring * 0.9, peak: 0.14 * v });
+      return;
+    }
+    case 'ching':
+      // Ching: small thick hand cymbals struck open, a bright inharmonic ring.
+      for (const [pf, k, d] of [[2630, 1, 0.7], [3910, 0.7, 0.5], [5270, 0.5, 0.35], [7020, 0.3, 0.25]]) {
+        tone(ctx, out, { t, f: pf * (1 + (Math.random() - 0.5) * 0.004), a: 0.001, d, peak: 0.036 * k * v });
+      }
+      noise(ctx, out, { t, d: 0.02, peak: 0.13 * v, type: 'highpass', f: 5000 });
+      return;
+    case 'chap':
+      // Chap: the same cymbals clapped together and held, a dry choked click.
+      noise(ctx, out, { t, a: 0.001, d: 0.06, peak: 0.5 * v, f: 3200, Q: 1.4 });
+      tone(ctx, out, { t, f: 2630, a: 0.001, d: 0.07, peak: 0.032 * v });
+      return;
+    case 'cowbell':
+      // Cowbell: two clanging square tones a wide fifth apart, rounded off, with the stick's knock.
+      for (const [pf, k] of [[562, 1], [845, 0.75]]) {
+        tone(ctx, out, { t, f: pf, type: 'square', a: 0.001, d: 0.28, peak: 0.07 * k * v, lp: 3200, lp2: 1600, Q: 1.5 });
+      }
+      noise(ctx, out, { t, d: 0.012, peak: 0.12 * v, f: 2400, Q: 1.2 });
+      return;
+    case 'bass': {
+      // Electric bass: a round triangle that holds for most of the note and lets go just before the next,
+      // so repeated notes on one pitch are each heard, over a plucked layer (a saw growl that closes
+      // quickly and the finger's thump) that accents every attack.
+      const hold = Math.max(0.01, dur * 0.72 - 0.004);
+      tone(ctx, out, { t, f, type: 'triangle', a: 0.004, hold, d: 0.05, peak: 0.08 * v });
+      tone(ctx, out, { t, f, type: 'triangle', a: 0.002, hold: 0.015, d: 0.25, peak: 0.08 * v });
+      tone(ctx, out, { t, f, type: 'sawtooth', a: 0.003, hold: Math.min(hold, 0.12), d: 0.08, peak: 0.05 * v, lp: Math.min(f * 8, 1400), lp2: Math.max(f * 2, 160), Q: 1.5 });
+      tone(ctx, out, { t, f: f * 2, a: 0.002, d: 0.05, peak: 0.05 * v });
+      return;
+    }
+    case 'snare':
+      // A tight, dry snare: a short body tone and a burst of rattle.
+      tone(ctx, out, { t, f: 200, f2: 160, glide: 0.05, a: 0.001, d: 0.07, peak: 0.22 * v });
+      noise(ctx, out, { t, a: 0.001, d: 0.13, peak: 0.6 * v, f: 2200, Q: 0.7 });
+      return;
   }
+}
+
+/**
+ * Khaen: the bamboo mouth organ of Laos and Isan, a free reed in each pipe. Reedy and bright (a saw and a
+ * square behind a pipe-like low-pass), speaking quickly with a small scoop and a breath of air. Players
+ * breathe in and out without stopping, so long notes waver gently with the breath.
+ */
+function khaen(ctx: Ctx, out: AudioNode, f: number, t: number, dur: number, v: number): void {
+  const a = 0.025, hold = Math.max(0.01, dur - a - 0.03);
+  const vib: [number, number] | null = dur > 0.6 ? [4.5, f * 0.003] : null;
+  const lp = Math.min(f * 6, 4200), lp2 = Math.min(f * 4.5, 3400);
+  tone(ctx, out, { t, f: f * 0.99, f2: f, glide: 0.03, type: 'sawtooth', a, hold, d: 0.07, peak: 0.08 * v, lp, lp2, Q: 1.2, vib });
+  tone(ctx, out, { t, f: f * 0.99, f2: f, glide: 0.03, type: 'square', detune: 5, a, hold, d: 0.07, peak: 0.045 * v, lp: lp * 0.8, Q: 0.8, vib });
+  noise(ctx, out, { t, a: 0.02, hold: hold * 0.5, d: 0.1, peak: 0.018 * v, f: Math.min(f * 2, 5000), Q: 3 }); // breath on the reed
 }
 
 /** Steel pan: a strong fundamental with the octave blooming in a moment late and a quick third partial. */

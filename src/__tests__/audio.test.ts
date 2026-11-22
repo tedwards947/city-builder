@@ -196,7 +196,7 @@ describe('MusicManager', () => {
     expect(list.find(t => t.name === 'Glass Towers')?.genre).toBe('edm');
     expect(list.find(t => t.name === 'Dusty Roads · Prairie Waltz')?.genre).toBe('country');
     expect(list.find(t => t.name === FUGUE)?.genre).toBe('classical');
-    expect(new Set(list.map(t => t.genre))).toEqual(new Set(['ambient', 'classical', 'country', 'edm', 'tropical']));
+    expect(new Set(list.map(t => t.genre))).toEqual(new Set(['ambient', 'classical', 'country', 'edm', 'molam', 'tropical']));
   });
 
   it('lists every track and jumps to a picked one, starting playback', () => {
