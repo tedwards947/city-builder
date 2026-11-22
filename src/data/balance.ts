@@ -111,6 +111,9 @@ export const BALANCE = {
     // so their upkeep came down from 25 (30,000 / 25 before).
     14: { cost: 27500, maintenance: 20 }, // BUILDING_STATION (straight, three platform tiles)
     15: { cost: 27500, maintenance: 20 }, // BUILDING_STATION_L (curved, 2×2)
+    // The elevated station: 2× a ground station to build and to keep up (owner 2026-11-21, by the PM: between
+    // the ground station at 1× and elevated track at 3× ground track). NOT measured: for the Balance Lab to check.
+    33: { cost: 55000, maintenance: 40 }, // BUILDING_STATION_ELEVATED (straight, three platform tiles on elevated track)
     // Rail phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's starting numbers).
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
@@ -878,7 +881,8 @@ export const BALANCE = {
       // PC per resident at weight 1, for each tile of rail track laid, by level (the RAIL_ bits:
       // 1 ground, 2 elevated, 4 subway). Owner-approved (RAIL_DESIGN.md, 2026-11-19): a tile of
       // ground track is about a seventh of an industrial tile; elevated is worse (pillars and
-      // noise over the street); a subway upsets nobody. Stations and ramps cost nothing.
+      // noise over the street); a subway upsets nobody. Stations and ramps cost nothing, except the
+      // elevated station: each of its tiles with no elevated track yet is charged as a tile of elevated track.
       trackPerResident: { 1: 0.01, 2: 0.015, 4: 0 } as Record<number, number>,
     },
     // One-off PC rewards the first time the city's population reaches each

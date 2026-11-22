@@ -11,7 +11,7 @@ import { buildingSeats, homeSeat, hasCapacity } from '../sim/serviceCapacity';
 import { seatWords, seatsView, homeSeatState } from './capacityFormat';
 import { BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY } from '../sim/constants';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
 import { headcountCost, perResidentCost, perUnitCost } from '../sim/runningCost';
 import { eventStatus } from '../sim/eventDays';
 import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
@@ -169,6 +169,7 @@ export const BUILDING_NAME: Record<number, string> = {
   [BUILDING_UNIVERSITY]: "buildings.university",
   [BUILDING_STATION]: "buildings.station",
   [BUILDING_STATION_L]: "buildings.station",
+  [BUILDING_STATION_ELEVATED]: "buildings.stationElevated",
   [BUILDING_RAMP_ELEVATED]: "buildings.rampElevated",
   [BUILDING_RAMP_SUBWAY]: "buildings.rampSubway",
   [BUILDING_SUBWAY_STATION]: "buildings.subwayStation",
@@ -552,7 +553,7 @@ export class TileInfoPanel {
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
       html += attractionRows(world, tx, ty, building);
       if (building === BUILDING_STADIUM) html += stadiumRows(world);
-      if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_SUBWAY_STATION) html += stationRows(world, tx, ty, building);
+      if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_STATION_ELEVATED || building === BUILDING_SUBWAY_STATION) html += stationRows(world, tx, ty, building);
 
       // Connectivity warning for utilities
       if (

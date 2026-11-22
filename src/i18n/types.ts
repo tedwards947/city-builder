@@ -391,6 +391,7 @@ export interface TranslationSchema {
       track: string;
       station: string;
       stationL: string;
+      stationElevated: string;
       trackElevated: string;
       trackSubway: string;
       rampElevated: string;
@@ -527,6 +528,7 @@ export interface TranslationSchema {
       track: string;
       station: string;
       stationL: string;
+      stationElevated: string;
       trackElevated: string;
       trackSubway: string;
       rampElevated: string;
@@ -585,6 +587,7 @@ export interface TranslationSchema {
     nuclearPlant: string;
     university: string;
     station: string;
+    stationElevated: string;
     rampElevated: string;
     rampSubway: string;
     subwayStation: string;

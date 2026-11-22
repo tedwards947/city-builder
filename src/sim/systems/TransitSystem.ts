@@ -85,7 +85,7 @@ import { isEntryTile } from '../connections';
 import { isRailEntryTile } from '../connectionRail';
 import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
-import { hasPlatforms, rampLevel, shapeRoles } from '../buildingShapes';
+import { hasPlatforms, platformLevel, rampLevel, shapeRoles } from '../buildingShapes';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
@@ -649,7 +649,7 @@ export class TransitSystem {
       if (hasPlatforms(b.kind)) {
         const tiles = world.buildingTilesAt(b.tx, b.ty), roles = shapeRoles(b.kind);
         const platform = tiles.filter((_, k) => roles[k] === 'platform');
-        if (platform.length > 0) at = n + platform[platform.length >> 1];
+        if (platform.length > 0) at = railSlot(platformLevel(b.kind)) * n + platform[platform.length >> 1];   // on its own level: an elevated station's is elevated track
       } else if (b.kind === BUILDING_SUBWAY_STATION) {
         const entrance = b.ty * width + b.tx;
         if (rail[entrance] & RAIL_SUBWAY) at = railSlot(RAIL_SUBWAY) * n + entrance;

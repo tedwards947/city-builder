@@ -4,7 +4,7 @@
 // whole town. Pure: reads the world, changes nothing.
 
 import type { World } from '../sim/World';
-import { BUILDING_AIRPORT, BUILDING_SEAPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION, ROAD_NONE, ZONE_NONE } from '../sim/constants';
+import { BUILDING_AIRPORT, BUILDING_SEAPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_SUBWAY_STATION, ROAD_NONE, ZONE_NONE } from '../sim/constants';
 import { buildingShape } from '../sim/buildingShapes';
 import { roadCapacity, trafficVolume } from '../sim/TrafficData';
 import { focusMarkers } from '../sim/markers';
@@ -111,7 +111,7 @@ export function findCitySpots(world: World): TourSpot[] {
     if (b.kind === BUILDING_AIRPORT || b.kind === BUILDING_SEAPORT) {
       const at = centre(b.tx, b.ty, b.kind, b.rot);
       add(b.kind === BUILDING_AIRPORT ? 'airport' : 'seaport', at.x, at.y, 1);
-    } else if (b.kind === BUILDING_STATION || b.kind === BUILDING_STATION_L || b.kind === BUILDING_SUBWAY_STATION) {
+    } else if (b.kind === BUILDING_STATION || b.kind === BUILDING_STATION_L || b.kind === BUILDING_STATION_ELEVATED || b.kind === BUILDING_SUBWAY_STATION) {
       const anchor = b.ty * width + b.tx;
       const riders = d?.rail.stations.find(s => s.anchor === anchor)?.boardings ?? 0;
       const at = centre(b.tx, b.ty, b.kind, b.rot);
