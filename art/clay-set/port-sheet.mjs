@@ -127,8 +127,6 @@ const RAIL_GAME = {
   // The resized stations (owner's S2 and C1, art/clay-set/station.html), from raw-rail/tpl-stations2.png at 300 px a tile:
   // the island platform both ways, and the corner house with the curve round its south and east, or its north and east.
   'stations2-1': ['island-v', 0.43], 'stations2-2': ['island-h', 0.43], 'stations2-3': ['corner-se', 0.43], 'stations2-4': ['corner-ne', 0.43],
-  // The elevated station's island (brutalist: folded concrete canopy, stair hall), from raw-rail/tpl-elevated.png at 300 px a tile (owner, 2026-11-21).
-  'elevated-1': ['elev-v', 0.43], 'elevated-2': ['elev-h', 0.43],
   // (The brick ramps, ramps-r5-*, were replaced by the code-drawn concrete ramp, owner's E3 in ramps.html.)
   // (The brick portals, portals-r5-*, were replaced by the code-drawn subway ramp, owner's P3 in ramps.html.)
 };

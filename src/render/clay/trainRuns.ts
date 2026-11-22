@@ -5,8 +5,8 @@
  */
 import type { World } from '../../sim/World';
 import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
-import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION, BUILDING_STATION_ELEVATED } from '../../sim/constants';
-import { stationPlatform } from '../../sim/buildingShapes';
+import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION } from '../../sim/constants';
+import { subwayPlatform } from '../../sim/buildingShapes';
 
 export const SIDES = [LINK_N, LINK_E, LINK_S, LINK_W];
 export const STEP: Record<number, [number, number]> = { [LINK_N]: [0, -1], [LINK_E]: [1, 0], [LINK_S]: [0, 1], [LINK_W]: [-1, 0] };
@@ -42,10 +42,10 @@ export function across(tx: number, ty: number, a: number, b: number, out: [numbe
   for (let k = 0; k <= 8; k++) { const A = A1 + (A2 - A1) * k / 8; out.push([cx + 0.5 * Math.cos(A), cy + 0.5 * Math.sin(A)]); }
 }
 
-/** The platform tiles of every station of `kind` whose platform is plain track of its level (a subway station's, underground; an elevated station's, overhead). */
-function platformTiles(world: World, kind: number): Set<number> {
+/** The subway platform tiles of every subway station (they are plain subway track otherwise). */
+function subwayPlatformTiles(world: World): Set<number> {
   const out = new Set<number>(), w = world.grid.width;
-  for (const b of world.buildings) if (b.kind === kind) for (const [dx, dy] of stationPlatform(b.kind, b.rot ?? 0)) out.add((b.ty + dy) * w + b.tx + dx);
+  for (const b of world.buildings) if (b.kind === BUILDING_SUBWAY_STATION) for (const [dx, dy] of subwayPlatform(b.kind, b.rot ?? 0)) out.add((b.ty + dy) * w + b.tx + dx);
   return out;
 }
 
@@ -54,8 +54,8 @@ export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
   const { width, height } = world.grid, rail = world.layers.rail, n = width * height;
   const links = new Uint8Array(n);
   for (let i = 0; i < n; i++) if (rail[i] & level) links[i] = railLinks(world, i, level);
-  const stops = level === RAIL_SUBWAY ? platformTiles(world, BUILDING_SUBWAY_STATION) : level === RAIL_ELEVATED ? platformTiles(world, BUILDING_STATION_ELEVATED) : null;
-  const isPlatform = (t: number): boolean => stops ? stops.has(t) : level === RAIL_GROUND && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform';
+  const subwayStops = level === RAIL_SUBWAY ? subwayPlatformTiles(world) : null;
+  const isPlatform = (t: number): boolean => subwayStops ? subwayStops.has(t) : level === RAIL_GROUND && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform';
   const count = (m: number): number => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
   const used = new Uint8Array(n * 4);   // each (tile, side) walked once
   const sideIdx = (s: number): number => SIDES.indexOf(s);
@@ -94,10 +94,10 @@ export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
       P.forEach(([x, y], k) => { const d = (x - cx) ** 2 + (y - cy) ** 2; if (d < bd) { bd = d; best = D[k]; } });
       return best;
     };
-    if (level === RAIL_GROUND || level === RAIL_ELEVATED) {
+    if (level === RAIL_GROUND) {
       let g0 = -1;
       for (let k = 0; k <= tiles.length; k++) {
-        const on = k < tiles.length && (level === RAIL_GROUND ? world.layers.building[tiles[k]] === BUILDING_STATION : stops!.has(tiles[k]));
+        const on = k < tiles.length && world.layers.building[tiles[k]] === BUILDING_STATION;
         if (on && g0 < 0) g0 = k;
         if (!on && g0 >= 0) { const a = along(tiles[g0]), b = along(tiles[k - 1]); wide.push([Math.min(a, b) - 0.5, Math.max(a, b) + 0.5]); g0 = -1; }
       }
