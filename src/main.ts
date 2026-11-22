@@ -58,7 +58,7 @@ import { clusterTiles, type ClusterFields, type TilePoint } from './render/clay/
 import { REQUEST_COLOUR } from './render/clay/requestBadges';
 import type { PcPreview } from './ui/pcPreview';
 import type { PcQuote } from './sim/politics';
-import { toolPrice, buildingKindForTool, capstoneLocks } from './ui/Toolbar';
+import { toolPrice, buildingKindForTool, capstoneLocks, onePerCity, builtOnce } from './ui/Toolbar';
 import { buildingUnlocked, unlockPopulation } from './sim/leisure';
 import { EconPanel } from './ui/EconPanel';
 import { ToastPanel } from './ui/ToastPanel';
@@ -505,6 +505,7 @@ window.addEventListener(DOCK_CHANGED, () => {
 
 // Capstones show greyed out with the residents they still need (read live, so a new city or a load is picked up).
 capstoneLocks.need = (tool) => { const k = buildingKindForTool(tool); return k !== undefined && !buildingUnlocked(state.world, k) ? unlockPopulation(k) : 0; };
+onePerCity.built = (tool) => builtOnce(state.world, tool);
 const toolbar = new Toolbar(document.getElementById('toolbar')!, roadMode, zoneMode, {
   onTool: (tool) => setTool(tool),
   onOverlay: (which) => toggleOverlay(which),

@@ -429,6 +429,7 @@ export interface TranslationSchema {
       free: string;
       pcNearHomes: string;
       lockedAt: string;
+      builtOnce: string;
       pcWithin: string;
       pcAvoid: string;
       pcEarns: string;

@@ -27,6 +27,7 @@ import { requestLogShown, requestLogState } from './RequestLog';
 import { t } from '../i18n';
 import { BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_POLICE_HQ, BUILDING_GENERAL_HOSPITAL, BUILDING_NUCLEAR_PLANT, BUILDING_UNIVERSITY } from '../sim/constants';
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
+import { placementRules } from '../sim/buildingShapes';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
@@ -70,6 +71,24 @@ export type ToolbarEntry = ToolbarItem | ToolbarFamily | 'sep';
  * sim/leisure.ts buildingUnlocked/unlockPopulation. Locked capstones show greyed out with that number.
  */
 export const capstoneLocks = { need: (_tool: Tool): number => 0 };
+
+/**
+ * Whether the city already has the one building `tool` places that it may have only one of
+ * (placementRules onePerCity: the capstones, the airport, the museum and the stadium). Such an
+ * item shows greyed out as built, and comes back if that building is bulldozed.
+ */
+export function builtOnce(world: { buildings: readonly { kind: number }[] }, tool: Tool): boolean {
+  const kind = BUILDING_KIND[tool];
+  return kind !== undefined && placementRules(kind).onePerCity === true && world.buildings.some(b => b.kind === kind);
+}
+/** Set by main.ts to builtOnce on the current world. */
+export const onePerCity = { built: (_tool: Tool): boolean => false };
+/** Why an item cannot be picked now (locked until a population, or already built), or null. */
+function blockedLabel(item: ToolbarItem): string | null {
+  const need = item.lockedAt?.() ?? 0;
+  if (need > 0) return t('ui.toolbar.lockedAt', { n: need.toLocaleString('en-US') });
+  return item.tool !== undefined && onePerCity.built(item.tool) ? t('ui.toolbar.builtOnce') : null;
+}
 
 export const TOOLBAR: ToolbarEntry[] = [
   { key: 'view', icon: 'view', tool: 'none', hotkey: '1' },
@@ -313,7 +332,7 @@ export class Toolbar {
    * switched on or off while the game runs), and otherwise does nothing.
    */
   syncShown(): void {
-    const sig = TOOLBAR.map(e => e === 'sep' ? '' : isFamily(e) ? e.items.map(i => (i.lockedAt?.() ?? 0) > 0 ? 'L' : '').join('') : (e.shown ? (e.shown() ? '1' : '0') : '') + (e.count ? e.count() : '')).join(',');
+    const sig = TOOLBAR.map(e => e === 'sep' ? '' : isFamily(e) ? e.items.map(i => (i.lockedAt?.() ?? 0) > 0 ? 'L' : i.tool !== undefined && onePerCity.built(i.tool) ? 'B' : '').join('') : (e.shown ? (e.shown() ? '1' : '0') : '') + (e.count ? e.count() : '')).join(',');
     if (sig === this.shownSig) return;
     this.shownSig = sig;
     this.render();
@@ -404,7 +423,7 @@ export class Toolbar {
       b.addEventListener('click', () => {
         const opening = this.open !== e.family;
         this.open = opening ? e.family : null;
-        if (opening && face?.tool !== undefined && !((face.lockedAt?.() ?? 0) > 0)) this.pick(face);   // one click re-arms the last member (not a locked one)
+        if (opening && face?.tool !== undefined && blockedLabel(face) === null) this.pick(face);   // one click re-arms the last member (not a locked or built one)
         this.render();
       });
       this.hover(b, () => this.open === e.family ? null : face ? this.itemTip(face) : { name: t('ui.toolbar.' + e.family) });
@@ -426,8 +445,8 @@ export class Toolbar {
     for (const item of f.items) {
       if (item.shown && !item.shown()) continue;   // e.g. a debug-only tool
       if (item.sepBefore) fly.append(node('div', 'tb-fly-sep'));
-      const need = item.lockedAt?.() ?? 0;
-      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulses(item) ? ' tb-pulse' : '') + (need > 0 ? ' locked' : ''),
+      const blocked = blockedLabel(item);
+      const row = node('button', 'tb-row' + (this.isOn(item) ? ' on' : '') + (this.pulses(item) ? ' tb-pulse' : '') + (blocked ? ' locked' : ''),
         `<span class="tb-ico${item.cls ? ' ' + item.cls : ''}">${iconSvg(item.icon)}</span>`);
       row.type = 'button';
       row.appendChild(node('span', 'tb-name')).textContent = t('ui.toolbar.' + item.key);
@@ -435,10 +454,10 @@ export class Toolbar {
         row.appendChild(node('span', 'tb-pc')).textContent = PC_SYMBOL + ' ' + t('ui.toolbar.pcNearHomes');
       }
       const cost = item.tool !== undefined ? toolPrice(item.tool).cost : undefined;
-      if (need > 0) row.appendChild(node('span', 'tb-lock')).textContent = t('ui.toolbar.lockedAt', { n: need.toLocaleString('en-US') });
+      if (blocked) row.appendChild(node('span', 'tb-lock')).textContent = blocked;
       else if (cost) row.appendChild(node('span', 'tb-cost')).textContent = cost.replace(' / tile', '').replace(' / tree', '');
-      if (need > 0) row.setAttribute('aria-disabled', 'true');
-      row.addEventListener('click', () => { if (need > 0) return; this.open = null; this.pick(item); this.render(); });
+      if (blocked) row.setAttribute('aria-disabled', 'true');
+      row.addEventListener('click', () => { if (blockedLabel(item)) return; this.open = null; this.pick(item); this.render(); });
       this.hover(row, () => this.itemTip(item), fly);
       fly.append(row);
     }
@@ -556,7 +575,8 @@ export class Toolbar {
       cost: price.cost,
       upkeep: price.upkeep ? t('ui.toolbar.upkeep') + ' ' + price.upkeep : undefined,
       hotkey: item.hotkey ? t('ui.toolbar.shortcut') + ' ' + hotkeyLabel(item.hotkey, IS_MAC) : undefined,
-      hint: isRoad
+      hint: item.tool !== undefined && onePerCity.built(item.tool) ? t('ui.toolbar.builtOnce')
+        : isRoad
         ? (this.roadMode === 'auto' ? t('ui.roadMode.auto') + ': ' + t('ui.roadMode.autoDesc')
                                     : t('ui.roadMode.manual') + ': ' + t('ui.roadMode.manualDesc'))
         : isZone
