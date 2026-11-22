@@ -16,7 +16,7 @@ import { isLargeBuilding } from '../sim/buildingShapes';
 import { BIG_SLAB } from './clay/bigBuildings';
 import {
   TERRAIN_GRASS, TERRAIN_WATER,
-  ZONE_NONE, ROAD_NONE, ROAD_HIGHWAY, VEG_NONE, BUILDING_NONE, RAIL_GROUND, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY,
+  ZONE_NONE, ROAD_NONE, ROAD_HIGHWAY, VEG_NONE, BUILDING_NONE, RAIL_GROUND, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY,
 } from '../sim/constants';
 import { offMapSide } from './clay/connectionStubs';
 import type { ChunkPainter } from './ChunkCache';
@@ -189,7 +189,7 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
         if (isLargeBuilding(building)) {
           // A dock stands over the water: leave the water showing under it.
           // A station's picture brings its own ground (clay/rail.ts), so it gets none.
-          if (world.buildingPartRoleAt(tx, ty) !== 'dock' && building !== BUILDING_STATION && building !== BUILDING_STATION_L && building !== BUILDING_STATION_ELEVATED && building !== BUILDING_RAMP_ELEVATED && building !== BUILDING_RAMP_SUBWAY) { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
+          if (world.buildingPartRoleAt(tx, ty) !== 'dock' && building !== BUILDING_STATION && building !== BUILDING_STATION_L && building !== BUILDING_RAMP_ELEVATED && building !== BUILDING_RAMP_SUBWAY) { chunkCtx.fillStyle = BIG_SLAB; chunkCtx.fillRect(sxi, syi, tsi, tsi); }
         }
         else drawFlatBuilding(chunkCtx, building, sxi, syi, tsi, ts, localP, visualVariant);
       }
