@@ -185,6 +185,7 @@ Approved by the owner (2026-11-19, proposals in #305):
 - Late-game money curves (TODO m, 2026-11-21, numbers only): money piles up once growth stops (surplus 8–9% of income while growing, 22–23% on a full map), and built-out 10–45k cities keep 24–37% of income ($4.5–16.6k a day) and still $3.6–16k after every unlocked capstone. Details and sink sizing under m.
 - PC options A and B modelled for the owner's pick (TODO n, 2026-11-21, numbers only): 16 combinations × 45 runs. A alone does almost nothing (the planner is at the cap 77–90% of days at any regen). B 30% alone or regen 0.8 + B 20% make big builds a decision (40–60% wait, none over a month). Regen ≤ 0.56 with B ≥ 30% is a wall. Table under n.
 - PC watched, not tuned (owner, 2026-11-21): the PC suite runs the shipped numbers only by default, and each run reports `atCapShare` beside `refusedPcShare` and `pcByReason`. Other sets still run with `--variants`.
+- Rail in the lab (owner, 2026-11-21): where a city has no ground track, the connections suite builds a surface line from the rail point to 1–2 stations near the jobs. `railIn` now grades on 13 of 14 cities: 39–93 riders a tick. The track runs over capacity on 3 cities where residents ride it within the city (1.26–1.46), and the ±5 jammed-tile limit fails 6, at +7 to +65 tiles (the cities already have 400–1,500 jammed). A limit set as a share of the jammed tiles is a question for the owner. Table in CONNECTIONS_DESIGN.md.
 
 Next:
 1. Waiting on the owner: rates that rise with city size (after the owner plays).

@@ -84,6 +84,29 @@ Once the outbound room became a real limit (#482), every point runs at its full 
 - Exports earn about $630 a day when industry is within reach; industry levels don't move. Lab targets: `entryJam`, `twoPoints`, `exports`, `industryNeutral`, `railIn`.
 - **Exports in the lab (ENGINEER 3, 2026-11-21):** trucks reach a point only from industry within `port.reach` (48 street tiles; a highway tile counts half) of the point's own tile at the map edge. On the 256 and 512 maps the join alone is 150–370 highway tiles, so no city's own industry was in reach and `exports` was n/a on 11 of 14 cities. Where the nearest point sends no trucks, the suite now builds an industry district by the point (three streets off the highway, about 120 tiles, a small plant set, 30 days) as a player exporting by highway would. Exports grade on 13 of 14 cities: $548–640 a day, all within $500–800 (golden-1 $548 with 124 levels). In play, highway exports only pay for industry built out near the map edge.
 - **Tourists in the lab (PM, 2026-11-21):** the test cities have no attractions, so their points bring day-trippers only, and `entryJam` / `twoPoints` stay graded that way. On 20k+ cities with none, the suite also runs one and two points with the tourism probe's museum, big park and plaza placed (`connections.tourists`, information only). Each point then brings 30 tourists. The entry avenue jams less with one point (1.02–1.69 → 0.69–1.36) and a second point helps less (0.60–0.66 → 0.88–1.0 of the added load): attractions spread visitors deeper into the city. No re-tune.
+- **Rail in the lab (owner, 2026-11-21, lab only):** the test cities had no ground track, so `railIn` was n/a on 13 of 14. Where a city has none, the suite now builds a surface line on its copy as a player would: ground track from the rail point to a straight station near the jobs, then on to more stations at least 16 tiles apart (it tries 25 sites per stop; 1–2 stations go in, never 3, because a new stretch may not run beside track already laid). It then measures the riders, the track's peak and the streets around the stations. 13 of 14 cities now grade (smallercity's own track can't be joined); 6 pass.
+
+  | City | Residents | Stations | Riders in a tick | Track peak | Jammed road tiles | Streets by the stations: peak, at capacity |
+  |---|---|---|---|---|---|---|
+  | gen-s1-t10000 | 10.3k | 2 | 39 | 0.16 | 403 → 405 | 3.73 → 3.73, 17 → 17 of 36 |
+  | gen-s1-t12500 | 13.4k | 1 | 54 | 0.22 | 522 → 529 | 4.59 → 4.59, 22 → 22 of 24 |
+  | gen-s1-t15000 | 15.4k | 2 | 65 | **1.26** | 530 → **595** | 3.71 → 6.13, 19 → 26 of 32 |
+  | gen-suburban-s2-t15000 | 15.9k | 1 | 43 | 0.17 | 672 → 672 | 1.80 → 2.08, 12 → 12 of 14 |
+  | testcity1 | 18.6k | 2 | 41 | 0.11 | 112 → 117 | 0.90 → 1.51, 0 → 2 of 15 |
+  | gen-s1-t20000 | 19.9k | 2 | 67 | **1.37** | 732 → **752** | 4.96 → 6.76, 19 → 21 of 32 |
+  | gen-suburban-s2-t20000 | 21.2k | 1 | 69 | 0.28 | 882 → 884 | 4.14 → 4.40, 13 → 13 of 13 |
+  | gen-suburban-s2-t25000 | 25.8k | 2 | 73 | **1.46** | 1003 → **1014** | 9.03 → 9.26, 28 → 29 of 30 |
+  | gen-s1-t25000 | 26.7k | 1 | 75 | 0.30 | 956 → **995** | 6.83 → 7.50, 20 → 20 of 21 |
+  | gen-suburban-s2-t30000 | 30.3k | 2 | 67 | 0.27 | 1128 → 1122 | 2.09 → 2.82, 24 → 26 of 41 |
+  | gen-s1-t30000 | 31.0k | 2 | 79 | 0.32 | 1097 → **1107** | 6.36 → 3.83, 31 → 31 of 48 |
+  | golden-1 | 35.5k | its own | 91 | 0.25 | 49 → 51 | – |
+  | gen-s1-t40000 | 42.1k | 1 | 93 | 0.37 | 1484 → 1481 | 11.46 → 12.33, 18 → 20 of 30 |
+
+  - **Riders in:** 39–93 a tick, rising with city size. Every city but gen-s1-t10000 reaches 40.
+  - **Track:** 0.11–0.37 on most lines. But with two stations near the jobs, residents ride the line within the city, and the track runs over capacity (1.26–1.46 on three cities). Visitors alone would not fill it.
+  - **Streets by the stations:** in the generated cities most of them were already at capacity before the line (12–31 of 13–48). The line adds 0–7 more, and peaks rise up to about 1.8×.
+  - **The jam limit is tighter than the noise.** Generated cities have 400–1,500 jammed road tiles, and the count moves by −6 to +65 when the line opens, with two cities going down. The ±5 allowance (written for golden-1, 49 jammed) fails 6 cities, at +7 to +65 tiles (0.9–12% of what was already jammed). A share of the city's jammed tiles would fit better: at 2%, three of the six would pass (+7, +10, +11), and gen-s1-t15000 (+65, 12%), gen-s1-t25000 (+39) and gen-s1-t20000 (+20) would still fail. That is a target change for the owner.
+
 
 ## Who does what
 - **Engine:** entry points (map generation, save, old saves), connections as gateways in the leisure market and as export doors, rail riders entering at the edge track node, the overlay and Inspect data.
