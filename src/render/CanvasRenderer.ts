@@ -182,6 +182,9 @@ const PROBLEM_SMALL_PIN_MIN_TILE = 10;
 const PROBLEM_PIN_REFRESH_MS = 400;
 const BADGE_KINDS: readonly BadgeKind[] = ['crime', 'health', 'power', 'water', 'commute', 'cutoff', 'road', 'death'];
 
+/** How many rows behind a building its upper floors can reach on screen (a 26-floor tower rises about 2.4 tiles). */
+const IN_FRONT_ROWS = 3;
+
 export class CanvasRenderer {
   readonly ctx: CanvasRenderingContext2D;
   /** The static layer (terrain, roads, flat buildings), cached per chunk. */
@@ -197,6 +200,7 @@ export class CanvasRenderer {
   /** Each seaport's sailing path and berth, kept while its route (cached by the sim until the map changes) is the same. */
   private _shipPaths = new WeakMap<readonly number[], { runs: Run[]; berth: Berth }>();
   /** Lots whose markers / fire are drawn after every sprite: [tileIndex, sx, sy] triples. */
+  private readonly _inFront: { x0: number; x1: number; row: number; draw: () => void }[] = [];
   private _markerQueue: number[] = [];
   private _utilityQueue: number[] = [];
   private _fireQueue: number[] = [];
@@ -294,6 +298,7 @@ export class CanvasRenderer {
       drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED);
       drawElevatedIslandTops(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
+      if (!underground) this._redrawInFront(ctx, world, camera, ts);
       // Capstone aircraft in the air or taxiing (clay/capstoneAnim.ts), above the buildings.
       drawCapstoneFlights(ctx, world, ox, oy, ts, now);
       if (underground) {
@@ -364,6 +369,7 @@ export class CanvasRenderer {
     beginBigLotFrame(clayTile, now);
     const clayEffects = this._clayEffects;
     clayEffects.length = 0;
+    this._inFront.length = 0;
     const markerQueue = this._markerQueue;
     const fireQueue = this._fireQueue;
     markerQueue.length = 0;
@@ -436,14 +442,23 @@ export class CanvasRenderer {
         const big = building !== BUILDING_NONE && isLargeBuilding(building);
         if (big) {
           const anchor = world.buildingAnchorAt(i), box = shapeBox(building, world.buildingRotAt(anchor));
-          if (i === anchor + box.drawDx + box.drawDy * world.grid.width) this._drawBigBuilding(ctx, world, camera, anchor, building, now);
+          if (i === anchor + box.drawDx + box.drawDy * world.grid.width) {
+            this._drawBigBuilding(ctx, world, camera, anchor, building, now);
+            const W = world.grid.width, ax = anchor % W, ay = (anchor - ax) / W;
+            this._noteInFront(world, ax + box.minX, ax + box.maxX, ay + box.minY, () => this._drawBigBuilding(ctx, world, camera, anchor, building, now));
+          }
         }
         // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
         // A merged lot (sim/lots.ts) is drawn once, from its last tile in draw order
         // (a 2×2's bottom-left quarter, a pair's east or south tile), so rows behind it are already drawn.
         const lotQ = world.layers.lot[i];
-        if (lotQ === 3 || lotQ === 6 || lotQ === 8) this._drawMergedLot(ctx, world, camera, world.lotAnchor(i));
+        if (lotQ === 3 || lotQ === 6 || lotQ === 8) {
+          const la = world.lotAnchor(i);
+          this._drawMergedLot(ctx, world, camera, la);
+          const sh = la >= 0 ? lotShape(world, la) : null;
+          if (sh) { const W = world.grid.width, ax = la % W; this._noteInFront(world, ax, ax + (sh === 'tall' ? 0 : 1), (la - ax) / W, () => this._drawMergedLot(ctx, world, camera, la)); }
+        }
         if (isLotAnchor(lotQ) && dev > 0) markerQueue.push(i, sxi, syi);
         // A pair of shops (lot 5–8) keeps its two level-3 pictures until its own art has loaded.
         const merged = (lotQ >= 1 && lotQ <= 4) || (lotQ >= 5 && this._pairArt(world, i));
@@ -454,6 +469,7 @@ export class CanvasRenderer {
           // A lot without power shows it on the building itself (lights out).
           const look = building === BUILDING_NONE && !isAbandoned && world.layers.power[i] === 0 ? LOOK_NO_POWER : 0;
           drawClaySprite(ctx, clay, sxi, syi, clayTile, visualVariant >> 3, look);
+          { const v = visualVariant >> 3; this._noteInFront(world, tx, tx, ty, () => drawClaySprite(ctx, clay, sxi, syi, clayTile, v, look)); }
           if (building === BUILDING_NONE) {
             // The plot hides the chunk layer's status tints, so repeat them here.
             let tint: string | null = null;
@@ -663,6 +679,41 @@ export class CanvasRenderer {
    * (hover-to-hide; on a phone, the tapped tile), so the lots behind it can be
    * seen and clicked.
    */
+  /**
+   * Train track and its trains are drawn after the lots, so a tall building in front of track (south of it) would show
+   * the track and trains over its upper floors (owner saw elevated track across a tower). Each building with track in
+   * the rows just behind it is noted here, and redrawn by _redrawInFront once the trains are down, clipped to the track.
+   */
+  private _noteInFront(world: World, x0: number, x1: number, row: number, draw: () => void): void {
+    const W = world.grid.width, rail = world.layers.rail;
+    for (let r = Math.max(0, row - IN_FRONT_ROWS); r < row; r++) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
+      if (rail[r * W + x] & (RAIL_GROUND | RAIL_ELEVATED)) { this._inFront.push({ x0, x1, row, draw }); return; }
+    }
+  }
+
+  /** Redraws the noted buildings over the track and trains behind them, clipped to those track tiles above the building's own front row. */
+  private _redrawInFront(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number): void {
+    if (this._inFront.length === 0) return;
+    const W = world.grid.width, rail = world.layers.rail;
+    const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+    for (const f of this._inFront) {
+      ctx.save(); ctx.beginPath();
+      for (let r = Math.max(0, f.row - IN_FRONT_ROWS); r < f.row; r++) for (let x = Math.max(0, f.x0); x <= Math.min(W - 1, f.x1); x++) {
+        const m = rail[r * W + x];
+        if (!(m & (RAIL_GROUND | RAIL_ELEVATED))) continue;
+        // Up the page far enough for a train on the deck and the station canopy (elevated), or a train (ground).
+        const up = (m & RAIL_ELEVATED ? 0.65 : 0.3) * ts;
+        ctx.rect(X(x), Y(r) - up, X(x + 1) - X(x), Y(r + 1) - Y(r) + up);
+      }
+      ctx.rect(0, 0, 0, 0);
+      ctx.clip();
+      // Never below the building's own front row: its ground stays as the lots pass drew it.
+      ctx.beginPath(); ctx.rect(-1e5, -1e5, 2e5, Y(f.row) + 1e5); ctx.clip();
+      f.draw();
+      ctx.restore();
+    }
+  }
+
   private _drawMergedLot(ctx: CanvasRenderingContext2D, world: World, camera: Camera, anchor: number): void {
     if (anchor < 0) return;
     const shape = lotShape(world, anchor);
