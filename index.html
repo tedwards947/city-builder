@@ -16,7 +16,11 @@
     #stats, #citystats { background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; backdrop-filter: blur(8px); line-height: 1.5; }
     #stats .label, #citystats .label { color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
     #stats .value, #citystats .value { color: #fff; font-weight: 600; }
-    #citystats { text-align: right; }
+    /* The pane never resizes as the figures change (owner: it jumped whenever PC moved): tabular digits, the PC
+       figure and its rate in boxes of their own width (the rate's box kept even when empty, so the figure never
+       slides across), and a floor width the usual figures fit inside. */
+    #citystats { text-align: right; min-width: 196px; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+    #stat-pc { display: inline-block; min-width: 8ch; }
     #citystats .value.money { color: #7dd87d; }
     #citystats .value.money.negative { color: #e07070; }
     #citystats .value.short { color: #e07070; }
@@ -68,9 +72,8 @@
     #citystats .value.pc.debt { color: #ff8a8a; }
     #stat-pc-rate.debt { color: #ff8a8a; }
     #pc-bar-bg.debt { background: rgba(224,112,112,0.45); box-shadow: inset 0 0 0 1px #e07070; }
-    #stat-pc-rate { font-size: 10px; margin-left: 5px; color: #8aa; }
+    #stat-pc-rate { font-size: 10px; margin-left: 5px; color: #8aa; display: inline-block; min-width: 13ch; text-align: left; white-space: nowrap; }
     #stat-pc-rate.draining { color: #e07070; }
-    #stat-pc-rate:empty { display: none; }
     #pc-bar.draining { background: repeating-linear-gradient(-45deg, #e07070 0 4px, #8a3a3a 4px 8px) !important; }
     #pc-bar.over { box-shadow: 0 0 6px #7dffe0; }
     /* Population milestone banner (src/ui/MilestoneBanner.ts) */
