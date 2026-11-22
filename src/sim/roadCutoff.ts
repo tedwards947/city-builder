@@ -55,6 +55,8 @@ export function cutOffSince(world: World, before: RoadSnapshot): CutOffBuilding[
     if (before.get(b.ty * w + b.tx) !== b.kind) continue;
     if (world.buildingAccessRoads(b.tx, b.ty).length > 0) continue;
     const tiles = world.buildingTilesAt(b.tx, b.ty).map((i) => ({ x: i % w, y: (i - (i % w)) / w }));
+    // An elevated station has no ground tile: its three platform tiles.
+    if (tiles.length === 0) for (const i of world.overheadStationTiles(b)) tiles.push({ x: i % w, y: (i - (i % w)) / w });
     if (tiles.length === 0) tiles.push({ x: b.tx, y: b.ty });
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const t of tiles) { x0 = Math.min(x0, t.x); y0 = Math.min(y0, t.y); x1 = Math.max(x1, t.x); y1 = Math.max(y1, t.y); }

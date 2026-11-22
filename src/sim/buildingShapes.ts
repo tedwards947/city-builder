@@ -47,6 +47,7 @@ const SHAPES = new Map<number, readonly ShapeOffset[]>();
 const ROLES = new Map<number, readonly PartRole[]>();
 const DOCKED = new Set<number>();
 const PLATFORMED = new Set<number>();
+const NO_GROUND: readonly ShapeOffset[] = [];
 // Each kind's shape at rotations 1–3, worked out when first asked for.
 const ROTATED = new Map<number, (readonly ShapeOffset[])[]>();
 
@@ -57,6 +58,8 @@ const ROTATED = new Map<number, (readonly ShapeOffset[])[]>();
  * never turned (placement rule `noRotation`) has the same shape at every `rot`.
  */
 export function buildingShape(kind: number, rot = 0): readonly ShapeOffset[] {
+  // The elevated station stands on no ground tile at all: it is its platform, overhead (overheadPlatform).
+  if (kind === BUILDING_STATION_ELEVATED) return NO_GROUND;
   const shape = SHAPES.get(kind) ?? ONE_TILE;
   const r = rot & 3;
   if (r === 0 || shape.length === 1 || RULES.get(kind)?.noRotation) return shape;
@@ -126,8 +129,8 @@ export function platformEnds(kind: number, rot = 0): ShapeOffset[] {
  * a neighbour of a platform tile that is neither part of the building nor
  * straight on from a platform end. No track of the platform's level may be
  * there (ground track for a train station, subway track for a subway
- * station, elevated track for an elevated station: its entrance is one of
- * these tiles). Empty for a kind with no platform.
+ * station, elevated track for an elevated station). Empty for a kind with
+ * no platform.
  */
 export function platformSides(kind: number, rot = 0): ShapeOffset[] {
   const under = stationPlatform(kind, rot);
@@ -285,36 +288,32 @@ export function subwayPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
   return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : NO_TILES;
 }
 
-// The elevated station (owner 2026-11-21): its shape is a one-tile ENTRANCE on the ground (stairs up),
-// and its platform is OVERHEAD, on the three tiles beside the entrance: at rotation 0 the row just north
-// of it, running west to east, the entrance beside the middle one. Each quarter turn clockwise moves the
-// platform round the entrance: east of it (north to south) at 1, south at 2, west at 3.
-const OVERHEAD_PLATFORM: readonly (readonly ShapeOffset[])[] = [
-  [[-1, -1], [0, -1], [1, -1]],
-  [[1, -1], [1, 0], [1, 1]],
-  [[1, 1], [0, 1], [-1, 1]],
-  [[-1, 1], [-1, 0], [-1, -1]],
-];
+// The elevated station (owner 2026-11-21: "1x3, no stairs, no nothin, just the station"): it IS its
+// platform, three tiles in a row OVERHEAD, and stands on no ground tile (buildingShape is empty). Its
+// anchor is the middle tile; west to east at rotation 0, north to south at rotation 1.
+setPlacementRules(BUILDING_STATION_ELEVATED, { twoWay: true });
 
 /**
- * The overhead platform of an elevated station, as offsets from its entrance
- * (the anchor): three tiles in a row beside the entrance, the middle one
- * touching it (see above for each rotation). They carry elevated track, over
- * whatever elevated track may cross: land, water, a road, ground track.
- * Never a building or a zone. Empty for any other kind.
+ * The overhead platform of an elevated station, as offsets from its anchor
+ * (the middle tile): three tiles in a row, west–east at rotation 0 and
+ * north–south at rotation 1. They carry elevated track, over whatever
+ * elevated track may cross: land, water, a road, ground track. Never a
+ * building or a zone. These three tiles are the whole station: it has no
+ * tile in the building layer (World.overheadStationAt finds it). Empty for
+ * any other kind.
  */
 export function overheadPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
-  return kind === BUILDING_STATION_ELEVATED ? OVERHEAD_PLATFORM[rot & 3] : NO_TILES;
+  return kind === BUILDING_STATION_ELEVATED ? SUBWAY_PLATFORM[rot & 1] : NO_TILES;
 }
 
 /**
  * The platform of a station whose platform is NOT part of its shape: a subway
  * station's (underground) or an elevated station's (overhead). Three tiles in
- * a row, the middle one second; riders board at the middle one. Its track is
+ * a row, the middle one (the anchor) second; riders board at the middle one. Its track is
  * on platformLevel(kind). Empty for any other kind.
  */
 export function stationPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
-  return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : kind === BUILDING_STATION_ELEVATED ? OVERHEAD_PLATFORM[rot & 3] : NO_TILES;
+  return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : kind === BUILDING_STATION_ELEVATED ? SUBWAY_PLATFORM[rot & 1] : NO_TILES;
 }
 
 // ── Where a kind may stand ───────────────────────────────────────────────────

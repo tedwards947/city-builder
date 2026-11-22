@@ -60,7 +60,7 @@ export class PlaceBuildingCommand extends Command {
     const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind, rot: this.rot });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
-    // An elevated station's platform is over other tiles: they are put back whole on undo (its track, and the trees it cleared).
+    // An elevated station is all platform, over tiles that are not its own: they are put back whole on undo (its track, and the trees it cleared).
     const over = overheadPlatform(this.kind, this.rot).map(([dx, dy]) => world.grid.idx(this.tx + dx, this.ty + dy));
     this.snaps = snapshotTiles(world, [...withLots(world, footprint), ...over]);
     // The platform of a subway station lies under other tiles: note which of them have no tunnel yet,
@@ -82,6 +82,11 @@ export class PlaceBuildingCommand extends Command {
   }
 
   undo(world: World): void {
+    // An elevated station has no tile in the building layer for restoreTiles to follow: take its entry down by hand.
+    if (overheadPlatform(this.kind, this.rot).length > 0) {
+      const st = world.buildings.find((b) => b.kind === this.kind && b.tx === this.tx && b.ty === this.ty);
+      if (st) world.removeOverheadStation(st);
+    }
     if (this.snaps) restoreTiles(world, this.snaps);
     for (const i of this.dug) {
       world.layers.rail[i] &= ~RAIL_SUBWAY;

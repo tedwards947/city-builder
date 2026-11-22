@@ -74,8 +74,7 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
   // A station, a ramp and a subway station turn to meet track.
   const twoWay = placementRules(kind).twoWay === true;
   const station = hasPlatforms(kind);
-  const overhead = !twoWay && stationPlatform(kind, 0).length > 0;   // the elevated station: its platform is beside its entrance
-  const joins = station || rampLevel(kind) !== 0 || twoWay || overhead;
+  const joins = station || rampLevel(kind) !== 0 || twoWay;
   const turns = twoWay ? 2 : hasDocks(kind) || joins ? 4 : 1;
   for (let k = 0; k < turns; k++) {
     const rot = turns === 1 ? 0 : twoWay ? (turn + k) & 1 : (turn + k) & 3;
@@ -86,8 +85,6 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
       const shape = buildingShape(kind, rot), roles = shapeRoles(kind);
       shape.forEach(([dx, dy], n) => { if (roles[n] === 'platform') anchors.push({ tx: tx - dx, ty: ty - dy }); });
     }
-    // An elevated station too: pointing at a line (or a street) puts the platform over it, the entrance beside.
-    if (overhead) for (const [dx, dy] of stationPlatform(kind, rot)) anchors.push({ tx: tx - dx, ty: ty - dy });
     for (const a of anchors) {
       const check = world.checkPlacement(a.tx, a.ty, kind, rot);
       // A station prefers the first way that fits AND meets track; failing that, the first way that fits.

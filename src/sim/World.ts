@@ -609,7 +609,7 @@ export class World {
     return this.platformHeldBy(i, RAIL_SUBWAY);
   }
 
-  /** Whether tile `i` is under (or over) the platform of a standing station whose platform is off its shape and on `level`: a subway station's, or an elevated station's. */
+  /** Whether tile `i` is over the platform of a standing subway station (`level` RAIL_SUBWAY). */
   private platformHeldBy(i: number, level: number): boolean {
     const { width } = this.grid;
     const x = i % width, y = (i - x) / width;
@@ -621,12 +621,44 @@ export class World {
   }
 
   /**
-   * Whether the elevated track over tile `i` is the platform of an elevated
-   * station that still stands. The bulldozer leaves it (it clears what is
-   * under it); clear the station's entrance to be rid of it.
+   * The elevated station whose platform is over tile `i`, or null. An
+   * elevated station has no tile in the building layer (what is under it, a
+   * road say, keeps the tile): it is an entry in `buildings` anchored at its
+   * middle platform tile, and this finds it from any of its three. Searches
+   * the list.
    */
-  elevatedHeldBy(i: number): boolean {
-    return (this.layers.rail[i] & RAIL_ELEVATED) !== 0 && this.platformHeldBy(i, RAIL_ELEVATED);
+  overheadStationAt(i: number): BuildingEntity | null {
+    const { width } = this.grid;
+    const x = i % width, y = (i - x) / width;
+    for (const b of this.buildings) {
+      for (const [dx, dy] of overheadPlatform(b.kind, b.rot ?? 0)) if (b.tx + dx === x && b.ty + dy === y) return b;
+    }
+    return null;
+  }
+
+  /** The three platform tiles of the elevated station `b`, the middle one second. */
+  overheadStationTiles(b: BuildingEntity): number[] {
+    return overheadPlatform(b.kind, b.rot ?? 0).map(([dx, dy]) => (b.ty + dy) * this.grid.width + b.tx + dx);
+  }
+
+  /**
+   * Take the elevated station `b` down (false if it is not standing). Its
+   * platform stays as plain elevated track, and whatever is under it is not
+   * touched.
+   */
+  removeOverheadStation(b: BuildingEntity): boolean {
+    if (!this.buildings.includes(b)) return false;
+    this.buildings = this.buildings.filter((o) => o !== b);
+    this.railVersion++;
+    for (const i of this.overheadStationTiles(b)) this.grid.markDirty(i % this.grid.width, (i - (i % this.grid.width)) / this.grid.width);
+    return true;
+  }
+
+  /** Stand an elevated station up again as it was (undo): the entry only; its track is the caller's. */
+  restoreOverheadStation(b: BuildingEntity): void {
+    this.buildings = [...this.buildings, { ...b }];
+    this.railVersion++;
+    for (const i of this.overheadStationTiles(b)) this.grid.markDirty(i % this.grid.width, (i - (i % this.grid.width)) / this.grid.width);
   }
 
   /**
@@ -666,10 +698,12 @@ export class World {
     }
     const blocked: number[] = [];
     // An elevated station's platform goes where elevated track goes (over land, water, a road or ground
-    // track; never a building or a zone), or on elevated track that is already there.
+    // track; never a building or a zone), or on elevated track that is already there, but not on another station's platform.
     for (const [dx, dy] of overheadPlatform(kind, rot)) {
       const i = this.grid.idx(tx + dx, ty + dy);
-      if (this.layers.building[i] !== BUILDING_NONE || this.layers.zone[i] !== ZONE_NONE || reservedAgainst(this, i, null)) blocked.push(i);
+      if (this.layers.building[i] !== BUILDING_NONE || this.layers.zone[i] !== ZONE_NONE || reservedAgainst(this, i, null) || this.overheadStationAt(i)) blocked.push(i);
+      // New elevated track, so not beside another station's platform either (it would run into its side).
+      else if (!(this.layers.rail[i] & RAIL_ELEVATED) && besideStationPlatform(this, RAIL_ELEVATED).has(i)) blocked.push(i);
     }
     const notOpenWater: number[] = [];
     if (hasDocks(kind)) {
@@ -748,8 +782,8 @@ export class World {
     if (!this.canPlaceBuilding(tx, ty, b, rot)) return false;
     const { width } = this.grid;
     const anchor = this.grid.idx(tx, ty);
-    this.buildingRot[anchor] = rot;
     const placed = footprintTiles(width, this.grid.height, tx, ty, b, rot)!;
+    if (placed.length > 0) this.buildingRot[anchor] = rot;   // an elevated station has no tile of its own: its turn is on its entry
     const roles = shapeRoles(b);
     for (let k = 0; k < placed.length; k++) {
       const i = placed[k];
@@ -835,11 +869,11 @@ export class World {
     return id !== 0 ? id - 1 : i;
   }
 
-  /** The building that (tx, ty) is part of, or null. Searches the list: for hot loops use buildingAnchorAt. */
+  /** The building that (tx, ty) is part of, or null; with no building on the tile, the elevated station whose platform is over it. Searches the list: for hot loops use buildingAnchorAt. */
   buildingAt(tx: number, ty: number): BuildingEntity | null {
     if (!this.grid.inBounds(tx, ty)) return null;
     const anchor = this.buildingAnchorAt(this.grid.idx(tx, ty));
-    if (anchor < 0) return null;
+    if (anchor < 0) return this.overheadStationAt(this.grid.idx(tx, ty));
     const { width } = this.grid;
     const ax = anchor % width, ay = (anchor - ax) / width;
     for (const b of this.buildings) if (b.tx === ax && b.ty === ay) return b;
@@ -883,18 +917,17 @@ export class World {
    * The streets and avenues the building at (tx, ty) is entered from: every
    * such road tile along the edge of its tiles on land (docks do not count,
    * a station's platform does; a highway gives no access). An elevated
-   * station is also entered from a road under its platform or beside it.
+   * station (ask at any of its platform tiles) is entered from a road under
+   * its platform or beside it.
    * Empty = not connected, or no building there.
    */
   buildingAccessRoads(tx: number, ty: number): number[] {
     const tiles = this.buildingTilesAt(tx, ty);
-    if (tiles.length === 0) return [];
     const { width, height } = this.grid;
-    const kind = this.layers.building[tiles[0]];
-    if (overheadPlatform(kind, 0).length > 0) {
-      const anchor = this.buildingAnchorAt(tiles[0]);
-      const ax = anchor % width, ay = (anchor - ax) / width;
-      const whole = [anchor, ...overheadPlatform(kind, this.buildingRot[anchor]).map(([dx, dy]) => (ay + dy) * width + ax + dx)];
+    if (tiles.length === 0) {
+      const st = this.grid.inBounds(tx, ty) ? this.overheadStationAt(this.grid.idx(tx, ty)) : null;
+      if (!st) return [];
+      const whole = this.overheadStationTiles(st);
       const roads: number[] = [];
       for (const i of [...whole, ...footprintEdge(width, height, whole)]) {
         const rc = this.layers.roadClass[i];
@@ -922,8 +955,8 @@ export class World {
     for (const b of this.buildings) {
       const anchor = b.ty * width + b.tx;
       const rot = (b.rot ?? 0) & 3;
-      this.buildingRot[anchor] = rot;
       const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, rot) ?? [anchor];
+      if (tiles.length > 0) this.buildingRot[anchor] = rot;
       for (const i of tiles) this.buildingId[i] = anchor + 1;
     }
   }
@@ -952,7 +985,7 @@ export class World {
       const anchor = b.ty * width + b.tx;
       const tiles = footprintTiles(width, height, b.tx, b.ty, b.kind, rot);
       const roles = shapeRoles(b.kind);
-      if (tiles && tiles.length === 1) continue;   // a one-tile kind has no shape to change
+      if (tiles && tiles.length <= 1) continue;   // a one-tile kind has no shape to change, nor has an elevated station (no ground tile)
       const missing: number[] = [];
       let fits = tiles !== null;
       if (tiles) {
@@ -1023,10 +1056,15 @@ export class World {
 
   /**
    * Empty the tile. If it is part of a building, the whole building goes:
-   * every tile of it is emptied and its entity removed.
+   * every tile of it is emptied and its entity removed. Under the platform
+   * of an elevated station, the station goes FIRST and nothing else (its
+   * platform stays as plain elevated track, the road under it stays): clear
+   * the tile again for the rest.
    */
   clearTile(tx: number, ty: number): boolean {
     if (!this.grid.inBounds(tx, ty)) return false;
+    const station = this.overheadStationAt(this.grid.idx(tx, ty));
+    if (station) return this.removeOverheadStation(station);
     const whole = this.buildingTilesAt(tx, ty);
     if (whole.length > 1) {
       const { width } = this.grid;
@@ -1051,10 +1089,8 @@ export class World {
     this.razeLot(i);
     const hadRoad = this.layers.roadClass[i] !== ROAD_NONE;
     const hadBuilding = this.layers.building[i];
-    // Ground and elevated track go with the tile; a subway underneath stays (removeSubway), and so does
-    // the platform of an elevated station that still stands (elevatedHeldBy).
-    const going = this.elevatedHeldBy(i) ? RAIL_GROUND : RAIL_SURFACE;
-    if ((this.layers.rail[i] & going) !== 0) { this.layers.rail[i] &= ~going; this.railVersion++; }
+    // Ground and elevated track go with the tile; a subway underneath stays (removeSubway).
+    if ((this.layers.rail[i] & RAIL_SURFACE) !== 0) { this.layers.rail[i] &= ~RAIL_SURFACE; this.railVersion++; }
     this.buildingId[i] = 0;
     this.layers.zone[i] = ZONE_NONE;
     this.layers.roadClass[i] = ROAD_NONE;

@@ -449,7 +449,8 @@ function stationRows(world: World, tx: number, ty: number, kind: number): string
   if (world.buildingAccessRoads(tx, ty).length === 0) {
     html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.stationNoRoad")}</div>`;
   } else {
-    const anchor = world.buildingAnchorAt(i);
+    const st = world.overheadStationAt(i);
+    const anchor = st ? world.grid.idx(st.tx, st.ty) : world.buildingAnchorAt(i);
     const boardings = world.traffic?.rail.stations.find((s) => s.anchor === anchor)?.boardings ?? 0;
     html += `<div class="ti-detail">${t("ui.tileInfo.stationBoardings", {n: Math.round(boardings).toLocaleString("en-US")})}</div>`;
     const fares = boardings * BALANCE.rail.fare;
@@ -497,7 +498,8 @@ export class TileInfoPanel {
     const terrain = world.layers.terrain[i];
     const zone = world.layers.zone[i];
     const road = world.layers.roadClass[i];
-    const building = world.layers.building[i];
+    // An elevated station is overhead, with no tile of its own in the building layer.
+    const building = world.layers.building[i] || (world.overheadStationAt(i)?.kind ?? 0);
     const vegetation = world.layers.vegetation[i];
     const dev = world.layers.devLevel[i];
     const pollution = world.layers.pollution[i];
