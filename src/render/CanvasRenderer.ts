@@ -16,13 +16,13 @@ import { eventStatus } from '../sim/eventDays';
 import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
 import { isLotAnchor, lotShape, LOT_SIZE } from '../sim/lots';
 import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
-import { drawRailTile, drawStation, drawElevatedStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
+import { drawRailTile, drawStation, drawElevatedEntrance, drawElevatedIslandTops, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { drawConnectionStubs, drawConnectionHints } from './clay/connectionStubs';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
-import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
+import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles, overheadPlatform } from '../sim/buildingShapes';
 import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
@@ -293,6 +293,7 @@ export class CanvasRenderer {
       this._drawSubwayRampShades(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED);
+      drawElevatedIslandTops(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       // Capstone aircraft in the air or taxiing (clay/capstoneAnim.ts), above the buildings.
       drawCapstoneFlights(ctx, world, ox, oy, ts, now);
       if (underground) {
@@ -439,6 +440,8 @@ export class CanvasRenderer {
         }
         // A subway station's entrance (clay/rail.ts); its platform shows in the underground view.
         if (building === BUILDING_SUBWAY_STATION && railArtReady()) drawSubwayEntrance(ctx, sxi, syi, clayTile);
+        // An elevated station's entrance: a concrete stair up to its platform, which the elevated layer draws overhead.
+        if (building === BUILDING_STATION_ELEVATED) drawElevatedEntrance(ctx, world.buildingRotAt(i), sxi, syi, clayTile);
         // A merged lot (sim/lots.ts) is drawn once, from its last tile in draw order
         // (a 2×2's bottom-left quarter, a pair's east or south tile), so rows behind it are already drawn.
         const lotQ = world.layers.lot[i];
@@ -446,7 +449,7 @@ export class CanvasRenderer {
         if (isLotAnchor(lotQ) && dev > 0) markerQueue.push(i, sxi, syi);
         // A pair of shops (lot 5–8) keeps its two level-3 pictures until its own art has loaded.
         const merged = (lotQ >= 1 && lotQ <= 4) || (lotQ >= 5 && this._pairArt(world, i));
-        const clay = big || merged || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        const clay = big || merged || building === BUILDING_STATION_ELEVATED || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
@@ -711,13 +714,6 @@ export class CanvasRenderer {
     if (kind === BUILDING_RAMP_ELEVATED || kind === BUILDING_RAMP_SUBWAY) {
       const tile = Math.ceil(camera.zoom * TILE_SIZE), subway = kind === BUILDING_RAMP_SUBWAY;
       if (railArtReady()) { drawRamp(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); drawRampTrack(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); }
-      else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
-      return;
-    }
-    // The elevated station (clay/rail.ts): its deck, piers, spread track and painted island.
-    if (kind === BUILDING_STATION_ELEVATED) {
-      const tile = Math.ceil(camera.zoom * TILE_SIZE);
-      if (railArtReady()) drawElevatedStation(ctx, X(ax + box.minX), Y(ay + box.minY), box.maxX - box.minX + 1, box.maxY - box.minY + 1, tile);
       else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
       return;
     }
@@ -1233,6 +1229,21 @@ export class CanvasRenderer {
     }
     // Placing a building on several tiles: outline where it would stand (anchor under the pointer), red if it cannot go there.
     const placing = buildingKindForPlacing(tool);
+    // An elevated station: its entrance and, beside it, the three overhead platform tiles (any of them may be the problem).
+    if (placing === BUILDING_STATION_ELEVATED) {
+      const a = placementFor(world, placing, hoverTile.tx, hoverTile.ty), check = a.check, can = check.ok && !refused;
+      const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+      const tiles = [{ x: a.tx, y: a.ty }, ...overheadPlatform(placing, a.rot).map(([dx, dy]) => ({ x: a.tx + dx, y: a.ty + dy }))];
+      tiles.forEach((p, k) => {
+        if (!world.grid.inBounds(p.x, p.y)) return;
+        const blocked = check.blocked.includes(world.grid.idx(p.x, p.y));
+        ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : k === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(190,230,255,0.3)';
+        ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      });
+      ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
+      this._strokeTileSet(ctx, tiles, X, Y);
+      return;
+    }
     if (placing !== undefined && isLargeBuilding(placing)) {
       // The pointer holds the middle of the footprint; a seaport also turns to face open water (input/placement.ts).
       const a = placementFor(world, placing, hoverTile.tx, hoverTile.ty);

@@ -11,8 +11,8 @@
  */
 import { LINK_N, LINK_E, LINK_S, LINK_W, railLinks } from '../../sim/rail';
 import type { World } from '../../sim/World';
-import { subwayPlatform } from '../../sim/buildingShapes';
-import { BUILDING_STATION, BUILDING_STATION_L, BUILDING_SUBWAY_STATION, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, RAIL_ELEVATED, RAIL_SUBWAY } from '../../sim/constants';
+import { subwayPlatform, overheadPlatform } from '../../sim/buildingShapes';
+import { BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_SUBWAY_STATION, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, RAIL_ELEVATED, RAIL_SUBWAY } from '../../sim/constants';
 import { RAIL_SPRITES } from './railSpriteData';
 
 type Ctx = CanvasRenderingContext2D;
@@ -240,9 +240,12 @@ export function drawStation(ctx: Ctx, kind: number, rot: number, L: number, Tp: 
 const ELEV = { top: '#bdb6aa', face: '#8f887c', dark: '#6f685e', board: 'rgba(60,52,44,0.18)' };
 /** The painted island's slab (its top face and thin front edge, not the canopy above it) in sprite pixels: left, right, top, bottom. */
 const ELEV_SLAB: Record<string, [number, number, number, number]> = { 'elev-h': [2, 397, 27, 96], 'elev-v': [2, 73, 16, 310] };
-/** Where the island lies along (from the row's start) and across the row, in tiles. */
+/**
+ * Where the island lies along (from the row's start) and across the row, in tiles: inside the inner sleepers of the
+ * spread tracks (0.5 ± 0.24 at u 0.5, where they start to close in), so no rail runs over the slab (owner, 2026-11-21).
+ */
 const ELEV_FIT: Record<string, { along: [number, number]; across: [number, number] }> = {
-  'elev-h': { along: [0.3, 2.7], across: [0.2, 0.8] }, 'elev-v': { along: [0.35, 2.65], across: [0.26, 0.74] },
+  'elev-h': { along: [0.52, 2.48], across: [0.27, 0.73] }, 'elev-v': { along: [0.52, 2.48], across: [0.27, 0.73] },
 };
 /** An elevated station whose footprint's top-left corner is at screen (L, Tp), `w` × `h` tiles (3 × 1 or 1 × 3), T pixels a tile. */
 export function drawElevatedStation(ctx: Ctx, L: number, Tp: number, w: number, h: number, T: number): void {
@@ -272,13 +275,76 @@ export function drawElevatedStation(ctx: Ctx, L: number, Tp: number, w: number, 
   drawIslandTrack(ctx, horizontal, L, Tp, T);
   ctx.restore();
   // The painted island on the deck.
-  const name = horizontal ? 'elev-h' : 'elev-v', sp = load()[name], m = RAIL_SPRITES[name];
-  if (!sp || !m || !sp.img.complete || sp.img.naturalWidth === 0) return;
+  const at = islandAt(L, Tp, w, h, T);
+  if (at) ctx.drawImage(at.img, at.x, at.y, at.w, at.h);
+}
+/** Where the painted island goes for a platform at (L, Tp), `w` × `h` tiles: the image's box, and the screen row its slab starts at. */
+function islandAt(L: number, Tp: number, w: number, h: number, T: number): { img: HTMLImageElement; x: number; y: number; w: number; h: number; slabTop: number } | null {
+  const horizontal = w >= h, lift = DECK_HEIGHT * T, name = horizontal ? 'elev-h' : 'elev-v', sp = load()[name], m = RAIL_SPRITES[name];
+  if (!sp || !m || !sp.img.complete || sp.img.naturalWidth === 0) return null;
   const [sl, sr, st, sb] = ELEV_SLAB[name], fit = ELEV_FIT[name];
   const bx = horizontal ? L + fit.along[0] * T : L + fit.across[0] * T, by = (horizontal ? Tp + fit.across[0] * T : Tp + fit.along[0] * T) - lift;
   const bw = (horizontal ? fit.along[1] - fit.along[0] : fit.across[1] - fit.across[0]) * T, bh = (horizontal ? fit.across[1] - fit.across[0] : fit.along[1] - fit.along[0]) * T;
   const qx = bw / (sr - sl), qy = bh / (sb - st);
-  ctx.drawImage(sp.img, bx - sl * qx, by - st * qy, m.w * qx, m.h * qy);
+  return { img: sp.img, x: bx - sl * qx, y: by - st * qy, w: m.w * qx, h: m.h * qy, slabTop: by };
+}
+/**
+ * Over the elevated trains: the part of each elevated station's island that rises above its slab (the canopy, the
+ * stair hall), so a train on the track behind the island passes behind them. (sx, sy): screen position of tile (0, 0).
+ */
+export function drawElevatedIslandTops(ctx: Ctx, world: World, sx: number, sy: number, T: number, x0: number, y0: number, x1: number, y1: number): void {
+  const tile = Math.ceil(T);
+  for (const b of world.buildings) {
+    if (b.kind !== BUILDING_STATION_ELEVATED) continue;
+    const t = overheadPlatform(b.kind, b.rot ?? 0).map(([dx, dy]) => [b.tx + dx, b.ty + dy]);
+    if (t.length === 0) continue;
+    const mx = Math.min(...t.map(p => p[0])), my = Math.min(...t.map(p => p[1])), Mx = Math.max(...t.map(p => p[0])), My = Math.max(...t.map(p => p[1]));
+    if (Mx < x0 - 1 || mx > x1 + 1 || My < y0 - 1 || my > y1 + 1) continue;
+    const at = islandAt(Math.floor(sx + mx * T), Math.floor(sy + my * T), Mx - mx + 1, My - my + 1, tile);
+    if (!at) continue;
+    ctx.save(); ctx.beginPath(); ctx.rect(at.x, at.y, at.w, at.slabTop - at.y); ctx.clip();
+    ctx.drawImage(at.img, at.x, at.y, at.w, at.h);
+    ctx.restore();
+  }
+}
+
+/**
+ * An elevated station's entrance on its one tile (top-left at (px, py)): concrete paving and a board-marked concrete
+ * stair climbing to the platform's deck beside it (rot 0: the platform is north; 1 east; 2 south; 3 west), its door at
+ * the foot, on the street side.
+ */
+export function drawElevatedEntrance(ctx: Ctx, rot: number, px: number, py: number, T: number): void {
+  const r = rot & 3;
+  // (a, c): a along the climb (0 at the foot, 1 at the deck), c across it; mapped to the tile's (u, v).
+  const uv = (a: number, c: number): [number, number] => r === 0 ? [c, 1 - a] : r === 1 ? [a, c] : r === 2 ? [1 - c, a] : [1 - a, 1 - c];
+  type Box = { u0: number; u1: number; v0: number; v1: number; z0: number; z1: number; top: string; face: string };
+  const box = (a0: number, a1: number, c0: number, c1: number, z0: number, z1: number, top: string, face: string): Box => {
+    const [ua, va] = uv(a0, c0), [ub, vb] = uv(a1, c1);
+    return { u0: Math.min(ua, ub), u1: Math.max(ua, ub), v0: Math.min(va, vb), v1: Math.max(va, vb), z0, z1, top, face };
+  };
+  const paint = (b: Box): void => {
+    const x = px + b.u0 * T, w = (b.u1 - b.u0) * T, yb = py + b.v1 * T;
+    ctx.fillStyle = b.face; ctx.fillRect(x, yb - b.z1 * T, w, (b.z1 - b.z0) * T);
+    ctx.fillStyle = b.top; ctx.fillRect(x, py + b.v0 * T - b.z1 * T, w, (b.v1 - b.v0) * T);
+  };
+  ctx.save();
+  ctx.fillStyle = '#cbc5ba'; ctx.fillRect(px, py, T, T);   // paving
+  ctx.fillStyle = 'rgba(60,52,44,0.12)';
+  if (T >= 12) for (let k = 1; k < 4; k++) { ctx.fillRect(px + k * T / 4, py, 1, T); ctx.fillRect(px, py + k * T / 4, T, 1); }
+  const n = 9, D = DECK_HEIGHT, parts: Box[] = [];
+  // The stair's shadow on the paving, pushed right like the deck's.
+  { const s = box(0.12, 1, 0.24, 0.76, 0, 0, '', ''); ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + s.u0 * T + D * 0.25 * T, py + s.v0 * T, (s.u1 - s.u0) * T, (s.v1 - s.v0) * T); }
+  for (let k = 0; k < n; k++) {
+    const a0 = 0.12 + 0.88 * k / n, a1 = 0.12 + 0.88 * (k + 1) / n, z = D * (k + 1) / n;
+    parts.push(box(a0, a1, 0.3, 0.7, 0, z, k % 2 ? '#c4bdb1' : '#bab3a7', '#8f887c'));          // steps
+    for (const [c0, c1] of [[0.24, 0.3], [0.7, 0.76]]) parts.push(box(a0, a1, c0, c1, 0, z + 0.05, '#a8a194', '#7e776b'));   // parapets
+  }
+  // The door at the foot: a heavy concrete frame across the stair.
+  parts.push(box(0.04, 0.12, 0.24, 0.3, 0, 0.12, '#a8a194', '#6f685e'), box(0.04, 0.12, 0.7, 0.76, 0, 0.12, '#a8a194', '#6f685e'));
+  parts.push(box(0.04, 0.12, 0.24, 0.76, 0.1, 0.13, '#b3ac9f', '#7e776b'));
+  // Back to front, low to high, so nearer and taller pieces cover the rest.
+  parts.sort((p, q) => p.v1 - q.v1 || p.z1 - q.z1).forEach(paint);
+  ctx.restore();
 }
 
 // ── Phase 2: elevated track, ramps and portals, the underground view ──
@@ -442,18 +508,33 @@ export function drawElevatedLayer(ctx: Ctx, world: World, sx: number, sy: number
   // A ramp's own tiles carry the levels too, but its picture draws them.
   const rail = world.layers.rail, w = world.grid.width, bld = world.layers.building;
   const X = (tx: number): number => Math.floor(sx + tx * T), Y = (ty: number): number => Math.floor(sy + ty * T), tile = Math.ceil(T);
+  // Elevated stations' platforms: plain elevated track in the world, drawn here as the station (drawElevatedStation),
+  // once, from the platform's top-left tile. Keyed by that tile: its size in tiles.
+  const station = new Map<number, [number, number]>(), platform = new Set<number>();
+  for (const b of world.buildings) {
+    if (b.kind !== BUILDING_STATION_ELEVATED) continue;
+    const t = overheadPlatform(b.kind, b.rot ?? 0).map(([dx, dy]) => [b.tx + dx, b.ty + dy]);
+    if (t.length === 0) continue;
+    const mx = Math.min(...t.map(p => p[0])), my = Math.min(...t.map(p => p[1]));
+    station.set(my * w + mx, [Math.max(...t.map(p => p[0])) - mx + 1, Math.max(...t.map(p => p[1])) - my + 1]);
+    for (const [x, y] of t) platform.add(y * w + x);
+  }
   // A deck's shadow and legs reach a little past its own tile: take in one more row and column.
   const ya = Math.max(0, y0 - 1), xa = Math.max(0, x0 - 1);
   for (let ty = ya; ty <= y1; ty++) for (let tx = xa; tx <= x1; tx++) {
-    const i = ty * w + tx; if (!(rail[i] & RAIL_ELEVATED) || bld[i]) continue;
+    const i = ty * w + tx; if (!(rail[i] & RAIL_ELEVATED) || bld[i] || platform.has(i)) continue;
     // A ramp rising from the south lifts its top into this tile's bottom strip: keep the shadow off it.
     const ramp = ty + 1 < world.grid.height && bld[i + w] === BUILDING_RAMP_ELEVATED;
     if (ramp) { ctx.save(); ctx.beginPath(); ctx.rect(X(tx) - tile, Y(ty), 3 * tile, Y(ty + 1) - Y(ty) - DECK_HEIGHT * T); ctx.clip(); }
     drawElevatedShadow(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile);
     if (ramp) ctx.restore();
   }
-  for (let ty = ya; ty <= Math.min(world.grid.height - 1, y1 + 1); ty++) for (let tx = xa; tx <= x1; tx++) {
-    const i = ty * w + tx; if (rail[i] & RAIL_ELEVATED && !bld[i]) drawElevatedTile(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile, (tx + ty) % 2 === 0);
+  // (A station's top-left tile may lie up to two tiles off the view and still show: take in two more for it.)
+  for (let ty = Math.max(0, ya - 2); ty <= Math.min(world.grid.height - 1, y1 + 1); ty++) for (let tx = Math.max(0, xa - 2); tx <= x1; tx++) {
+    const i = ty * w + tx, st = station.get(i);
+    if (!st && (ty < ya || tx < xa)) continue;
+    if (st) { drawElevatedStation(ctx, X(tx), Y(ty), st[0], st[1], tile); continue; }
+    if (rail[i] & RAIL_ELEVATED && !bld[i] && !platform.has(i)) drawElevatedTile(ctx, railLinks(world, i, RAIL_ELEVATED), X(tx), Y(ty), tile, (tx + ty) % 2 === 0);
   }
 }
 
