@@ -4,6 +4,8 @@ import { ordinancePrice, ordinanceUpkeep } from '../ui/OrdinancePanel';
 import { ORDINANCES, enactOrdinance } from '../sim/ordinances';
 import type { OrdinanceDef } from '../sim/ordinances';
 import { landWorld } from './pcTestWorld';
+import indexHtml from '../../index.html?raw';
+import panelSource from '../ui/OrdinancePanel.ts?raw';
 
 /** Set an ordinance's numbers for one test; returns a function that puts them back. */
 function withNumbers(id: number, numbers: Partial<OrdinanceDef['numbers']>): () => void {
@@ -40,5 +42,16 @@ describe('ordinance panel', () => {
     } finally {
       numbers.dailyUpkeep = was[0]; numbersB.dailyUpkeep = was[1];
     }
+  });
+});
+
+describe('ordinance panel layout', () => {
+  it('keeps the switches clear of the list scrollbar, and the row is a click target', () => {
+    const css = indexHtml;
+    const list = css.match(/\.ord-list \{[^}]*\}/)![0];
+    expect(list).toContain('scrollbar-gutter: stable');
+    expect(list).toMatch(/padding-right: \d+px/);
+    expect(css).toMatch(/\.ord-row\.clickable \{ cursor: pointer; \}/);
+    expect(panelSource).toMatch(/row\.addEventListener\('click'/);
   });
 });
