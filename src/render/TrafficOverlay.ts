@@ -23,7 +23,7 @@ import type { Camera } from './Camera';
 import { Projection, TILE_SIZE } from './Projection';
 import { ROAD_NONE, ZONE_NONE, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../sim/constants';
 import { buildingTrace } from './buildingTrace';
-import { railLinks, rampOther, stationPeak } from '../sim/rail';
+import { railLinks, rampOther, stationPeak, stationTiles } from '../sim/rail';
 import { rampLevel } from '../sim/buildingShapes';
 import { t } from '../i18n';
 import {
@@ -283,7 +283,7 @@ export class TrafficOverlay {
       ctx.font = `bold ${Math.max(11, Math.min(15, Math.round(ts * 0.34)))}px sans-serif`;
       for (const s of stations) {
         const ax = s.anchor % width, ay = (s.anchor - ax) / width;
-        const tiles = world.buildingTilesAt(ax, ay);
+        const tiles = stationTiles(world, s.anchor);   // an elevated station has none on the ground: its platform
         if (tiles.length === 0) continue;
         let sx = 0, sy = 0;
         for (const k of tiles) { sx += k % width; sy += (k - (k % width)) / width; }

@@ -15,7 +15,7 @@ import { reservedAgainst } from './connections';
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
-import { buildingShape, hasPlatforms, platformLevel, platformSides, rampLevel, stationPlatform } from './buildingShapes';
+import { buildingShape, hasPlatforms, platformLevel, overheadPlatform, platformSides, rampLevel, stationPlatform } from './buildingShapes';
 import { transitIsFree } from './ordinances';
 import { railVolume } from './TrafficData';
 
@@ -312,6 +312,18 @@ export function stationPeak(world: World, tx: number, ty: number): { tile: numbe
     if (v > most) { most = v; best = i; }
   }
   return best < 0 ? null : { tile: best, level, riders: most };
+}
+
+/**
+ * The tiles of the station anchored at tile index `anchor`: its building's tiles, or for an elevated
+ * station (which has none on the ground) its three overhead platform tiles. Empty if nothing stands there.
+ */
+export function stationTiles(world: World, anchor: number): number[] {
+  const { width } = world.grid, ax = anchor % width, ay = (anchor - ax) / width;
+  const tiles = world.buildingTilesAt(ax, ay);
+  if (tiles.length > 0) return tiles;
+  const b = world.buildingAt(ax, ay);
+  return b && overheadPlatform(b.kind, b.rot ?? 0).length > 0 ? world.overheadStationTiles(b) : [];
 }
 
 const boostCache = new WeakMap<World, { key: string; mask: Uint8Array | null }>();
