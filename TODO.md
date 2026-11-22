@@ -311,7 +311,7 @@ s. **Capstone buildings** (owner, 2026-11-20; workshop in progress, see CAPSTONE
 
 t. **Outside code review (Gemini)** (owner, 2026-11-21: after capstones and connections, "up to y'all"). Triage list and plan in docs/REVIEW_2026-11-21.md: utility passes dirtying every chunk each tick, per-frame HUD and chart redraws, derived layers in saves, generating a map before loading a save, CanvasRenderer size, a vitest exclude. Check each item against main first; some are already fixed.
 
-u. **Cloudflare Web Analytics** (owner, 2026-11-21: "prolly set up cloudflare analytics tomorrow"). The site is on Cloudflare Pages, so the simplest route is the owner turning on Web Analytics for the Pages project in the Cloudflare dashboard (cookieless, no banner needed, no code). The alternative is a beacon script with a token in index.html, which an engineer adds once the owner has the token. Account settings stay the owner's; agents only add the snippet if asked.
+u. **Cloudflare Web Analytics.** Done (owner, 2026-11-21): enabled on the Pages project; the beacon is injected on each deploy.
 
 
 
