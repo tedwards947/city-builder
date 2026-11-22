@@ -7,6 +7,8 @@
 //   exports only when no industry is within reach of that point: the same point joined, with an
 //           industry district built beside its highway near the point, run `exportDays`;
 //   two     the two nearest highway points joined;
+//   with attractions (information only, 20k+ cities with none): one and two again, with the tourism
+//           probe's museum, big park and plaza placed, so the points bring tourists too;
 //   rail    the rail point nearest the city's ground track joined to it by ground track (across
 //           streets as level crossings, clearing the zoned lots in the way).
 // The design target (owner 2026-11-20): one joined highway point jams its entry road at peak, two
@@ -20,6 +22,8 @@ import { connectionExportIncome, connectionTradeAt } from '../sim/connectionTraf
 import { railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
 import { BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
 import { findLot } from './town';
+import { cityPull } from '../sim/leisureTraffic';
+import { placeAttractions } from './leisure';
 import { cloneWorld, startSim } from './world';
 
 const D = BALANCE.ticksPerDay;
@@ -62,6 +66,11 @@ export interface ConnectionsResult {
    * district built beside its highway near the point (`exportDays` long run). Industrial levels in the district at the end.
    */
   exportsBuilt?: { levels: number; trucks: number; exportIncomePerDay: number } | { note: string };
+  /**
+   * Information only (PM 2026-11-21): a city of 20k or more with no attraction, run again with the tourism probe's
+   * museum, big park and plaza placed (its own base for the loads before joining), one and two points joined.
+   */
+  withAttractions?: { placed: number; one: HighwayRun; two?: [HighwayRun, HighwayRun] };
   /** Industrial levels after the run, nothing joined and the nearest highway point joined. */
   industry?: { base: number; one: number };
   rail?: RailRun | { note: string };
@@ -246,6 +255,23 @@ export function connectionsResult(world: World, days = 10, exportDays = 30): Con
     layHighways(w2, highways.slice(0, 2));
     const two = play(w2, days, meets, [], [highways[0].path[0], highways[1].path[0]]);
     result.two = [run(0, two, 0), run(1, two, 1)];
+  }
+  if (highways.length > 0 && population >= 20000 && cityPull(start) === 0) {
+    const wa = cloneWorld(start);
+    const placed = placeAttractions(wa);
+    if (placed > 0) {
+      const aBase = play(cloneWorld(wa), days, meets, [], []);
+      const aRun = (k: number, r: ReturnType<typeof play>, at: number): HighwayRun => ({ ...run(k, r, at), meetBefore: r2(aBase.peak[k]) });
+      const w1 = cloneWorld(wa);
+      layHighways(w1, [highways[0]]);
+      result.withAttractions = { placed, one: aRun(0, play(w1, days, [highways[0].meets], [], [highways[0].path[0]]), 0) };
+      if (highways.length > 1) {
+        const w2 = cloneWorld(wa);
+        layHighways(w2, highways.slice(0, 2));
+        const two = play(w2, days, meets, [], [highways[0].path[0], highways[1].path[0]]);
+        result.withAttractions.two = [aRun(0, two, 0), aRun(1, two, 1)];
+      }
+    }
   }
   if (rails.length === 0) result.rail = { note: 'no rail point can be joined to the city\'s ground track' };
   else {

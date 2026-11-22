@@ -51,6 +51,14 @@ describe('balance lab: connections targets', () => {
     expect(grade({ ...none, exportsBuilt: { levels: 30, trucks: 3, exportIncomePerDay: 190 } }).exports.pass).toBe(false);
   });
 
+  it('tourists with attractions are shown for information only, and n/a without the run', () => {
+    expect(TARGETS.find((t) => t.id === 'connections.tourists')!.status).toBe('later');
+    expect(grade(city).tourists.pass).toBeNull();
+    const t = grade({ ...city, withAttractions: { placed: 3, one: { ...hw(0.82, 0.16), visitorsIn: 30 }, two: [hw(0.8, 0.16), hw(1.3, 0.7)] } }).tourists;
+    expect(t.value).toBe(30);
+    expect(t.note).toContain('0.97 of the added load');   // (0.8 − 0.16) ÷ (0.82 − 0.16)
+  });
+
   it('everything is n/a on fresh maps and where nothing can be joined', () => {
     for (const o of Object.values(grade(city, 'fresh'))) expect(o.pass).toBeNull();
     for (const o of Object.values(grade({ population: 20000, note: 'no connection point can be joined' }))) expect(o.pass).toBeNull();
