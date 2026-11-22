@@ -134,14 +134,15 @@ export const TOOLBAR: ToolbarEntry[] = [
   ] },
   // Capstones (CAPSTONE_DESIGN.md): whole-city buildings, one of each per city, in the order they unlock.
   // ?debug=true only until their art and whole-city coverage are in.
+  // Capstones (owner's pick B, 2026-11-21): each its own icon, drawn from its art, in a gold frame.
   { family: 'capstones', icon: 'monument', items: [
-    { key: 'sewageWorks', icon: 'sewage', tool: 'sewageWorks', lockedAt: () => capstoneLocks.need('sewageWorks') },
-    { key: 'waterworks', icon: 'water', tool: 'waterworks', lockedAt: () => capstoneLocks.need('waterworks') },
-    { key: 'fireHq', icon: 'fire', tool: 'fireHq', lockedAt: () => capstoneLocks.need('fireHq') },
-    { key: 'policeHq', icon: 'police', tool: 'policeHq', lockedAt: () => capstoneLocks.need('policeHq') },
-    { key: 'generalHospital', icon: 'hospital', tool: 'generalHospital', lockedAt: () => capstoneLocks.need('generalHospital') },
-    { key: 'nuclearPlant', icon: 'power', tool: 'nuclearPlant', lockedAt: () => capstoneLocks.need('nuclearPlant') },
-    { key: 'university', icon: 'school', tool: 'university', lockedAt: () => capstoneLocks.need('university') },
+    { key: 'sewageWorks', icon: 'capSewage', cls: 'tb-cap', tool: 'sewageWorks', lockedAt: () => capstoneLocks.need('sewageWorks') },
+    { key: 'waterworks', icon: 'capWater', cls: 'tb-cap', tool: 'waterworks', lockedAt: () => capstoneLocks.need('waterworks') },
+    { key: 'fireHq', icon: 'capFire', cls: 'tb-cap', tool: 'fireHq', lockedAt: () => capstoneLocks.need('fireHq') },
+    { key: 'policeHq', icon: 'capPolice', cls: 'tb-cap', tool: 'policeHq', lockedAt: () => capstoneLocks.need('policeHq') },
+    { key: 'generalHospital', icon: 'capHospital', cls: 'tb-cap', tool: 'generalHospital', lockedAt: () => capstoneLocks.need('generalHospital') },
+    { key: 'nuclearPlant', icon: 'capNuclear', cls: 'tb-cap', tool: 'nuclearPlant', lockedAt: () => capstoneLocks.need('nuclearPlant') },
+    { key: 'university', icon: 'capCampus', cls: 'tb-cap', tool: 'university', lockedAt: () => capstoneLocks.need('university') },
   ] },
   // Landscape (art/clay-set/landscape-tools.html, owner's pick A1): a brush for trees and water.
   { family: 'landscape', icon: 'tree', items: [
