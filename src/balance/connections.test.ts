@@ -66,6 +66,10 @@ describe('balance lab: connections targets', () => {
     expect(g.pass).toBe(true);
     expect(JSON.stringify(g)).toContain('line built for the probe: 2 stations');
     expect(grade({ ...city, rail: { ...built, trackPeak: 1.37 } }).railIn.pass).toBe(false);
+    // The jam allowance: 5 tiles, or 2% of those already jammed if more (730 jammed: 14).
+    expect(grade({ ...city, rail: { ...built, jammedAfter: 744 } }).railIn.pass).toBe(true);
+    expect(grade({ ...city, rail: { ...built, jammedAfter: 745 } }).railIn.pass).toBe(false);
+    expect(grade({ ...city, rail: { ...built, jammedBefore: 49, jammedAfter: 55 } }).railIn.pass).toBe(false);   // golden-1 size: 5
   });
 
   it('everything is n/a on fresh maps and where nothing can be joined', () => {
