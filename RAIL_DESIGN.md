@@ -32,7 +32,7 @@ A trip that uses rail goes **home → car traffic → station → rail → stati
 |---|---|---|
 | Train station, straight | 3×1, all platform (the station house is drawn beside the track and takes no tile) | 4 (the rotation picks the side the house is drawn on) |
 | Train station, curved (L) | 2×2: three platform tiles round the corner, the house on the fourth | 4 |
-| Elevated station (owner, 2026-11-21; #541, #543) | 1×1 ground entrance with a 3-tile platform overhead beside it (like the subway station, but up). The platform crosses land, water, any road or ground track, never buildings or zones; the road under it keeps working. Door on a street or avenue under or beside it. 55,000 / upkeep 40 (2× ground, ENG3 to check); PC as elevated track | 4 |
+| Elevated station (owner, 2026-11-21; #541, #543, #548) | A bare 1×3 platform overhead, no ground entrance (owner). It crosses land, water, any road or ground track, never buildings or zones; the road under it keeps working. Door on a street or avenue under or beside it. The bulldozer takes the station first, then the track and road on a second pass. 55,000 / upkeep 40 (2× ground, ENG3 to check); PC as elevated track | 4 |
 | Subway station | 1×1 entrance on the surface; 3-tile platform underground (the same length as the straight station's platform) | underground platform at 0° or 90° |
 | Transition ramp (ground↔elevated, ground↔subway) | 2×1 | 4 each |
 
