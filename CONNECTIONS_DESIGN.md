@@ -50,6 +50,33 @@ Points are spread over different edges, never in water, and not right next to ea
 - **Residents travelling out** *(PM pick: yes)*: the `visitors` market (homes → airport today) also uses the connections, so a busy highway is busy both ways.
 - **Commuters** in and out (residents working in the region, outsiders filling jobs) *(PM pick: later)*. It's the biggest change to balance, because it lets a town grow without its own jobs.
 
+  **Early numbers (ENGINEER 3, 2026-11-21, for the owner and PM to design from; no game code).** The game has no employment as such. Homes send job trips (0.34 a home level) to industry and service doors (room: 2 a level for industry, 1 per service); shops employ nobody. Read off the jobs market on the 14 lab saves after 3 days, one day averaged, in trips a tick. "No job" counts trips that end at a door already over its room, or reach no door. "Empty" is door room no trip reaches. "City-wide" is what is left if every seeker took any job with room.
+
+  | City | Residents | Job seekers | Job room | City-wide: seekers left over | City-wide: room left over | Nearest door: no job | Nearest door: room empty | Home demand | Industry demand |
+  |---|---|---|---|---|---|---|---|---|---|
+  | gen-s1-t10000 | 10.3k | 538 | 1,150 | 0% | 53% | 28% | 66% | 1.21 | 0.78 |
+  | smallercity | 12.7k | 661 | 392 | **41%** | 0% | 43% | 4% | 0.76 | 1.66 |
+  | gen-s1-t12500 | 13.4k | 707 | 1,275 | 0% | 45% | 23% | 58% | 1.16 | 0.87 |
+  | gen-s1-t15000 | 15.4k | 803 | 997 | 0% | 19% | 68% | 75% | 1.12 | 1.02 |
+  | gen-suburban-s2-t15000 | 16.0k | 841 | 2,421 | 0% | 65% | 45% | 81% | 1.22 | 0.65 |
+  | testcity1 | 18.6k | 665 | 1,280 | 0% | 48% | 15% | 56% | 1.08 | 1.08 |
+  | gen-s1-t20000 | 20.0k | 1,049 | 1,016 | 3% | 0% | 76% | 75% | 0.98 | 1.14 |
+  | gen-suburban-s2-t20000 | 21.3k | 1,124 | 2,390 | 0% | 53% | 47% | 75% | 1.15 | 0.78 |
+  | gen-suburban-s2-t25000 | 25.8k | 1,372 | 2,863 | 0% | 52% | 64% | 83% | 1.13 | 0.74 |
+  | gen-s1-t25000 | 26.7k | 1,411 | 3,106 | 0% | 55% | 30% | 68% | 1.12 | 0.76 |
+  | gen-suburban-s2-t30000 | 30.3k | 1,591 | 5,700 | 0% | 72% | 14% | 76% | 1.29 | 0.57 |
+  | gen-s1-t30000 | 31.1k | 1,622 | 3,274 | 0% | 50% | 26% | 64% | 1.07 | 0.78 |
+  | golden-1 | 35.5k | 1,275 | 3,952 | 0% | 68% | 0% | 68% | 1.28 | 0.99 |
+  | gen-s1-t40000 | 42.1k | 2,230 | 2,854 | 0% | 22% | 35% | 49% | 0.91 | 0.98 |
+
+  - **Jobs outnumber workers, not the other way round.** In 12 of 14 cities there is more job room than job seekers: 19–72% of it sits empty city-wide, because industry is overbuilt (industry demand 0.57–0.99). Only smallercity is short of jobs (41% of seekers have no room anywhere); gen-s1-t20000 is about even. This doesn't change with size between 10k and 42k.
+  - **Where people work is the bigger mismatch.** Every trip goes to its nearest industry, so 14–76% of seekers end at a full door while 49–83% of the room sits empty elsewhere in the same city. Commuting out would mostly give the "no job" side somewhere to go that the city already has.
+  - **What X% crossing would do.** In-commuters are treated as home levels the city didn't build, out-commuters as job levels it didn't build, through the growth formulas (`BALANCE.demand`):
+    - **Uncapped at 25%:** 25–218 trips a tick out, and 4–1,081 in (190–590 on most 20–30k cities). Industry demand rises by 0.01–0.14 (0.06–0.14 everywhere but smallercity) and home demand by 0.01–0.03. That much traffic is 3–15× a highway point's inbound room (70) and 2–13× an avenue's capacity (80), so every entry jams, and badly.
+    - **Capped like residents going out (30–60 trips a tick each way per point):** commuters cover 1–8% of the empty room, and home and industry demand move by 0.03 at most, mostly 0.01. Growth and tax barely notice. The entry road carries about as much again as it does now: one point already jams an avenue at 1.02–1.69.
+    - **Tax:** in-commuters live elsewhere and pay no home tax; out-commuters already live and pay here. On these built-out cities, demand only changes how fast the remaining zoned land fills, so a cap of 30–60 is worth roughly nothing in tax.
+  - **So commuters are a traffic feature unless they count for more.** Anything small enough not to jam an entry is too small to move growth. To make commuting a real way to grow without jobs (the Q2 worry), one commuter would have to count as more than one worker in the demand formulas, or commuters would need a different road, such as rail (200 a point) or a dedicated highway class. That is the design question for the plane.
+
 ### Q3. The capacity numbers **Decided (owner, 2026-11-20): the PM pick, ENGINEER 3 tunes from there.**
 Highway 30 visitors plus 10 trucks; rail 90 visitors (3×); airport stays at 60. *(PM pick: these as the starting point, then ENGINEER 3 tunes them in the lab.)* Alternative: rail at 2× (60) so the airport keeps more of its point.
 
