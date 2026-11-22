@@ -41,8 +41,17 @@ describe('balance lab: connections targets', () => {
     expect(grade({ ...city, one: { ...city.one!, meetPeak: 0.2 } }).twoPoints.pass).toBeNull();   // joining added nothing
   });
 
-  it('exports are n/a with no industry in reach; everything is n/a on fresh maps and where nothing can be joined', () => {
-    expect(grade({ ...city, one: { ...city.one!, trucks: 0, exportIncomePerDay: 0 } }).exports.pass).toBeNull();
+  it('exports are graded on the district the probe builds when no industry is in reach, n/a with neither', () => {
+    const none = { ...city, one: { ...city.one!, trucks: 0, exportIncomePerDay: 0 } };
+    expect(grade(none).exports.pass).toBeNull();
+    expect(grade({ ...none, exportsBuilt: { note: 'no room for an industry district by the point' } }).exports.pass).toBeNull();
+    const built = grade({ ...none, exportsBuilt: { levels: 120, trucks: 10, exportIncomePerDay: 640 } }).exports;
+    expect(built.pass).toBe(true);
+    expect(built.note).toContain('built by the point');
+    expect(grade({ ...none, exportsBuilt: { levels: 30, trucks: 3, exportIncomePerDay: 190 } }).exports.pass).toBe(false);
+  });
+
+  it('everything is n/a on fresh maps and where nothing can be joined', () => {
     for (const o of Object.values(grade(city, 'fresh'))) expect(o.pass).toBeNull();
     for (const o of Object.values(grade({ population: 20000, note: 'no connection point can be joined' }))) expect(o.pass).toBeNull();
     expect(grade({ ...city, rail: { note: 'no rail point can be joined' } }).railIn.pass).toBeNull();

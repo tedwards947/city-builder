@@ -1,9 +1,12 @@
 // Connections suite (CONNECTIONS_DESIGN.md, phase 5): join a saved city's outside connections the
-// way a player would and see what comes through. On copies of the city, each run `days` long and
-// then one measured day:
+// way a player would and see what comes through. A city with no attraction first gets the tourism
+// probe's museum, big park and plaza, so the points bring tourists and not only day-trippers. On
+// copies of the city, each run `days` long and then one measured day:
 //   base    nothing joined (the loads and industry to compare with);
 //   one     the highway point nearest the city joined by the shortest highway over empty land to
 //           the nearest road;
+//   exports only when no industry is within reach of that point: the same point joined, with an
+//           industry district built beside its highway near the point, run `exportDays`;
 //   two     the two nearest highway points joined;
 //   rail    the rail point nearest the city's ground track joined to it by ground track (across
 //           streets as level crossings, clearing the zoned lots in the way).
@@ -16,7 +19,10 @@ import { connectionStatus } from '../sim/connections';
 import { openRails } from '../sim/connectionRail';
 import { connectionExportIncome, connectionTradeAt } from '../sim/connectionTraffic';
 import { railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
-import { BUILDING_NONE, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
+import { BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
+import { cityPull } from '../sim/leisureTraffic';
+import { placeAttractions } from './leisure';
+import { findLot } from './town';
 import { cloneWorld, startSim } from './world';
 
 const D = BALANCE.ticksPerDay;
@@ -54,6 +60,13 @@ export interface ConnectionsResult {
   one?: HighwayRun & { exportIncomePerDay: number };
   /** The two nearest joined: the first and second point. */
   two?: [HighwayRun, HighwayRun];
+  /** Attractions the probe placed (a museum, a big park and a plaza) because the city draws no tourists: 0 if it already did. */
+  attractionsBuilt?: number;
+  /**
+   * The export case, when no industry is within reach of the nearest point: the same point joined, with an industry
+   * district built beside its highway near the point (`exportDays` long run). Industrial levels in the district at the end.
+   */
+  exportsBuilt?: { levels: number; trucks: number; exportIncomePerDay: number } | { note: string };
   /** Industrial levels after the run, nothing joined and the nearest highway point joined. */
   industry?: { base: number; one: number };
   rail?: RailRun | { note: string };
@@ -113,6 +126,44 @@ function layHighways(w: World, plans: Plan[]): void {
   w.grid.markAllDirty();
 }
 
+/**
+ * An industry district by the highway near its point, as a player exporting by highway would build one: up to three
+ * streets off the highway from six tiles in, three apart, with two power plants, a water tower and a sewage plant at
+ * the middle one's far end and industry zoned along both sides. The zoned tiles, or null if there is no room.
+ */
+function buildExportDistrict(w: World, p: Plan): number[] | null {
+  const W = w.grid.width, n = W * w.grid.height, L = w.layers;
+  const first = 6;
+  if (p.path.length < first + 8) return null;
+  const d = p.path[first + 1] - p.path[first];
+  const step = (i: number, o: number) => { const j = i + o; return j < 0 || j >= n || (Math.abs(o) === 1 && Math.floor(j / W) !== Math.floor(i / W)) ? -1 : j; };
+  const empty = (i: number) => i >= 0 && L.terrain[i] !== TERRAIN_WATER && L.building[i] === BUILDING_NONE && L.roadClass[i] === ROAD_NONE && L.zone[i] === ZONE_NONE && L.rail[i] === 0;
+  for (const o of Math.abs(d) === 1 ? [W, -W] : [1, -1]) {
+    // Three streets three tiles apart, each with a row of industry on both sides.
+    const streets: number[][] = [];
+    for (const k of [first, first + 3, first + 6]) {
+      if (p.path[k + 1] - p.path[k] !== d) break;   // the highway turns: stop here
+      const street: number[] = [];
+      for (let i = step(p.path[k], o); street.length < 20 && empty(i); i = step(i, o)) street.push(i);
+      if (street.length >= 10) streets.push(street);
+    }
+    if (!streets.length) continue;
+    for (const st of streets) for (const i of st) w.setRoad(i % W, Math.floor(i / W), ROAD_STREET);
+    const mid = streets[Math.floor(streets.length / 2)], end = mid[mid.length - 1];
+    for (const kind of [BUILDING_POWER_PLANT, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT]) {
+      const at = findLot(w, end % W, Math.floor(end / W), 6);
+      if (at) w.placeBuilding(at.x, at.y, kind, 0);
+    }
+    const zoned: number[] = [];
+    for (const st of streets) for (const i of st) for (const side of [step(i, d), step(i, -d)]) {
+      if (empty(side) && w.setZone(side % W, Math.floor(side / W), ZONE_I)) zoned.push(side);
+    }
+    w.grid.markAllDirty();
+    return zoned;
+  }
+  return null;
+}
+
 /** Lay ground track along the plan, clearing zoned lots in the way. Developed lots cleared, or null if the track would not go. */
 function layRail(w: World, p: Plan): number | null {
   const L = w.layers;
@@ -155,9 +206,12 @@ function play(w: World, days: number, watch: number[], track: number[], points: 
 }
 
 /** The connections probes on a saved city (copies; the city is left as it was). */
-export function connectionsResult(world: World, days = 10): ConnectionsResult {
+export function connectionsResult(world: World, days = 10, exportDays = 30): ConnectionsResult {
   const start = cloneWorld(world);
   startSim(start).tick(2 * D);
+  // A city with no attraction draws no tourists, so a highway point would bring only day-trippers: give it the
+  // tourism probe's three (as the leisure suite does), so the points carry tourists as in a played city.
+  const attractionsBuilt = cityPull(start) > 0 ? 0 : placeAttractions(start);
   const population = start.stats.population;
   const L = start.layers;
   const status = connectionStatus(start);
@@ -171,7 +225,7 @@ export function connectionsResult(world: World, days = 10): ConnectionsResult {
 
   const meets = highways.slice(0, 2).map((p) => p.meets);
   const base = play(cloneWorld(start), days, meets, [], []);
-  const result: ConnectionsResult = { population };
+  const result: ConnectionsResult = { population, attractionsBuilt };
   const run = (k: number, r: ReturnType<typeof play>, at: number): HighwayRun => ({
     meetsClass: L.roadClass[highways[k].meets], meetBefore: r2(base.peak[k]), meetPeak: r2(r.peak[at]),
     visitorsIn: r2(r.trade[at].visitorsIn), dayTrippers: r2(r.trade[at].dayTrippers), trucks: r2(r.trade[at].trucks), residentsOut: r2(r.trade[at].residentsOut),
@@ -182,6 +236,18 @@ export function connectionsResult(world: World, days = 10): ConnectionsResult {
     const one = play(w1, days, [highways[0].meets], [], [highways[0].path[0]]);
     result.one = { ...run(0, one, 0), exportIncomePerDay: Math.round(one.exportIncomePerDay) };
     result.industry = { base: base.industry, one: one.industry };
+    if (!(result.one.trucks > 0)) {
+      const we = cloneWorld(start);
+      layHighways(we, [highways[0]]);
+      const zoned = buildExportDistrict(we, highways[0]);
+      if (!zoned) result.exportsBuilt = { note: 'no room for an industry district by the point' };
+      else {
+        const ex = play(we, exportDays, [], [], [highways[0].path[0]]);
+        let levels = 0;
+        for (const i of zoned) if (we.layers.zone[i] === ZONE_I && !we.layers.abandoned[i]) levels += we.layers.devLevel[i];
+        result.exportsBuilt = { levels, trucks: r2(ex.trade[0].trucks), exportIncomePerDay: Math.round(ex.exportIncomePerDay) };
+      }
+    }
   }
   if (highways.length > 1) {
     const w2 = cloneWorld(start);

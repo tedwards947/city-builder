@@ -672,18 +672,20 @@ const CONNECTIONS_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'connections.entryJam', metric: 'Peak load of the avenue the nearest highway point\'s road meets, that one point joined', target: '≥ 1.0 (jammed at peak)', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Design target (owner 2026-11-20): a 20k city with one joined highway point has a jammed entry road at peak; the fix is a second connection.',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const na = jamCase(o.r); if (na) return na; const one = o.r.one!;
-      return { ...range(one.meetPeak, 1), note: `${one.meetBefore} before; ${one.visitorsIn} tourists, ${one.dayTrippers} day-trippers, ${one.residentsOut} out, ${one.trucks} trucks a tick` }; } },
+      return { ...range(one.meetPeak, 1), note: `${one.meetBefore} before; ${one.visitorsIn} tourists${o.r.attractionsBuilt ? ' (attractions built for the probe)' : ''}, ${one.dayTrippers} day-trippers, ${one.residentsOut} out, ${one.trucks} trucks a tick` }; } },
   { id: 'connections.twoPoints', metric: 'Peak load the joins add to that same avenue with the second-nearest highway point joined too ÷ with the nearest alone (peak less its load before joining)', target: '≤ 0.75 (the second point takes at least a quarter of the entry\'s load off)', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Design target (owner 2026-11-20): the fix for a jammed entry is a second connection. Visitors split between the points; residents going out fill each point\'s room either way. PM (2026-11-21): graded on the load the joins add, not the avenue\'s absolute peak, so a city whose own traffic already half-fills the avenue is not failed for it (gen-suburban-s2-t25000: 0.75 before, 1.69 one point, 1.32 two).',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const na = jamCase(o.r); if (na) return na; const two = o.r.two; if (!two) return NA('only one highway point can be joined');
       const one = o.r.one!, before = one.meetBefore, added = one.meetPeak - before;
       if (!(added > 0)) return NA(`joining the nearest point adds no load to its avenue (${before} → ${one.meetPeak})`);
       return { ...range(r3((two[0].meetPeak - before) / added), -Infinity, 0.75), note: `avenue ${before} before, ${one.meetPeak} one point, ${two[0].meetPeak} two; second point's road ${two[1].meetPeak} (${two[1].meetBefore} before)` }; } },
-  { id: 'connections.exports', metric: 'Money a game day from export trucks leaving by the nearest joined highway point, where industry is within port.reach of it', target: '$500–800 a day', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-20): exports by highway are a small seaport, a little income for inland cities, not a new economy.',
+  { id: 'connections.exports', metric: 'Money a game day from export trucks leaving by the nearest joined highway point, from the city\'s own industry within port.reach of it, else from an industry district the probe builds by the point', target: '$500–800 a day', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-20): exports by highway are a small seaport, a little income for inland cities, not a new economy. Trucks reach the point only from industry within port.reach (48 street tiles; a highway tile counts half) of the point\'s own tile at the map edge, and on the 256 and 512 maps the join alone is 150–370 tiles, so where none is in reach the probe builds an industry district by the point (three streets, about 120 tiles, 30 days) as a player exporting by highway would.',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const one = o.r.one; if (!one) return NA('no highway point can be joined');
-      if (!(one.trucks > 0)) return NA('no industry within reach of the point');
-      return { ...range(one.exportIncomePerDay, 500, 800), note: `${one.trucks} trucks a tick` }; } },
+      if (one.trucks > 0) return { ...range(one.exportIncomePerDay, 500, 800), note: `${one.trucks} trucks a tick` };
+      const ex = o.r.exportsBuilt; if (!ex) return NA('no industry within reach of the point');
+      if ('note' in ex) return NA(`no industry within reach of the point; ${ex.note}`);
+      return { ...range(ex.exportIncomePerDay, 500, 800), note: `${ex.trucks} trucks a tick from an industry district built by the point for the probe (${ex.levels} levels)` }; } },
   { id: 'connections.industryNeutral', metric: 'Industrial levels after the run with the nearest highway point joined ÷ without', target: 'within ±3%', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-20): highway exports earn the port\'s price with no boost to industry.',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const i = o.r.industry; if (!i) return NA('no highway point can be joined'); if (!(i.base > 0)) return NA('no industry');
