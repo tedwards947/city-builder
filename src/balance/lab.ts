@@ -34,6 +34,8 @@ export interface RunSummary {
   minPc: number;
   /** Mean of PC ÷ cap over all days. */
   pcShareMean: number;
+  /** Share of days ending at the cap (PC ≥ 98% of it): the PC revisit's headline (TODO n). */
+  atCapShare: number;
   pcOverCapP95: number;
   firstZeroDay: number | null;
   shareBelow10AfterZero: number | null;
@@ -84,7 +86,7 @@ export interface EconSummary {
 export interface LabOptions {
   /** Which suites to run (default both). */
   suites?: Suite[];
-  variants?: string[];          // PC suite: 'Off', 'A'..'D', 'T' (default: all)
+  variants?: string[];          // PC suite: 'Off' (the shipped numbers), 'A'..'D', 'T' (default: 'Off' only; owner 2026-11-21, PC is redesigned over time, not tuned)
   econPresets?: string[];       // economy suite: ids from ECON_PRESETS
   svcPresets?: string[];        // services suite: ids from SVC_PRESETS (src/balance/services.ts) or customSvcPresets
   /** Extra services presets by id (e.g. a reach / capacity sweep point). */
@@ -200,6 +202,7 @@ export function summarise(personaKey: string, run: PersonaRun): RunSummary {
     end: { population: world.stats.population, pc: r3(world.budget.politicalCapital), cap: r3(ds.at(-1)?.cap ?? 0), satisfaction: r3(world.stats.satisfaction), money: Math.round(world.budget.money) },
     minPc: r3(Math.min(...ds.map(d => d.pc))),
     pcShareMean: r3(ratios.reduce((a, b) => a + b, 0) / Math.max(ratios.length, 1)),
+    atCapShare: r3(ratios.filter(x => x >= 0.98).length / Math.max(ratios.length, 1)),
     pcOverCapP95: r3(ratios[Math.min(ratios.length - 1, Math.floor(0.95 * ratios.length))] ?? 0),
     firstZeroDay: zeroAt >= 0 ? ds[zeroAt].day - ds[0].day + 1 : null,
     shareBelow10AfterZero: after.length ? r3(after.filter(d => d.pc < 0.1 * d.cap).length / after.length) : null,
@@ -256,7 +259,7 @@ function trendOf(now: Outcome, prev: TargetResult | undefined): TargetResult['tr
 
 export function runLab(o: LabOptions): Report {
   const suites = o.suites ?? ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections', 'capstones'];
-  const variants = suites.includes('pc') ? (o.variants ?? ['Off', 'A', 'B', 'C', 'D', 'T']) : [];
+  const variants = suites.includes('pc') ? (o.variants ?? ['Off']) : [];
   // 'T' is the auto-tuner's current best (src/balance/tunedT.ts) unless the caller passes its own.
   o = { ...o, customVariants: { T: { name: 'Tuned', desc: 'The auto-tuner\'s current best PC numbers (src/balance/tunedT.ts).', values: TUNED_T }, ...o.customVariants } };
   // 'tight' is the shipped numbers spelled out (since #184), so the default list leaves it out.

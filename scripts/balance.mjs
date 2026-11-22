@@ -34,7 +34,7 @@
 //
 // Options:
 //   --suite pc|econ|svc|trade|taxdebt|airport|rail|landscape|lots|stadium|leisure|connections|capstones  one suite only (default all thirteen)
-//   --variants Off,A,B,C,D   which PC number sets (default all five)
+//   --variants Off,A,B,C,D,T which PC number sets (default Off, the shipped numbers, only: PC is watched, not tuned)
 //   --presets shipped,...    which economy presets (default: shipped = Tight, original, recommended, generous)
 //   --svc-presets shipped,.. which services capacity presets (src/balance/services.ts; default all)
 //   --trade-presets shipped,.. which seaport / goods presets (src/balance/trade.ts; default all)
@@ -93,7 +93,7 @@ const previous = existsSync(previousPath) ? JSON.parse(readFileSync(previousPath
 const ALL_SUITES = ['pc', 'econ', 'svc', 'trade', 'taxdebt', 'airport', 'rail', 'landscape', 'lots', 'stadium', 'leisure', 'connections', 'capstones'];
 const jobs = Math.max(1, Number(opt('--jobs') ?? Math.max(1, availableParallelism() - 1)));
 const tuned = opt('--tuned') ? JSON.parse(readFileSync(opt('--tuned'), 'utf8')) : null;
-const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off', 'A', 'B', 'C', 'D', 'T'];
+const variants = quick ? ['B'] : list(opt('--variants')) ?? ['Off'];
 if (tuned && !variants.includes('T')) variants.push('T');
 
 let gitSha = null;
