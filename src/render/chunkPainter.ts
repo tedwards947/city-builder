@@ -113,8 +113,11 @@ export function paintChunk(chunkCtx: CanvasRenderingContext2D, world: World, cx:
 
       const sxi = Math.floor((tx - tileX0) * ts);
       const syi = Math.floor((ty - tileY0) * ts);
-      const exi = Math.floor((tx + 1 - tileX0) * ts);
-      const eyi = Math.floor((ty + 1 - tileY0) * ts);
+      // The last column and row run on to the canvas edge. The chunk is copied to the screen at a whole
+      // pixel, so the next chunk can start up to a pixel past this one's last tile; the spare pixel must
+      // be this tile's ground, not the grass fill, or a green seam shows across the sea every chunk.
+      const exi = tx + 1 - tileX0 === CHUNK_SIZE ? chunkCtx.canvas.width : Math.floor((tx + 1 - tileX0) * ts);
+      const eyi = ty + 1 - tileY0 === CHUNK_SIZE ? chunkCtx.canvas.height : Math.floor((ty + 1 - tileY0) * ts);
       
       // Draw localized terrain
       if (terrain === TERRAIN_WATER) {

@@ -175,10 +175,6 @@ export class ChunkCache {
         const dstX = Math.floor(camera.worldToScreenX(cx * CHUNK_PX));
         const dstY = Math.floor(camera.worldToScreenY(cy * CHUNK_PX));
 
-        // The width and height the chunk should occupy on screen right now.
-        const dstW = Math.ceil((cx + 1) * CHUNK_PX * camera.zoom + camera.x * camera.zoom) - Math.floor(cx * CHUNK_PX * camera.zoom + camera.x * camera.zoom);
-        const dstH = Math.ceil((cy + 1) * CHUNK_PX * camera.zoom + camera.y * camera.zoom) - Math.floor(cy * CHUNK_PX * camera.zoom + camera.y * camera.zoom);
-
         ctx.globalAlpha = 1.0;
         ctx.imageSmoothingEnabled = false;
         if (this._drawnTs[chunkId] === ts) {
@@ -188,8 +184,10 @@ export class ChunkCache {
           // pixel on its right and bottom is covered by the next chunk.
           ctx.drawImage(chunkCanvas, dstX, dstY);
         } else {
-          // Mid-zoom: scale the chunk to the current tile size.
-          ctx.drawImage(chunkCanvas, dstX, dstY, dstW, dstH);
+          // Mid-zoom: scale the whole canvas, spare pixel and all, by the ratio of tile sizes. (Squeezing it
+          // into the chunk's own span on screen put the spare edge inside that span, and left a seam.)
+          const k = ts / this._drawnTs[chunkId];
+          ctx.drawImage(chunkCanvas, dstX, dstY, chunkCanvas.width * k, chunkCanvas.height * k);
         }
       }
     }
