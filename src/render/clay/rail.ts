@@ -234,6 +234,53 @@ export function drawStation(ctx: Ctx, kind: number, rot: number, L: number, Tp: 
   ctx.restore();
 }
 
+// ── The elevated station (owner's pick A, brutalist; art/clay-set/raw-rail/elevated.png): a board-marked concrete deck
+// at DECK_HEIGHT on two heavy piers at its front, the two tracks spread round the island as on the ground station, and the
+// painted island (folded concrete canopy, stair hall) on the deck. Trains spread round it too (trainRuns.ts `wide`). ──
+const ELEV = { top: '#bdb6aa', face: '#8f887c', dark: '#6f685e', board: 'rgba(60,52,44,0.18)' };
+/** The painted island's slab (its top face and thin front edge, not the canopy above it) in sprite pixels: left, right, top, bottom. */
+const ELEV_SLAB: Record<string, [number, number, number, number]> = { 'elev-h': [2, 397, 27, 96], 'elev-v': [2, 73, 16, 310] };
+/** Where the island lies along (from the row's start) and across the row, in tiles. */
+const ELEV_FIT: Record<string, { along: [number, number]; across: [number, number] }> = {
+  'elev-h': { along: [0.3, 2.7], across: [0.2, 0.8] }, 'elev-v': { along: [0.35, 2.65], across: [0.26, 0.74] },
+};
+/** An elevated station whose footprint's top-left corner is at screen (L, Tp), `w` × `h` tiles (3 × 1 or 1 × 3), T pixels a tile. */
+export function drawElevatedStation(ctx: Ctx, L: number, Tp: number, w: number, h: number, T: number): void {
+  const horizontal = w >= h, lift = DECK_HEIGHT * T, fw = w * T, fh = h * T, face = 0.1 * T;
+  ctx.save();
+  // Shadow on the ground, pushed right like the elevated track's.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  if (horizontal) ctx.fillRect(L + lift * 0.3, Tp + 0.04 * T, fw, 0.92 * T); else ctx.fillRect(L + 0.04 * T + lift * 0.3, Tp, 0.92 * T, fh);
+  // Piers at the front, clear of the middle tile (a street may run under it one day), splayed under the deck.
+  const pier = (cx: number, frontY: number, pw: number) => {
+    ctx.fillStyle = ELEV.dark; ctx.fillRect(cx - pw / 2, frontY - lift + face, pw, lift - face);
+    ctx.beginPath(); ctx.moveTo(cx - pw * 0.8, frontY - lift + face); ctx.lineTo(cx + pw * 0.8, frontY - lift + face); ctx.lineTo(cx + pw / 2, frontY - lift + face + 0.05 * T); ctx.lineTo(cx - pw / 2, frontY - lift + face + 0.05 * T); ctx.fill();
+  };
+  if (horizontal) for (const u of [0.5, 2.5]) pier(L + u * T, Tp + 0.98 * T, 0.26 * T);
+  else for (const v of [0.3, 0.7]) pier(L + v * T, Tp + fh - 0.02 * T, 0.16 * T);
+  // The deck: its front face, board-marked, then its top.
+  const dx0 = horizontal ? L : L + 0.04 * T, dw = horizontal ? fw : 0.92 * T, dy0 = (horizontal ? Tp + 0.04 * T : Tp) - lift, dh = horizontal ? 0.92 * T : fh;
+  ctx.fillStyle = ELEV.face; ctx.fillRect(dx0, dy0 + dh, dw, face);
+  if (T >= 12) {
+    ctx.strokeStyle = ELEV.board; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = dx0 + T / 10; x < dx0 + dw; x += T / 10) { ctx.moveTo(Math.round(x) + 0.5, dy0 + dh); ctx.lineTo(Math.round(x) + 0.5, dy0 + dh + face); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = ELEV.top; ctx.fillRect(dx0, dy0, dw, dh);
+  // The tracks, spread round the island, on the deck.
+  ctx.translate(0, -lift);
+  drawIslandTrack(ctx, horizontal, L, Tp, T);
+  ctx.restore();
+  // The painted island on the deck.
+  const name = horizontal ? 'elev-h' : 'elev-v', sp = load()[name], m = RAIL_SPRITES[name];
+  if (!sp || !m || !sp.img.complete || sp.img.naturalWidth === 0) return;
+  const [sl, sr, st, sb] = ELEV_SLAB[name], fit = ELEV_FIT[name];
+  const bx = horizontal ? L + fit.along[0] * T : L + fit.across[0] * T, by = (horizontal ? Tp + fit.across[0] * T : Tp + fit.along[0] * T) - lift;
+  const bw = (horizontal ? fit.along[1] - fit.along[0] : fit.across[1] - fit.across[0]) * T, bh = (horizontal ? fit.across[1] - fit.across[0] : fit.along[1] - fit.along[0]) * T;
+  const qx = bw / (sr - sl), qy = bh / (sb - st);
+  ctx.drawImage(sp.img, bx - sl * qx, by - st * qy, m.w * qx, m.h * qy);
+}
+
 // ── Phase 2: elevated track, ramps and portals, the underground view ──
 
 /** The elevated deck's height in tiles (owner's R5 in art/clay-set/rail2.html: low, so the climb is a small step). */

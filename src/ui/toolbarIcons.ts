@@ -37,6 +37,7 @@ const ICONS = {
   track: p('M8 2v20M16 2v20M5 5h14M5 9.5h14M5 14h14M5 18.5h14'),
   station: p('M3 10l9-6 9 6M5 10v6h14v-6M10 16v-4h4v4M2 20h20'),
   trackElevated: p('M3 7h18M3 11h18M6 11v9M18 11v9M5 20h3M16 20h3'),
+  stationElevated: p('M3 12h18M3 15h18M6 15v6M18 15v6M5 8l7-4 7 4M8 8v4M16 8v4'),
   trackSubway: p('M3 20v-8a9 9 0 0 1 18 0v8M8 20v-7M16 20v-7M8 15h8M8 18h8'),
   rampUp: p('M2 19h5l10-8h5M2 19v2h20v-10M7 19l10-8'),
   portal: p('M2 20V9h20v11M6 20v-6a6 6 0 0 1 12 0v6M2 13h4M18 13h4'),

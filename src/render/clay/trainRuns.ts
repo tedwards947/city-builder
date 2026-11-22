@@ -5,8 +5,8 @@
  */
 import type { World } from '../../sim/World';
 import { railLinks, LINK_N, LINK_E, LINK_S, LINK_W } from '../../sim/rail';
-import { RAIL_GROUND, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION } from '../../sim/constants';
-import { subwayPlatform } from '../../sim/buildingShapes';
+import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_STATION, BUILDING_STATION_ELEVATED } from '../../sim/constants';
+import { subwayPlatform, platformLevel } from '../../sim/buildingShapes';
 
 export const SIDES = [LINK_N, LINK_E, LINK_S, LINK_W];
 export const STEP: Record<number, [number, number]> = { [LINK_N]: [0, -1], [LINK_E]: [1, 0], [LINK_S]: [0, 1], [LINK_W]: [-1, 0] };
@@ -55,7 +55,7 @@ export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
   const links = new Uint8Array(n);
   for (let i = 0; i < n; i++) if (rail[i] & level) links[i] = railLinks(world, i, level);
   const subwayStops = level === RAIL_SUBWAY ? subwayPlatformTiles(world) : null;
-  const isPlatform = (t: number): boolean => subwayStops ? subwayStops.has(t) : level === RAIL_GROUND && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform';
+  const isPlatform = (t: number): boolean => subwayStops ? subwayStops.has(t) : (level === RAIL_GROUND || level === RAIL_ELEVATED) && world.buildingPartRoleAt(t % width, (t - (t % width)) / width) === 'platform' && platformLevel(world.layers.building[t]) === level;
   const count = (m: number): number => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
   const used = new Uint8Array(n * 4);   // each (tile, side) walked once
   const sideIdx = (s: number): number => SIDES.indexOf(s);
@@ -94,10 +94,11 @@ export function buildRuns(world: World, level: number = RAIL_GROUND): Run[] {
       P.forEach(([x, y], k) => { const d = (x - cx) ** 2 + (y - cy) ** 2; if (d < bd) { bd = d; best = D[k]; } });
       return best;
     };
-    if (level === RAIL_GROUND) {
+    if (level === RAIL_GROUND || level === RAIL_ELEVATED) {
+      const straight = level === RAIL_GROUND ? BUILDING_STATION : BUILDING_STATION_ELEVATED;
       let g0 = -1;
       for (let k = 0; k <= tiles.length; k++) {
-        const on = k < tiles.length && world.layers.building[tiles[k]] === BUILDING_STATION;
+        const on = k < tiles.length && world.layers.building[tiles[k]] === straight;
         if (on && g0 < 0) g0 = k;
         if (!on && g0 >= 0) { const a = along(tiles[g0]), b = along(tiles[k - 1]); wide.push([Math.min(a, b) - 0.5, Math.max(a, b) + 0.5]); g0 = -1; }
       }
