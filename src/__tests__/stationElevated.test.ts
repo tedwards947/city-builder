@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { World } from '../sim/World';
 import { TransitSystem } from '../sim/systems/TransitSystem';
 import { railVolume, trafficVolume } from '../sim/TrafficData';
-import { LINK_E, LINK_W, LINK_N, LINK_S, railFareIncome, railLinks, stationPeak, trackBlocker } from '../sim/rail';
+import { LINK_E, LINK_W, LINK_N, LINK_S, railFareIncome, railLinks, stationPeak, stationTiles, trackBlocker } from '../sim/rail';
 import { hasPlatforms, overheadPlatform, placementRules, platformLevel, platformSides, stationPlatform, subwayPlatform, buildingShape } from '../sim/buildingShapes';
 import { NEEDS_ROAD, roadSnapshot, cutOffSince } from '../sim/roadCutoff';
 import { pcQuote } from '../sim/politics';
@@ -316,6 +316,25 @@ describe('placing it', () => {
     const cut = cutOffSince(w, before);
     expect(cut.length).toBe(1);
     expect(cut[0].tiles).toEqual([{ x: 10, y: 12 }, { x: 11, y: 12 }, { x: 12, y: 12 }]);
+  });
+});
+
+describe('its traffic-view label', () => {
+  it('is on the station list, boards riders, and has platform tiles for the label to sit on', () => {
+    suburbAndTown();
+    expect(w.placeBuilding(5, 10, E)).toBe(true);
+    expect(w.placeBuilding(51, 10, E)).toBe(true);
+    track(10, 7, 49, RAIL_ELEVATED);
+    const t = traffic();
+    expect(t.rail.stations.length).toBe(2);
+    expect(t.rail.stations[0].boardings).toBeGreaterThan(0);   // the suburb's station boards; the town's only has riders getting off
+    for (const s of t.rail.stations) {
+      expect(w.buildingTilesAt(s.anchor % 64, Math.floor(s.anchor / 64))).toEqual([]);   // nothing on the ground, so the label cannot use these
+      const tiles = stationTiles(w, s.anchor);
+      expect(tiles.length).toBe(3);
+      expect(tiles).toContain(s.anchor);
+      expect(stationPeak(w, s.anchor % 64, Math.floor(s.anchor / 64))!.riders).toBeGreaterThan(0);
+    }
   });
 });
 
