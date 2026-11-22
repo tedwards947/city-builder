@@ -207,6 +207,7 @@ Approved by the owner (2026-11-19, proposals in #305):
 - PC options A and B modelled for the owner's pick (TODO n, 2026-11-21, numbers only): 16 combinations × 45 runs. A alone does almost nothing (the planner is at the cap 77–90% of days at any regen). B 30% alone or regen 0.8 + B 20% make big builds a decision (40–60% wait, none over a month). Regen ≤ 0.56 with B ≥ 30% is a wall. Table under n.
 - PC watched, not tuned (owner, 2026-11-21): the PC suite runs the shipped numbers only by default, and each run reports `atCapShare` beside `refusedPcShare` and `pcByReason`. Other sets still run with `--variants`.
 - Rail in the lab (owner, 2026-11-21): where a city has no ground track, the connections suite builds a surface line from the rail point to 1–2 stations near the jobs. `railIn` now grades on 13 of 14 cities: 39–93 riders a tick. The track runs over capacity on 3 cities where residents ride it within the city (1.26–1.46), The jam allowance is now 5 tiles or 2% of those already jammed, whichever is more (PM). At that limit 8 of 13 cities pass, and the jam part still fails gen-s1-t15000, gen-s1-t20000 and gen-s1-t25000. Table in CONNECTIONS_DESIGN.md.
+- Flight brief for the owner and PM (2026-11-22): docs/FLIGHT_BRIEF_2026-11-22.md. It covers a clean regression sweep after #531–#555, PC flows and Move costs, the money sink without capstones, elevated rail (`rail.paysElevated`, new and information only) and the commuter options.
 
 Next:
 1. Waiting on the owner: rates that rise with city size (after the owner plays).

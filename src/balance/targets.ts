@@ -508,6 +508,10 @@ const RAIL_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'rail.pays', metric: 'The suburb at full size: (its home taxes + fares) ÷ the upkeep of a starter line (two stations and 60 tiles of track)', target: '0.8–2.0', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'RAIL_DESIGN.md: rail mostly costs money; its payoff is a city that works. A full suburb roughly pays for its line. Owner (2026-11-18): graded on a fixed 60-tile line, as the probe\'s own line length depends on the map. Owner (2026-11-18): band 0.8–2.0; a rich suburb more than paying for its line is fine.',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; return range(o.r.pays, 0.8, 2.0); } },
+  { id: 'rail.paysElevated', metric: 'The same suburb at full size against an elevated starter line: (its home taxes + fares) ÷ the upkeep of two elevated stations and 60 tiles of elevated track', target: 'information only (rail.pays is 0.8–2.0 on the ground)', persona: 'probe', cities: 'saves', status: 'later',
+    why: 'Owner (2026-11-21): the elevated station costs 55,000 with 40 upkeep (2× a ground station), unmeasured; elevated track is 3× ground. Riders are taken as on the ground line (an elevated line skips level crossings, so it may carry a few more).',
+    evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const p = o.r.paysElevated; if (p === null || p === undefined) return NA('no suburb measured');
+      return { value: p, pass: p >= 0.8, miss: p >= 0.8 ? 0 : r3(0.8 - p), note: `ground ${o.r.pays}` }; } },
   { id: 'rail.subwayCost', metric: '60 tiles of subway track: price in days of the city\'s surplus (the street-only twin)', target: '60–120 days at 10–25k residents; ≤ 30 days at 40k or more', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Owner (2026-11-19): subway at 25× ground build cost is a big-city project, really, really expensive (RAIL_DESIGN.md).',
     evaluate: c => { const o = railOf(c); if (!('r' in o)) return o; const r = o.r;
