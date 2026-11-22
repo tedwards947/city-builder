@@ -59,6 +59,15 @@ describe('balance lab: connections targets', () => {
     expect(t.note).toContain('0.97 of the added load');   // (0.8 − 0.16) ÷ (0.82 − 0.16)
   });
 
+  it('railIn grades a line built for the probe and says so', () => {
+    const built = { inPerTick: 67, trackPeak: 0.4, jammedBefore: 730, jammedAfter: 733, cleared: 0,
+      built: { stations: 2, trackTiles: 167, nearStreets: 32, nearPeakBefore: 4.96, nearPeakAfter: 5.1, nearJammedBefore: 19, nearJammedAfter: 20 } };
+    const g = grade({ ...city, rail: built }).railIn;
+    expect(g.pass).toBe(true);
+    expect(JSON.stringify(g)).toContain('line built for the probe: 2 stations');
+    expect(grade({ ...city, rail: { ...built, trackPeak: 1.37 } }).railIn.pass).toBe(false);
+  });
+
   it('everything is n/a on fresh maps and where nothing can be joined', () => {
     for (const o of Object.values(grade(city, 'fresh'))) expect(o.pass).toBeNull();
     for (const o of Object.values(grade({ population: 20000, note: 'no connection point can be joined' }))) expect(o.pass).toBeNull();

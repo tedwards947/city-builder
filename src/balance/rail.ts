@@ -203,7 +203,7 @@ function joinByStreet(w: World, s: Suburb): number | null {
  * makes no junction or shortcut to a platform). Tiles a and b (beside the
  * platform ends) included.
  */
-function trackPath(w: World, a: number, b: number, blocked: Set<number> = new Set()): number[] | null {
+export function trackPath(w: World, a: number, b: number, blocked: Set<number> = new Set()): number[] | null {
   const { width, height } = w.grid;
   const rc = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && w.layers.roadClass[y * width + x] !== ROAD_NONE;
   const ok = (i: number) => {
@@ -249,7 +249,7 @@ function trackPath(w: World, a: number, b: number, blocked: Set<number> = new Se
   return null;
 }
 
-function layPath(w: World, path: number[]): boolean {
+export function layPath(w: World, path: number[]): boolean {
   const { width } = w.grid;
   for (const i of path) if (!(w.layers.rail[i] & RAIL_GROUND) && !w.layTrack(i % width, Math.floor(i / width))) return false;
   return true;

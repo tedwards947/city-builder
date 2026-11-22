@@ -20,8 +20,9 @@ import { connectionStatus } from '../sim/connections';
 import { openRails } from '../sim/connectionRail';
 import { connectionExportIncome, connectionTradeAt } from '../sim/connectionTraffic';
 import { railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
-import { BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
+import { BUILDING_NONE, BUILDING_STATION, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
 import { findLot } from './town';
+import { cityStations, layPath, stationEnds, trackPath } from './rail';
 import { cityPull } from '../sim/leisureTraffic';
 import { placeAttractions } from './leisure';
 import { cloneWorld, startSim } from './world';
@@ -52,6 +53,12 @@ export interface RailRun {
   jammedAfter: number;
   /** Developed lots cleared for the track. */
   cleared: number;
+  /**
+   * The city had no ground track to join, so the probe built a surface line: from the rail point through 2–3
+   * stations near the jobs. The streets within a few tiles of its stations: their peak load and how many are at
+   * capacity, without and with the line.
+   */
+  built?: { stations: number; trackTiles: number; nearStreets: number; nearPeakBefore: number; nearPeakAfter: number; nearJammedBefore: number; nearJammedAfter: number };
 }
 
 export interface ConnectionsResult {
@@ -168,6 +175,49 @@ function buildExportDistrict(w: World, p: Plan): number[] | null {
   return null;
 }
 
+/**
+ * A surface line as a player would build one where the city has no track: ground track from the rail point to a
+ * straight station near the jobs (with a street along it), then on to up to two more, each at least 16 tiles from the
+ * others. The track laid, the stations, and the street tiles within a few tiles of them; null if no station site
+ * could be reached.
+ */
+function buildRailLine(w: World, point: number): { track: number[]; stations: number; near: number[] } | null {
+  const W = w.grid.width;
+  const cands = cityStations(w).slice(0, 600);
+  const track: number[] = [], placed: { x: number; y: number }[] = [];
+  let prev = point;
+  // Each stop: the best site (nearest the jobs) at least 16 tiles from the others that the track can reach from
+  // the line so far; up to 25 sites tried a stop.
+  while (placed.length < 3) {
+    let tries = 0, found = false;
+    for (const s of cands) {
+      if (tries >= 25) break;
+      if (!placed.every(p => Math.abs(p.x - s.x) + Math.abs(p.y - s.y) >= 16)) continue;
+      if (!w.checkPlacement(s.x, s.y, BUILDING_STATION, 0).ok) continue;
+      tries++;
+      if (!w.placeBuilding(s.x, s.y, BUILDING_STATION, 0)) continue;
+      const e = stationEnds(w, s);
+      const dist = (i: number) => Math.abs(i % W - prev % W) + Math.abs(Math.floor(i / W) - Math.floor(prev / W));
+      const [enter, exit] = dist(e.west) <= dist(e.east) ? [e.west, e.east] : [e.east, e.west];
+      const path = trackPath(w, prev, enter);
+      if (path && layPath(w, path)) { track.push(...path); placed.push(s); prev = exit; found = true; break; }
+      w.clearTile(s.x, s.y);
+    }
+    if (!found) break;
+  }
+  const stations = placed.length;
+  if (!stations) return null;
+  w.grid.markAllDirty();
+  const near = new Set<number>();
+  for (const s of placed.slice(0, stations)) for (let dy = -3; dy <= 4; dy++) for (let dx = -3; dx <= 5; dx++) {
+    const x = s.x + dx, y = s.y + dy;
+    if (x < 0 || y < 0 || x >= W || y >= w.grid.height) continue;
+    const i = y * W + x, rc = w.layers.roadClass[i];
+    if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) near.add(i);
+  }
+  return { track, stations, near: [...near] };
+}
+
 /** Lay ground track along the plan, clearing zoned lots in the way. Developed lots cleared, or null if the track would not go. */
 function layRail(w: World, p: Plan): number | null {
   const L = w.layers;
@@ -225,7 +275,10 @@ export function connectionsResult(world: World, days = 10, exportDays = 30): Con
   if (highways.length === 0 && rails.length === 0) return { population, note: 'no connection point can be joined' };
 
   const meets = highways.slice(0, 2).map((p) => p.meets);
-  const base = play(cloneWorld(start), days, meets, [], []);
+  // No ground track to join: plan a surface line on a copy first, so the base run watches its station streets too.
+  const railPoint = status.find((c) => c.kind === 'rail' && !c.joined);
+  const line = rails.length === 0 && railPoint ? (() => { const w = cloneWorld(start); const l = buildRailLine(w, railPoint.tile); return l ? { w, ...l } : null; })() : null;
+  const base = play(cloneWorld(start), days, [...meets, ...(line?.near ?? [])], [], []);
   const result: ConnectionsResult = { population };
   const run = (k: number, r: ReturnType<typeof play>, at: number): HighwayRun => ({
     meetsClass: L.roadClass[highways[k].meets], meetBefore: r2(base.peak[k]), meetPeak: r2(r.peak[at]),
@@ -273,8 +326,23 @@ export function connectionsResult(world: World, days = 10, exportDays = 30): Con
       }
     }
   }
-  if (rails.length === 0) result.rail = { note: 'no rail point can be joined to the city\'s ground track' };
-  else {
+  if (rails.length === 0) {
+    if (!railPoint) result.rail = { note: 'no rail point' };
+    else if (!line) result.rail = { note: 'no ground track to join, and no line could be built from the rail point to a station site' };
+    else if (!openRails(line.w).length) result.rail = { note: 'the line built reaches no station with a road' };
+    else {
+      const r = play(line.w, days, line.near, line.track, [railPoint.tile]);
+      const t = r.trade[0], before = base.peak.slice(meets.length);
+      result.rail = {
+        inPerTick: r2(t.visitorsIn + t.dayTrippers), trackPeak: r2(r.trackPeak), jammedBefore: base.jammed, jammedAfter: r.jammed, cleared: 0,
+        built: {
+          stations: line.stations, trackTiles: line.track.length, nearStreets: line.near.length,
+          nearPeakBefore: r2(Math.max(0, ...before)), nearPeakAfter: r2(Math.max(0, ...r.peak)),
+          nearJammedBefore: before.filter((x) => x >= 1).length, nearJammedAfter: r.peak.filter((x) => x >= 1).length,
+        },
+      };
+    }
+  } else {
     const wr = cloneWorld(start);
     const cleared = layRail(wr, rails[0]);
     if (cleared === null) result.rail = { note: 'the track would not go' };
