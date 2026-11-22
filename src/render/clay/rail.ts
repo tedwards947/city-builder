@@ -254,12 +254,13 @@ export function drawElevatedStation(ctx: Ctx, L: number, Tp: number, w: number, 
   // Shadow on the ground, pushed right like the elevated track's.
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   if (horizontal) ctx.fillRect(L + lift * 0.3, Tp + 0.04 * T, fw, 0.92 * T); else ctx.fillRect(L + 0.04 * T + lift * 0.3, Tp, 0.92 * T, fh);
-  // Piers at the front, clear of the middle tile (a street may run under it one day), splayed under the deck.
+  // Piers at the front, splayed under the deck, standing on the gridlines between the platform's tiles, so they never land
+  // in a road under it (owner, 2026-11-21); slim enough (0.16 tile) to clear even an avenue's edge (0.08 from the line).
   const pier = (cx: number, frontY: number, pw: number) => {
     ctx.fillStyle = ELEV.dark; ctx.fillRect(cx - pw / 2, frontY - lift + face, pw, lift - face);
     ctx.beginPath(); ctx.moveTo(cx - pw * 0.8, frontY - lift + face); ctx.lineTo(cx + pw * 0.8, frontY - lift + face); ctx.lineTo(cx + pw / 2, frontY - lift + face + 0.05 * T); ctx.lineTo(cx - pw / 2, frontY - lift + face + 0.05 * T); ctx.fill();
   };
-  if (horizontal) for (const u of [0.5, 2.5]) pier(L + u * T, Tp + 0.98 * T, 0.26 * T);
+  if (horizontal) for (const u of [1, 2]) pier(L + u * T, Tp + 0.98 * T, 0.16 * T);
   else for (const v of [0.3, 0.7]) pier(L + v * T, Tp + fh - 0.02 * T, 0.16 * T);
   // The deck: its front face, board-marked, then its top.
   const dx0 = horizontal ? L : L + 0.04 * T, dw = horizontal ? fw : 0.92 * T, dy0 = (horizontal ? Tp + 0.04 * T : Tp) - lift, dh = horizontal ? 0.92 * T : fh;
