@@ -15,7 +15,7 @@ import { reservedAgainst } from './connections';
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
-import { buildingShape, hasPlatforms, platformSides, rampLevel, subwayPlatform } from './buildingShapes';
+import { buildingShape, hasPlatforms, platformLevel, platformSides, rampLevel, subwayPlatform } from './buildingShapes';
 import { transitIsFree } from './ordinances';
 import { railVolume } from './TrafficData';
 
@@ -58,10 +58,7 @@ export function trackSides(world: World, i: number): number {
   if (L.building[i] !== BUILDING_NONE) {
     // A ramp's low end: only straight out, away from its high end.
     if (rampLevel(L.building[i]) !== 0) return world.buildingAnchorAt(i) === i ? rampOutward(world, i) : 0;
-    // A platform: its own building's platform tiles, and straight on from an end.
-    const anchor = world.buildingAnchorAt(i);
-    const own = sides(world, i, (j) => L.building[j] !== BUILDING_NONE && (L.rail[j] & RAIL_GROUND) !== 0 && world.buildingAnchorAt(j) === anchor);
-    return own === LINK_N || own === LINK_S ? VERTICAL : own === LINK_E || own === LINK_W ? HORIZONTAL : own;
+    return platformJoins(world, i, RAIL_GROUND);
   }
   if (L.roadClass[i] === ROAD_NONE) return VERTICAL | HORIZONTAL;
   const roads = sides(world, i, (j) => L.roadClass[j] !== ROAD_NONE);
@@ -73,15 +70,25 @@ export function trackSides(world: World, i: number): number {
   return VERTICAL | HORIZONTAL;
 }
 
+/** The sides a platform tile's track of `level` joins on: its own building's platform tiles, and straight on from an end. */
+function platformJoins(world: World, i: number, level: number): number {
+  const L = world.layers;
+  const anchor = world.buildingAnchorAt(i);
+  const own = sides(world, i, (j) => L.building[j] !== BUILDING_NONE && (L.rail[j] & level) !== 0 && world.buildingAnchorAt(j) === anchor);
+  return own === LINK_N || own === LINK_S ? VERTICAL : own === LINK_E || own === LINK_W ? HORIZONTAL : own;
+}
+
 /**
  * The directions the track of `level` on tile `i` may join in. Ground: see
- * trackSides. Elevated and subway track joins on all four sides.
+ * trackSides. Elevated and subway track joins on all four sides, except on an
+ * elevated station's platform, which joins as a ground platform does.
  */
 export function levelSides(world: World, i: number, level: number): number {
   if (level === RAIL_GROUND) return trackSides(world, i);
   // A ramp's high (or deep) end: only straight out, away from its low end.
   const kind = world.layers.building[i];
   if (kind !== BUILDING_NONE && rampLevel(kind) === level && world.buildingAnchorAt(i) !== i) return rampOutward(world, i);
+  if (kind !== BUILDING_NONE && level === RAIL_ELEVATED && hasPlatforms(kind) && platformLevel(kind) === level) return platformJoins(world, i, level);
   return VERTICAL | HORIZONTAL;
 }
 
@@ -129,14 +136,14 @@ export function railLinks(world: World, i: number, level: number = RAIL_GROUND):
   return m;
 }
 
-/** Whether tile `i` touches a train station's platform side-on (not straight on from a platform end). */
-function besideGroundPlatform(world: World, i: number): boolean {
+/** Whether tile `i` touches, side-on (not straight on from a platform end), the platform of a station whose track is on `level` (ground or elevated). */
+function besidePlatform(world: World, i: number, level: number): boolean {
   const L = world.layers;
   for (const d of DIRS) {
     const j = towards(world, i, d);
-    if (j < 0 || L.building[j] === BUILDING_NONE || !hasPlatforms(L.building[j]) || !(L.rail[j] & RAIL_GROUND)) continue;
+    if (j < 0 || L.building[j] === BUILDING_NONE || !hasPlatforms(L.building[j]) || platformLevel(L.building[j]) !== level || !(L.rail[j] & level)) continue;
     if (world.buildingPartRoleAt(j % world.grid.width, (j / world.grid.width) | 0) !== 'platform') continue;
-    if (!(trackSides(world, j) & opposite(d))) return true;
+    if (!(levelSides(world, j, level) & opposite(d))) return true;
   }
   return false;
 }
@@ -166,7 +173,8 @@ export type TrackBlocker = 'offMap' | 'blocked' | 'hasTrack' | 'crossing';
  *     a station's platform); 'hasTrack' (already there); 'crossing' (a road
  *     it cannot cross: a highway, or a road tile that is a bend or a junction).
  *   Elevated: goes over land, water, any road (no crossing is made) and
- *     ground track; 'blocked' by a building or a zone.
+ *     ground track; 'blocked' by a building or a zone, or beside an
+ *     elevated station's platform.
  *   Subway: goes under anything; 'offMap', 'hasTrack', or 'blocked' beside a
  *     subway station's platform.
  * "Beside a platform" is side-on (buildingShapes.platformSides): track never
@@ -180,9 +188,9 @@ export function trackBlocker(world: World, tx: number, ty: number, level: number
   if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE) return 'blocked';
   // An outside connection's tile: ground track on a rail point, nothing else on the surface.
   if (reservedAgainst(world, i, level === RAIL_GROUND ? 'rail' : null)) return 'blocked';
-  if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : null;
+  if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : besidePlatform(world, i, RAIL_ELEVATED) ? 'blocked' : null;
   if (L.rail[i] & RAIL_GROUND) return 'hasTrack';
-  if (besideGroundPlatform(world, i)) return 'blocked';
+  if (besidePlatform(world, i, RAIL_GROUND)) return 'blocked';
   const rc = L.roadClass[i];
   if (rc !== ROAD_NONE) {
     if (rc > ROAD_AVENUE) return 'crossing';
@@ -273,7 +281,7 @@ export function stationBusiestTile(world: World, tx: number, ty: number): number
 
 /**
  * The busiest platform tile of the station at (tx, ty) and the level its
- * track is on: ground for a train station, subway for a subway station (whose
+ * track is on: ground for a train station, elevated for an elevated station, subway for a subway station (whose
  * platform is under the tiles round its entrance). Null before the first
  * traffic pass or if the building has no platform. `riders` are those getting
  * on, getting off and passing through, per tick.
@@ -289,6 +297,7 @@ export function stationPeak(world: World, tx: number, ty: number): { tile: numbe
     tiles = under.map(([dx, dy]) => world.grid.idx(b.tx + dx, b.ty + dy));
   } else {
     tiles = world.buildingTilesAt(tx, ty);
+    if (b && platformLevel(b.kind) !== 0) level = platformLevel(b.kind);
   }
   let best = -1, most = -1;
   for (const i of tiles) {

@@ -9,7 +9,7 @@
 
 import type { World } from './World';
 import { BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from './constants';
-import { hasPlatforms, rampLevel, shapeRoles } from './buildingShapes';
+import { hasPlatforms, platformLevel, rampLevel, shapeRoles } from './buildingShapes';
 import { LINK_E, LINK_N, LINK_S, LINK_W, railLinks, rampOther } from './rail';
 import type { Connection } from './connections';
 
@@ -62,7 +62,7 @@ function findOpen(world: World): readonly Connection[] {
     if (hasPlatforms(b.kind)) {
       const tiles = world.buildingTilesAt(b.tx, b.ty), roles = shapeRoles(b.kind);
       const platform = tiles.filter((_, k) => roles[k] === 'platform');
-      if (platform.length > 0) at = platform[platform.length >> 1];
+      if (platform.length > 0) at = slotOf(platformLevel(b.kind)) * n + platform[platform.length >> 1];
     } else if (b.kind === BUILDING_SUBWAY_STATION) {
       if (rail[anchor] & RAIL_SUBWAY) at = slotOf(RAIL_SUBWAY) * n + anchor;
     } else continue;

@@ -13,11 +13,11 @@
 
 import { trackBlocker } from './rail';
 import type { World } from './World';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I } from './constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I, RAIL_ELEVATED } from './constants';
 import { BALANCE } from '../data/balance';
 import { isServiceCapstone } from './capstones';
 import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad, shapeTouchesAccessRoad } from './serviceValue';
-import { footprintTiles, shapeRoles, hasDocks } from './buildingShapes';
+import { footprintTiles, shapeRoles, hasDocks, hasPlatforms, platformLevel } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
@@ -558,18 +558,15 @@ export function pcQuote(
              : action.type === 'track' ? (nuisance.trackPerResident?.[action.level] ?? 0)
              : 0;
   const alreadyIndustrial = action.type === 'zone' && layers.zone[i] === ZONE_I;
-  if (rate > 0 && !alreadyIndustrial && nuisance.bands.length > 0) {
+  // Homes within the bands of `from` (the tiles of what is placed) object at `perResident`.
+  const object = (from: readonly number[], perResident: number): void => {
+    if (!(perResident > 0) || nuisance.bands.length === 0 || from.length === 0) return;
     const radius = nuisance.bands[nuisance.bands.length - 1].within;
     // A home's distance is to the nearest tile of what is being placed, so a
     // large building is a nuisance from its edge, not from its anchor.
     const width = grid.width;
-    // Docks stand out over the water: homes object to the yard, not to them.
-    if (action.type === 'building' && hasDocks(action.kind)) {
-      const roles = shapeRoles(action.kind);
-      footprint = footprint.filter((_, k) => roles[k] !== 'dock');
-    }
-    let fx0 = tx, fx1 = tx, fy0 = ty, fy1 = ty;
-    for (const fi of footprint) {
+    let fx0 = Infinity, fx1 = -Infinity, fy0 = Infinity, fy1 = -Infinity;
+    for (const fi of from) {
       const fx = fi % width, fy = (fi - fx) / width;
       if (fx < fx0) fx0 = fx; if (fx > fx1) fx1 = fx;
       if (fy < fy0) fy0 = fy; if (fy > fy1) fy1 = fy;
@@ -578,7 +575,7 @@ export function pcQuote(
       for (let hx = fx0 - radius; hx <= fx1 + radius; hx++) {
         if (!grid.inBounds(hx, hy)) continue;
         let dist = Infinity;
-        for (const fi of footprint) {
+        for (const fi of from) {
           const fx = fi % width, fy = (fi - fx) / width;
           const m = Math.abs(hx - fx) + Math.abs(hy - fy);
           if (m < dist) dist = m;
@@ -587,10 +584,24 @@ export function pcQuote(
         const hi = grid.idx(hx, hy);
         if (layers.zone[hi] !== ZONE_R || layers.devLevel[hi] === 0 || layers.abandoned[hi] !== 0) continue;
         let weight = 0;
-        for (const b of nuisance.bands) if (dist <= b.within) { weight = b.weight; break; }
+        for (const band of nuisance.bands) if (dist <= band.within) { weight = band.weight; break; }
         const pop = BALANCE.growth.popPerLevel[layers.devLevel[hi]] ?? 0;
-        addPart(q, 'nuisance', hx, hy, -(pop * rate * weight), weight);
+        addPart(q, 'nuisance', hx, hy, -(pop * perResident * weight), weight);
       }
+    }
+  };
+  if (!alreadyIndustrial) {
+    // Docks stand out over the water: homes object to the yard, not to them.
+    if (action.type === 'building' && hasDocks(action.kind)) {
+      const roles = shapeRoles(action.kind);
+      footprint = footprint.filter((_, k) => roles[k] !== 'dock');
+    }
+    object(footprint, rate);
+    // An elevated station lays elevated track: each of its tiles that has none yet is charged as that
+    // tile of elevated track would be (the 'track' action), tile by tile. Over track already there it costs nothing.
+    if (action.type === 'building' && hasPlatforms(action.kind) && platformLevel(action.kind) === RAIL_ELEVATED) {
+      const perTile = nuisance.trackPerResident?.[RAIL_ELEVATED] ?? 0;
+      for (const fi of footprint) if (!(layers.rail[fi] & RAIL_ELEVATED)) object([fi], perTile);
     }
   }
 

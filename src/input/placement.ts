@@ -9,7 +9,7 @@
 // and a subway station turn the same way, preferring a way that joins track.
 
 import type { World, PlacementCheck } from '../sim/World';
-import { buildingShape, hasDocks, hasPlatforms, placementRules, platformEnds, rampLevel, shapeRoles, subwayPlatform } from '../sim/buildingShapes';
+import { buildingShape, hasDocks, hasPlatforms, placementRules, platformEnds, platformLevel, rampLevel, shapeRoles, subwayPlatform } from '../sim/buildingShapes';
 import { RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
 
 /** The anchor that puts the middle of a `kind` building (turned `rot`) on (tx, ty). Odd sizes centre; even sizes take the top-left of the middle four. */
@@ -41,7 +41,7 @@ export function placementScore(c: PlacementCheck): number {
 /**
  * Whether a `kind` building anchored at (tx, ty) and turned `rot` would join
  * track that is already there:
- *   a train station: ground track straight on from an end of its platform;
+ *   a train station: track of its level (ground, or elevated for the elevated station) straight on from an end of its platform;
  *   a ramp: ground track straight out of its low end, or track of its own
  *     level straight out of (or already on) its high end;
  *   a subway station: subway track along its platform (two tiles or more) or straight on from an end.
@@ -60,7 +60,7 @@ export function meetsTrack(world: World, kind: number, tx: number, ty: number, r
     // Along a tunnel (two or more of its tiles), not merely across one.
     return under.filter(([dx, dy]) => has(dx, dy, RAIL_SUBWAY)).length >= 2 || has(ax - sx, ay - sy, RAIL_SUBWAY) || has(bx + sx, by + sy, RAIL_SUBWAY);
   }
-  return platformEnds(kind, rot).some(([dx, dy]) => has(dx, dy));
+  return platformEnds(kind, rot).some(([dx, dy]) => has(dx, dy, platformLevel(kind)));
 }
 
 let memo: { world: World; edits: number; key: string; value: Placement } | null = null;

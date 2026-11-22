@@ -27,7 +27,7 @@
 // and the offsets.
 
 import { BALANCE } from '../data/balance';
-import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM, BUILDING_MID_PARK, BUILDING_LIDO, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
+import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM, BUILDING_MID_PARK, BUILDING_LIDO, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, TERRAIN_WATER } from './constants';
 
 /** One tile of a shape, as an offset from the anchor. */
 export type ShapeOffset = readonly [dx: number, dy: number];
@@ -88,6 +88,18 @@ export function hasDocks(kind: number): boolean {
 /** Whether any tile of `kind` is a platform (carries rail track): a train station. */
 export function hasPlatforms(kind: number): boolean {
   return PLATFORMED.has(kind);
+}
+
+/**
+ * The level of the track a `kind` station's platform carries (a RAIL_ bit):
+ * elevated for the elevated station, subway for the subway station (whose
+ * platform is underground: subwayPlatform), ground for the other train
+ * stations; 0 for a kind with no platform.
+ */
+export function platformLevel(kind: number): number {
+  if (kind === BUILDING_SUBWAY_STATION) return RAIL_SUBWAY;
+  if (!PLATFORMED.has(kind)) return 0;
+  return kind === BUILDING_STATION_ELEVATED ? RAIL_ELEVATED : RAIL_GROUND;
 }
 
 /**
@@ -238,6 +250,11 @@ for (const kind in BALANCE.capstones.kinds) {
 // beside a platform (platformSides).
 setBuildingShape(BUILDING_STATION, [[0, 0], [1, 0], [2, 0]], ['platform', 'platform', 'platform']);
 setBuildingShape(BUILDING_STATION_L, [[0, 0], [0, 1], [1, 1], [1, 0]], ['body', 'platform', 'platform', 'platform']);
+// ELEVATED (owner 2026-11-21): the straight station's shape, but its platform carries ELEVATED track
+// (platformLevel). It lays that track, or stands on elevated track already there, and elevated track joins it
+// straight on at its two ends. It stands on empty land: not on a road (v1), ground track or a building.
+// Ground track may pass beside it, and elevated track may not.
+setBuildingShape(BUILDING_STATION_ELEVATED, [[0, 0], [1, 0], [2, 0]], ['platform', 'platform', 'platform']);
 
 // The ramps (RAIL_DESIGN.md): 2×1, the anchor is the GROUND end and (1, 0) at
 // rotation 0 the high (elevated) or deep (subway) end. Ground track joins the

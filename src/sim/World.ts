@@ -21,7 +21,7 @@ import {
 import { BALANCE } from '../data/balance';
 import type { TrafficData } from './TrafficData';
 import { WorldIndex } from './WorldIndex';
-import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole, rampLevel, subwayPlatform, platformSides } from './buildingShapes';
+import { footprintTiles, footprintEdge, placementRules, shapeRoles, hasDocks, type PartRole, rampLevel, subwayPlatform, platformSides, platformLevel } from './buildingShapes';
 import { openWater } from './openWater';
 import { trackBlocker, trackBlocksRoad } from './rail';
 
@@ -177,16 +177,16 @@ const VEG_PARAMS: Record<VegAmount, { probMult: number }> = {
   high:   { probMult: 2.0 },
 };
 
-/** The rail level a shape tile of this role carries (a RAIL_ bit), or 0: a platform and a ramp's low end are ground track, a ramp's high end its own level. */
+/** The rail level a shape tile of this role carries (a RAIL_ bit), or 0: a platform its station's level (ground, or elevated for the elevated station), a ramp's low end ground track, a ramp's high end its own level. */
 function partRail(role: string, kind: number): number {
-  return role === 'platform' || role === 'rampLow' ? RAIL_GROUND : role === 'rampHigh' ? rampLevel(kind) : 0;
+  return role === 'platform' ? platformLevel(kind) : role === 'rampLow' ? RAIL_GROUND : role === 'rampHigh' ? rampLevel(kind) : 0;
 }
 
 /**
  * Whether a shape tile of this role may stand on a tile whose ground and
  * elevated track is `surface`. A platform or a ramp's low end may stand on
- * ground track that is already there; an elevated ramp's high end on elevated
- * track; nothing else on either. (Anything may stand over a subway.)
+ * ground track that is already there; an elevated ramp's high end and an
+ * elevated station's platform on elevated track; nothing else on either. (Anything may stand over a subway.)
  */
 function railFits(role: string, kind: number, surface: number): boolean {
   const own = partRail(role, kind) & RAIL_SURFACE;
@@ -679,7 +679,7 @@ export class World {
     // No track of a platform's level may run beside it (a tile off the map has none).
     const beside = platformSides(kind, rot);
     if (beside.length > 0) {
-      const level = subwayPlatform(kind, rot).length > 0 ? RAIL_SUBWAY : RAIL_GROUND;
+      const level = platformLevel(kind);
       for (const [dx, dy] of beside) {
         if (this.grid.inBounds(tx + dx, ty + dy) && (this.layers.rail[this.grid.idx(tx + dx, ty + dy)] & level) !== 0) blocked.push(this.grid.idx(tx + dx, ty + dy));
       }
