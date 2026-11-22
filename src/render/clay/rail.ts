@@ -309,41 +309,14 @@ export function drawElevatedIslandTops(ctx: Ctx, world: World, sx: number, sy: n
 }
 
 /**
- * An elevated station's entrance on its one tile (top-left at (px, py)): concrete paving and a board-marked concrete
- * stair climbing to the platform's deck beside it (rot 0: the platform is north; 1 east; 2 south; 3 west), its door at
- * the foot, on the street side.
+ * An elevated station's entrance on its one tile (top-left at (px, py)): a plain concrete forecourt. The stair up to
+ * the platform beside it is left implied (owner, 2026-11-21: "no need for stairs, the stairs will be implied").
  */
-export function drawElevatedEntrance(ctx: Ctx, rot: number, px: number, py: number, T: number): void {
-  const r = rot & 3;
-  // (a, c): a along the climb (0 at the foot, 1 at the deck), c across it; mapped to the tile's (u, v).
-  const uv = (a: number, c: number): [number, number] => r === 0 ? [c, 1 - a] : r === 1 ? [a, c] : r === 2 ? [1 - c, a] : [1 - a, 1 - c];
-  type Box = { u0: number; u1: number; v0: number; v1: number; z0: number; z1: number; top: string; face: string };
-  const box = (a0: number, a1: number, c0: number, c1: number, z0: number, z1: number, top: string, face: string): Box => {
-    const [ua, va] = uv(a0, c0), [ub, vb] = uv(a1, c1);
-    return { u0: Math.min(ua, ub), u1: Math.max(ua, ub), v0: Math.min(va, vb), v1: Math.max(va, vb), z0, z1, top, face };
-  };
-  const paint = (b: Box): void => {
-    const x = px + b.u0 * T, w = (b.u1 - b.u0) * T, yb = py + b.v1 * T;
-    ctx.fillStyle = b.face; ctx.fillRect(x, yb - b.z1 * T, w, (b.z1 - b.z0) * T);
-    ctx.fillStyle = b.top; ctx.fillRect(x, py + b.v0 * T - b.z1 * T, w, (b.v1 - b.v0) * T);
-  };
+export function drawElevatedEntrance(ctx: Ctx, _rot: number, px: number, py: number, T: number): void {
   ctx.save();
-  ctx.fillStyle = '#cbc5ba'; ctx.fillRect(px, py, T, T);   // paving
+  ctx.fillStyle = '#cbc5ba'; ctx.fillRect(px, py, T, T);
   ctx.fillStyle = 'rgba(60,52,44,0.12)';
   if (T >= 12) for (let k = 1; k < 4; k++) { ctx.fillRect(px + k * T / 4, py, 1, T); ctx.fillRect(px, py + k * T / 4, T, 1); }
-  const n = 9, D = DECK_HEIGHT, parts: Box[] = [];
-  // The stair's shadow on the paving, pushed right like the deck's.
-  { const s = box(0.12, 1, 0.24, 0.76, 0, 0, '', ''); ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + s.u0 * T + D * 0.25 * T, py + s.v0 * T, (s.u1 - s.u0) * T, (s.v1 - s.v0) * T); }
-  for (let k = 0; k < n; k++) {
-    const a0 = 0.12 + 0.88 * k / n, a1 = 0.12 + 0.88 * (k + 1) / n, z = D * (k + 1) / n;
-    parts.push(box(a0, a1, 0.3, 0.7, 0, z, k % 2 ? '#c4bdb1' : '#bab3a7', '#8f887c'));          // steps
-    for (const [c0, c1] of [[0.24, 0.3], [0.7, 0.76]]) parts.push(box(a0, a1, c0, c1, 0, z + 0.05, '#a8a194', '#7e776b'));   // parapets
-  }
-  // The door at the foot: a heavy concrete frame across the stair.
-  parts.push(box(0.04, 0.12, 0.24, 0.3, 0, 0.12, '#a8a194', '#6f685e'), box(0.04, 0.12, 0.7, 0.76, 0, 0.12, '#a8a194', '#6f685e'));
-  parts.push(box(0.04, 0.12, 0.24, 0.76, 0.1, 0.13, '#b3ac9f', '#7e776b'));
-  // Back to front, low to high, so nearer and taller pieces cover the rest.
-  parts.sort((p, q) => p.v1 - q.v1 || p.z1 - q.z1).forEach(paint);
   ctx.restore();
 }
 
