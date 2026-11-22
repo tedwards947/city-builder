@@ -97,14 +97,6 @@ function incomePerDay(w: World, days: number): number {
   return inc / days;
 }
 
-/** The tourism probe's attractions (a museum, a big park and a plaza) at their best sites; how many went down. */
-export function placeAttractions(w: World): number {
-  const taken = new Set<number>();
-  let n = 0;
-  for (const k of [BUILDING_MUSEUM, BUILDING_BIG_PARK, BUILDING_PLAZA]) if (place(w, k, taken)) n++;
-  return n;
-}
-
 export function leisureResult(saved: World, o: { museumDays?: number; tourismDays?: number } = {}): LeisureResult {
   const world = cloneWorld(saved);
   startSim(world).tick(2 * D);
@@ -115,8 +107,8 @@ export function leisureResult(saved: World, o: { museumDays?: number; tourismDay
   const base = cloneWorld(world);
   const airportBuilt = !base.buildings.some(b => b.kind === BUILDING_AIRPORT);
   if (airportBuilt && !placeAirport(base)) { res.note = 'no airport site'; return res; }
-  const withA = cloneWorld(base);
-  placeAttractions(withA);
+  const withA = cloneWorld(base), taken = new Set<number>();
+  for (const k of [BUILDING_MUSEUM, BUILDING_BIG_PARK, BUILDING_PLAZA]) place(withA, k, taken);
   const i0 = incomePerDay(base, tourismDays), i1 = incomePerDay(withA, tourismDays);
   res.tourism = { share: i1 > 0 ? r3((i1 - i0) / i1) : null, income: Math.round(i1 - i0), airportBuilt };
   return res;

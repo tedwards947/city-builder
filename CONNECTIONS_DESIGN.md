@@ -82,6 +82,7 @@ Once the outbound room became a real limit (#482), every point runs at its full 
 - **Rail point: about 200 visitors** (owner: keep rail about 3× a highway), as long as the line holds. In practice the city's pull and shops decide how many come.
 - **Export trucks are limited at highway points** like residents (only those with room drive there); the seaport keeps its behaviour.
 - Exports earn about $630 a day when industry is within reach; industry levels don't move. Lab targets: `entryJam`, `twoPoints`, `exports`, `industryNeutral`, `railIn`.
+- **Exports in the lab (ENGINEER 3, 2026-11-21):** trucks reach a point only from industry within `port.reach` (48 street tiles; a highway tile counts half) of the point's own tile at the map edge. On the 256 and 512 maps the join alone is 150–370 highway tiles, so no city's own industry was in reach and `exports` was n/a on 11 of 14 cities. Where the nearest point sends no trucks, the suite now builds an industry district by the point (three streets off the highway, about 120 tiles, a small plant set, 30 days) as a player exporting by highway would. Exports grade on 13 of 14 cities: $548–640 a day, all within $500–800 (golden-1 $548 with 124 levels). In play, highway exports only pay for industry built out near the map edge.
 
 ## Who does what
 - **Engine:** entry points (map generation, save, old saves), connections as gateways in the leisure market and as export doors, rail riders entering at the edge track node, the overlay and Inspect data.

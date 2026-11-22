@@ -1,7 +1,6 @@
 // Connections suite (CONNECTIONS_DESIGN.md, phase 5): join a saved city's outside connections the
-// way a player would and see what comes through. A city with no attraction first gets the tourism
-// probe's museum, big park and plaza, so the points bring tourists and not only day-trippers. On
-// copies of the city, each run `days` long and then one measured day:
+// way a player would and see what comes through. On copies of the city, each run `days` long and
+// then one measured day:
 //   base    nothing joined (the loads and industry to compare with);
 //   one     the highway point nearest the city joined by the shortest highway over empty land to
 //           the nearest road;
@@ -20,8 +19,6 @@ import { openRails } from '../sim/connectionRail';
 import { connectionExportIncome, connectionTradeAt } from '../sim/connectionTraffic';
 import { railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
 import { BUILDING_NONE, BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_WATER_TOWER, RAIL_ELEVATED, RAIL_GROUND, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_I, ZONE_NONE } from '../sim/constants';
-import { cityPull } from '../sim/leisureTraffic';
-import { placeAttractions } from './leisure';
 import { findLot } from './town';
 import { cloneWorld, startSim } from './world';
 
@@ -60,8 +57,6 @@ export interface ConnectionsResult {
   one?: HighwayRun & { exportIncomePerDay: number };
   /** The two nearest joined: the first and second point. */
   two?: [HighwayRun, HighwayRun];
-  /** Attractions the probe placed (a museum, a big park and a plaza) because the city draws no tourists: 0 if it already did. */
-  attractionsBuilt?: number;
   /**
    * The export case, when no industry is within reach of the nearest point: the same point joined, with an industry
    * district built beside its highway near the point (`exportDays` long run). Industrial levels in the district at the end.
@@ -209,9 +204,6 @@ function play(w: World, days: number, watch: number[], track: number[], points: 
 export function connectionsResult(world: World, days = 10, exportDays = 30): ConnectionsResult {
   const start = cloneWorld(world);
   startSim(start).tick(2 * D);
-  // A city with no attraction draws no tourists, so a highway point would bring only day-trippers: give it the
-  // tourism probe's three (as the leisure suite does), so the points carry tourists as in a played city.
-  const attractionsBuilt = cityPull(start) > 0 ? 0 : placeAttractions(start);
   const population = start.stats.population;
   const L = start.layers;
   const status = connectionStatus(start);
@@ -225,7 +217,7 @@ export function connectionsResult(world: World, days = 10, exportDays = 30): Con
 
   const meets = highways.slice(0, 2).map((p) => p.meets);
   const base = play(cloneWorld(start), days, meets, [], []);
-  const result: ConnectionsResult = { population, attractionsBuilt };
+  const result: ConnectionsResult = { population };
   const run = (k: number, r: ReturnType<typeof play>, at: number): HighwayRun => ({
     meetsClass: L.roadClass[highways[k].meets], meetBefore: r2(base.peak[k]), meetPeak: r2(r.peak[at]),
     visitorsIn: r2(r.trade[at].visitorsIn), dayTrippers: r2(r.trade[at].dayTrippers), trucks: r2(r.trade[at].trucks), residentsOut: r2(r.trade[at].residentsOut),
