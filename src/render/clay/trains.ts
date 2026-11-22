@@ -31,6 +31,8 @@ export const METRO_LIVERIES: Livery[] = [
 ];
 /** Below this many pixels a tile no trains are drawn (the sound reads it too, to stay quiet when none show). */
 export const TRAIN_MIN_TILE = 6;
+/** Tiles past the map's edge by which a car has faded out (the stub is dark 4 tiles out). */
+const OFF_FADE = 3.5;
 
 function car(ctx: Ctx, x: number, y: number, ang: number, T: number, lv: Livery, lead: boolean, tail: boolean): void {
   const L = CAR_LEN * T, W = CAR_WID * T, r = W * 0.38, nose = W * 0.48;
@@ -110,7 +112,11 @@ function carryOver(from: TrainNet, to: TrainNet): void {
 
 /** How a car shows on a pass: its opacity there and how far up the elevated deck it is (0–1). */
 function carLook(world: World, e: Edge, x: number, y: number, level: number): { a: number; lift: number } | null {
-  const W = world.grid.width, i = Math.floor(y) * W + Math.floor(x), kind = world.layers.building[i];
+  const W = world.grid.width, H = world.grid.height;
+  // Off the map (a visitor on a rail point's stub): fading into the dark as the stub does, gone OFF_FADE tiles out.
+  const off = Math.max(-x, -y, x - W, y - H);
+  if (off > 0) { const a = 1 - off / OFF_FADE; return e.level === level && a > 0 ? { a, lift: 0 } : null; }
+  const i = Math.floor(y) * W + Math.floor(x), kind = world.layers.building[i];
   let u = -1;
   if (kind === BUILDING_RAMP_ELEVATED || kind === BUILDING_RAMP_SUBWAY) {
     const an = world.buildingAnchorAt(i), r = world.buildingRotAt(an) & 3, ax = an % W + 0.5, ay = (an - (an % W)) / W + 0.5;
