@@ -92,14 +92,15 @@ export function hasPlatforms(kind: number): boolean {
 
 /**
  * The level of the track a `kind` station's platform carries (a RAIL_ bit):
- * elevated for the elevated station, subway for the subway station (whose
- * platform is underground: subwayPlatform), ground for the other train
- * stations; 0 for a kind with no platform.
+ * elevated for the elevated station (whose platform is overhead:
+ * overheadPlatform), subway for the subway station (underground:
+ * subwayPlatform), ground for the other train stations; 0 for a kind with no
+ * platform.
  */
 export function platformLevel(kind: number): number {
   if (kind === BUILDING_SUBWAY_STATION) return RAIL_SUBWAY;
-  if (!PLATFORMED.has(kind)) return 0;
-  return kind === BUILDING_STATION_ELEVATED ? RAIL_ELEVATED : RAIL_GROUND;
+  if (kind === BUILDING_STATION_ELEVATED) return RAIL_ELEVATED;
+  return PLATFORMED.has(kind) ? RAIL_GROUND : 0;
 }
 
 /**
@@ -125,16 +126,18 @@ export function platformEnds(kind: number, rot = 0): ShapeOffset[] {
  * a neighbour of a platform tile that is neither part of the building nor
  * straight on from a platform end. No track of the platform's level may be
  * there (ground track for a train station, subway track for a subway
- * station). Empty for a kind with no platform.
+ * station, elevated track for an elevated station: its entrance is one of
+ * these tiles). Empty for a kind with no platform.
  */
 export function platformSides(kind: number, rot = 0): ShapeOffset[] {
-  const under = subwayPlatform(kind, rot);
+  const under = stationPlatform(kind, rot);
   const shape = under.length > 0 ? under : buildingShape(kind, rot);
   const roles = under.length > 0 ? null : shapeRoles(kind);
   if (roles && !PLATFORMED.has(kind)) return [];
   const platform = shape.filter((_, k) => !roles || roles[k] === 'platform');
+  // Straight on from each end of a three-tile row: the end, one step further from the middle.
   const ends = under.length > 0
-    ? [[2 * under[0][0], 2 * under[0][1]], [2 * under[2][0], 2 * under[2][1]]]
+    ? [[2 * under[0][0] - under[1][0], 2 * under[0][1] - under[1][1]], [2 * under[2][0] - under[1][0], 2 * under[2][1] - under[1][1]]]
     : platformEnds(kind, rot);
   const taken = new Set([...shape, ...ends].map(([x, y]) => `${x},${y}`));
   const out: ShapeOffset[] = [];
@@ -250,11 +253,6 @@ for (const kind in BALANCE.capstones.kinds) {
 // beside a platform (platformSides).
 setBuildingShape(BUILDING_STATION, [[0, 0], [1, 0], [2, 0]], ['platform', 'platform', 'platform']);
 setBuildingShape(BUILDING_STATION_L, [[0, 0], [0, 1], [1, 1], [1, 0]], ['body', 'platform', 'platform', 'platform']);
-// ELEVATED (owner 2026-11-21): the straight station's shape, but its platform carries ELEVATED track
-// (platformLevel). It lays that track, or stands on elevated track already there, and elevated track joins it
-// straight on at its two ends. It stands on empty land: not on a road (v1), ground track or a building.
-// Ground track may pass beside it, and elevated track may not.
-setBuildingShape(BUILDING_STATION_ELEVATED, [[0, 0], [1, 0], [2, 0]], ['platform', 'platform', 'platform']);
 
 // The ramps (RAIL_DESIGN.md): 2×1, the anchor is the GROUND end and (1, 0) at
 // rotation 0 the high (elevated) or deep (subway) end. Ground track joins the
@@ -285,6 +283,38 @@ const NO_TILES: readonly ShapeOffset[] = [];
  */
 export function subwayPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
   return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : NO_TILES;
+}
+
+// The elevated station (owner 2026-11-21): its shape is a one-tile ENTRANCE on the ground (stairs up),
+// and its platform is OVERHEAD, on the three tiles beside the entrance: at rotation 0 the row just north
+// of it, running west to east, the entrance beside the middle one. Each quarter turn clockwise moves the
+// platform round the entrance: east of it (north to south) at 1, south at 2, west at 3.
+const OVERHEAD_PLATFORM: readonly (readonly ShapeOffset[])[] = [
+  [[-1, -1], [0, -1], [1, -1]],
+  [[1, -1], [1, 0], [1, 1]],
+  [[1, 1], [0, 1], [-1, 1]],
+  [[-1, 1], [-1, 0], [-1, -1]],
+];
+
+/**
+ * The overhead platform of an elevated station, as offsets from its entrance
+ * (the anchor): three tiles in a row beside the entrance, the middle one
+ * touching it (see above for each rotation). They carry elevated track, over
+ * whatever elevated track may cross: land, water, a road, ground track.
+ * Never a building or a zone. Empty for any other kind.
+ */
+export function overheadPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
+  return kind === BUILDING_STATION_ELEVATED ? OVERHEAD_PLATFORM[rot & 3] : NO_TILES;
+}
+
+/**
+ * The platform of a station whose platform is NOT part of its shape: a subway
+ * station's (underground) or an elevated station's (overhead). Three tiles in
+ * a row, the middle one second; riders board at the middle one. Its track is
+ * on platformLevel(kind). Empty for any other kind.
+ */
+export function stationPlatform(kind: number, rot = 0): readonly ShapeOffset[] {
+  return kind === BUILDING_SUBWAY_STATION ? SUBWAY_PLATFORM[rot & 1] : kind === BUILDING_STATION_ELEVATED ? OVERHEAD_PLATFORM[rot & 3] : NO_TILES;
 }
 
 // ── Where a kind may stand ───────────────────────────────────────────────────

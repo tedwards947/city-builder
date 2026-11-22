@@ -17,7 +17,7 @@ import { ROAD_NONE, ROAD_HIGHWAY, ZONE_NONE, ZONE_R, ZONE_I, RAIL_ELEVATED } fro
 import { BALANCE } from '../data/balance';
 import { isServiceCapstone } from './capstones';
 import { serviceOpeningValue, serviceClosureValue, isServiceKind, touchesAccessRoad, shapeTouchesAccessRoad } from './serviceValue';
-import { footprintTiles, shapeRoles, hasDocks, hasPlatforms, platformLevel } from './buildingShapes';
+import { footprintTiles, shapeRoles, hasDocks, overheadPlatform } from './buildingShapes';
 import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
@@ -597,11 +597,14 @@ export function pcQuote(
       footprint = footprint.filter((_, k) => roles[k] !== 'dock');
     }
     object(footprint, rate);
-    // An elevated station lays elevated track: each of its tiles that has none yet is charged as that
-    // tile of elevated track would be (the 'track' action), tile by tile. Over track already there it costs nothing.
-    if (action.type === 'building' && hasPlatforms(action.kind) && platformLevel(action.kind) === RAIL_ELEVATED) {
+    // An elevated station lays elevated track for its platform: each platform tile that has none yet is charged
+    // as that tile of elevated track would be (the 'track' action), tile by tile. Over track already there it costs nothing.
+    if (action.type === 'building') {
       const perTile = nuisance.trackPerResident?.[RAIL_ELEVATED] ?? 0;
-      for (const fi of footprint) if (!(layers.rail[fi] & RAIL_ELEVATED)) object([fi], perTile);
+      for (const [dx, dy] of overheadPlatform(action.kind, action.rot ?? 0)) {
+        const fi = grid.idx(tx + dx, ty + dy);
+        if (!(layers.rail[fi] & RAIL_ELEVATED)) object([fi], perTile);
+      }
     }
   }
 

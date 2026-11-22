@@ -1,7 +1,7 @@
 import { Command } from './Command';
 import type { TileSnapshot } from './Command';
 import { snapshotTiles, restoreTiles, withLots, tileDisruption } from './Command';
-import { footprintTiles, subwayPlatform } from '../sim/buildingShapes';
+import { footprintTiles, subwayPlatform, overheadPlatform } from '../sim/buildingShapes';
 import { RAIL_SUBWAY } from '../sim/constants';
 import type { PcCharges } from '../sim/politics';
 import type { World } from '../sim/World';
@@ -60,7 +60,9 @@ export class PlaceBuildingCommand extends Command {
     const quote = pcQuote(world, { type: 'building', tx: this.tx, ty: this.ty, kind: this.kind, rot: this.rot });
     if (!quote.affordable) { this.failReason = 'politicalCapital'; return false; }
 
-    this.snaps = snapshotTiles(world, withLots(world, footprint));
+    // An elevated station's platform is over other tiles: they are put back whole on undo (its track, and the trees it cleared).
+    const over = overheadPlatform(this.kind, this.rot).map(([dx, dy]) => world.grid.idx(this.tx + dx, this.ty + dy));
+    this.snaps = snapshotTiles(world, [...withLots(world, footprint), ...over]);
     // The platform of a subway station lies under other tiles: note which of them have no tunnel yet,
     // so undo fills in only what this dug (and never touches what stands on those tiles).
     this.dug = [];
