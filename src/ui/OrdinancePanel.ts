@@ -130,7 +130,11 @@ export class OrdinancePanel {
       sw.setAttribute('aria-checked', String(on));
       sw.setAttribute('aria-label', t(o.nameKey));
       sw.disabled = state === 'cantAfford';
-      sw.addEventListener('click', () => { this.asking = this.asking === o.id ? null : o.id; this.update(); });
+      // The whole row toggles it (the switch alone was a small target; a click on the switch bubbles here).
+      if (state !== 'cantAfford') {
+        row.classList.add('clickable');
+        row.addEventListener('click', () => { this.asking = this.asking === o.id ? null : o.id; this.update(); });
+      }
       row.append(text, cost, sw);
       list.append(row);
       if (this.asking === o.id && state !== 'cantAfford') list.append(this.confirmBox(world, o, on));

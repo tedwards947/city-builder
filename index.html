@@ -229,8 +229,10 @@
     #ordinance-panel.hidden { display: none; }
     .ord-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #8aa; font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 4px; }
     .ord-upkeep { text-transform: none; letter-spacing: 0; color: #7dd8c0; }
-    .ord-list { max-height: min(62vh, 520px); overflow-y: auto; }
+    .ord-list { max-height: min(62vh, 520px); overflow-y: auto; scrollbar-gutter: stable; padding-right: 8px; }   /* the switch clears the scrollbar */
     .ord-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+    .ord-row.clickable { cursor: pointer; }
+    .ord-row.clickable:hover { background: rgba(255,255,255,0.05); }
     .ord-text b { color: #fff; font-size: 13px; display: block; }
     .ord-text small { display: block; color: #9ab; line-height: 1.35; }
     .ord-text .ord-why { color: #e0b050; margin-top: 2px; }
