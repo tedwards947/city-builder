@@ -4,6 +4,7 @@ import { edgeAt, SPEED, TRAIN_LEN } from '../render/clay/trainNet';
 import { BUILDING_STATION, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
 import type { World } from '../sim/World';
 import { landWorld } from './pcTestWorld';
+import { connectionOn, resetConnections } from '../sim/connections';
 
 describe('train runs', () => {
   it('cuts track into runs at junctions and dead ends, through bends and stations', () => {
@@ -161,5 +162,45 @@ describe('trains for the sound', () => {
       if (seen[seen.length - 1] !== v[0].phase) seen.push(v[0].phase);
     }
     expect(seen.join(' ')).toContain('in dwell out');
+  });
+});
+
+describe('trains from outside', () => {
+  /** Track in from the west edge along row 64 to a station at x 30–32 (the end of the line), the point worked out with it there. */
+  function railPoint(): World {
+    const w = landWorld(128); w.budget.money = 1_000_000;
+    for (let x = 0; x <= 29; x++) expect(w.layTrack(x, 64)).toBe(true);
+    resetConnections(w);
+    expect(connectionOn(w, 64 * 128)).toMatchObject({ kind: 'rail' });
+    expect(w.placeBuilding(30, 64, BUILDING_STATION, 0)).toBe(true);
+    return w;
+  }
+
+  it('come in off the map at a joined rail point, stop at the first station, and go back out', () => {
+    const net = new TrainNet(railPoint());
+    expect(net.edges.filter(e => e.portal !== 0).length).toBe(2);
+    let cameIn = false, stood = false, left = false, gone = false, maxOff = 0;
+    for (let k = 0; k < 1200 && !gone; k++) {
+      net.step(0.1);
+      const v = net.trains.find(t => t.visitor);
+      for (const t of net.trains) if (!t.visitor) expect(t.edge.portal).toBe(0);   // the city's own trains stay on the map
+      if (!v) { if (left) gone = true; continue; }
+      const [x] = edgeAt(v.edge, v.s);
+      maxOff = Math.max(maxOff, -x);
+      if (v.edge.portal === -1) cameIn = true;
+      if (cameIn && v.phase === 'dwell') { stood = true; expect(x).toBeGreaterThan(29); }
+      if (stood && v.leaving) left = true;
+    }
+    expect(cameIn).toBe(true);
+    expect(stood).toBe(true);
+    expect(left).toBe(true);
+    expect(gone).toBe(true);
+    expect(maxOff).toBeGreaterThan(4);   // ran well out past the edge before it went
+  });
+
+  it('do not come where no rail point is joined', () => {
+    const w = landWorld(128);
+    for (let x = 0; x <= 29; x++) w.layTrack(x, 64);   // track to the edge, but the map has no points
+    expect(new TrainNet(w).edges.some(e => e.portal !== 0)).toBe(false);
   });
 });

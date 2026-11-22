@@ -12,12 +12,20 @@
  * slower, and the trains behind close up until they run nose to tail; a junction past capacity holds
  * each train a moment, so that is where the queue builds. There are no signals and nothing is shown
  * for them: a train simply waits for the way ahead to be clear.
+ *
+ * Trains from outside (owner: none ever came in or went out on track joined to a rail point): at each
+ * joined rail point the track runs on off the map, along its stub (clay/connectionStubs.ts). Visitor
+ * trains come in along it, run to the first station, stand at the platform, come back and run out
+ * again, fading into the dark past the map's edge. How often follows the riders the point brings in
+ * (sim/connectionTraffic.ts); the city's own trains never take that track.
  */
 import type { World } from '../../sim/World';
 import { railLinks, rampOther, LINK_E, LINK_S } from '../../sim/rail';
 import { railLoad } from '../../sim/TrafficData';
 import { RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../../sim/constants';
 import { buildRuns, across, OPP, type Run } from './trainRuns';
+import { connectionOn } from '../../sim/connections';
+import { connectionTradeAt } from '../../sim/connectionTraffic';
 
 export const CAR_LEN = 0.75, CAR_GAP = 0.05, CARS = 3;
 /** Front to tail of a train, in tiles. */
@@ -36,6 +44,14 @@ const FADE = 0.8;
 const PULL_OUT = 4, SLOW_IN = 4;
 /** Tiles a car takes to cross over to the other track. */
 export const CROSS = 1.5;
+/** Track off the map at a rail point, tile centre to end: long enough that a train is out of sight at its end. */
+export const PORTAL = 6.5;
+/** Seconds between visitor trains at a rail point: the first with no riders, the second at its full capacity. */
+const VISIT_EVERY = [40, 15] as const;
+/** At most this many visitor trains at once from one point. */
+const VISIT_MAX = 3;
+/** Outward step per map edge (EDGE_N, E, S, W). */
+const OUTWARD: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 export type TrainPhase = 'run' | 'in' | 'dwell' | 'out';
 
@@ -67,6 +83,10 @@ export interface Edge {
   loadLevel: number;
   /** The run this is part of (null for junctions and ramps). */
   run: Run | null;
+  /** Track off the map at a rail point: 1 running out, -1 coming in, 0 neither. */
+  portal: number;
+  /** That rail point's tile (-1 for other track). */
+  point: number;
   x0: number; y0: number; x1: number; y1: number;
 }
 
@@ -102,6 +122,14 @@ export interface Train {
   /** -1 fading out to be taken away, 1 fading in, 0 neither. */
   fading: number;
   livery: number;
+  /** A train from outside: in from a rail point to the first station and back out. */
+  visitor: boolean;
+  /** A visitor on its way back out. */
+  leaving: boolean;
+  /** The edges a visitor still has to take, in order. */
+  route: Edge[];
+  /** A visitor's rail point tile. */
+  point: number;
 }
 
 const mulberry = (seed: number): (() => number) => () => {
@@ -149,7 +177,7 @@ export function buildNet(world: World): Edge[] {
     const g = polyEdge(P);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const [x, y] of g.P) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
-    const e = { id: nextId++, ...g, level, ramp: 0, stops: [], wide: [], next: [], rev: null as unknown as Edge, junction: -1, straight: true, group: -1, loadLevel: level, run: null, x0, y0, x1, y1, ...o } as Edge;
+    const e = { id: nextId++, ...g, level, ramp: 0, stops: [], wide: [], next: [], rev: null as unknown as Edge, junction: -1, straight: true, group: -1, loadLevel: level, run: null, portal: 0, point: -1, x0, y0, x1, y1, ...o } as Edge;
     edges.push(e); return e;
   };
   const pair = (a: Edge, b: Edge): void => { a.rev = b; b.rev = a; };
@@ -199,6 +227,15 @@ export function buildNet(world: World): Edge[] {
       continue;
     }
     if (n !== 1 || arms.length !== 1) continue;
+    // A joined rail point: the track runs on off the map, out and back.
+    const pt = level === RAIL_GROUND && world.connections.length ? connectionOn(world, t) : null;
+    if (pt && pt.kind === 'rail') {
+      const [dx, dy] = OUTWARD[pt.edge], c: [number, number] = [tx + 0.5, ty + 0.5], far: [number, number] = [c[0] + dx * PORTAL, c[1] + dy * PORTAL];
+      const out = make([c, far], level, { portal: 1, point: t }), inn = make([far, c], level, { portal: -1, point: t });
+      pair(out, inn);
+      arms[0].inn.next.push(out); inn.next.push(arms[0].out);
+      continue;
+    }
     // A ramp end: across the ramp to the run at its other end.
     const other = rampOther(world, t);
     if (!other) continue;
@@ -244,6 +281,8 @@ export class TrainNet {
   private rand: () => number;
   private nextTrain = 1;
   private spawnClock = 0;
+  /** Seconds to each rail point's next visitor train, by its incoming edge's id. */
+  private visitClock = new Map<number, number>();
   private surplusFor = new Map<number, number>();
   private readonly world: World;
 
@@ -318,13 +357,15 @@ export class TrainNet {
     return l;
   }
 
-  private pick(e: Edge): Edge | null {
-    if (!e.next.length) return null;
-    if (e.next.length === 1) return e.next[0];
-    const w = e.next.map(n => n.straight ? 3 : 1), sum = w.reduce((p, q) => p + q, 0);
+  private pick(e: Edge, t?: Train): Edge | null {
+    if (t?.visitor) return t.route.shift() ?? null;
+    const next = e.next.filter(n => n.portal === 0);
+    if (!next.length) return null;
+    if (next.length === 1) return next[0];
+    const w = next.map(n => n.straight ? 3 : 1), sum = w.reduce((p, q) => p + q, 0);
     let r = this.rand() * sum;
-    for (let k = 0; k < w.length; k++) { r -= w[k]; if (r <= 0) return e.next[k]; }
-    return e.next[e.next.length - 1];
+    for (let k = 0; k < w.length; k++) { r -= w[k]; if (r <= 0) return next[k]; }
+    return next[next.length - 1];
   }
 
   private spawn(group: number, occ: Map<number, [number, number, number][]>, anywhere: boolean): boolean {
@@ -347,7 +388,7 @@ export class TrainNet {
 
   private add(e: Edge, s: number, alpha: number, fading: number): void {
     // A stop already behind the front counts as served.
-    const t: Train = { id: this.nextTrain++, edge: e, s, v: SPEED * 0.6, hist: [], ahead: null, wait: 0, phase: 'run', turning: false, served: s, heldAt: -1, sinceStop: 99, odo: 0, crossAt: NaN, crossPending: false, alpha, fading, livery: Math.floor(this.rand() * 1000) };
+    const t: Train = { id: this.nextTrain++, edge: e, s, v: SPEED * 0.6, hist: [], ahead: null, wait: 0, phase: 'run', turning: false, served: s, heldAt: -1, sinceStop: 99, odo: 0, crossAt: NaN, crossPending: false, alpha, fading, livery: Math.floor(this.rand() * 1000), visitor: false, leaving: false, route: [], point: -1 };
     t.ahead = this.pick(e);
     this.trains.push(t);
   }
@@ -359,7 +400,7 @@ export class TrainNet {
     if (this.spawnClock <= 0) {
       this.spawnClock = 1.2;
       const want = this.targets(), have = new Map<number, Train[]>();
-      for (const t of this.trains) { const l = have.get(t.edge.group); if (l) l.push(t); else have.set(t.edge.group, [t]); }
+      for (const t of this.trains) { if (t.visitor) continue; const l = have.get(t.edge.group); if (l) l.push(t); else have.set(t.edge.group, [t]); }
       const occ = this.occupancy();
       for (const [gid, n] of want) {
         const list = (have.get(gid) ?? []).filter(t => t.fading >= 0);
@@ -377,8 +418,56 @@ export class TrainNet {
       if (t.fading) { t.alpha += t.fading * dt / FADE; if (t.alpha >= 1) { t.alpha = 1; t.fading = 0; } }
     }
     this.trains = this.trains.filter(t => t.alpha > 0 || t.fading >= 0);
+    this.visitors(dt);
     const occ = this.occupancy();
     for (const t of this.trains) this.move(t, dt, occ);
+    // Visitors gone off the map's edge: out of sight by the end of the track there.
+    this.trains = this.trains.filter(t => !(t.visitor && t.edge.portal === 1 && t.s >= t.edge.len - 0.1));
+  }
+
+  /** Riders a rail point brings in, as a share of what it can bring (0–1). */
+  protected pointBusy(point: number): number {
+    const c = connectionTradeAt(this.world, point);
+    if (!c || !c.visitorsCapacity) return 0;
+    return Math.max(0, Math.min(1, (c.visitorsIn + c.dayTrippers) / c.visitorsCapacity));
+  }
+
+  /** Sends visitor trains in at each joined rail point that has a station to run to, as often as its riders call for. */
+  private visitors(dt: number): void {
+    for (const e of this.edges) {
+      if (e.portal !== -1) continue;
+      let left = this.visitClock.get(e.id);
+      if (left === undefined) left = 3 + this.rand() * 7;   // the first soon after the point is joined
+      left -= dt;
+      if (left <= 0) {
+        const route = this.routeTo(e, (x) => x.stops.length > 0);
+        const here = this.trains.filter(t => t.visitor && t.point === e.point).length;
+        const occ = this.occupancy();
+        if (route && here < VISIT_MAX && this.free(occ, e, 0, TRAIN_LEN + 1) && this.free(occ, e.rev, e.len - TRAIN_LEN - 1, e.len)) {
+          this.add(e, TRAIN_LEN, 1, 0);
+          const t = this.trains[this.trains.length - 1];
+          t.visitor = true; t.point = e.point; t.route = route; t.ahead = t.route.shift() ?? null; t.v = SPEED;
+          const f = this.pointBusy(e.point);
+          left = VISIT_EVERY[0] + (VISIT_EVERY[1] - VISIT_EVERY[0]) * f;
+        } else left = 2;
+      }
+      this.visitClock.set(e.id, left);
+    }
+  }
+
+  /** The edges from `from` (not counted) to the nearest edge that is `goal`, the fewest edges first; null if none. Off-map track only as the goal. */
+  private routeTo(from: Edge, goal: (e: Edge) => boolean): Edge[] | null {
+    const prev = new Map<Edge, Edge>([[from, from]]), queue = [from];
+    for (let k = 0; k < queue.length; k++) {
+      const e = queue[k];
+      for (const n of e.next) {
+        if (prev.has(n)) continue;
+        prev.set(n, e);
+        if (goal(n)) { const out: Edge[] = []; for (let x = n; x !== from; x = prev.get(x)!) out.push(x); return out.reverse(); }
+        if (n.portal === 0) queue.push(n);
+      }
+    }
+    return null;
   }
 
   /** Fills a new net with its trains at once (on loading a city), wherever there is room. */
@@ -393,6 +482,11 @@ export class TrainNet {
       t.wait -= dt;
       if (t.wait > 0) return;
       if (t.turning) { if (!this.turnBack(t, occ)) { t.wait = 0.5; return; } }
+      if (t.phase === 'dwell' && t.visitor && !t.leaving) {
+        // A visitor has reached its station: back the way it came, out to its point.
+        if (!this.turnBack(t, occ)) { t.wait = 0.5; return; }
+        this.homeward(t);
+      }
       if (t.phase === 'dwell') {
         // A terminus: come back from the platform rather than run on to the buffer and back.
         if (!t.ahead && t.edge.len - t.s < TRAIN_LEN + 1.2) {
@@ -458,7 +552,7 @@ export class TrainNet {
     while (t.s >= e.len - 1e-9 && t.ahead && t.edge === e) {
       const n = t.ahead, over = t.s - e.len;
       if (n.junction >= 0 && (this.junctionBusy(occ, n.junction, t.id) || !this.free(occ, n.next[0], 0, TRAIN_LEN + 0.3, t.id))) { t.s = e.len; t.v = 0; break; }
-      t.hist.unshift(e); t.edge = n; t.s = over; t.served = -1; t.ahead = this.pick(n);
+      t.hist.unshift(e); t.edge = n; t.s = over; t.served = -1; t.ahead = this.pick(n, t);
       if (n.junction < 0) t.heldAt = -1;
       this.trimHist(t);
       // A platform right at the start of the new edge.
@@ -492,13 +586,21 @@ export class TrainNet {
     t.edge = last.e.rev; t.s = last.e.len - last.a;
     // hist runs nearest first: just behind the new front is the edge the tail's was behind.
     t.hist = parts.slice(0, -1).map(p => p.e.rev).reverse();
-    t.turning = false; t.served = t.s; t.heldAt = -1; t.ahead = this.pick(t.edge); t.crossPending = true; t.crossAt = NaN; t.v = 0; t.sinceStop = 99;
+    t.turning = false; t.served = t.s; t.heldAt = -1; t.ahead = this.pick(t.edge, t); t.crossPending = true; t.crossAt = NaN; t.v = 0; t.sinceStop = 99;
     return true;
+  }
+
+  /** Sets a visitor on its way back out to its point (or, with no way there, makes it one of the city's own). */
+  private homeward(t: Train): void {
+    t.leaving = true;
+    const route = t.edge.portal === 1 ? [] : this.routeTo(t.edge, (x) => x.portal === 1 && x.point === t.point);
+    if (route) { t.route = route; t.ahead = t.route.shift() ?? null; }
+    else { t.visitor = false; t.route = []; t.ahead = this.pick(t.edge); }
   }
 
   /** Takes a train over from an older net (the track changed), with its front at distance s along e. */
   adopt(old: Train, e: Edge, s: number): void {
-    const t: Train = { ...old, edge: e, s, hist: [], ahead: null, wait: 0, turning: false, served: s, heldAt: -1, phase: old.phase === 'dwell' ? 'out' : old.phase };
+    const t: Train = { ...old, edge: e, s, hist: [], ahead: null, wait: 0, turning: false, served: s, heldAt: -1, phase: old.phase === 'dwell' ? 'out' : old.phase, route: [] };
     // The body behind: back along the edges that lead here.
     let cur = e, left = TRAIN_LEN - s;
     while (left > 0) {
@@ -506,7 +608,11 @@ export class TrainNet {
       if (!prev || t.hist.includes(prev)) break;
       t.hist.push(prev); left -= prev.len; cur = prev;
     }
-    t.ahead = this.pick(e);
+    if (t.visitor) {
+      // Its route was on the old track: work it out again on this one.
+      const route = t.leaving ? null : (e.stops.some(st => st > s) ? [] : this.routeTo(e, (x) => x.stops.length > 0));
+      if (route) { t.route = route; t.ahead = t.route.shift() ?? null; } else this.homeward(t);
+    } else t.ahead = this.pick(e);
     this.nextTrain = Math.max(this.nextTrain, old.id + 1);
     this.trains.push(t);
   }
