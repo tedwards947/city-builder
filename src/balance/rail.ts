@@ -16,7 +16,7 @@
 import type { World } from '../sim/World';
 import { BALANCE } from '../data/balance';
 import {
-  BUILDING_NONE, BUILDING_STATION, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
+  BUILDING_NONE, BUILDING_STATION, BUILDING_STATION_ELEVATED, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
   RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, ROAD_AVENUE, ROAD_HIGHWAY, ROAD_NONE, ROAD_STREET, TERRAIN_WATER, ZONE_C, ZONE_I, ZONE_NONE, ZONE_R,
 } from '../sim/constants';
 import { MARKET_DEFS, railLoad, roadCapacity, trafficVolume } from '../sim/TrafficData';
@@ -35,9 +35,10 @@ export const MIN_STREET = 25;
 
 /** A starter line, for the money targets: two straight stations and this much ground track. */
 export const STARTER_TILES = 60;
-/** A starter line's upkeep per tick: its track and its two stations. */
-export function starterLineUpkeep(): number {
-  return 2 * (BALANCE.buildings[BUILDING_STATION]?.maintenance ?? 0) + STARTER_TILES * (BALANCE.rail.track[RAIL_GROUND]?.maintenance ?? 0);
+/** A starter line's upkeep per tick: its track and its two stations (`elevated`: elevated stations and elevated track). */
+export function starterLineUpkeep(elevated = false): number {
+  const station = elevated ? BUILDING_STATION_ELEVATED : BUILDING_STATION, level = elevated ? RAIL_ELEVATED : RAIL_GROUND;
+  return 2 * (BALANCE.buildings[station]?.maintenance ?? 0) + STARTER_TILES * (BALANCE.rail.track[level]?.maintenance ?? 0);
 }
 export function starterLineCost(): number {
   return 2 * (BALANCE.buildings[BUILDING_STATION]?.cost ?? 0) + STARTER_TILES * (BALANCE.rail.track[RAIL_GROUND]?.cost ?? 0);
@@ -68,6 +69,8 @@ export interface RailResult {
   twoLines: number | null;
   /** The suburb at full size: (its home taxes + fares) ÷ a starter line's upkeep (two stations, STARTER_TILES of track). */
   pays: number | null;
+  /** The same suburb against an elevated starter line's upkeep (two elevated stations, STARTER_TILES of elevated track). Information only; riders as on the ground line. */
+  paysElevated: number | null;
   /** The twin's surplus per day, and a starter line's price in days of it (null if the city runs at a loss). */
   surplusPerDay: number | null;
   lineCostDays: number | null;
@@ -341,7 +344,7 @@ export function railResult(world: World, days = 180): RailResult {
   const res: RailResult = {
     population: world.stats.population, lineTiles: null, streetTiles: null, suburbAccess: null, streetAccess: null, cityAccess: null,
     railLevels: null, streetLevels: null, freightOnTrack: null, junction3: null, junction4: null, bigResidents: null, oneLine: null, twoLines: null,
-    pays: null, surplusPerDay: null, lineCostDays: null,
+    pays: null, paysElevated: null, surplusPerDay: null, lineCostDays: null,
   };
   const site = findSite(world, 16, 1, MIN_STREET);
   if (!site) return { ...res, note: 'no suburb site with a street and a line to the city' };
@@ -380,6 +383,8 @@ export function railResult(world: World, days = 180): RailResult {
   // Graded on a fixed starter line (owner 2026-11-18), not the probe's own line, whose length depends on the map.
   const upkeep = starterLineUpkeep();
   res.pays = upkeep > 0 ? r2((tax + fares) / upkeep) : null;
+  const upkeepElevated = starterLineUpkeep(true);
+  res.paysElevated = upkeepElevated > 0 ? r2((tax + fares) / upkeepElevated) : null;
 
   // Junctions, on the full suburb: a 3-way and a 4-way spur (three tiles each) on plain track,
   // well apart and clear of all other track, so they make no shortcut; traffic settled again.

@@ -6,7 +6,7 @@ import { startSim } from './world';
 import { landWorld } from '../__tests__/pcTestWorld';
 import {
   BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_SEWAGE_PLANT, BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL,
-  BUILDING_STATION, RAIL_GROUND, ROAD_STREET, ZONE_R,
+  BUILDING_STATION, BUILDING_STATION_ELEVATED, RAIL_ELEVATED, RAIL_GROUND, ROAD_STREET, ZONE_R,
 } from '../sim/constants';
 
 describe('balance lab: rail probe', () => {
@@ -25,6 +25,11 @@ describe('balance lab: rail probe', () => {
       expect(r.note).toBeTruthy();
     }
   }, 120_000);
+
+  it('an elevated starter line is two elevated stations and 60 tiles of elevated track, in upkeep', () => {
+    expect(starterLineUpkeep(true)).toBe(2 * BALANCE.buildings[BUILDING_STATION_ELEVATED].maintenance + STARTER_TILES * BALANCE.rail.track[RAIL_ELEVATED].maintenance);
+    expect(starterLineUpkeep(true)).toBeGreaterThan(starterLineUpkeep());
+  });
 
   it('a starter line is two stations and 60 tiles of ground track, in cost and upkeep', () => {
     expect(starterLineCost()).toBe(2 * BALANCE.buildings[BUILDING_STATION].cost + STARTER_TILES * BALANCE.rail.track[RAIL_GROUND].cost);
