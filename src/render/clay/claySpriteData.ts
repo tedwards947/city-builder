@@ -700,7 +700,7 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "h": 256,
     "left": 25,
     "right": 227,
-    "bottom": 219
+    "bottom": 220
   },
   "sewage-large": {
     "w": 256,
@@ -739,10 +739,10 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   },
   "lots/c-tower-b": {
     "w": 257,
-    "h": 461,
+    "h": 460,
     "left": 28,
     "right": 229,
-    "bottom": 435
+    "bottom": 434
   },
   "lots/c-tower-c": {
     "w": 238,
@@ -1175,7 +1175,7 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "w": 724,
     "h": 724,
     "left": 57,
-    "right": 661,
+    "right": 662,
     "bottom": 641
   },
   "capstones/nuclear-a": {
@@ -1216,7 +1216,7 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   "leisure/beach-b-tall": {
     "w": 463,
     "h": 396,
-    "left": 130,
+    "left": 129,
     "right": 330,
     "bottom": 341
   }

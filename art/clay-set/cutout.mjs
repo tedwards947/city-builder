@@ -312,36 +312,41 @@ function extendSlab(img, aspect = PLOT_ASPECT, forceFlat = false) {
 // on a merged lot as on a 1×1, so in the game it was twice as thick and the lot
 // looked raised (owner, 2026-11-20). Thin it to a 1×1's: 4.1% of a tile.
 const LIP_PER_TILE = 0.041;
-// `byColour`: tell the lip from the ground by colour, not brightness (a brown soil lip can be as bright as
-// the grass, as on the waterworks, and was then not seen at all).
-function thinLip(img, tilesWide, byColour = false) {
+// The lip is found two ways in each column and the thicker answer kept: by brightness (the slab's shaded face),
+// and by colour (src/__tests__/spriteLips.test.ts measures the same way): far from the ground just behind and
+// darker than it or, on grass, earth-coloured. A brown soil lip can be as bright as the grass (the waterworks)
+// and was then not seen at all by brightness alone. The owner has had to ask for raised-looking lots to be
+// sunk many times: this is the guard, and the test fails the build on any lip it misses.
+function thinLip(img, tilesWide) {
   const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
   const lum = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? -1 : (rgba[d] + rgba[d + 1] + rgba[d + 2]) / 3; };
   const rgbAt = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? null : [rgba[d], rgba[d + 1], rgba[d + 2]]; };
   const heights = [];
-  // Every column across the plot: the ground a little way in, then how far up from the bottom the lip runs.
   for (let f = 0.04; f <= 0.96; f += 0.02) {
     const x = Math.round(p.left + plotW * f);
-    if (byColour) {
-      // The ground's median colour a little way in; the lip is every row up from the bottom that is far from it.
-      const cols = [];
-      for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) { const c = rgbAt(x, p.bottom - k); if (c) cols.push(c); }
-      if (cols.length < 3) continue;
-      const med = [0, 1, 2].map(i => cols.map(c => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
-      const far = (c) => !c || Math.hypot(c[0] - med[0], c[1] - med[1], c[2] - med[2]) > 24;
-      let k = 0;
-      while (k < plotW * 0.08 && far(rgbAt(x, p.bottom - k))) k++;
-      if (k < plotW * 0.08) heights.push(k);
-      continue;
-    }
+    let best = -1;
+    // By brightness: the ground a little way in, then how far up from the bottom the lip runs.
     const ground = [];
     for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) ground.push(lum(x, p.bottom - k));
     ground.sort((a, b) => a - b);
     const surf = ground[ground.length >> 1];
-    if (surf < 0) continue;
-    let k = 0;
-    while (k < plotW * 0.08 && Math.abs(lum(x, p.bottom - k) - surf) > surf * 0.06) k++;
-    if (k < plotW * 0.08) heights.push(k);
+    if (surf >= 0) {
+      let k = 0;
+      while (k < plotW * 0.08 && Math.abs(lum(x, p.bottom - k) - surf) > surf * 0.06) k++;
+      if (k < plotW * 0.08) best = k;
+    }
+    // By colour, against the same ground (the raw paintings are drawn deep, so a lip can run well up the picture).
+    const cols = [];
+    for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) { const c = rgbAt(x, p.bottom - k); if (c) cols.push(c); }
+    if (cols.length >= 3) {
+      const med = [0, 1, 2].map(i => cols.map(c => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
+      const L = (c) => (c[0] + c[1] + c[2]) / 3, gl = L(med), green = med[1] > med[0] + 10;
+      const isLip = (c) => !c || (Math.hypot(c[0] - med[0], c[1] - med[1], c[2] - med[2]) > 24 && (L(c) < gl * 0.92 || (green && c[0] > c[1] + 12 && L(c) < 150)));
+      let k = 0;
+      while (k < plotW * 0.08 && isLip(rgbAt(x, p.bottom - k))) k++;
+      if (k < plotW * 0.08) best = Math.max(best, k);
+    }
+    if (best >= 0) heights.push(best);
   }
   if (!heights.length) return 0;
   heights.sort((a, b) => a - b);
@@ -350,6 +355,47 @@ function thinLip(img, tilesWide, byColour = false) {
   if (drop <= 0) return 0;
   // Drop rows spread evenly through the lip, so its shading keeps its order.
   const gone = new Set();
+  for (let j = 0; j < drop; j++) gone.add(p.bottom - face + 1 + Math.floor((j + 0.5) * face / drop));
+  const out = new Uint8Array(w * h * 4);
+  let dy = h - 1;
+  for (let y = h - 1; y >= 0; y--) { if (gone.has(y)) continue; out.set(rgba.subarray(y * w * 4, (y + 1) * w * 4), dy * w * 4); dy--; }
+  rgba.set(out);
+  return drop;
+}
+
+// ── The last guard against lots sitting proud of the ground ─────────────────
+// Every game sprite with a slab (but the 1×1s, which are what the rest should match) is measured as src/__tests__/spriteLips.test.ts measures it (keep the two
+// alike), at 101 px a tile, and any lip thicker than the 1×1s' (4 px) is cut down to it. thinLip works on the raw
+// painting, before squashing and scaling; this works on what the game loads, so the test always passes.
+// (Plain numbers, not consts: the 1×1 loop above calls these before a const here would be set.)
+function gameLipPx({ w, rgba }, left, right, bottom) {
+  const plotW = right - left + 1, tile = Math.min(plotW, 101), out = [];   // 101 px a tile
+  const at = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? null : [rgba[d], rgba[d + 1], rgba[d + 2]]; };
+  for (let f = 0.04; f <= 0.96; f += 0.02) {
+    const x = Math.round(left + plotW * f), cols = [];
+    for (let k = Math.round(tile * 0.12); k <= tile * 0.2; k++) { const c = at(x, bottom - k); if (c) cols.push(c); }
+    if (cols.length < 3) continue;
+    const med = [0, 1, 2].map(i => cols.map(c => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
+    const L = (c) => (c[0] + c[1] + c[2]) / 3, gl = L(med), green = med[1] > med[0] + 10;
+    const isLip = (c) => !c || (Math.hypot(c[0] - med[0], c[1] - med[1], c[2] - med[2]) > 24 && (L(c) < gl * 0.92 || (green && c[0] > c[1] + 12 && L(c) < 150)));
+    let k = 0;
+    while (k < tile * 0.12 && isLip(at(x, bottom - k))) k++;
+    if (k < tile * 0.12) out.push(k);
+  }
+  out.sort((a, b) => a - b);
+  return out.length ? out[out.length >> 1] : 0;
+}
+/** Cuts a finished game sprite's lip down to 4 rows (dropping rows spread through it). Returns the rows dropped. */
+function flushLip(img) {
+  let all = 0;
+  // Again until it measures thin: with rows gone the ground just behind can measure differently.
+  for (let pass = 0; pass < 3; pass++) { const d = flushOnce(img); if (!d) break; all += d; }
+  return all;
+}
+function flushOnce(img) {
+  const p = findPlot(img), face = gameLipPx(img, p.left, p.right, p.bottom), drop = face - 4;   // 4 = LIP_PER_TILE of 101 px
+  if (drop <= 0) return 0;
+  const { w, h, rgba } = img, gone = new Set();
   for (let j = 0; j < drop; j++) gone.add(p.bottom - face + 1 + Math.floor((j + 0.5) * face / drop));
   const out = new Uint8Array(w * h * 4);
   let dy = h - 1;
@@ -381,12 +427,14 @@ function resample({ w, h, rgba }, W, H) {
 for (const { src, id, n } of BIG) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-big', src + '.png'), '--out', tmp], { stdio: 'ignore' });
   const cut = cutout(readBmp(tmp));
+  const thinned = thinLip(cut, n);
   const { grown } = extendSlab(cut);
   const game = resample(cut, n * 128, n * 128);
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
-  console.log(`${id}: ${n}×${n} tiles, slab grown by ${grown}px of 1024`, gp);
+  console.log(`${id}: ${n}×${n} tiles, slab grown by ${grown}px of 1024, lip thinned ${thinned}px`, gp);
 }
 // ── Merged 2×2 lots ─────────────────────────────────────────────────────────
 // raw-lots/*.png: towers on a tall 9:16 canvas (ref/anchor-2x2-tall.png), low
@@ -428,6 +476,7 @@ for (const f of readdirSync(join(here, 'raw-lots')).filter((f) => f.endsWith('.p
   const p = findPlot(cut), k = LOT_PLOT / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'lots/' + f.replace(/\.png$/, '');
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
@@ -510,6 +559,7 @@ for (const f of readdirSync(join(here, 'raw-pairs')).filter((f) => f.endsWith('.
   const p = findPlot(cut), k = (wide ? 202 : 101) / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'pairs/' + f.replace(/\.png$/, '');
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
@@ -545,6 +595,7 @@ for (const { src, id: name, n, untint } of LEISURE) {
   const p = findPlot(cut), k = n * 101 / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'leisure/' + name;
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
@@ -558,16 +609,16 @@ for (const { src, id: name, n, untint } of LEISURE) {
 // beach parks. Trees are left out of the art and placed in code
 // (clay/capstoneArt.ts). Game ids are `capstones/<id>`.
 const CAPSTONES = [
-  { src: 'sewage-c', w: 4, d: 4 }, { src: 'sewage-d', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4, byColour: true }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
+  { src: 'sewage-c', w: 4, d: 4 }, { src: 'sewage-d', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4 }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
   { src: 'hospital-6x4', w: 6, d: 4 }, { src: 'nuclear-a', w: 4, d: 4 }, { src: 'uni-b', w: 8, d: 8 },
 ];
 /** The anchors' plots are drawn this deep (front to back, per unit of width) for a square lot. */
 const ANCHOR_DEPTH = 723 / 852;
 mkdirSync(join(GAME_OUT, 'capstones'), { recursive: true });
-for (const { src, w, d, byColour } of CAPSTONES) {
+for (const { src, w, d } of CAPSTONES) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-capstones', src + '.png'), '--out', tmp], { stdio: 'ignore' });
   let cut = cutout(readBmp(tmp));
-  const thinned = thinLip(cut, w, byColour);
+  const thinned = thinLip(cut, w);
   const p0 = findPlot(cut), want = (p0.right - p0.left + 1) * ANCHOR_DEPTH * d / w, depth = p0.bottom - plotTop(cut);
   let squash = 1;
   if (depth > want * 1.02) { squash = want / depth; cut = resample(cut, cut.w, Math.round(cut.h * squash)); }
@@ -575,6 +626,7 @@ for (const { src, w, d, byColour } of CAPSTONES) {
   const p = findPlot(cut), k = w * 101 / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'capstones/' + src;
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
@@ -624,6 +676,7 @@ for (const { src, w, d } of BEACH) {
   const p = findPlot(cut), k = w * 101 / (p.right - p.left + 1);
   const game = resample(cut, Math.round(cut.w * k), Math.round(cut.h * k));
   const id = 'leisure/' + src;
+  flushLip(game);
   writePalettePng(join(GAME_OUT, id + '.png'), game);
   const gp = findPlot(game);
   gameManifest[id] = { w: game.w, h: game.h, left: gp.left, right: gp.right, bottom: gp.bottom };
