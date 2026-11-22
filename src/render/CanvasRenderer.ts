@@ -15,14 +15,14 @@ import { isLeisureKind } from '../sim/leisure';
 import { eventStatus } from '../sim/eventDays';
 import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
 import { isLotAnchor, lotShape, LOT_SIZE } from '../sim/lots';
-import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
-import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
+import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
+import { drawRailTile, drawStation, drawElevatedIslandTops, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { drawConnectionStubs, drawConnectionHints } from './clay/connectionStubs';
 import { tileSetEdges, clusterTiles, type TilePoint } from './clay/tileOutline';
-import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles } from '../sim/buildingShapes';
+import { isLargeBuilding, placementRules, footprintTiles, footprintEdge, buildingShape, hasDocks, shapeRoles, overheadPlatform } from '../sim/buildingShapes';
 import { buildingKindForPlacing } from '../input/InputController';
 import { placementFor } from '../input/placement';
 import { openWater } from '../sim/openWater';
@@ -293,6 +293,7 @@ export class CanvasRenderer {
       this._drawSubwayRampShades(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawElevatedLayer(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_ELEVATED);
+      drawElevatedIslandTops(ctx, world, ox, oy, ts, b.x0, b.y0, b.x1, b.y1);
       // Capstone aircraft in the air or taxiing (clay/capstoneAnim.ts), above the buildings.
       drawCapstoneFlights(ctx, world, ox, oy, ts, now);
       if (underground) {
@@ -1226,6 +1227,21 @@ export class CanvasRenderer {
     }
     // Placing a building on several tiles: outline where it would stand (anchor under the pointer), red if it cannot go there.
     const placing = buildingKindForPlacing(tool);
+    // An elevated station: its three overhead platform tiles, the pointer on the middle one (any of them may be the problem).
+    if (placing === BUILDING_STATION_ELEVATED) {
+      const a = placementFor(world, placing, hoverTile.tx, hoverTile.ty), check = a.check, can = check.ok && !refused;
+      const X = (tx: number) => Math.floor(camera.worldToScreenX(Projection.tileToWorldX(tx))), Y = (ty: number) => Math.floor(camera.worldToScreenY(Projection.tileToWorldY(ty)));
+      const tiles = overheadPlatform(placing, a.rot).map(([dx, dy]) => ({ x: a.tx + dx, y: a.ty + dy }));
+      tiles.forEach(p => {
+        if (!world.grid.inBounds(p.x, p.y)) return;
+        const blocked = check.blocked.includes(world.grid.idx(p.x, p.y));
+        ctx.fillStyle = blocked ? 'rgba(224,72,72,0.5)' : refused ? 'rgba(224,112,112,0.3)' : 'rgba(190,230,255,0.3)';
+        ctx.fillRect(X(p.x), Y(p.y), X(p.x + 1) - X(p.x), Y(p.y + 1) - Y(p.y));
+      });
+      ctx.strokeStyle = !can ? '#f66' : warn ? '#ffd166' : '#fff';
+      this._strokeTileSet(ctx, tiles, X, Y);
+      return;
+    }
     if (placing !== undefined && isLargeBuilding(placing)) {
       // The pointer holds the middle of the footprint; a seaport also turns to face open water (input/placement.ts).
       const a = placementFor(world, placing, hoverTile.tx, hoverTile.ty);
