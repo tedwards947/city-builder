@@ -668,6 +668,9 @@ const jamCase = (r: ConnectionsResult): Outcome | null => {
   return null;
 };
 
+/** Road tiles the rail join may newly jam: 5, or 2% of those already jammed if more (PM 2026-11-21: generated cities have 400–1,500). */
+const jamAllowance = (before: number) => Math.max(5, Math.floor(0.02 * before));
+
 const CONNECTIONS_TARGETS: Omit<Target, 'suite'>[] = [
   { id: 'connections.entryJam', metric: 'Peak load of the avenue the nearest highway point\'s road meets, that one point joined', target: '≥ 1.0 (jammed at peak)', persona: 'probe', cities: 'saves', status: 'graded',
     why: 'Design target (owner 2026-11-20): a 20k city with one joined highway point has a jammed entry road at peak; the fix is a second connection.',
@@ -697,12 +700,12 @@ const CONNECTIONS_TARGETS: Omit<Target, 'suite'>[] = [
     why: 'Owner (2026-11-20): highway exports earn the port\'s price with no boost to industry.',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const i = o.r.industry; if (!i) return NA('no highway point can be joined'); if (!(i.base > 0)) return NA('no industry');
       return { ...range(i.one / i.base, 0.97, 1.03), note: `${i.base} → ${i.one} levels` }; } },
-  { id: 'connections.railIn', metric: 'Riders a tick the nearest rail point brings in (tourists and day-trippers), joined by ground track to the city\'s line; its track\'s peak load; road tiles newly at capacity', target: '≥ 40 in, track ≤ 0.8, at most 5 more jammed road tiles', persona: 'probe', cities: 'saves', status: 'graded',
-    why: 'Owner (2026-11-21): rail carries a lot more than a highway (200 a tick, about 3×), spread over the stations, so it lifts visitors without jamming roads. A city with no ground track gets a surface line built for the probe (owner 2026-11-21, lab only): track from the rail point to up to three straight stations near the jobs, as a player would.',
+  { id: 'connections.railIn', metric: 'Riders a tick the nearest rail point brings in (tourists and day-trippers), joined by ground track to the city\'s line; its track\'s peak load; road tiles newly at capacity', target: '≥ 40 in, track ≤ 0.8, at most 5 more jammed road tiles or 2% of those already jammed, whichever is more', persona: 'probe', cities: 'saves', status: 'graded',
+    why: 'Owner (2026-11-21): rail carries a lot more than a highway (200 a tick, about 3×), spread over the stations, so it lifts visitors without jamming roads. A city with no ground track gets a surface line built for the probe (owner 2026-11-21, lab only): track from the rail point to up to three straight stations near the jobs, as a player would. PM (2026-11-21): the jam allowance is 5 tiles or 2% of those already jammed, whichever is more (it was 5, set on golden-1 with 49 jammed).',
     evaluate: c => { const o = connOf(c); if (!('r' in o)) return o; const rl = o.r.rail; if (!rl) return NA('no rail probe'); if (!('inPerTick' in rl)) return NA(rl.note);
       const b = rl.built;
       const line = b ? `; line built for the probe: ${b.stations} station${b.stations === 1 ? '' : 's'}, ${b.trackTiles} track tiles; streets by the stations peak ${b.nearPeakBefore} → ${b.nearPeakAfter}, ${b.nearJammedBefore} → ${b.nearJammedAfter} of ${b.nearStreets} at capacity` : '';
-      return { ...all({ in: range(rl.inPerTick, 40), track: range(rl.trackPeak, 0, 0.8), jam: range(rl.jammedAfter - rl.jammedBefore, -Infinity, 5) }), note: `${rl.jammedBefore} → ${rl.jammedAfter} jammed tiles${line}` }; } },
+      return { ...all({ in: range(rl.inPerTick, 40), track: range(rl.trackPeak, 0, 0.8), jam: range(rl.jammedAfter - rl.jammedBefore, -Infinity, jamAllowance(rl.jammedBefore)) }), note: `${rl.jammedBefore} → ${rl.jammedAfter} jammed tiles (allowed +${jamAllowance(rl.jammedBefore)})${line}` }; } },
 ];
 
 // Capstones (CAPSTONE_DESIGN.md, C3; owner 2026-11-20/21): a luxury, not a saving. Running cost about
