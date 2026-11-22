@@ -1152,10 +1152,10 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
   },
   "capstones/water-b": {
     "w": 485,
-    "h": 525,
+    "h": 539,
     "left": 38,
-    "right": 441,
-    "bottom": 494
+    "right": 442,
+    "bottom": 507
   },
   "capstones/fire-c": {
     "w": 487,

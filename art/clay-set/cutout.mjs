@@ -312,13 +312,28 @@ function extendSlab(img, aspect = PLOT_ASPECT, forceFlat = false) {
 // on a merged lot as on a 1×1, so in the game it was twice as thick and the lot
 // looked raised (owner, 2026-11-20). Thin it to a 1×1's: 4.1% of a tile.
 const LIP_PER_TILE = 0.041;
-function thinLip(img, tilesWide) {
+// `byColour`: tell the lip from the ground by colour, not brightness (a brown soil lip can be as bright as
+// the grass, as on the waterworks, and was then not seen at all).
+function thinLip(img, tilesWide, byColour = false) {
   const { w, h, rgba } = img, p = findPlot(img), plotW = p.right - p.left + 1;
   const lum = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? -1 : (rgba[d] + rgba[d + 1] + rgba[d + 2]) / 3; };
+  const rgbAt = (x, y) => { const d = (y * w + x) * 4; return rgba[d + 3] < 200 ? null : [rgba[d], rgba[d + 1], rgba[d + 2]]; };
   const heights = [];
   // Every column across the plot: the ground a little way in, then how far up from the bottom the lip runs.
   for (let f = 0.04; f <= 0.96; f += 0.02) {
     const x = Math.round(p.left + plotW * f);
+    if (byColour) {
+      // The ground's median colour a little way in; the lip is every row up from the bottom that is far from it.
+      const cols = [];
+      for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) { const c = rgbAt(x, p.bottom - k); if (c) cols.push(c); }
+      if (cols.length < 3) continue;
+      const med = [0, 1, 2].map(i => cols.map(c => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
+      const far = (c) => !c || Math.hypot(c[0] - med[0], c[1] - med[1], c[2] - med[2]) > 24;
+      let k = 0;
+      while (k < plotW * 0.08 && far(rgbAt(x, p.bottom - k))) k++;
+      if (k < plotW * 0.08) heights.push(k);
+      continue;
+    }
     const ground = [];
     for (let k = Math.round(plotW * 0.08); k <= plotW * 0.14; k++) ground.push(lum(x, p.bottom - k));
     ground.sort((a, b) => a - b);
@@ -543,16 +558,16 @@ for (const { src, id: name, n, untint } of LEISURE) {
 // beach parks. Trees are left out of the art and placed in code
 // (clay/capstoneArt.ts). Game ids are `capstones/<id>`.
 const CAPSTONES = [
-  { src: 'sewage-c', w: 4, d: 4 }, { src: 'sewage-d', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4 }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
+  { src: 'sewage-c', w: 4, d: 4 }, { src: 'sewage-d', w: 4, d: 4 }, { src: 'water-b', w: 4, d: 4, byColour: true }, { src: 'fire-c', w: 4, d: 4 }, { src: 'police-b', w: 4, d: 4 },
   { src: 'hospital-6x4', w: 6, d: 4 }, { src: 'nuclear-a', w: 4, d: 4 }, { src: 'uni-b', w: 8, d: 8 },
 ];
 /** The anchors' plots are drawn this deep (front to back, per unit of width) for a square lot. */
 const ANCHOR_DEPTH = 723 / 852;
 mkdirSync(join(GAME_OUT, 'capstones'), { recursive: true });
-for (const { src, w, d } of CAPSTONES) {
+for (const { src, w, d, byColour } of CAPSTONES) {
   execFileSync('sips', ['-s', 'format', 'bmp', join(here, 'raw-capstones', src + '.png'), '--out', tmp], { stdio: 'ignore' });
   let cut = cutout(readBmp(tmp));
-  const thinned = thinLip(cut, w);
+  const thinned = thinLip(cut, w, byColour);
   const p0 = findPlot(cut), want = (p0.right - p0.left + 1) * ANCHOR_DEPTH * d / w, depth = p0.bottom - plotTop(cut);
   let squash = 1;
   if (depth > want * 1.02) { squash = want / depth; cut = resample(cut, cut.w, Math.round(cut.h * squash)); }
