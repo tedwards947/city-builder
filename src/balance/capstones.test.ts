@@ -39,6 +39,8 @@ describe('balance lab: capstones targets', () => {
     expect(grade({ population: 41000, surplusPerDay: 5000, needs: needs(1.4) }).allSeven.pass).toBe(true);    // 5,960 a day more
     expect(grade({ population: 41000, surplusPerDay: 9000, needs: needs(1.4) }).allSeven.pass).toBe(false);
     expect(grade({ population: 41000, surplusPerDay: 5000, needs: needs(1.4) }).affordTwo.pass).toBeNull();   // over 30k
+    // The large-plant case: the utilities' large plants save 0.3 × (3000 + 1300 + 4000) = 2,490 a day.
+    expect(grade({ population: 41000, surplusPerDay: 5000, needs: needs(1.4) }).allSeven.note).toContain('on large plants 7490 a day before');
     // Six placed (no water for the Waterworks): already over the surplus is a pass; still under it is n/a.
     expect(grade({ population: 41000, surplusPerDay: 4000, needs: needs(1.4).filter((n) => n.need !== 'water') }).allSeven.pass).toBe(true);
     expect(grade({ population: 41000, surplusPerDay: 9000, needs: needs(1.4).filter((n) => n.need !== 'water') }).allSeven.pass).toBeNull();

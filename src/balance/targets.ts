@@ -706,6 +706,8 @@ const capOf = (c: EvalCtx): { r: CapstonesResult } | Outcome => {
   return { r };
 };
 const extra = (n: CapstoneNeedRun) => n.aloneCost - n.smallCost;
+/** The city's surplus had its utilities been on large plants: what the large-plant case saves on each one measured. */
+const largeSurplus = (r: CapstonesResult) => r.surplusPerDay + r.needs.reduce((s, n) => s + (n.largeCost !== undefined ? n.smallCost - n.largeCost : 0), 0);
 const fmtNeeds = (ns: CapstoneNeedRun[]) => ns.map(n => `${n.need} ${extra(n) >= 0 ? '+' : ''}${extra(n)}`).join(', ');
 
 const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
@@ -740,7 +742,9 @@ const CAPSTONE_TARGETS: Omit<Target, 'suite'>[] = [
       const left = r.surplusPerDay - r.needs.reduce((s, n) => s + extra(n), 0);
       // A capstone that could not be placed (the Waterworks needs water) only adds to the cost: fewer already over the surplus is a pass.
       if (r.needs.length < 7 && left >= 0) return NA(`only ${r.needs.length} capstones placed, and they fit (${left} a day left)`);
-      return { value: left, pass: left < 0, miss: left < 0 ? 0 : r3(left / Math.max(1, r.surplusPerDay)), note: `${r.surplusPerDay} a day less ${fmtNeeds(r.needs)}${r.needs.length < 7 ? ` (${r.needs.length} placed)` : ''}` }; } },
+      // A city on large plants starts with more and pays a bigger premium on the same capstones: what is left is the same.
+      const onLarge = r.needs.some(n => n.largeCost !== undefined) ? `; on large plants ${largeSurplus(r)} a day before, the same left` : '';
+      return { value: left, pass: left < 0, miss: left < 0 ? 0 : r3(left / Math.max(1, r.surplusPerDay)), note: `${r.surplusPerDay} a day less ${fmtNeeds(r.needs)}${r.needs.length < 7 ? ` (${r.needs.length} placed)` : ''}${onLarge}` }; } },
 ];
 
 export const TARGETS: Target[] = [
