@@ -181,6 +181,8 @@ Approved by the owner (2026-11-19, proposals in #305):
   - Clean Air Act: no effect over 30 days (industry 914 levels either way; it isn't growing). Neighbourhood Watch costs $0.
   - Services (upkeep plus running) $11.9k a day, about the lab median per resident. Utilities $10.0k. Roads and track maintenance ~$12.7k, subway stations $5.8k, parks and leisure $5.4k.
 
+- Late-game money curves (TODO m, 2026-11-21, numbers only): money piles up once growth stops (surplus 8–9% of income while growing, 22–23% on a full map), and built-out 10–45k cities keep 24–37% of income ($4.5–16.6k a day) and still $3.6–16k after every unlocked capstone. Details and sink sizing under m.
+
 Next:
 1. Waiting on the owner: rates that rise with city size (after the owner plays).
 
@@ -243,6 +245,24 @@ l. **Land value carries little signal (low priority)** (owner, 2026-11-19). ENGI
 
 m. **Mid-game gets too easy too fast** (owner, 2026-11-19). The owner's own city, around day 295 of year one (1900): a surplus of 2,400/day and $122k. The pacing was about right at the start, but it got easy quickly. ENGINEER 3 found that upkeep per resident halves between 1k and 2k people. **Owner picked option A (2026-11-20): services and utilities scale with headcount** (capacity, plus running costs that grow with the people served), "and then tune it a lot". ENGINEER 3 owns it: a short plan for the owner first, then build and tune on golden-1. Options B (admin overhead) and C (rising expectations, perhaps with the PC revisit, n) stay in reserve. Keep it fun to resolve.
    - *Later (owner, 2026-11-20):* late-game players will need **something to spend money on**, e.g. construction costs that rise over time (wages, inflation). ENGINEER 3's other option, per-resident costs that rise with city size, **waits** until the owner has played with the new costs, leisure upkeep and stadiums.
+   - **Where money piles up (ENGINEER 3, 2026-11-21, numbers only, after this week's capstone prices).** The planner plays each lab city on its own money: three fresh 128 maps for 4 years, each saved city for a year.
+     - **Money piles up when growth stops, not as population rises.** While a fresh city grows, the surplus is 8–9% of income (about $0.08 a resident a day): $0.5k a day at 5k residents, $0.9k at 10k, $1.2k at 12.5–15k. New blocks and services take the rest, and the bank sits at $30–190k. The 128 map fills at about 15.9k residents around day 700. After that the surplus jumps to 18% and then 22–23% ($3.0k, then $3.9k a day), because building stops and income keeps rising as homes level up. The bank goes from $0.3M at day 730 to $1.3–1.7M at day 1095 and $2.6–3.1M at day 1440. The $2M airport becomes affordable only at day 1180–1300.
+     - **Built-out cities keep 24–37% of income.** The generated saves (10–45k, built out, mostly static) bank this much a day, which is $1.6–6M a year:
+
+       | City | Residents | Surplus a day | Share of income |
+       |---|---|---|---|
+       | gen-s1-t10000 | 11k | $4.5k | 32% |
+       | gen-s1-t15000 | 16k | $5.9k | 30% |
+       | gen-s1-t20000 | 21k | $6.8k | 29% |
+       | gen-suburban-s2-t20000 | 24k | $9.1k | 32% |
+       | gen-s1-t25000 | 30k | $12.1k | 34% |
+       | gen-suburban-s2-t30000 | 32k | $16.6k | 37% |
+       | gen-s1-t30000 | 33k | $13.0k | 33% |
+       | gen-s1-t40000 | 46k | $11.7k | 24% |
+
+       That is about $0.25–0.5 a resident a day, against $0.24 on a full fresh map. golden-1 (−$2.3k a day) and testcity1 (−$5.9k) are the owner's debug-money cities ($30M and $14M in the bank) and run deficits.
+     - **Capstones absorb only part of it.** Every unlocked capstone adds $0.6–3.9k a day of running cost on the 20–33k cities, and $8.0k on gen-s1-t40000 (six of them). Every city still keeps $3.6–16k a day afterwards: gen-s1-t40000 $11.7k → $3.6k, gen-s1-t30000 $13.0k → $9.0k, gen-suburban-s2-t30000 $16.6k → $16.0k. Their one-off build costs ($1–3M each, $12.25M for all seven) take a built-out 20–40k city one to two years to pay off.
+     - **Sizing a sink.** To bring a built-out city back to the growth-phase margin of about 10% of income, a sink would take about 15–25% of income: about $2k a day on a full 128 map (16k residents), $4–6k at 20k, and $6–12k at 30–45k. Two shapes would fit. One is a running cost that grows once the city stops growing (upkeep rising with years, or with the bank). The other is a stream of one-off projects worth $1.5–6M a year at 20–40k. Rising construction costs alone would barely bite: a built-out city hardly builds.
 
 n. **Revisit Political Capital** (owner, 2026-11-19): "political capital is a barnacle". It feels stuck on rather than part of the game. Workshop with the owner: what it should do, what bugs them about it today, and whether to rework it, shrink it or fold it into something else (vibe, requests, ordinances). See PC_DESIGN.md. **ENGINEER 3's PC study (2026-11-21, saved for the revisit; owner: "let's save it and revisit"):** 33 runs, 360 days. Cities sit at the PC cap 88–100% of days; a full refill takes 56–63 days (regen at satisfaction 1 is about 6.5 caps a year); the only refusals were bulldozes by the demolisher persona (plus 7 zone refusals). Per event, as a share of the cap: displacement −0.16, nuisance −0.15, milestone +0.34, request failed −0.03, met +0.026, service opened +0.004, ordinance enact −0.04. Options (numbers only): A slower regen (bonus 1.12 → 0.4: refill about 160 days, below the displacement drain), B PC costs on big builds (capstones, airport, stadium at 20–40% of the cap), C ordinance upkeep ×3, D a smaller cap per resident (0.008 → 0.004). A and C stack; B adds a decision at big moments. PM's pick for the revisit: A + B.
 
