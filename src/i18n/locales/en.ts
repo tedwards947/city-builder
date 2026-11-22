@@ -190,6 +190,7 @@ export const en: TranslationSchema = {
       upkeep: "Building and road upkeep",
       runningCosts: "Running costs (per resident)",
       ordinances: "Ordinances",
+      lostFares: "Lost fares (Free Transit)",
       satisfaction: "Satisfaction",
       growth: "Growth",
       polCapital: "Pol. capital",

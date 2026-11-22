@@ -9,6 +9,7 @@ import { ZONE_R, ZONE_C, BUILDING_POWER_PLANT, BUILDING_POLICE, ROAD_STREET, TER
 import { makeTrafficData } from '../sim/TrafficData';
 import { BALANCE } from '../data/balance';
 import { enactOrdinance } from '../sim/ordinances';
+import { lostFareIncome, railFareIncome } from '../sim/rail';
 
 let w: World;
 
@@ -34,6 +35,18 @@ beforeEach(() => {
 });
 
 describe('budget lines', () => {
+  it('lost fares: shown only under Free Transit, equal to the fares not collected, never in the money flow', () => {
+    w.budget.politicalCapital = 100;
+    expect(lostFareIncome(w)).toBe(0);
+    const paid = railFareIncome(w);
+    expect(paid).toBeGreaterThan(0);
+    expect(enactOrdinance(w, 'freeTransit')).toBe(true);
+    expect(railFareIncome(w)).toBe(0);
+    expect(lostFareIncome(w)).toBe(paid);
+    const l = budgetLines(w);
+    expect(Object.keys(l)).not.toContain('lostFares');
+  });
+
   it('count an enacted ordinance\'s money cost in expenses, on its own line, and still add up', () => {
     w.stats.population = 20_000;
     w.budget.politicalCapital = 100;

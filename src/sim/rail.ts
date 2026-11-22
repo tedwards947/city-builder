@@ -338,6 +338,13 @@ export function stationGrowthMask(world: World): Uint8Array | null {
   return mask;
 }
 
+/** Fares riders would have paid per economy tick but didn't, because Free Transit is in force (display only; 0 otherwise). */
+export function lostFareIncome(world: World): number {
+  if (!transitIsFree(world)) return 0;
+  const boardings = world.traffic?.rail.boardings ?? 0;
+  return boardings > 0 ? boardings * BALANCE.rail.fare : 0;
+}
+
 /** What the stations earn per economy tick: riders boarding × BALANCE.rail.fare; 0 under Free Transit (ridership is unchanged). */
 export function railFareIncome(world: World): number {
   if (transitIsFree(world)) return 0;
