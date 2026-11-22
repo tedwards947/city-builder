@@ -17,9 +17,11 @@
     #stats .label, #citystats .label { color: #8aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
     #stats .value, #citystats .value { color: #fff; font-weight: 600; }
     /* The pane never resizes as the figures change (owner: it jumped whenever PC moved): tabular digits, the PC
-       figure and its rate in boxes of their own width (the rate's box kept even when empty, so the figure never
-       slides across), and a floor width the usual figures fit inside. */
+       figure in a box of its own width, and its rate beside the bar under it (not on the figure's line, so
+       the rate never sets the pane's width), and a floor width the usual figures fit inside. */
     #citystats { text-align: right; min-width: 196px; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+    #pc-bar-row { display: flex; align-items: center; gap: 6px; height: 12px; margin-top: 1px; }
+    #pc-bar-row #pc-bar-bg { flex: 1; min-width: 40px; margin-top: 0; }
     #stat-pc { display: inline-block; min-width: 8ch; }
     #citystats .value.money { color: #7dd87d; }
     #citystats .value.money.negative { color: #e07070; }
@@ -72,7 +74,7 @@
     #citystats .value.pc.debt { color: #ff8a8a; }
     #stat-pc-rate.debt { color: #ff8a8a; }
     #pc-bar-bg.debt { background: rgba(224,112,112,0.45); box-shadow: inset 0 0 0 1px #e07070; }
-    #stat-pc-rate { font-size: 10px; margin-left: 5px; color: #8aa; display: inline-block; min-width: 13ch; text-align: left; white-space: nowrap; }
+    #stat-pc-rate { font-size: 10px; line-height: 12px; color: #8aa; min-width: 9.5ch; text-align: right; white-space: nowrap; }
     #stat-pc-rate.draining { color: #e07070; }
     #pc-bar.draining { background: repeating-linear-gradient(-45deg, #e07070 0 4px, #8a3a3a 4px 8px) !important; }
     #pc-bar.over { box-shadow: 0 0 6px #7dffe0; }
@@ -429,8 +431,8 @@
     <div id="hud-right">
     <div id="citystats">
       <div>
-        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span><span id="stat-pc-rate"></span>
-        <div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div>
+        <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span>
+        <div id="pc-bar-row"><div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div><span id="stat-pc-rate"></span></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>
         <div id="stat-debt" hidden><div id="stat-debt-bg"><div id="stat-debt-bar"></div></div><span id="stat-debt-label"></span></div>
