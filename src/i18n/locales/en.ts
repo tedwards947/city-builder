@@ -81,6 +81,8 @@ export const en: TranslationSchema = {
       improvesAirQuality: "Improves air quality",
       terrain: "Terrain: {terrain}",
       coverageRadius: "Coverage radius: {range} tiles",
+      coverageWholeCity: "Coverage: the whole city",
+      stationPlatform: "Platform of an elevated station",
       maintenance: "Upkeep: ${amount}/tick",
       output: "Output: {amount} units/tick",
       capacity: "Capacity: {amount} units/tick",

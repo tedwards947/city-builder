@@ -45,6 +45,8 @@ export interface TranslationSchema {
       improvesAirQuality: string;
       terrain: string;
       coverageRadius: string;
+      coverageWholeCity: string;
+      stationPlatform: string;
       maintenance: string;
       output: string;
       capacity: string;

@@ -13,6 +13,9 @@ import { BUILDING_SEWAGE_WORKS, BUILDING_WATERWORKS, BUILDING_FIRE_HQ, BUILDING_
 import { BUILDING_MID_PARK, BUILDING_BIG_PARK, BUILDING_BEACH_PARK, BUILDING_LIDO, BUILDING_PLAZA, BUILDING_MUSEUM, BUILDING_STADIUM } from '../sim/constants';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
 import { headcountCost, perResidentCost, perUnitCost } from '../sim/runningCost';
+import type { BuildingEntity } from '../sim/World';
+import { overheadPlatform } from '../sim/buildingShapes';
+import { capstoneRow, capstoneResidents, isServiceCapstone } from '../sim/capstones';
 import { eventStatus } from '../sim/eventDays';
 import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
@@ -46,7 +49,7 @@ import {
   BUILDING_PARK,
 } from "../sim/constants";
 import {BALANCE} from "../data/balance";
-import {buildingUpkeep} from "../sim/serviceValue";
+import {buildingUpkeep, residentsCoveredBy} from "../sim/serviceValue";
 import {taxDemandMult} from "../sim/tax";
 import {t} from "../i18n";
 import {doorTile, lotSummary} from "../sim/lots";
@@ -366,6 +369,37 @@ function runningCostRows(world: World, kind: number, covered: number): string {
   return `<div class="ti-detail">${t("ui.tileInfo.plantSupplies", {n: Math.round(units).toLocaleString("en-US"), amount: money(fixed + units * perUnitCost(util.u, util.large) * charged)})}</div>`;
 }
 
+/**
+ * A capstone's rows from any of its tiles: its reach (a service capstone covers the whole city; a utility one
+ * says what it supplies), what it costs a day for the residents it serves, and the no-road warning.
+ * (They were missing: the service rows only knew the small kinds and the plants.)
+ */
+export function capstoneRows(world: World, tx: number, ty: number, kind: number): string {
+  const row = capstoneRow(kind);
+  if (!row) return "";
+  let html = "";
+  if (isServiceCapstone(kind)) html += `<div class="ti-detail">${t("ui.tileInfo.coverageWholeCity")}</div>`;
+  else html += `<div class="ti-detail">${t(row.need === "sewage" ? "ui.tileInfo.capacity" : "ui.tileInfo.output", {amount: row.output ?? 0})}</div>`;
+  const served = capstoneResidents(world, world.stats.population, (b) => residentsCoveredBy(world, b))[kind] ?? 0;
+  const day = BALANCE.ticksPerDay, fixed = buildingUpkeep(kind) * day;
+  const extra = (headcountCost(world).capstones[kind] ?? 0) * day;
+  html += `<div class="ti-detail">${t("ui.tileInfo.runningCostCovered", {amount: Math.round(fixed + extra).toLocaleString("en-US"), n: Math.round(served).toLocaleString("en-US")})}</div>`;
+  if (world.buildingAccessRoads(tx, ty).length === 0) {
+    html += `<div class="ti-detail" style="color:#e55;font-weight:bold;margin-top:4px">${t("ui.tileInfo.notConnected")}</div>`;
+  }
+  return html;
+}
+
+/** The elevated station whose overhead platform includes tile (tx, ty), if any. */
+export function platformStationAt(world: World, tx: number, ty: number): BuildingEntity | null {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const b = world.buildingAt(tx + dx, ty + dy);
+    if (b && b.kind === BUILDING_STATION_ELEVATED && b.tx === tx + dx && b.ty === ty + dy
+      && overheadPlatform(b.kind, b.rot ?? 0).some(([ox, oy]) => b.tx + ox === tx && b.ty + oy === ty)) return b;
+  }
+  return null;
+}
+
 function airportRows(world: World, tx: number, ty: number): string {
   const trips = buildingTripsAt(world, tx, ty), row = BALANCE.transit.buildings[BUILDING_AIRPORT];
   let html = `<div class="ti-detail">${t("ui.tileInfo.airportAbout")}</div>`;
@@ -550,6 +584,7 @@ export class TileInfoPanel {
       if (building === BUILDING_LARGE_WATER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.water.largePlantOutput})}</div>`;
       if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
       if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
+      html += capstoneRows(world, tx, ty, building);
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
       html += attractionRows(world, tx, ty, building);
       if (building === BUILDING_STADIUM) html += stadiumRows(world);
@@ -621,6 +656,8 @@ export class TileInfoPanel {
     } else if ((world.layers.rail[i] & RAIL_SURFACE) !== 0) {
       const ground = (world.layers.rail[i] & RAIL_GROUND) !== 0;
       html += `<div class="ti-type">${t(ground ? "ui.tileInfo.railTrack" : "ui.tileInfo.railElevated")}</div>`;
+      const stn = ground ? null : platformStationAt(world, tx, ty);
+      if (stn) html += `<div class="ti-detail">${t("ui.tileInfo.stationPlatform")}</div>` + stationRows(world, stn.tx, stn.ty, stn.kind);
       html += railRows(world, i, ground ? RAIL_GROUND : RAIL_ELEVATED);
 
       // ── Water terrain ──────────────────────────────────────────────────────────
