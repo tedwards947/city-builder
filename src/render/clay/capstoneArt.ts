@@ -112,23 +112,73 @@ function tree(ctx: Ctx, name: TreeName, x: number, y: number, T: number): void {
 }
 
 // ── The fire HQ's strip, tarmac and taxiway ─────────────────────────────────
-function fireGround(ctx: Ctx, sx: number, sy: number, w: number, T: number, a: Art): void {
-  // Runway row: grass shoulders, asphalt, threshold stripes, centre dashes, edge lights.
-  ctx.fillStyle = '#7fb262'; ctx.fillRect(sx, sy, w * T, T);
-  const ax = sx + T * 0.15, aw = w * T - T * 0.3, ay = sy + T * 0.2, ah = T * 0.6;
-  ctx.fillStyle = '#55595f'; ctx.fillRect(ax, ay, aw, ah);
-  ctx.fillStyle = '#f2f2ee';
-  for (let k = 0; k < 6; k++) { const yy = ay + ah * 0.1 + k * ah * 0.8 / 6, sh = Math.max(1, ah * 0.08); ctx.fillRect(ax + T * 0.15, yy, T * 0.45, sh); ctx.fillRect(ax + aw - T * 0.6, yy, T * 0.45, sh); }
-  for (let x = ax + T; x < ax + aw - T; x += T * 0.7) ctx.fillRect(x, ay + ah / 2 - Math.max(0.5, T * 0.01), T * 0.35, Math.max(1, T * 0.02));
-  if (T >= 10) { ctx.fillStyle = '#ffd34d'; const d = Math.max(1, T * 0.03); for (let x = ax + T * 0.2; x < ax + aw; x += T * 0.8) { ctx.fillRect(x, ay - d * 1.5, d, d); ctx.fillRect(x, ay + ah + d * 0.5, d, d); } }
-  // Tarmac left of the block, level with the hangar's apron, and a taxiway up to the strip near its left end.
-  const L = sx + a.bx * T, Tp = sy + a.by * T;
-  const [, y0] = ground(0, 32, L, Tp, a.bd, T), [, y1] = ground(0, 50, L, Tp, a.bd, T), tx = sx + 0.9 * T;
-  ctx.fillStyle = '#7fb262'; ctx.fillRect(sx, sy + T, a.bx * T, a.bd * T);
-  ctx.fillStyle = '#bdb8ad'; ctx.fillRect(sx + 0.3 * T, y0, L - sx - 0.3 * T + 4 / 17 * T, y1 - y0);
-  ctx.fillStyle = '#55595f'; ctx.fillRect(tx - T * 0.45, sy + 0.8 * T, T * 0.9, y0 - sy - 0.8 * T + 1);
-  const mid = (y0 + y1) / 2, lw = Math.max(1, T * 0.02);
-  ctx.fillStyle = '#f2c230'; ctx.fillRect(tx - lw / 2, sy + 0.82 * T, lw, mid - sy - 0.82 * T); ctx.fillRect(tx, mid - lw / 2, L + 20 / 17 * T - tx, lw);
+// Drawn the airport's way (clay/airport.ts): its asphalt, paint and lights, on the map's own grass; the tarmac
+// takes the painted apron's concrete so the two meet without a seam.
+const F_APRON = '#b5ada2', F_ASPHALT = '#4a4d52', F_TAXI = '#55585d', F_LINE = '#e2b737', F_PAINT = '#f2f2ee';
+function fireGround(ctx: Ctx, sx: number, sy: number, w: number, T: number, a: Art, grass: string): void {
+  const X = (x: number) => sx + x * T, Y = (y: number) => sy + y * T;
+  const gy = (m: number) => a.by + (a.bd * 17 - (a.bd * 17 - m) * SHIFT) / 17;   // a guide metre's ground row, in tiles
+  // The strip's row and the open ground left of the block.
+  ctx.fillStyle = grass; ctx.fillRect(sx, sy, w * T, T); ctx.fillRect(sx, sy + T, a.bx * T, a.bd * T);
+
+  // Tarmac, level with the hangar's apron: concrete slabs, a darker kerb.
+  const t0 = gy(32), t1 = gy(50), tl = gy(41), x0 = 0.3, x1 = a.bx + 4 / 17;
+  ctx.fillStyle = F_APRON; ctx.fillRect(X(x0), Y(t0), (x1 - x0) * T, (t1 - t0) * T);
+  if (T >= 12) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = x0 + 0.5; x < a.bx; x += 0.5) { ctx.moveTo(X(x), Y(t0)); ctx.lineTo(X(x), Y(t1)); }
+    ctx.moveTo(X(x0), Y(tl - 0.25)); ctx.lineTo(X(a.bx), Y(tl - 0.25)); ctx.moveTo(X(x0), Y(tl + 0.25)); ctx.lineTo(X(a.bx), Y(tl + 0.25));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(60,50,40,0.25)'; ctx.lineWidth = Math.max(1, T / 60);
+  ctx.beginPath(); ctx.moveTo(X(a.bx), Y(t0)); ctx.lineTo(X(x0), Y(t0)); ctx.lineTo(X(x0), Y(t1)); ctx.lineTo(X(a.bx), Y(t1)); ctx.stroke();
+
+  // Runway: asphalt, edge lines, threshold bars, aiming marks, numbers and centre dashes.
+  const r0 = 0.2, r1 = 0.8, rh = (r1 - r0) * T, e0 = 0.15, e1 = w - 0.15, pw = Math.max(1, T / 40);
+  // Taxiway from the strip to the tarmac, with fillets where it meets each.
+  const tx = 0.9, hw = 0.3, f = 0.16;
+  ctx.fillStyle = F_TAXI; ctx.fillRect(X(tx - hw), Y(r1) - 1, 2 * hw * T, (t0 - r1) * T + 2);
+  const fillet = (px: number, py: number, dx: number, dy: number) => {
+    ctx.beginPath(); ctx.moveTo(X(px), Y(py)); ctx.lineTo(X(px + dx * f), Y(py));
+    ctx.quadraticCurveTo(X(px + dx * f), Y(py + dy * f), X(px), Y(py + dy * f)); ctx.closePath(); ctx.fill();
+  };
+  fillet(tx + hw, r1, 1, 1); fillet(tx - hw, r1, -1, 1);
+  ctx.fillStyle = F_APRON; fillet(tx + hw, t0, 1, -1); fillet(tx - hw, t0, -1, -1);
+  ctx.fillStyle = F_ASPHALT; ctx.fillRect(X(e0), Y(r0), (e1 - e0) * T, rh);
+  ctx.fillStyle = F_PAINT;
+  ctx.fillRect(X(e0), Y(r0) + pw, (e1 - e0) * T, pw); ctx.fillRect(X(e0), Y(r1) - 2 * pw, (e1 - e0) * T, pw);
+  for (const [p, q] of [[e0 + 0.08, e0 + 0.42], [e1 - 0.42, e1 - 0.08]]) for (let k = 0; k < 4; k++) ctx.fillRect(X(p), Y(r0) + rh * (0.14 + k * 0.2), (q - p) * T, rh * 0.11);
+  for (const x of [e0 + 1.55, e1 - 2.05]) for (const sg of [-1, 1]) ctx.fillRect(X(x), Y(0.5) + sg * rh * 0.22 - rh * 0.06, 0.5 * T, rh * 0.12);
+  for (let x = e0 + 2.3; x < e1 - 2.3; x += 0.5) ctx.fillRect(X(x), Y(0.5) - pw / 2, 0.25 * T, pw);
+  if (T >= 16) {
+    ctx.font = `bold ${Math.round(0.3 * T)}px -apple-system, "Helvetica Neue", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const [txt, x, rot] of [['9', e0 + 0.75, Math.PI / 2], ['27', e1 - 0.75, -Math.PI / 2]] as const) { ctx.save(); ctx.translate(X(x), Y(0.5)); ctx.rotate(rot); ctx.fillText(txt, 0, 0); ctx.restore(); }
+  }
+
+  // Taxi lines: up the taxiway's middle to the strip's edge (clear of its number), and along the tarmac to the hangar apron, rounded at the turn.
+  const lw = Math.max(1, T / 30), ex = a.bx + 20 / 17, rr = 0.3;
+  ctx.strokeStyle = F_LINE; ctx.lineWidth = lw; ctx.beginPath();
+  ctx.moveTo(X(tx), Y(r1) - 2 * pw); ctx.lineTo(X(tx), Y(tl - rr)); ctx.arcTo(X(tx), Y(tl), X(tx + rr), Y(tl), rr * T); ctx.lineTo(X(ex), Y(tl));
+  ctx.stroke();
+  // Hold-short bars across the taxiway: two solid, two dashed (the dashes on the strip's side).
+  if (T >= 12) {
+    const hy = r1 + 0.18, g = Math.max(1.5, T / 28);
+    ctx.lineWidth = Math.max(1, T / 50); ctx.beginPath();
+    for (const k of [2, 3]) { ctx.moveTo(X(tx - hw + 0.03), Y(hy) + k * g); ctx.lineTo(X(tx + hw - 0.03), Y(hy) + k * g); }
+    ctx.stroke();
+    ctx.setLineDash([g * 1.2, g]); ctx.beginPath();
+    for (const k of [0, 1]) { ctx.moveTo(X(tx - hw + 0.03), Y(hy) + k * g); ctx.lineTo(X(tx + hw - 0.03), Y(hy) + k * g); }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Lights: white along the strip's edges, green at the far (landing) end, red at the near; blue down the taxiway.
+  if (T >= 8) {
+    const r = Math.max(1, T / 40);
+    const dot = (x: number, y: number, col: string, k = 1) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(x), Y(y), r * k, 0, 7); ctx.fill(); };
+    for (let x = e0 + 0.25; x < e1; x += 0.5) { dot(x, r0 + 0.04, '#fff3c4'); dot(x, r1 - 0.04, '#fff3c4'); }
+    for (let k = 0; k < 4; k++) { const y = r0 + 0.1 + k * (rh / T - 0.2) / 3; dot(e1 - 0.03, y, '#5dff7a'); dot(e0 + 0.03, y, '#ff4b3e'); }
+    for (let y = r1 + 0.3; y < t0 - 0.1; y += 0.55) { dot(tx - hw - 0.05, y, '#4f8cff', 0.9); dot(tx + hw + 0.05, y, '#4f8cff', 0.9); }
+  }
 }
 
 // ── The waterworks' intake pipes ────────────────────────────────────────────
@@ -293,10 +343,10 @@ function padLights(ctx: Ctx, x: number, y: number, T: number, sec: number, red: 
  * `water`: the centre of a water tile beside it (the waterworks), or null. Returns false (nothing
  * drawn) while its art has not loaded, so the stand-in shows.
  */
-export function drawCapstone(ctx: Ctx, kind: number, sx: number, sy: number, w: number, d: number, T: number, water: { x: number; y: number } | null, now = 0, anchor = -1): boolean {
+export function drawCapstone(ctx: Ctx, kind: number, sx: number, sy: number, w: number, d: number, T: number, water: { x: number; y: number } | null, now = 0, anchor = -1, grass = '#5d8a4a'): boolean {
   const a = ART[kind], sprite = a && capstoneClaySprite(a.name);
   if (!a || !sprite) return false;
-  if (kind === BUILDING_FIRE_HQ) fireGround(ctx, sx, sy, w, T, a);
+  if (kind === BUILDING_FIRE_HQ) fireGround(ctx, sx, sy, w, T, a, grass);
   if (kind === BUILDING_WATERWORKS && water) intakePipes(ctx, sx, sy, w, d, T, water.x, water.y);
   const L = sx + a.bx * T, Tp = sy + a.by * T;
   // drawClaySprite fits a plot `tile` wide and as deep; a wider-than-deep plot shifts up so its front meets the lot's.
