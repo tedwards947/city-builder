@@ -66,6 +66,16 @@ const ICONS = {
   load: p('M3 6h6l2 3h10v11H3z'),
   // A question mark in a circle.
   tutorial: '<circle cx="12" cy="12" r="9"/>' + p('M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.6v.7M12 17v.1'),
+  // Capstones (their own art, owner's pick B): the Victorian pumping station with its clock tower; the deco pump hall
+  // with its water tank; the water bomber dropping its load; the police HQ under its helicopter; the medevac
+  // helicopter with its cross; twin cooling towers; the campus round its clock tower.
+  capSewage: p('M2 21h20M3 21v-6l2.5-2.5H10M14 12.5h4.5L21 15v6M10 21V9l2-4 2 4v12M11 21v-2a1 1 0 012 0v2') + '<circle cx="12" cy="12" r="1.2"/>',
+  capWater: p('M2 21h20M3 21v-8h5v8M16 21v-8h5v8M8 21V9h2V6h4v3h2v12M11 21v-4h2v4M10.5 11.5v2.5M13.5 11.5v2.5M17.5 13V6a1.5 1.5 0 013 0v7'),
+  capFire: p('M2 12.5c2-1.3 5.5-1.8 9-1.8h6.5L20.5 7H22l-.6 5.6c-.2 1-.9 1.4-1.9 1.4H5.5c-1.8 0-3-.5-3.5-1.5zM7 9h10M9 17.5v1.5M12 18v1.5M15 17.5v1.5'),
+  capPolice: p('M6 21V10h12v11M3 21h18M10.5 21v-3h3v3M9 13.5h.1M15 13.5h.1M6 3h10M11 3v1.5M8.5 4.5h4.5a1.75 1.75 0 010 3.5h-4.5a1.75 1.75 0 010-3.5zM14.75 6.25H20M20 5v2.5'),
+  capHospital: p('M3 6h14M10 6v3M5.5 9H13a4 4 0 014 4v1a1.5 1.5 0 01-1.5 1.5H7A3.5 3.5 0 013.5 12v-1a2 2 0 012-2zM17 11.5h4l1-2M6 19.5h10M8 15.5v4M14 15.5v4M10 10.5v3.5M8.25 12.25h3.5'),
+  capNuclear: p('M2.5 21c1.3-3.5 1.3-7.5 0-11h6.5c-1.3 3.5-1.3 7.5 0 11zM13 21c1.3-3.5 1.3-7.5 0-11h6.5c-1.3 3.5-1.3 7.5 0 11zM1 21h22M5.5 7.5c-1-1 0-2.2 1.2-2.6M16 7.5c-1-1 0-2.2 1.2-2.6'),
+  capCampus: p('M2 21h20M3 21v-7h5v7M16 21v-7h5v7M8 21V11h8v10M10 11V6h4v5M12 3v3M11 21v-3h2v3') + '<circle cx="12" cy="8.3" r="1"/>',
 } as const;
 
 export type IconName = keyof typeof ICONS;
