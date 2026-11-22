@@ -2,6 +2,12 @@
 
 *Status: design agreed with the game designer, ready for engine and graphics review. Implementation notes are suggestions, not a spec.*
 
+## Redesign in progress: local trust (owner, 2026-11-22)
+PC as built is a meter you pay from, and cities sit at the cap 85–100% of days (ENG3, docs/FLIGHT_BRIEF_2026-11-22.md). The owner: brake, currency and reward together "isn't enough to make the gameplay interesting". The missing piece is a dilemma: nobody disagrees with you. Being decided step by step:
+1. **Direction: D1, neighbourhood trust.** Each neighbourhood keeps its own goodwill instead of one city-wide number. Acting on Elm St (bulldozing, nuisance buildings, moves) spends Elm St's trust. Serving it (parks, transit, requests met) earns it. Neglected areas push back. It drops the old "one simple number" rule. Later it feeds Vibe (character per neighbourhood).
+2. **What a neighbourhood is: B,** areas bounded by avenues, highways, rail, water and the map edge, each with a generated name; trust carries over when one splits or merges. **Prototype first on A**, the existing request grid cells, to test whether local trust is fun before building borders.
+3. *Next: what high and low trust do.*
+
 ## Why
 Political Capital (PC) is a dead mechanic right now. It has one way to earn it (regenerating from satisfaction) and one way to spend it (displacing residents), and a hard cap of 100. A happy city refills that from empty in about two minutes at 1× (0.4 PC per tick, 2 ticks per second), so it almost never stops you doing anything.
 
