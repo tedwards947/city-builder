@@ -182,6 +182,7 @@ Approved by the owner (2026-11-19, proposals in #305):
   - Services (upkeep plus running) $11.9k a day, about the lab median per resident. Utilities $10.0k. Roads and track maintenance ~$12.7k, subway stations $5.8k, parks and leisure $5.4k.
 
 - Late-game money curves (TODO m, 2026-11-21, numbers only): money piles up once growth stops (surplus 8–9% of income while growing, 22–23% on a full map), and built-out 10–45k cities keep 24–37% of income ($4.5–16.6k a day) and still $3.6–16k after every unlocked capstone. Details and sink sizing under m.
+- PC options A and B modelled for the owner's pick (TODO n, 2026-11-21, numbers only): 16 combinations × 45 runs. A alone does almost nothing (the planner is at the cap 77–90% of days at any regen). B 30% alone or regen 0.8 + B 20% make big builds a decision (40–60% wait, none over a month). Regen ≤ 0.56 with B ≥ 30% is a wall. Table under n.
 
 Next:
 1. Waiting on the owner: rates that rise with city size (after the owner plays).
@@ -265,6 +266,34 @@ m. **Mid-game gets too easy too fast** (owner, 2026-11-19). The owner's own city
      - **Sizing a sink.** To bring a built-out city back to the growth-phase margin of about 10% of income, a sink would take about 15–25% of income: about $2k a day on a full 128 map (16k residents), $4–6k at 20k, and $6–12k at 30–45k. Two shapes would fit. One is a running cost that grows once the city stops growing (upkeep rising with years, or with the bank). The other is a stream of one-off projects worth $1.5–6M a year at 20–40k. Rising construction costs alone would barely bite: a built-out city hardly builds.
 
 n. **Revisit Political Capital** (owner, 2026-11-19): "political capital is a barnacle". It feels stuck on rather than part of the game. Workshop with the owner: what it should do, what bugs them about it today, and whether to rework it, shrink it or fold it into something else (vibe, requests, ordinances). See PC_DESIGN.md. **ENGINEER 3's PC study (2026-11-21, saved for the revisit; owner: "let's save it and revisit"):** 33 runs, 360 days. Cities sit at the PC cap 88–100% of days; a full refill takes 56–63 days (regen at satisfaction 1 is about 6.5 caps a year); the only refusals were bulldozes by the demolisher persona (plus 7 zone refusals). Per event, as a share of the cap: displacement −0.16, nuisance −0.15, milestone +0.34, request failed −0.03, met +0.026, service opened +0.004, ordinance enact −0.04. Options (numbers only): A slower regen (bonus 1.12 → 0.4: refill about 160 days, below the displacement drain), B PC costs on big builds (capstones, airport, stadium at 20–40% of the cap), C ordinance upkeep ×3, D a smaller cap per resident (0.008 → 0.004). A and C stack; B adds a decision at big moments. PM's pick for the revisit: A + B.
+   - **Options A and B modelled (ENGINEER 3, 2026-11-21, numbers only, for the owner's pick).** A: `satisfactionRegenBonus` 1.12 (shipped), 0.8, 0.56, 0.4. B: a PC cost on big builds of 20%, 30% or 40% of the cap at the time. All 16 combinations, 360 days, on every lab city (14 saves × planner, chaser and demolisher, and a fresh 128 map × the same three): 720 runs.
+     - **How B is modelled.** No persona builds anything big, so for this study the player keeps a wish list: large power, water and sewage plants at 5k residents; Sewage Works and stadium at 10k; Waterworks at 12.5k; Fire HQ and airport at 15k; then each capstone at its unlock. It tries the next wish every day and pays the PC when it has enough. Kinds the city already has are skipped. The building is not placed (its satisfaction effect is left out). The saves are 10–45k cities with none of these yet, so they meet 5–9 wishes at once. That backlog makes waits longer than a city meeting them one at a time would see. Fresh cities reach only 7.5k in a year (large plants only, never refused), so the table is the saves.
+     - **Planner on the 14 saves** (chaser in brackets). "Waited" is the share of big builds the player could not pay for on the day it first wanted them:
+
+       | Regen | Big build | Days at the cap | Days under 25% | Big builds waited | Waited over 30 days | Median wait | Never built in the year |
+       |---|---|---|---|---|---|---|---|
+       | 1.12 (now) | 0 (now) | 90% (97%) | 0% | – | – | – | – |
+       | 0.8 | 0 | 88% (96%) | 0% | – | – | – | – |
+       | 0.56 | 0 | 84% (95%) | 0% | – | – | – | – |
+       | 0.4 | 0 | 77% (94%) | 0% | – | – | – | – |
+       | 1.12 | 20% | 60% (72%) | 17% | 40% | 0% | 0 d | 0 |
+       | 1.12 | 30% | 45% (59%) | 28% | 62% | 0% | 19 d | 0 |
+       | 1.12 | 40% | 30% (45%) | 32% | 75% | 11% (0%) | 27 d | 0 |
+       | 0.8 | 20% | 41% (61%) | 28% | 44% | 0% | 0 d | 0 |
+       | 0.8 | 30% | 18% (41%) | 46% | 62% | 52% (4%) | 31 d | 0 |
+       | 0.8 | 40% | 9% (22%) | 49% | 74% | 62% (36%) | 43 d | 3 of 114 |
+       | 0.56 | 20% | 9% (42%) | 52% | 47% | 40% (2%) | 0 d | 0 |
+       | 0.56 | 30% | 4% (17%) | 70% | 59% | 58% (31%) | 51 d | 6 |
+       | 0.56 | 40% | 3% (9%) | 57% | 64% | 63% (58%) | 57 d | 10 |
+       | 0.4 | 20% | 3% (19%) | 83% | 43% | 34% (15%) | 0 d | 10 |
+       | 0.4 | 30% | 2% (6%) | 79% | 39% | 39% (46%) | 0 d | 12 |
+       | 0.4 | 40% | 0% (1%) | 53% | 42% | 42% (55%) | 0 d | 13 |
+
+     - **A alone changes almost nothing.** Normal play barely spends PC, so slower regen only shows after a spend: the planner still sits at the cap 77–90% of days. A only bites combined with B.
+     - **B makes the decisions.** At 20% most big builds are paid on the day, and PC dips at big moments. At 30% about 60% of them wait a few weeks (median 19 days, none over 30). At 40% three in four wait and some wait over a month.
+     - **Combined, it tips over quickly.** With regen 0.8 and 30%, half the big builds wait over 30 days. With regen 0.56 or less, PC sits under a quarter of the cap most of the year, and some cities never build part of the list.
+     - **Refusals of ordinary actions don't move.** The planner and chaser are never refused anything else under any option. The demolisher is refused about 200 bulldozes per 100 days under every option, as now: it bulldozes every other day and is always out of PC. Under B its big builds compete with its bulldozing, and at 40% it builds only 29–46 of 114.
+     - **Picks that keep it a decision rather than a wall:** B 30% alone (at the cap 45–59% of days, most big builds wait a few weeks, none over a month), or regen 0.8 with B 20% (41–61%, about 44% wait, none over a month). Regen 0.8 with B 30% is the tightest that still builds everything within the year. Settings with regen ≤ 0.56 and B ≥ 30% look like a wall.
 
 o. **Inspect while paused.** Done: see ENGINEER 2 item 7 (#441).
 
