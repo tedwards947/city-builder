@@ -8,8 +8,8 @@
 // changes. Nothing is saved.
 
 import type { World } from './World';
-import { BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from './constants';
-import { hasPlatforms, platformLevel, rampLevel, shapeRoles } from './buildingShapes';
+import { RAIL_ELEVATED, RAIL_GROUND, RAIL_SUBWAY } from './constants';
+import { hasPlatforms, platformLevel, rampLevel, shapeRoles, stationPlatform } from './buildingShapes';
 import { LINK_E, LINK_N, LINK_S, LINK_W, railLinks, rampOther } from './rail';
 import type { Connection } from './connections';
 
@@ -62,9 +62,11 @@ function findOpen(world: World): readonly Connection[] {
     if (hasPlatforms(b.kind)) {
       const tiles = world.buildingTilesAt(b.tx, b.ty), roles = shapeRoles(b.kind);
       const platform = tiles.filter((_, k) => roles[k] === 'platform');
-      if (platform.length > 0) at = slotOf(platformLevel(b.kind)) * n + platform[platform.length >> 1];
-    } else if (b.kind === BUILDING_SUBWAY_STATION) {
-      if (rail[anchor] & RAIL_SUBWAY) at = slotOf(RAIL_SUBWAY) * n + anchor;
+      if (platform.length > 0) at = platform[platform.length >> 1];
+    } else if (stationPlatform(b.kind, 0).length > 0) {
+      const [dx, dy] = stationPlatform(b.kind, b.rot ?? 0)[1], level = platformLevel(b.kind);
+      const mid = (b.ty + dy) * width + b.tx + dx;
+      if (rail[mid] & level) at = slotOf(level) * n + mid;
     } else continue;
     if (at >= 0 && world.buildingAccessRoads(b.tx, b.ty).length > 0) stops.add(at);
   }

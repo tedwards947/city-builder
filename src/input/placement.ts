@@ -9,8 +9,8 @@
 // and a subway station turn the same way, preferring a way that joins track.
 
 import type { World, PlacementCheck } from '../sim/World';
-import { buildingShape, hasDocks, hasPlatforms, placementRules, platformEnds, platformLevel, rampLevel, shapeRoles, subwayPlatform } from '../sim/buildingShapes';
-import { RAIL_GROUND, RAIL_SUBWAY } from '../sim/constants';
+import { buildingShape, hasDocks, hasPlatforms, placementRules, platformEnds, platformLevel, rampLevel, shapeRoles, stationPlatform } from '../sim/buildingShapes';
+import { RAIL_GROUND } from '../sim/constants';
 
 /** The anchor that puts the middle of a `kind` building (turned `rot`) on (tx, ty). Odd sizes centre; even sizes take the top-left of the middle four. */
 export function placementAnchor(kind: number, tx: number, ty: number, rot = 0): { tx: number; ty: number } {
@@ -44,7 +44,7 @@ export function placementScore(c: PlacementCheck): number {
  *   a train station: track of its level (ground, or elevated for the elevated station) straight on from an end of its platform;
  *   a ramp: ground track straight out of its low end, or track of its own
  *     level straight out of (or already on) its high end;
- *   a subway station: subway track along its platform (two tiles or more) or straight on from an end.
+ *   a subway or elevated station: track of its level along its platform (two tiles or more) or straight on from an end.
  */
 export function meetsTrack(world: World, kind: number, tx: number, ty: number, rot: number): boolean {
   const rail = world.layers.rail;
@@ -54,11 +54,12 @@ export function meetsTrack(world: World, kind: number, tx: number, ty: number, r
     const [dx, dy] = buildingShape(kind, rot)[1];
     return has(-dx, -dy) || has(2 * dx, 2 * dy, level) || has(dx, dy, level);
   }
-  const under = subwayPlatform(kind, rot);
+  const under = stationPlatform(kind, rot);
   if (under.length > 0) {
+    const lv = platformLevel(kind);
     const [ax, ay] = under[0], [bx, by] = under[under.length - 1], sx = Math.sign(bx - ax), sy = Math.sign(by - ay);
-    // Along a tunnel (two or more of its tiles), not merely across one.
-    return under.filter(([dx, dy]) => has(dx, dy, RAIL_SUBWAY)).length >= 2 || has(ax - sx, ay - sy, RAIL_SUBWAY) || has(bx + sx, by + sy, RAIL_SUBWAY);
+    // Along a line (two or more of its tiles), not merely across one.
+    return under.filter(([dx, dy]) => has(dx, dy, lv)).length >= 2 || has(ax - sx, ay - sy, lv) || has(bx + sx, by + sy, lv);
   }
   return platformEnds(kind, rot).some(([dx, dy]) => has(dx, dy, platformLevel(kind)));
 }
@@ -73,7 +74,8 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
   // A station, a ramp and a subway station turn to meet track.
   const twoWay = placementRules(kind).twoWay === true;
   const station = hasPlatforms(kind);
-  const joins = station || rampLevel(kind) !== 0 || twoWay;
+  const overhead = !twoWay && stationPlatform(kind, 0).length > 0;   // the elevated station: its platform is beside its entrance
+  const joins = station || rampLevel(kind) !== 0 || twoWay || overhead;
   const turns = twoWay ? 2 : hasDocks(kind) || joins ? 4 : 1;
   for (let k = 0; k < turns; k++) {
     const rot = turns === 1 ? 0 : twoWay ? (turn + k) & 1 : (turn + k) & 3;
@@ -84,6 +86,8 @@ export function placementFor(world: World, kind: number, tx: number, ty: number)
       const shape = buildingShape(kind, rot), roles = shapeRoles(kind);
       shape.forEach(([dx, dy], n) => { if (roles[n] === 'platform') anchors.push({ tx: tx - dx, ty: ty - dy }); });
     }
+    // An elevated station too: pointing at a line (or a street) puts the platform over it, the entrance beside.
+    if (overhead) for (const [dx, dy] of stationPlatform(kind, rot)) anchors.push({ tx: tx - dx, ty: ty - dy });
     for (const a of anchors) {
       const check = world.checkPlacement(a.tx, a.ty, kind, rot);
       // A station prefers the first way that fits AND meets track; failing that, the first way that fits.

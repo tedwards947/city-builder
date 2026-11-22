@@ -83,9 +83,9 @@ import { doorTile, levelWeight } from '../lots';
 import { World } from '../World';
 import { isEntryTile } from '../connections';
 import { isRailEntryTile } from '../connectionRail';
-import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY, BUILDING_SUBWAY_STATION } from '../constants';
+import { ROAD_NONE, ROAD_HIGHWAY, ZONE_R, ZONE_C, ZONE_I, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from '../constants';
 import { railLinks, rampOther, isLevelCrossing, LINK_N, LINK_E, LINK_S, LINK_W } from '../rail';
-import { hasPlatforms, platformLevel, rampLevel, shapeRoles } from '../buildingShapes';
+import { hasPlatforms, platformLevel, rampLevel, shapeRoles, stationPlatform } from '../buildingShapes';
 import { BALANCE } from '../../data/balance';
 import { ordinanceModifier } from '../ordinances';
 import {
@@ -269,7 +269,7 @@ export class TransitSystem {
       h = Math.imul(h ^ world.railVersion, 0x9e3779b1);
       const width = world.grid.width;
       for (const b of world.buildings) {
-        if (!hasPlatforms(b.kind) && b.kind !== BUILDING_SUBWAY_STATION && rampLevel(b.kind) === 0) continue;
+        if (platformLevel(b.kind) === 0 && rampLevel(b.kind) === 0) continue;
         h = Math.imul(h ^ (b.ty * width + b.tx), 0x9e3779b1);
         h = Math.imul(h ^ (b.kind * 4 + ((b.rot ?? 0) & 3)), 0x85ebca6b);
         h ^= h >>> 15;
@@ -649,10 +649,12 @@ export class TransitSystem {
       if (hasPlatforms(b.kind)) {
         const tiles = world.buildingTilesAt(b.tx, b.ty), roles = shapeRoles(b.kind);
         const platform = tiles.filter((_, k) => roles[k] === 'platform');
-        if (platform.length > 0) at = railSlot(platformLevel(b.kind)) * n + platform[platform.length >> 1];   // on its own level: an elevated station's is elevated track
-      } else if (b.kind === BUILDING_SUBWAY_STATION) {
-        const entrance = b.ty * width + b.tx;
-        if (rail[entrance] & RAIL_SUBWAY) at = railSlot(RAIL_SUBWAY) * n + entrance;
+        if (platform.length > 0) at = n + platform[platform.length >> 1];
+      } else if (stationPlatform(b.kind, 0).length > 0) {
+        // The middle tile of its platform: under a subway station's entrance, overhead beside an elevated station's.
+        const [dx, dy] = stationPlatform(b.kind, b.rot ?? 0)[1], level = platformLevel(b.kind);
+        const mid = (b.ty + dy) * width + b.tx + dx;
+        if (rail[mid] & level) at = railSlot(level) * n + mid;
       } else continue;
       const roads = world.buildingAccessRoads(b.tx, b.ty);
       const station = data.rail.stations.length;

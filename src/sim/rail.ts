@@ -15,7 +15,7 @@ import { reservedAgainst } from './connections';
 import type { World } from './World';
 import { BUILDING_NONE, ROAD_NONE, ROAD_AVENUE, ZONE_NONE, TERRAIN_WATER, RAIL_GROUND, RAIL_ELEVATED, RAIL_SUBWAY } from './constants';
 import { BALANCE } from '../data/balance';
-import { buildingShape, hasPlatforms, platformLevel, platformSides, rampLevel, subwayPlatform } from './buildingShapes';
+import { buildingShape, hasPlatforms, platformLevel, platformSides, rampLevel, stationPlatform } from './buildingShapes';
 import { transitIsFree } from './ordinances';
 import { railVolume } from './TrafficData';
 
@@ -80,15 +80,15 @@ function platformJoins(world: World, i: number, level: number): number {
 
 /**
  * The directions the track of `level` on tile `i` may join in. Ground: see
- * trackSides. Elevated and subway track joins on all four sides, except on an
- * elevated station's platform, which joins as a ground platform does.
+ * trackSides. Elevated and subway track joins on all four sides. (A subway or
+ * elevated station's platform is plain track: no other track of its level may
+ * be laid beside it, so it joins only along its row.)
  */
 export function levelSides(world: World, i: number, level: number): number {
   if (level === RAIL_GROUND) return trackSides(world, i);
   // A ramp's high (or deep) end: only straight out, away from its low end.
   const kind = world.layers.building[i];
   if (kind !== BUILDING_NONE && rampLevel(kind) === level && world.buildingAnchorAt(i) !== i) return rampOutward(world, i);
-  if (kind !== BUILDING_NONE && level === RAIL_ELEVATED && hasPlatforms(kind) && platformLevel(kind) === level) return platformJoins(world, i, level);
   return VERTICAL | HORIZONTAL;
 }
 
@@ -148,20 +148,27 @@ function besidePlatform(world: World, i: number, level: number): boolean {
   return false;
 }
 
-const subwaySidesCache = new WeakMap<World, { buildings: unknown; count: number; tiles: Set<number> }>();
+const offSidesCache = new WeakMap<World, { buildings: unknown; count: number; subway: Set<number>; elevated: Set<number> }>();
 
-/** Every tile beside a subway station's platform. Worked out again only when the list of buildings changes. */
-function besideSubwayPlatform(world: World): Set<number> {
-  const hit = subwaySidesCache.get(world);
-  if (hit && hit.buildings === world.buildings && hit.count === world.buildings.length) return hit.tiles;
-  const tiles = new Set<number>();
-  for (const b of world.buildings) {
-    for (const [dx, dy] of platformSides(b.kind, b.rot ?? 0)) {
-      if (subwayPlatform(b.kind, b.rot ?? 0).length > 0 && world.grid.inBounds(b.tx + dx, b.ty + dy)) tiles.add(world.grid.idx(b.tx + dx, b.ty + dy));
+/**
+ * Every tile beside the platform of a subway station (`level` RAIL_SUBWAY) or
+ * of an elevated station (RAIL_ELEVATED): the stations whose platform is off
+ * their shape. Worked out again only when the list of buildings changes.
+ */
+export function besideStationPlatform(world: World, level: number): Set<number> {
+  let hit = offSidesCache.get(world);
+  if (!hit || hit.buildings !== world.buildings || hit.count !== world.buildings.length) {
+    hit = { buildings: world.buildings, count: world.buildings.length, subway: new Set<number>(), elevated: new Set<number>() };
+    for (const b of world.buildings) {
+      if (stationPlatform(b.kind, b.rot ?? 0).length === 0) continue;
+      const tiles = platformLevel(b.kind) === RAIL_SUBWAY ? hit.subway : hit.elevated;
+      for (const [dx, dy] of platformSides(b.kind, b.rot ?? 0)) {
+        if (world.grid.inBounds(b.tx + dx, b.ty + dy)) tiles.add(world.grid.idx(b.tx + dx, b.ty + dy));
+      }
     }
+    offSidesCache.set(world, hit);
   }
-  subwaySidesCache.set(world, { buildings: world.buildings, count: world.buildings.length, tiles });
-  return tiles;
+  return level === RAIL_SUBWAY ? hit.subway : hit.elevated;
 }
 
 /** Why ground track cannot be laid on a tile, or null if it can. */
@@ -184,11 +191,11 @@ export function trackBlocker(world: World, tx: number, ty: number, level: number
   if (!world.grid.inBounds(tx, ty)) return 'offMap';
   const L = world.layers;
   const i = world.grid.idx(tx, ty);
-  if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : besideSubwayPlatform(world).has(i) ? 'blocked' : null;
+  if (level === RAIL_SUBWAY) return L.rail[i] & RAIL_SUBWAY ? 'hasTrack' : besideStationPlatform(world, RAIL_SUBWAY).has(i) ? 'blocked' : null;
   if (L.building[i] !== BUILDING_NONE || L.zone[i] !== ZONE_NONE) return 'blocked';
   // An outside connection's tile: ground track on a rail point, nothing else on the surface.
   if (reservedAgainst(world, i, level === RAIL_GROUND ? 'rail' : null)) return 'blocked';
-  if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : besidePlatform(world, i, RAIL_ELEVATED) ? 'blocked' : null;
+  if (level === RAIL_ELEVATED) return L.rail[i] & RAIL_ELEVATED ? 'hasTrack' : besideStationPlatform(world, RAIL_ELEVATED).has(i) ? 'blocked' : null;
   if (L.rail[i] & RAIL_GROUND) return 'hasTrack';
   if (besidePlatform(world, i, RAIL_GROUND)) return 'blocked';
   const rc = L.roadClass[i];
@@ -282,7 +289,7 @@ export function stationBusiestTile(world: World, tx: number, ty: number): number
 /**
  * The busiest platform tile of the station at (tx, ty) and the level its
  * track is on: ground for a train station, elevated for an elevated station, subway for a subway station (whose
- * platform is under the tiles round its entrance). Null before the first
+ * platform is under the tiles round its entrance, as an elevated station's is over the tiles beside its own). Null before the first
  * traffic pass or if the building has no platform. `riders` are those getting
  * on, getting off and passing through, per tick.
  */
@@ -291,13 +298,12 @@ export function stationPeak(world: World, tx: number, ty: number): { tile: numbe
   if (!d || !world.grid.inBounds(tx, ty)) return null;
   const b = world.buildingAt(tx, ty);
   let tiles: number[], level = RAIL_GROUND;
-  const under = b ? subwayPlatform(b.kind, b.rot ?? 0) : [];
-  if (b && under.length > 0) {
-    level = RAIL_SUBWAY;
-    tiles = under.map(([dx, dy]) => world.grid.idx(b.tx + dx, b.ty + dy));
+  const off = b ? stationPlatform(b.kind, b.rot ?? 0) : [];
+  if (b && off.length > 0) {
+    level = platformLevel(b.kind);
+    tiles = off.map(([dx, dy]) => world.grid.idx(b.tx + dx, b.ty + dy));
   } else {
     tiles = world.buildingTilesAt(tx, ty);
-    if (b && platformLevel(b.kind) !== 0) level = platformLevel(b.kind);
   }
   let best = -1, most = -1;
   for (const i of tiles) {
