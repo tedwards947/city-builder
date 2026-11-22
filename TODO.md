@@ -313,6 +313,12 @@ t. **Outside code review (Gemini)** (owner, 2026-11-21: after capstones and conn
 
 u. **Cloudflare Web Analytics.** Done (owner, 2026-11-21): enabled on the Pages project; the beacon is injected on each deploy.
 
+v. **Move buildings** (owner, 2026-11-21; ENGINE then GRAPHICS). A Move tool for anything that isn't a zone or a network: services, stations, utilities, parks, attractions and capstones. Not zones, roads or track.
+   - **Engine:** a move command that removes and places in one step (reuse `BatchCommand`), so one undo restores it. Every placement rule applies at the new spot (stations on track, the Waterworks beside water, the Fire HQ runway, an entrance road).
+   - **Cost, PM proposal (owner leaning yes):** money is about 25% of the build cost. PC is charged on the **net** change only: residents who lose coverage pay the normal closing rate, and residents who gain coverage give no ribbon-cutting reward, so moving back and forth can't farm PC. A short move costs almost no PC. Capstones use the same rule with the existing cap of 50% of the PC cap.
+   - **Graphics:** a Move tool. Click a building, it follows the cursor like the placement ghost with its price shown, and a click puts it down.
+   - **Context:** the owner feels PC is "close but not there yet" and wants it to be something useful. Move is one more meaningful PC spend; fold it into any PC redesign.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
