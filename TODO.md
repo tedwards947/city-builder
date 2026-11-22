@@ -301,7 +301,7 @@ n. **Revisit Political Capital** — **revisited 2026-11-21: owner kept as is; P
 
 o. **Inspect while paused.** Done: see ENGINEER 2 item 7 (#441).
 
-p. **Open requests are hard to see above ground** (owner, 2026-11-20; GRAPHICS). In the underground view the request area stands out well against the black background. Above ground it is often hard to see, because its selection box is green and home lots are green too. Give the request area a colour or style that contrasts with every zone colour (and with the green of parks and trees), e.g. a non-green outline with a darker edge, a dashed or animated border, or a light dimming outside the area. Check it at several zoom levels and on a phone.
+p. **Open requests are hard to see above ground.** Done (#532): a faint cream veil inside, a dark halo and slowly marching cream dashes; checked at zoom 1.2, 2.5 and 4. The tile grid also now draws under sprites.
 
 q. **Bigger parks count for park coverage** (owner, 2026-11-20; ENGINEER 2, numbers ENGINEER 3). Only the 1×1 park gave park coverage (6 road steps), so a 2×2 park, big park, beach park or lido couldn't meet a park request. Every park now counts, and bigger ones reach further: 1×1 6, 2×2 about 9, big park / beach park / lido about 12.
 
