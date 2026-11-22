@@ -46,7 +46,7 @@ export const BUILDING_STATION            = 14;  // train station, straight: thre
 export const BUILDING_STATION_L          = 15;  // train station, curved: 2×2, the platform round the corner, a house on the fourth tile
 export const BUILDING_RAMP_ELEVATED      = 16;  // 2×1 ramp: ground track at the anchor end, elevated at the other
 export const BUILDING_RAMP_SUBWAY        = 17;  // 2×1 ramp: ground track at the anchor end, subway at the other
-export const BUILDING_STATION_ELEVATED   = 33;  // elevated train station: a 1×1 entrance beside a 3-tile platform overhead, on elevated track (sim/buildingShapes.ts overheadPlatform; owner 2026-11-21)
+export const BUILDING_STATION_ELEVATED   = 33;  // elevated train station: a 3-tile platform overhead and nothing on the ground (sim/buildingShapes.ts overheadPlatform; owner 2026-11-21)
 export const BUILDING_SUBWAY_STATION     = 18;  // 1×1 entrance over a 3-tile subway platform (sim/buildingShapes.ts subwayPlatform)
 export const BUILDING_AIRPORT            = 13;  // 12×5, one per city, never turned (shape and rules in sim/buildingShapes.ts)
 // Leisure (LEISURE_DESIGN.md; shapes in sim/buildingShapes.ts, rules and numbers in sim/leisure.ts and BALANCE.leisure).

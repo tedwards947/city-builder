@@ -289,7 +289,7 @@ export function stationBusiestTile(world: World, tx: number, ty: number): number
 /**
  * The busiest platform tile of the station at (tx, ty) and the level its
  * track is on: ground for a train station, elevated for an elevated station, subway for a subway station (whose
- * platform is under the tiles round its entrance, as an elevated station's is over the tiles beside its own). Null before the first
+ * platform is under the tiles round its entrance; an elevated station is its platform, and any of its three tiles will do). Null before the first
  * traffic pass or if the building has no platform. `riders` are those getting
  * on, getting off and passing through, per tick.
  */

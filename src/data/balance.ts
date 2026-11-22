@@ -113,7 +113,7 @@ export const BALANCE = {
     15: { cost: 27500, maintenance: 20 }, // BUILDING_STATION_L (curved, 2×2)
     // The elevated station: 2× a ground station to build and to keep up (owner 2026-11-21, by the PM: between
     // the ground station at 1× and elevated track at 3× ground track). NOT measured: for the Balance Lab to check.
-    33: { cost: 55000, maintenance: 40 }, // BUILDING_STATION_ELEVATED (1×1 entrance, three platform tiles overhead)
+    33: { cost: 55000, maintenance: 40 }, // BUILDING_STATION_ELEVATED (three platform tiles overhead, nothing on the ground)
     // Rail phase 2 placeholders (RAIL_DESIGN.md, ENGINEER 3's starting numbers).
     16: { cost: 5000, maintenance: 5 },    // BUILDING_RAMP_ELEVATED (2×1) Owner-approved 2026-11-19.
     17: { cost: 15000, maintenance: 10 },  // BUILDING_RAMP_SUBWAY (2×1) Owner-approved 2026-11-19.
