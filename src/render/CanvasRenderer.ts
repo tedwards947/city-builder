@@ -15,8 +15,8 @@ import { isLeisureKind } from '../sim/leisure';
 import { eventStatus } from '../sim/eventDays';
 import { beginBeachFrame, drawBeachTile } from './clay/beachProps';
 import { isLotAnchor, lotShape, LOT_SIZE } from '../sim/lots';
-import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
-import { drawRailTile, drawStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
+import { TERRAIN_WATER, BUILDING_STADIUM, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION, RAIL_ELEVATED, RAIL_SUBWAY, RAIL_GROUND } from '../sim/constants';
+import { drawRailTile, drawStation, drawElevatedStation, railArtReady, drawRamp, drawRampTrack, drawElevatedLayer, drawSubwayLayer, drawSubwayEntrance, drawSubwayRampShade } from './clay/rail';
 import { railLinks } from '../sim/rail';
 import { drawTrains } from './clay/trains';
 import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
@@ -711,6 +711,13 @@ export class CanvasRenderer {
     if (kind === BUILDING_RAMP_ELEVATED || kind === BUILDING_RAMP_SUBWAY) {
       const tile = Math.ceil(camera.zoom * TILE_SIZE), subway = kind === BUILDING_RAMP_SUBWAY;
       if (railArtReady()) { drawRamp(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); drawRampTrack(ctx, subway, rot, X(ax + box.minX), Y(ay + box.minY), tile); }
+      else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
+      return;
+    }
+    // The elevated station (clay/rail.ts): its deck, piers, spread track and painted island.
+    if (kind === BUILDING_STATION_ELEVATED) {
+      const tile = Math.ceil(camera.zoom * TILE_SIZE);
+      if (railArtReady()) drawElevatedStation(ctx, X(ax + box.minX), Y(ay + box.minY), box.maxX - box.minX + 1, box.maxY - box.minY + 1, tile);
       else drawBigStandIn(ctx, kind, shapeTiles(kind, ax, ay, rot), X, Y, now * 0.001, water, -1);
       return;
     }
