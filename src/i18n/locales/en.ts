@@ -521,6 +521,7 @@ export const en: TranslationSchema = {
       free: "Free",
       pcNearHomes: "near homes",
       lockedAt: "🔒 {n} people",
+      builtOnce: "Built: one per city",
       pcWithin: "only if homes are within {n} tiles",
       pcAvoid: "The price shows at the pointer. Build away from homes and it's free.",
       pcEarns: "Earns political capital where residents gain one",

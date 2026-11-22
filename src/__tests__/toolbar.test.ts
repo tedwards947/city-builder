@@ -84,3 +84,34 @@ describe('toolbar list', () => {
     expect(toolPrice('none')).toEqual({});
   });
 });
+
+describe('one-per-city items', () => {
+  it('show as built once the city has one, and come back when it is bulldozed', async () => {
+    const { builtOnce } = await import('../ui/Toolbar');
+    const { landWorld } = await import('./pcTestWorld');
+    const { CommandHistory } = await import('../commands/CommandHistory');
+    const { PlaceBuildingCommand } = await import('../commands/PlaceBuildingCommand');
+    const { BulldozeCommand } = await import('../commands/BulldozeCommand');
+    const { BUILDING_MUSEUM, BUILDING_PARK } = await import('../sim/constants');
+    const w = landWorld(40);
+    w.budget.money = 1e7; w.budget.politicalCapital = 1e4; w.politics.peakPopulation = 1e6;
+    const h = new CommandHistory(w);
+    expect(builtOnce(w, 'museum')).toBe(false);
+    expect(h.run(new PlaceBuildingCommand(10, 10, BUILDING_MUSEUM))).toBe(true);
+    expect(builtOnce(w, 'museum')).toBe(true);
+    expect(builtOnce(w, 'stadium')).toBe(false);
+    // Parks repeat: never shown as built.
+    expect(h.run(new PlaceBuildingCommand(20, 20, BUILDING_PARK))).toBe(true);
+    expect(builtOnce(w, 'park')).toBe(false);
+    expect(h.run(new BulldozeCommand(10, 10))).toBe(true);
+    expect(builtOnce(w, 'museum')).toBe(false);
+    expect(t('ui.toolbar.builtOnce')).not.toBe('ui.toolbar.builtOnce');
+  });
+
+  it('cover every onePerCity kind the toolbar offers: the seven capstones, the airport, the museum and the stadium', async () => {
+    const { buildingKindForTool } = await import('../ui/Toolbar');
+    const { placementRules } = await import('../sim/buildingShapes');
+    const once = items.flatMap(i => { const k = i.tool !== undefined ? buildingKindForTool(i.tool) : undefined; return k !== undefined && placementRules(k).onePerCity ? [i.tool] : []; });
+    expect([...once].sort()).toEqual(['airport', 'fireHq', 'generalHospital', 'museum', 'nuclearPlant', 'policeHq', 'sewageWorks', 'stadium', 'university', 'waterworks']);
+  });
+});
