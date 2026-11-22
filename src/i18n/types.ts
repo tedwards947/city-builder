@@ -146,6 +146,7 @@ export interface TranslationSchema {
       upkeep: string;
       runningCosts: string;
       ordinances: string;
+      lostFares: string;
       satisfaction: string;
       growth: string;
       polCapital: string;

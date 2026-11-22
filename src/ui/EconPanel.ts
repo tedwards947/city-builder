@@ -5,6 +5,7 @@ import type { World } from '../sim/World';
 import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
 import { ordinanceMoneyPerTick } from '../sim/ordinances';
+import { lostFareIncome } from '../sim/rail';
 import { taxLevelRange, setTaxLevel, taxEffect } from '../sim/tax';
 import { headcountCost } from '../sim/runningCost';
 import { pcCap } from '../sim/politics';
@@ -77,6 +78,10 @@ export class EconPanel {
     set('econ-upkeep', perDay(-lines.upkeep));
     set('econ-running', perDay(-lines.running));
     set('econ-ordinances', perDay(-lines.ordinances));
+    // Display only: not part of the sum above, since the money was never collected.
+    const lost = lostFareIncome(world);
+    (document.getElementById('econ-lost-fares-line') as HTMLElement).hidden = lost <= 0;
+    set('econ-lost-fares', perDay(lost));
     set('econ-tax-net', perDay(lines.net), lines.net);
     // Satisfaction is 0–1; shown as percentage points gained or lost to the tax level.
     const sat = Math.round(e.satisfactionDelta * 100);
