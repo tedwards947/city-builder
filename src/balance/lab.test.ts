@@ -18,6 +18,9 @@ describe('balance lab', () => {
     for (const t of r.targets) if (t.suite !== 'trade' && t.suite !== 'airport' && t.suite !== 'rail' && t.suite !== 'landscape') for (const v of t.suite === 'pc' ? ['Off', 'B'] : t.suite === 'econ' ? ['shipped', 'recommended'] : t.suite === 'taxdebt' ? ['shipped'] : ['nocap', 'shipped']) expect(t.results[v]?.fresh).toBeDefined();
     expect(r.econRuns.recommended.fresh.econ.moneyStart).toBeGreaterThan(0);
     expect(r.runs.B.fresh.planner.end.population).toBeGreaterThan(0);
+    const atCap = r.runs.Off.fresh.planner.atCapShare;
+    expect(atCap).toBeGreaterThanOrEqual(0);
+    expect(atCap).toBeLessThanOrEqual(1);
     expect(Object.keys(r.summary)).toEqual(['Off', 'B']);
     expect(Object.keys(r.econSummary)).toEqual(['shipped', 'recommended']);
     expect(Object.keys(r.svcSummary)).toEqual(['nocap', 'shipped']);
