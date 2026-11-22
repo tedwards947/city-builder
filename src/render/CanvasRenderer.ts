@@ -731,7 +731,8 @@ export class CanvasRenderer {
     if (isCapstoneArt(kind) && rot === 0) {
       const tile = camera.zoom * TILE_SIZE;   // exact: see the merged lots
       const wc = water ? { x: X(water.x) + tile / 2, y: Y(water.y) + tile / 2 } : null;
-      if (drawCapstone(ctx, kind, X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, wc, now, anchor)) return;
+      const L = world.layers, grass = resolveTilePalette(L.vibeEgalitarian[anchor], L.vibeGreen[anchor], L.vibePlanned[anchor], BALANCE.character.axisMax).grass;
+      if (drawCapstone(ctx, kind, X(ax + box.minX), Y(ay + box.minY), n, box.maxY - box.minY + 1, tile, wc, now, anchor, grass)) return;
     }
     // Leisure buildings (clay/leisureArt.ts): parks, plazas, the museum, and the stadium with its event days.
     if (isLeisureKind(kind)) {
