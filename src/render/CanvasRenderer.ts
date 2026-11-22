@@ -276,6 +276,9 @@ export class CanvasRenderer {
     const ox0 = camera.worldToScreenX(Projection.tileToWorldX(0)), oy0 = camera.worldToScreenY(Projection.tileToWorldY(0));
     drawConnectionStubs(ctx, world, ox0, oy0, ts, cw, ch);
 
+    // 1a'. The tile grid, on the ground: under the trees, sprites and cars (drawn over them it cuts across every building).
+    if (camera.zoom >= 1.2) this._drawTileGrid(ctx, camera, bounds);
+
     // 1b. Ships, on the water and under everything that stands (cranes reach over them).
     this._drawShips(ctx, world, camera, bounds, now);
 
@@ -301,7 +304,7 @@ export class CanvasRenderer {
     // 3. Problem badges and district pins.
     if (bare) { this._badges.length = 0; this._requestBadges.length = 0; return; }
     this._drawBadges(ctx, world, camera, ts, now, cw, ch);
-    this._drawRequests(ctx, world, camera, ts, options.requestOutcomes ?? []);
+    this._drawRequests(ctx, world, camera, ts, options.requestOutcomes ?? [], now);
     for (const h of options.areaHighlights ?? []) this._drawAreaHighlight(ctx, camera, ts, h);
 
     // 4. The inspected lot's trips to work and shops (or to homes), along the roads.
@@ -312,8 +315,7 @@ export class CanvasRenderer {
       }
     }
 
-    // 5. Guides: tile grid, overlay key, coverage preview, hover outline, map edge.
-    if (camera.zoom >= 1.2) this._drawTileGrid(ctx, camera, bounds);
+    // 5. Guides: overlay key, coverage preview, hover outline, map edge (the tile grid is on the ground, 1a').
     if (overlay !== 'none') this._drawOverlayLegend(ctx, overlay, camera.viewportH);
     if (pcPreview !== null) this._drawPcPreview(ctx, camera, ts, pcPreview);
     if (coveragePreview !== null) this._drawCoveragePreview(ctx, world, camera, bounds, ts, coveragePreview);
@@ -944,25 +946,37 @@ export class CanvasRenderer {
   }
 
   /**
-   * Resident requests: a faint dashed outline round each asking area, a badge
+   * Resident requests: a veiled area with a haloed, marching dashed outline round each asking area, a badge
    * at its centre (merged where they would overlap), and a tick or cross where
    * one has just ended. Records the badges for `requestAt`.
    */
-  private _drawRequests(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, outcomes: readonly RequestOutcome[]): void {
+  private _drawRequests(ctx: CanvasRenderingContext2D, world: World, camera: Camera, ts: number, outcomes: readonly RequestOutcome[], now = 0): void {
     const requests = world.politics.requests;
     this._requestBadges = [];
     if (requests.length === 0 && outcomes.length === 0) return;
     const X = (tx: number) => camera.worldToScreenX(tx * TILE_SIZE), Y = (ty: number) => camera.worldToScreenY(ty * TILE_SIZE);
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 5]);
-    ctx.strokeStyle = 'rgba(125,216,192,0.55)';
+    // The asking area must stand out on every zone colour and on parks and trees (TODO p: the old teal dashes were
+    // lost on green home lots): a faint light veil inside, then a dark halo under cream dashes that march slowly.
     const gridWidth = world.grid.width;
+    ctx.beginPath();
     for (const r of requests) {
       const tiles = clusterTiles(r, gridWidth);
-      if (tiles) this._strokeTileSet(ctx, tiles, tx => Math.round(X(tx)), ty => Math.round(Y(ty)));
-      else ctx.strokeRect(Math.round(X(r.x0)) + 0.5, Math.round(Y(r.y0)) + 0.5, Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
+      if (tiles) for (const e of tileSetEdges(tiles)) { ctx.moveTo(Math.round(X(e.x0)) + 0.5, Math.round(Y(e.y0)) + 0.5); ctx.lineTo(Math.round(X(e.x1)) + 0.5, Math.round(Y(e.y1)) + 0.5); }
+      else ctx.rect(Math.round(X(r.x0)) + 0.5, Math.round(Y(r.y0)) + 0.5, Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
     }
-    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,246,220,0.13)';
+    for (const r of requests) {
+      const tiles = clusterTiles(r, gridWidth), T = Math.ceil(ts);
+      if (tiles) for (const t of tiles) ctx.fillRect(Math.round(X(t.x)), Math.round(Y(t.y)), T, T);
+      else ctx.fillRect(Math.round(X(r.x0)), Math.round(Y(r.y0)), Math.round((r.x1 - r.x0 + 1) * ts), Math.round((r.y1 - r.y0 + 1) * ts));
+    }
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4.5; ctx.strokeStyle = 'rgba(12,20,30,0.6)';
+    ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff3d4';
+    ctx.setLineDash([7, 5]); ctx.lineDashOffset = -((now / 90) % 12);
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
     this._requestBadges = layoutRequestBadges(requests, world.tick, (tx, ty) => ({ x: X(tx), y: Y(ty) }), undefined, gridWidth);
     // A request badge that would sit on a problem badge or pin steps aside, to the right.
     const taken = this._badges;
