@@ -46,8 +46,8 @@ const ART: Record<number, Art> = {
   [BUILDING_SEWAGE_WORKS]: { name: 'sewage-d', bx: 0, by: 0, bw: 4, bd: 4, trees: [...row([6, 13, 20, 48, 55, 62], 51), ...row([6, 13, 20, 48, 55, 62], 63)] },
   [BUILDING_WATERWORKS]: { name: 'water-b', bx: 0, by: 0, bw: 4, bd: 4, trees: row([5, 14.7, 24.3, 43.7, 53.3, 63], 64.5) },
   [BUILDING_FIRE_HQ]: { name: 'fire-c', bx: 4, by: 1, bw: 4, bd: 4, trees: row([5, 13, 21, 29], 62) },
-  [BUILDING_POLICE_HQ]: { name: 'police-b', bx: 0, by: 0, bw: 4, bd: 4, trees: row([10, 20, 48, 58], 53.5), pad: { x: 34, y: 24, z: 30, heli: 'heli-police' } },
-  [BUILDING_GENERAL_HOSPITAL]: { name: 'hospital-6x4', bx: 0, by: 0, bw: 6, bd: 4, trees: [[33, 47], [70, 47], [33, 58], [70, 58]], pad: { x: 53, y: 15, z: 42, heli: 'heli-medevac' } },
+  [BUILDING_POLICE_HQ]: { name: 'police-b', bx: 0, by: 0, bw: 4, bd: 4, trees: row([10, 20, 48, 58], 53.5), pad: { x: 34, y: 24, z: 29.75, heli: 'heli-police' } },
+  [BUILDING_GENERAL_HOSPITAL]: { name: 'hospital-6x4', bx: 0, by: 0, bw: 6, bd: 4, trees: [[33, 47], [70, 47], [33, 58], [70, 58]], pad: { x: 53, y: 15, z: 40.8, heli: 'heli-medevac' } },
   [BUILDING_NUCLEAR_PLANT]: { name: 'nuclear-a', bx: 0, by: 0, bw: 4, bd: 4, trees: row([5, 13, 21, 47, 55, 63], 63) },
   [BUILDING_UNIVERSITY]: { name: 'uni-b', bx: 0, by: 0, bw: 8, bd: 8, trees: [[107, 25], ...[119, 126, 133].flatMap((y) => row([48, 68], y)), ...row([6, 16, 26, 36, 80, 92, 104, 116, 128], 128)] },
 };
@@ -254,12 +254,12 @@ function windsock(ctx: Ctx, x: number, y: number, T: number, sec: number): void 
 }
 // Moving parts painted over the art, placed in the sprite's own pixels (cut sprite, capstones/<name>.png).
 /** The sewage works' four settling tanks: rim centres in sprite pixels, and the outer rim radius (sprite px, covers the painted rim). */
-const TANKS: readonly [number, number][] = [[99, 120], [199, 120], [299, 120], [391, 120]];
+const TANKS: readonly [number, number][] = [[99, 121], [199, 121], [299, 121], [391, 121]];
 const TANK_R = 41;
 /** How far the tanks' round tops lean back: their depth on screen as a share of their width (owner, 2026-11-21: "tilted backward"). */
 const TANK_TILT = 0.72;
 /** Clock faces: sprite name → centre, then half-width and half-height of the face, in its pixels. */
-const CLOCKS: Record<string, readonly [number, number, number, number]> = { 'sewage-d': [241.5, 246.5, 10.5, 8.8], 'uni-b': [422, 672, 9, 9] };
+const CLOCKS: Record<string, readonly [number, number, number, number]> = { 'sewage-d': [241.5, 247.5, 10.5, 8.8], 'uni-b': [422, 672, 9, 9] };
 /** A sprite pixel on screen, for a sprite drawn by drawClaySprite at (L, top) with a plot `side` wide. */
 function spritePx(m: { left: number; right: number; bottom: number }, L: number, top: number, side: number, px: number, py: number): [number, number, number] {
   const plotW = m.right - m.left + 1, kx = side / plotW, ky = side / (plotW * 0.905);
