@@ -1,7 +1,7 @@
 // Neighbourhood identities, PROTOTYPE (PC_DESIGN.md step 7; debug-only: nothing in play reads this). Each
 // request-grid cell with homes gets traits from what is already there, and the nearest of five types:
-//   egalitarian, green, planned  PROXIES (owner 2026-11-22): the vibe layers they should come from stay at
-//                                neutral in play (docs/PC_OUTCOMES.md), so for now:
+//   egalitarian, green, planned  the vibe layers at its homes when BALANCE.vibe.mode is 'target'; otherwise
+//                                PROXIES (owner 2026-11-22), since the legacy layers stay at neutral in play:
 //                                green        share of the cell's tiles under trees or parks
 //                                planned      share of its road tiles that run straight or cross (not corners or dead ends)
 //                                egalitarian  how even its homes' land values are: 1 − their spread ÷ mean
@@ -43,9 +43,9 @@ const minHomes = (): number => (BALANCE.politicalCapital.requests as unknown as 
 /** Raw traits of every cell with enough homes. */
 export function cellTraits(world: World): Map<number, { homes: number; raw: Traits }> {
   const { width, height } = world.grid, L = world.layers, cs = cellSize(), cols = Math.ceil(width / cs), rows = Math.ceil(height / cs);
-  type Acc = { homes: number; lv: number; lv2: number; lvl: number; r: number; c: number; i: number; tiles: number; green: number; roads: number; straight: number };
+  type Acc = { homes: number; lv: number; lv2: number; lvl: number; r: number; c: number; i: number; tiles: number; green: number; roads: number; straight: number; ve: number; vg: number; vp: number };
   const acc = new Map<number, Acc>();
-  const get = (c: number) => { let a = acc.get(c); if (!a) acc.set(c, a = { homes: 0, lv: 0, lv2: 0, lvl: 0, r: 0, c: 0, i: 0, tiles: 0, green: 0, roads: 0, straight: 0 }); return a; };
+  const get = (c: number) => { let a = acc.get(c); if (!a) acc.set(c, a = { homes: 0, lv: 0, lv2: 0, lvl: 0, r: 0, c: 0, i: 0, tiles: 0, green: 0, roads: 0, straight: 0, ve: 0, vg: 0, vp: 0 }); return a; };
   // Proxies for green and planned, from every tile: trees and parks; straight or crossing road tiles.
   const isRoad = (j: number) => L.roadClass[j] !== ROAD_NONE;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
@@ -65,6 +65,7 @@ export function cellTraits(world: World): Map<number, { homes: number; raw: Trai
     const c = Math.floor(Math.floor(t / width) / cs) * cols + Math.floor((t % width) / cs), a = get(c), w = levelWeight(L.devLevel[t]);
     if (L.zone[t] === ZONE_R) {
       a.homes++; a.lv += L.landValue[t]; a.lv2 += L.landValue[t] ** 2; a.lvl += L.devLevel[t]; a.r += w;
+      a.ve += (L.vibeEgalitarian[t] - 128) / 128; a.vg += (L.vibeGreen[t] - 128) / 128; a.vp += (L.vibePlanned[t] - 128) / 128;
       homeLv.push(L.landValue[t]);
     } else if (L.zone[t] === ZONE_C) a.c += w;
     else if (L.zone[t] === ZONE_I) a.i += w;
@@ -84,10 +85,12 @@ export function cellTraits(world: World): Map<number, { homes: number; raw: Trai
       ind += b.i; all += b.r + b.c + b.i;
     }
     const mean = a.lv / a.homes, sd = Math.sqrt(Math.max(0, a.lv2 / a.homes - mean * mean));
+    // With the vibe layers in target mode (BALANCE.vibe.mode), they carry the character: read them at the homes.
+    const vibe = BALANCE.vibe.mode === 'target';
     out.set(c, { homes: a.homes, raw: {
-      egalitarian: 1 - sd / Math.max(1, mean),                         // proxy
-      green: a.green / Math.max(1, a.tiles),                           // proxy
-      planned: a.roads >= 5 ? a.straight / a.roads : 0.5,              // proxy
+      egalitarian: vibe ? a.ve / a.homes : 1 - sd / Math.max(1, mean),             // proxy unless vibe
+      green: vibe ? a.vg / a.homes : a.green / Math.max(1, a.tiles),               // proxy unless vibe
+      planned: vibe ? a.vp / a.homes : a.roads >= 5 ? a.straight / a.roads : 0.5,  // proxy unless vibe
       density: a.lvl / a.homes, wealth: a.lv / a.homes / median,
       shops: a.c / Math.max(1e-9, a.r + a.c), industry: all > 0 ? ind / all : 0,
     } });

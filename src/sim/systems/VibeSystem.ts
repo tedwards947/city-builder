@@ -6,6 +6,7 @@ import {
 } from '../constants';
 import { BALANCE } from '../../data/balance';
 import { FieldBounds, growRect } from '../FieldBounds';
+import { vibeTargets, type VibeTargets } from '../vibeTargets';
 
 type VibeLayer = 'vibeEgalitarian' | 'vibeGreen' | 'vibePlanned';
 const VIBE_LAYERS: readonly VibeLayer[] = ['vibeEgalitarian', 'vibeGreen', 'vibePlanned'];
@@ -35,6 +36,10 @@ export class VibeSystem {
     vibeEgalitarian: new FieldBounds(), vibeGreen: new FieldBounds(), vibePlanned: new FieldBounds(),
   };
 
+  // Target mode (BALANCE.vibe.mode 'target'): each layer at full precision, the targets, and the day they were
+  // worked out. Null until the first pass on a world (and again for a new one).
+  private _t: { shadow: Record<VibeLayer, Float32Array>; targets: VibeTargets | null; day: number } | null = null;
+
   // The city-wide averages only change when a layer does: on a diffusion tick, or after a nudge.
   // True to start with (and for a new world), so the first update always works them out.
   private _axesStale = true;
@@ -48,8 +53,8 @@ export class VibeSystem {
       this._axesStale = true;
     }
     
-    // Slow spatial diffusion and decay
-    const diffused = this._simulateSpatialVibes(world);
+    // Slow spatial diffusion and decay; or, in target mode, each tile easing toward what stands around it.
+    const diffused = BALANCE.vibe.mode === 'target' ? this._targetPass(world) : this._simulateSpatialVibes(world);
     
     // Legacy global axes (averaged from layers for global logic)
     // The periodic refresh bounds how long a write that bypassed this system can go unseen.
@@ -96,6 +101,7 @@ export class VibeSystem {
 
   private _register(world: World): void {
     this.registeredWorld = world;
+    this._t = null;
     const ev = world.events;
     const n = BALANCE.character.nudges;
 
@@ -179,8 +185,48 @@ export class VibeSystem {
     const i = world.grid.idx(tx, ty);
     const current = world.layers[layer][i];
     world.layers[layer][i] = Math.max(0, Math.min(255, current + byteDelta));
+    if (this._t) this._t.shadow[layer][i] = Math.max(0, Math.min(255, this._t.shadow[layer][i] + byteDelta));
     this._axesStale = true;
     world.grid.markDirty(tx, ty);
+  }
+
+  /**
+   * Target mode, every simInterval ticks (owner 2026-11-23): no decay and no blur. Each tile eases toward its
+   * target (sim/vibeTargets.ts, refreshed every targetEveryDays) with a half-life of targetHalfLifeDays, kept at
+   * full precision so nothing rounds away. A nudge bumps a tile and then eases back to what its place is. A
+   * city whose layers are as good as neutral (left by the legacy mode, or new) starts at its targets. Returns whether
+   * a pass ran.
+   */
+  private _targetPass(world: World): boolean {
+    const V = BALANCE.vibe;
+    if (world.tick % V.simInterval !== 0) return false;
+    const n = world.grid.width * world.grid.height, day = Math.floor(world.tick / BALANCE.ticksPerDay);
+    let snap = false;
+    if (!this._t || this._t.shadow.vibeGreen.length !== n) {
+      const shadow = {} as Record<VibeLayer, Float32Array>;
+      for (const name of VIBE_LAYERS) shadow[name] = Float32Array.from(world.layers[name]);
+      this._t = { shadow, targets: null, day: -Infinity };
+      // Layers left by the legacy mode (or a new city) are as good as neutral: start at the targets.
+      let far = 0;
+      for (const name of VIBE_LAYERS) for (const v of world.layers[name]) if (Math.abs(v - NEUTRAL) > 8) far++;
+      snap = far < 0.02 * n * VIBE_LAYERS.length;
+    }
+    const t = this._t;
+    if (!t.targets || day - t.day >= V.targetEveryDays) { t.targets = vibeTargets(world); t.day = day; }
+    const rate = snap ? 1 : 1 - Math.pow(0.5, V.simInterval / (V.targetHalfLifeDays * BALANCE.ticksPerDay));
+    const target: Record<VibeLayer, Uint8Array> = { vibeEgalitarian: t.targets.egalitarian, vibeGreen: t.targets.green, vibePlanned: t.targets.planned };
+    let changed = false;
+    for (const name of VIBE_LAYERS) {
+      const s = t.shadow[name], goal = target[name], layer = world.layers[name];
+      for (let i = 0; i < n; i++) {
+        const v = s[i] + (goal[i] - s[i]) * rate;
+        s[i] = v;
+        const b = Math.round(v);
+        if (b !== layer[i]) { layer[i] = b; changed = true; }
+      }
+    }
+    if (changed) world.grid.markAllDirty();
+    return changed;
   }
 
   /** Returns whether a diffusion pass ran. */
