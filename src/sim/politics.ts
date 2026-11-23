@@ -22,6 +22,7 @@ import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
+import { localTrustEnabled, trustCell, cellTrust, changeTrust, regenTrust } from './localTrust';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -195,6 +196,7 @@ export function regenPc(world: World, amount: number): void {
   }
   world.budget.politicalCapital = next;
   world.pcRegenTotal += next - pc;
+  if (localTrustEnabled()) regenTrust(world, amount, pcCap(world));
 }
 
 // ── Population milestones ────────────────────────────────────────────────────
@@ -409,6 +411,8 @@ export interface PcQuote {
    * warning beside the price.
    */
   notConnected?: true;
+  /** Local trust prototype (sim/localTrust.ts, off by default): set when a cell the action charges can't cover its part. */
+  localBlocked?: true;
 }
 
 function emptyQuote(): PcQuote {
@@ -435,6 +439,16 @@ function totalUp(world: World, q: PcQuote): void {
     else free += p.amount;
   }
   q.affordable = canAfford(world, cost);
+  if (localTrustEnabled() && cost > 0) {
+    // The same rule, cell by cell: each cell must cover the refusable cost charged to it.
+    const byCell = new Map<number, number>();
+    for (const p of q.parts) if (p.amount < 0 && !NEVER_REFUSED.includes(p.reason)) {
+      const c = trustCell(world, p.tx, p.ty);
+      byCell.set(c, (byCell.get(c) ?? 0) - p.amount);
+    }
+    const cap = pcCap(world);
+    for (const [c, need] of byCell) if (cellTrust(world, c, cap) < need) { q.affordable = false; q.localBlocked = true; break; }
+  }
   cost += unrefusable;
   q.cost = cost;
   // The debt added: what PC above zero does not cover.
@@ -662,6 +676,8 @@ export interface PcCharges {
   regenTotal: number;
   /** The change applied for each reason, in order. */
   changes: [reason: PcReason, delta: number][];
+  /** Local trust prototype: the change applied to each cell, for undo. */
+  local?: [cell: number, delta: number][];
 }
 
 /** The charges of a command that has not run. */
@@ -682,6 +698,15 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
   for (const [reason, delta] of wanted) {
     const got = changePc(world, delta, reason, { tx, ty });
     if (got !== 0) applied.changes.push([reason, got]);
+  }
+  if (localTrustEnabled()) {
+    const cap = pcCap(world);
+    applied.local = [];
+    for (const p of q.parts) {
+      const c = trustCell(world, p.tx, p.ty);
+      const got = changeTrust(world, c, p.amount, cap, STOPS_AT_CAP.includes(p.reason));
+      if (got !== 0) applied.local.push([c, got]);
+    }
   }
   return applied;
 }
@@ -721,4 +746,5 @@ export function refundCharges(world: World, charges: PcCharges, tx: number, ty: 
     }
     changePc(world, back, reason, { tx, ty, undo: true });
   }
+  if (charges.local) for (let k = charges.local.length - 1; k >= 0; k--) changeTrust(world, charges.local[k][0], -charges.local[k][1], pcCap(world), false);
 }
