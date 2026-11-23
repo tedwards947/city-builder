@@ -4,8 +4,8 @@ import { pcQuote, chargeQuote, refundCharges, pcCap } from './politics';
 import { cellTrust, cellCap, trustCell, localTrustEnabled } from './localTrust';
 import { landWorld, homes, displacementCost } from '../__tests__/pcTestWorld';
 
-const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number } }).localTrust;
-afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; });
+const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number; spill: number } }).localTrust;
+afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; LT.spill = 0; });
 
 // Cell 0 (tiles 0–11) holds a few homes; cell 1 (12–23 across) holds many: most of the city's residents.
 function city() {
@@ -62,5 +62,18 @@ describe('local trust prototype (off by default)', () => {
     const third = pcQuote(w, { type: 'bulldoze', tx: 1, ty: 2 });
     expect(third.affordable).toBe(false);                                     // two displacements spent: the third is refused
     expect(third.localBlocked).toBe(true);
+  });
+
+  it('slice 3: a loss spills onto the neighbouring cells (down to 0), and undo gives that back too', () => {
+    LT.enabled = true; LT.cityGate = false; LT.displacements = 3; LT.spill = 0.3;
+    const w = city(), cap = pcCap(w), small = trustCell(w, 1, 1), big = trustCell(w, 15, 5);
+    const smallBefore = cellTrust(w, small, cap), bigBefore = cellTrust(w, big, cap);
+    const q = pcQuote(w, { type: 'bulldoze', tx: 15, ty: 5 });
+    const charges = chargeQuote(w, q, 15, 5);
+    expect(cellTrust(w, big, cap)).toBeCloseTo(bigBefore - displacementCost(), 5);
+    expect(cellTrust(w, small, cap)).toBeCloseTo(smallBefore - 0.3 * displacementCost(), 5);   // cell 0 is cell 1's neighbour
+    refundCharges(w, charges, 15, 5);
+    expect(cellTrust(w, small, cap)).toBeCloseTo(smallBefore, 5);
+    expect(cellTrust(w, big, cap)).toBeCloseTo(bigBefore, 5);
   });
 });

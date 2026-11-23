@@ -88,3 +88,24 @@ The **area bot** (`src/balance/trustStudy.ts`) plays like the planner or chaser.
 - **Recovery takes about 50 days whatever the size,** because a cell refills in proportion to its cap. The size sets how much a player can do in one go (1–3 homes), and the regen sets how often. That's two separate dials.
 - **The citywide demolisher** (a random block anywhere) is refused less than under the city gate (31–65% against 87–95%), because every cell is its own pool and it spreads its damage. Cells end at p10 26–44% of cap. With the city gate off, the city's PC goes far below 0 (−1k to −23k). That's an artifact of keeping it for comparison; in the redesign the city pool goes.
 - **Not covered yet:** what earns trust beyond regen (the identity's values, E1), requests and the road cut-off (#563), and the UI.
+
+## Prototype slice 3: spillover, and how fast cells refill (2026-11-22)
+
+Owner: spillover for the spread-out demolisher. When a cell loses trust, each of its 8 neighbours also loses `spill` × the loss (down to 0, not below). Only the cell where the residents live decides whether an action is refused. Also new: `regenMult`, how fast a cell refills compared with the city (1 = the same time, about 60 days; 0.25 = four times as long). Cells hold 2 displacements; no city gate. The demolisher, the area bot and the planner and chaser each ran 240 days (the area bot 400) on four cities. "Big builds" are five power plants, each placed beside homes one after another on five saved cities.
+
+| Spill, refill | Demolisher refused (saved cities; fresh) | Area bot refused | Boxed cell refills in | Planner, chaser refused | Plants beside homes refused |
+|---|---|---|---|---|---|
+| 0, 1× | 48–69%; 26% | 94–98% | 49–60 days | 0 | 0 of 25 |
+| 0.15, 1× | 56–75%; 29% | 94–98% | 49–60 | 0 | 1 of 25 |
+| 0.3, 1× | 59–77%; 30% | 94–98% | 49–60 | 0 | 3 of 25 |
+| 0.45, 1× | 62–81%; 30% | 94–98% | 49–60 | 0 | 5 of 25 |
+| 0.6 / 1.0, 1× | 65–82% / 69–84%; 31% | 94–98% | 49–60 | – | 6 / 7 of 25 |
+| **0.15, 0.25×** | **68–87%; 32%** | 98–99% | 168–237 | – | 1 of 25 |
+| 0.3, 0.25× | 72–89%; 33% | 98–99% | 168–237 | 0 | 3 of 25 |
+| 0.3, 0.5× | 66–86%; 31% | 97–99% | 58–106 | – | 3 of 25 |
+
+(The city gate refused the same demolisher 87–95%.)
+
+- **Spillover alone can't bring the demolisher back** without refusing ordinary projects. Each 0.15 of spill adds only about 5 points of refusals, while plants beside homes start failing: 3 of 25 at 0.3, 7 of 25 at 1.0. A plant's nuisance falls on two or three cells and their neighbours.
+- **The real lever is how fast cells refill.** The cells together hold 20–60× the old city pool, so a spread-out demolisher always finds trust somewhere. A quarter-speed refill gets it to 68–87% with little spill.
+- **Pick: spill 0.15, refill 0.25×.** The demolisher is refused 68–87% on the saved cities (fullcity 68%: many small cells), the area bot 98–99%, the planner and chaser never, and 1 plant in 25. The cost: a boxed neighbourhood takes about half a year (170–240 days) to come round, against about 50 at full speed. On a fresh map the demolisher stays at about 30% under every setting: young cells have few homes, and new ones keep growing.
