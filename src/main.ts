@@ -132,11 +132,13 @@ const state = {
   politics:  undefined as PoliticsSystem | undefined,
 };
 
-// ?debug=true plays the local trust prototype (PC_DESIGN.md redesign; sim/localTrust.ts, docs/PC_OUTCOMES.md
-// slice 3): trust per neighbourhood cell, no city gate, spillover 0.15, cells refill at a quarter of the city's
-// speed. Text only: a row in Inspect and the refusal toast. Without ?debug=true shipped play is unchanged.
+// ?debug=true plays the local trust prototype (PC_DESIGN.md redesign; sim/localTrust.ts, docs/PC_OUTCOMES.md,
+// play-feel tuning after the owner's playtest): trust per neighbourhood cell, no city gate; a neighbourhood lets
+// you clear about a quarter of its homes, refills in about 30 days, and a clearance spills 0.15 onto each
+// neighbour. Only demolition is refused; projects are charged but go ahead. Text only: a row in Inspect and the
+// refusal toast. Without ?debug=true shipped play is unchanged.
 if (DEBUG) Object.assign((BALANCE.politicalCapital as unknown as { localTrust: object }).localTrust,
-  { enabled: true, cityGate: false, displacements: 2, spill: 0.15, regenMult: 0.25 });
+  { enabled: true, cityGate: false, homeShare: 0.25, refillDays: 30, spill: 0.15 });
 
 // Developer tools, only with ?debug=true.
 const trafficTuning = DEBUG

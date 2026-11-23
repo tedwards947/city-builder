@@ -58,7 +58,7 @@ import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
 import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
 import {pcQuote, pcCap, regenPerTick} from "../sim/politics";
-import {localTrustEnabled, trustCell, cellTrust, cellCap, refillMult} from "../sim/localTrust";
+import {localTrustEnabled, trustCell, cellTrust, cellCap, refillPerTick} from "../sim/localTrust";
 import {developedYears, isEstablished, establishedAfterYears} from "../sim/established";
 import {PC_SYMBOL, pcAmount} from "./pcFormat";
 
@@ -93,7 +93,7 @@ export function trustRow(world: World, tx: number, ty: number): string {
   if (!localTrustEnabled()) return "";
   const cityCap = pcCap(world), cell = trustCell(world, tx, ty);
   const trust = cellTrust(world, cell, cityCap), cap = cellCap(world, cell, cityCap);
-  const perDay = regenPerTick(world, world.stats.satisfaction) * BALANCE.ticksPerDay * (cap / cityCap) * refillMult();
+  const perDay = refillPerTick(cap, cityCap, regenPerTick(world, world.stats.satisfaction)) * BALANCE.ticksPerDay;
   const n = {trust: Math.round(trust), cap: Math.round(cap)};
   const line = trust >= cap - 0.5 ? t("ui.tileInfo.trustFull", n)
     : perDay > 0 ? t("ui.tileInfo.trustRefills", {...n, days: Math.max(1, Math.ceil((cap - trust) / perDay))})

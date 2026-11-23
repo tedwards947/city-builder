@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { BALANCE } from '../data/balance';
 import { pcQuote, chargeQuote, refundCharges, pcCap } from './politics';
-import { cellTrust, cellCap, trustCell, localTrustEnabled } from './localTrust';
+import { cellTrust, cellCap, trustCell, localTrustEnabled, refillPerTick } from './localTrust';
 import { landWorld, homes, displacementCost } from '../__tests__/pcTestWorld';
 
-const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number; spill: number } }).localTrust;
-afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; LT.spill = 0; });
+const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number; spill: number; homeShare: number; refillDays: number } }).localTrust;
+afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; LT.spill = 0; LT.homeShare = 0; LT.refillDays = 0; });
 
 // Cell 0 (tiles 0–11) holds a few homes; cell 1 (12–23 across) holds many: most of the city's residents.
 function city() {
@@ -75,5 +75,21 @@ describe('local trust prototype (off by default)', () => {
     refundCharges(w, charges, 15, 5);
     expect(cellTrust(w, small, cap)).toBeCloseTo(smallBefore, 5);
     expect(cellTrust(w, big, cap)).toBeCloseTo(bigBefore, 5);
+  });
+
+  it('play-feel: a cell holds a quarter of its homes, refills in a straight line, and only demolition is refused', () => {
+    LT.enabled = true; LT.cityGate = false; LT.homeShare = 0.25; LT.refillDays = 30;
+    const w = city(), cap = pcCap(w), big = trustCell(w, 15, 5);
+    expect(cellCap(w, big, cap)).toBeCloseTo(0.25 * 144 * displacementCost(), 5);   // 144 level-2 homes
+    expect(refillPerTick(cellCap(w, big, cap), cap, 0.1) * 30 * BALANCE.ticksPerDay).toBeCloseTo(cellCap(w, big, cap), 5);
+    expect(refillPerTick(100, cap, -0.1)).toBe(0);                                   // paused while the city's mood drains PC
+    // A quarter of 144 homes is 36: the 37th is refused.
+    let cleared = 0;
+    for (let y = 0; y < 12 && cleared < 40; y++) for (let x = 12; x < 24 && cleared < 40; x++) {
+      const q = pcQuote(w, { type: 'bulldoze', tx: x, ty: y });
+      if (!q.affordable) { expect(q.localBlocked).toBe(true); y = 99; break; }
+      chargeQuote(w, q, x, y); w.setZone(x, y, 0); cleared++;
+    }
+    expect(cleared).toBe(36);
   });
 });
