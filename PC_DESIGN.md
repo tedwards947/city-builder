@@ -23,16 +23,17 @@ PC as built is a meter you pay from, and cities sit at the cap 85–100% of days
 - **Needs are lasting conditions, not timed quests,** shown as a checklist in the neighbourhood panel. Tier 2 needs two, tier 3 three including one "big" item (a station or a leisure building). Mostly "within walking distance", so place matters. A tier is lost if a condition stays broken for a while.
 - **Needs, outcome draft 2 (PM, 2026-11-22, from ENG3's docs/PC_OUTCOMES.md; for owner review).** Only four outcomes carry signal today: commute, street load, station load and land value. Pollution and crime at homes are flat, so they are out until those models change. Tier 2 needs one outcome, tier 3 two, stricter. Limits start from the owner's cities' ranges (p10–p90) and ENG3 tunes them. Land value is an absolute level, not a share of the median (that would be zero-sum). **Grace:** a condition must stay broken 3 months before the tier drops, with a ±0.05 band against flicker.
 
-| Identity | Tier 2 (level 3) | Tier 3 (towers) |
+**Each tier is one stable placement plus moving outcomes** (owner, 2026-11-22, ENG3's option B): the placement is built once, and the outcome keeps moving with the city.
+
+| Identity | Tier 2 (level 3): placement + outcome | Tier 3 (towers): placement + outcomes |
 |---|---|---|
-| Family suburb | worst street tile ≤ 1.2 (quiet streets) | worst street tile ≤ 0.9; commute ≤ 8 |
-| Working-class | commute ≤ 8 | commute ≤ 6; a station within walking distance, its load ≤ 0.9 |
-| Leafy wealthy | median street load ≤ 0.4 | median street load ≤ 0.3; land value ≥ a high level |
-| Downtown | a station within walking distance, its load ≤ 1.0 | station load ≤ 0.8; commute ≤ 6 |
-| Creative | commute ≤ 9 | a station within walking distance, its load ≤ 0.9; land value ≥ a middle level |
+| Family suburb | a park within walking distance; worst street tile ≤ 1.2 | a big park in reach; worst street tile ≤ 0.9, commute ≤ 8 |
+| Working-class | a station within walking distance; commute ≤ 8 | a plaza (market square); station load ≤ 0.9, commute ≤ 6 |
+| Leafy wealthy | a big park nearby; median street load ≤ 0.4 | a museum or lido in reach; median street load ≤ 0.3, land value ≥ a high level |
+| Downtown | a station within walking distance; station load ≤ 1.0 | a plaza or museum within walking distance; station load ≤ 0.8, commute ≤ 6 |
+| Creative | a park or plaza within walking distance; commute ≤ 9 | a stadium or museum in reach; station load ≤ 0.9, land value ≥ a middle level |
 
 What ENG3's data says this does: in a built city tiers hold unless the player acts; while the city grows or a line fills up, 10–37% of tiers break a year. Success breaks them (density loads the station and the streets).
-Open: a station "within walking distance" is a placement gate inside an outcome. ENG3's option B would make that explicit, with one stable placement and one moving outcome per tier. Owner to say.
 
 Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail), which ties the E1 dilemma to growth.
 
