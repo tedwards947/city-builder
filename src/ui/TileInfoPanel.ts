@@ -57,7 +57,8 @@ import {DEBUG} from "../debug";
 import {trafficDebugHtml} from "./trafficDebug";
 import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
 import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
-import {pcQuote} from "../sim/politics";
+import {pcQuote, pcCap, regenPerTick} from "../sim/politics";
+import {localTrustEnabled, trustCell, cellTrust, cellCap, refillMult} from "../sim/localTrust";
 import {developedYears, isEstablished, establishedAfterYears} from "../sim/established";
 import {PC_SYMBOL, pcAmount} from "./pcFormat";
 
@@ -82,6 +83,22 @@ function pcRows(world: World, tx: number, ty: number): string {
     ? t(q.shortfall > 0 ? "ui.tileInfo.pcCloseLast" : "ui.tileInfo.pcClose", {pc})
     : t("ui.tileInfo.pcDisplace", {n: q.displacedPopulation, pc});
   return `<div class="ti-growth-header">${t("ui.tileInfo.pcHeader")}</div><div class="ti-detail">${line}</div>`;
+}
+
+/**
+ * Debug-only (?debug=true plays the local trust prototype, sim/localTrust.ts): this tile's neighbourhood's
+ * trust, its cap, and how long it takes to refill at today's regen. Empty while the prototype is off.
+ */
+export function trustRow(world: World, tx: number, ty: number): string {
+  if (!localTrustEnabled()) return "";
+  const cityCap = pcCap(world), cell = trustCell(world, tx, ty);
+  const trust = cellTrust(world, cell, cityCap), cap = cellCap(world, cell, cityCap);
+  const perDay = regenPerTick(world, world.stats.satisfaction) * BALANCE.ticksPerDay * (cap / cityCap) * refillMult();
+  const n = {trust: Math.round(trust), cap: Math.round(cap)};
+  const line = trust >= cap - 0.5 ? t("ui.tileInfo.trustFull", n)
+    : perDay > 0 ? t("ui.tileInfo.trustRefills", {...n, days: Math.max(1, Math.ceil((cap - trust) / perDay))})
+    : t("ui.tileInfo.trustStuck", n);
+  return `<div class="ti-detail" style="color:${trust < 0.25 * cap ? "#e07070" : "#9ab"}">${line}</div>`;
 }
 
 /**
@@ -604,6 +621,7 @@ export class TileInfoPanel {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;
       }
       html += pcRows(world, tx, ty);
+      html += trustRow(world, tx, ty);
 
       // ── Road tile ──────────────────────────────────────────────────────────────
     } else if (road !== ROAD_NONE) {
@@ -683,6 +701,7 @@ export class TileInfoPanel {
       html += problemChips(world, i);
       html += establishedRow(world, i);
       html += pcRows(world, tx, ty);
+      html += trustRow(world, tx, ty);
 
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;

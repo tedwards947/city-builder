@@ -165,6 +165,9 @@ export const en: TranslationSchema = {
       pcClose: "Closing it would cost {pc}",
       pcCloseLast: "Closing it would cost {pc} and leave you in political debt",
       pcDisplace: "Demolishing displaces {n} residents: {pc}",
+      trustFull: "Neighbourhood trust: {trust} / {cap} (full)",
+      trustRefills: "Neighbourhood trust: {trust} / {cap} (refills in ~{days} days)",
+      trustStuck: "Neighbourhood trust: {trust} / {cap} (not refilling: residents are unhappy)",
     },
     badge: {
       crime: { name: "High crime", tip: "Crime is high here, which holds back growth and land value. Build a police station nearby." },
@@ -287,6 +290,8 @@ export const en: TranslationSchema = {
       autosaveFailedTitle: "Autosave failed",
       autosaveFailed: "Your city could not be saved in this browser. Use Save to file to keep a copy.",
       debtPausedTitle: "Game paused",
+      trustRefusedTitle: "The neighbourhood won't have it",
+      trustRefused: "The neighbourhood around {x}, {y} has {have} trust left and this needs {need}. Let it recover, or try somewhere else.",
       debtPaused: "Your city is in debt. Game paused.",
       resourceShortage: "Resource shortage",
       resourceRestored: "Resource restored",

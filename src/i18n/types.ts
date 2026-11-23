@@ -129,6 +129,9 @@ export interface TranslationSchema {
       pcClose: string;
       pcCloseLast: string;
       pcDisplace: string;
+      trustFull: string;
+      trustRefills: string;
+      trustStuck: string;
     };
     /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
@@ -214,6 +217,8 @@ export interface TranslationSchema {
       autosaveFailedTitle: string;
       autosaveFailed: string;
       debtPausedTitle: string;
+      trustRefusedTitle: string;
+      trustRefused: string;
       debtPaused: string;
       resourceShortage: string;
       resourceRestored: string;
