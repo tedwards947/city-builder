@@ -1,6 +1,7 @@
 // Shared helpers for political capital tests: a small all-land world and
 // quick ways to put occupied homes on it.
 
+import { beforeEach, afterEach } from 'vitest';
 import { World } from '../sim/World';
 import { ZONE_R } from '../sim/constants';
 import { BALANCE } from '../data/balance';
@@ -48,3 +49,14 @@ export const TEST_NUISANCE: NuisanceConfig = {
   industrialPerResident: 1,
   buildingPerResident: { 1: 2, 3: 1 },
 };
+
+/**
+ * For tests of the PC formulas themselves: switch off the one-action limit (maxActionShare, half the cap; see
+ * pcActionCap.test.ts) around each test in the calling describe/file, so the uncapped price can be checked.
+ */
+export function withoutActionCap(): void {
+  const pc = BALANCE.politicalCapital as unknown as { maxActionShare: number };
+  let saved = pc.maxActionShare;
+  beforeEach(() => { saved = pc.maxActionShare; pc.maxActionShare = 0; });
+  afterEach(() => { pc.maxActionShare = saved; });
+}

@@ -15,7 +15,10 @@ import {
   ROAD_STREET, ROAD_HIGHWAY, BUILDING_PARK, BUILDING_POLICE, BUILDING_POWER_PLANT, BUILDING_WATER_TOWER, BUILDING_NONE,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { landWorld, home, residents } from './pcTestWorld';
+import { landWorld, home, residents, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 const cfg = BALANCE.politicalCapital.service as {
   perResident: Record<number, number>; repeatFactor: number; closureMultiplier: number;

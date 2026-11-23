@@ -1,3 +1,4 @@
+import { withoutActionCap } from './pcTestWorld';
 import './pcOffBaseline';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { World } from '../sim/World';
@@ -16,6 +17,9 @@ import {
 } from '../sim/constants';
 import { snapshotTile, restoreTile } from '../commands/Command';
 import { BALANCE } from '../data/balance';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 function makeWorld() { return new World(32, 32, 999); }
 

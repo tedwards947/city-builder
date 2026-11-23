@@ -16,7 +16,10 @@ import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { BulldozeCommand } from '../commands/BulldozeCommand';
 import { BALANCE } from '../data/balance';
-import { landWorld, home, residents, displacementCost, TEST_NUISANCE } from './pcTestWorld';
+import { landWorld, home, residents, displacementCost, TEST_NUISANCE, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 // TEST_NUISANCE with the large power plant switched on too: 2 PC per resident at full weight.
 const NUISANCE: NuisanceConfig = { ...TEST_NUISANCE, buildingPerResident: { ...TEST_NUISANCE.buildingPerResident, [BUILDING_LARGE_POWER_PLANT]: 2 } };

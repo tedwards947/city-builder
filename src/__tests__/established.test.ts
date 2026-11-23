@@ -17,7 +17,10 @@ import { serialize, deserialize } from '../persistence/Serializer';
 import { encodeSaveFile, decodeSaveFile } from '../persistence/SaveFile';
 import { ZONE_R, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { landWorld, home, displacementCost } from './pcTestWorld';
+import { landWorld, home, displacementCost, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 const pc = BALANCE.politicalCapital as { establishedYears?: number };
 const heritage = (BALANCE.politicalCapital.ordinances as Record<string, { modifiers: Record<string, number> }>).heritageProtection;

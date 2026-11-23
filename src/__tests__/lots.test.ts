@@ -18,7 +18,10 @@ import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { pcQuote, pcQuoteMany } from '../sim/politics';
 import { serialize, deserialize } from '../persistence/Serializer';
 import { migrate, SAVE_VERSION, type SaveRecord } from '../persistence/SaveFormat';
-import { landWorld } from './pcTestWorld';
+import { landWorld, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 const TOP = BALANCE.growth.maxLevel;
 
