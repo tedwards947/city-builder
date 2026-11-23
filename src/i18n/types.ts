@@ -129,6 +129,7 @@ export interface TranslationSchema {
       pcClose: string;
       pcCloseLast: string;
       pcDisplace: string;
+      pcCutOff: string;
     };
     /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };

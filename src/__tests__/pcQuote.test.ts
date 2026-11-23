@@ -85,8 +85,23 @@ describe('pcQuote: displacement and blight', () => {
     expect(zonesCutOffByHighway(w, 10, 10)).toEqual([{ tx: 9, ty: 10 }, { tx: 10, ty: 9 }]);
     const q = pcQuote(w, { type: 'road', tx: 10, ty: 10, roadClass: ROAD_HIGHWAY });
     expect(q.parts).toEqual([{ reason: 'displacement', tx: 10, ty: 9, amount: -displacementCost(3), strength: 1 }]);
-    expect(q.displacedPopulation).toBe(0);   // nobody lives on the road tile itself
+    expect(q.displacedPopulation).toBe(BALANCE.growth.popPerLevel[3]);   // the home cut off, not the road tile
     // The quote reads the world and leaves it alone.
+    expect(w.layers.roadClass[w.grid.idx(10, 10)]).toBe(ROAD_STREET);
+  });
+
+  it('bulldozing a street quotes the homes it cuts off, as a highway does', () => {
+    w.setRoad(10, 10, ROAD_STREET);
+    home(w, 10, 9, 3);                       // only road is (10,10)
+    home(w, 10, 11, 1);
+    w.setRoad(11, 11, ROAD_STREET);          // (10,11) has another street
+    w.setZone(9, 10, ZONE_C);
+    w.layers.devLevel[w.grid.idx(9, 10)] = 2; // cut off, but shops are not residents
+    const q = pcQuote(w, { type: 'bulldoze', tx: 10, ty: 10 });
+    expect(q.parts).toEqual([{ reason: 'displacement', tx: 10, ty: 9, amount: -displacementCost(3), strength: 1 }]);
+    expect(q.displacedPopulation).toBe(BALANCE.growth.popPerLevel[3]);
+    // A street that is nobody's last road is free to remove.
+    expect(pcQuote(w, { type: 'bulldoze', tx: 11, ty: 11 }).parts).toEqual([]);
     expect(w.layers.roadClass[w.grid.idx(10, 10)]).toBe(ROAD_STREET);
   });
 });

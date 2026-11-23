@@ -165,6 +165,7 @@ export const en: TranslationSchema = {
       pcClose: "Closing it would cost {pc}",
       pcCloseLast: "Closing it would cost {pc} and leave you in political debt",
       pcDisplace: "Demolishing displaces {n} residents: {pc}",
+      pcCutOff: "Cuts {n} residents off from their last road: {pc}",
     },
     badge: {
       crime: { name: "High crime", tip: "Crime is high here, which holds back growth and land value. Build a police station nearby." },
