@@ -286,6 +286,8 @@ export const en: TranslationSchema = {
       savedCityUnreadable: "Your saved city could not be opened, so a new one was started. A copy of the saved one is kept under Load.",
       autosaveFailedTitle: "Autosave failed",
       autosaveFailed: "Your city could not be saved in this browser. Use Save to file to keep a copy.",
+      debtPausedTitle: "Game paused",
+      debtPaused: "Your city is in debt. Game paused.",
       resourceShortage: "Resource shortage",
       resourceRestored: "Resource restored",
       powerDemandExceeds: "Power demand exceeds supply! Deficit: {deficit} MW",

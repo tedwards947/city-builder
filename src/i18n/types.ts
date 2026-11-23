@@ -213,6 +213,8 @@ export interface TranslationSchema {
       savedCityUnreadable: string;
       autosaveFailedTitle: string;
       autosaveFailed: string;
+      debtPausedTitle: string;
+      debtPaused: string;
       resourceShortage: string;
       resourceRestored: string;
       powerDemandExceeds: string;
