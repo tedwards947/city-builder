@@ -46,3 +46,25 @@ Losses and gains a year, as a share of cells. The first number in each cell is t
 - **A. Outcomes as drafted (commute, load, station, land value).** In a built city tiers stay put unless the player acts; during growth and around busy stations they break 10–37% a year. It needs a grace period against flicker. Pollution and crime are dropped until their models give a spread.
 - **B. Mix in placement conditions** (a park or school within walking distance) as the stable half of each tier, with one outcome as the moving half (station load, street load). Tiers then break mostly where the city is under pressure.
 - **C. Make the outcomes livelier first:** pollution and noise that reach homes, crime that varies by neighbourhood. Then re-measure. It costs model work before the PC prototype.
+
+## Prototype slice 1: local trust per cell (2026-11-22)
+
+Debug-only, off as shipped (`BALANCE.politicalCapital.localTrust.enabled`; `src/sim/localTrust.ts`). Each request-grid cell keeps its own trust beside the city's PC, which is unchanged:
+- every part of a command's PC quote (displacement, nuisance, service closed and opened, blight cleared, big project) is also charged to the cell where those residents live;
+- a cell holds its residents' share of the city's cap × `shareMult` (at least 10) and regenerates as fast;
+- an action is refused when a cell can't cover its part.
+
+Not yet included: the road cut-off charge (#563, still open); requests, milestones and ordinances stay city-wide. Measured with the planner, chaser and demolisher, 180 days, on a fresh map, smallercity, gen-s1-t20000 and fullcity, local trust off and at ×1, ×5 and ×20:
+
+| Persona | PC refusals, off → on | Trust in cells at the end (p10 / p50 / p90 of cap) | City PC at the cap, off → on ×1 |
+|---|---|---|---|
+| Planner | 0 → 0 on every city | full (1 / 1 / 1; fresh 1 / 1.04 / 3.9) | unchanged |
+| Chaser | 0 → 0 on every city | full | unchanged |
+| Demolisher, saves | 322–371 → 341–381 (×1), 322–371 (×20) | full (1 / 1 / 1) | 19–22% → 88–96% |
+| Demolisher, fresh | 420 → 403 (×1) | 0.26 / 0.62 / 1.08 | 0% → 0% |
+
+- **Only the demolisher is ever refused,** with local trust on or off. The planner and chaser never disrupt enough to touch it.
+- **At ×1 a cell is smaller than one act.** A cell holds 5–15 PC; displacing one home costs 40–80. The demolisher's first bulldoze in any cell is refused before anything is spent, so trust never spreads (cells end full) while the city's PC, no longer spent, sits at its cap.
+- **At ×5–×20 the city's PC runs out first,** and local trust changes nothing (refusals within ±20).
+- **So with pools on today's scale, local trust only moves the refusal from one gate to the other.** It doesn't yet box a disruptor into one area while the rest flows. That needs (a) no city pool, or a much larger one, so the city never binds; (b) cells sized to a few displacements (×5–10 of the share, or a flat per-cell amount); and (c) a disruptor that concentrates, since the demolisher bulldozes a random block anywhere. Rewards (ribbon cuttings) aren't capped at a cell's cap, as in the city, so fresh cells reach 4× their cap.
+- **Next step, if wanted:** local only (the city gate off in the prototype), cells at ×5 with a floor of one displacement, and a "local demolisher" bot that works one area.
