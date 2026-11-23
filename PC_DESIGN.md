@@ -43,6 +43,8 @@ Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail
 **Vignette 3, "Greystone, your first suburb"** (to redo with outcomes): on a full map, the first suburb is where growth is; reaching a tier means trade-offs that land on neighbours (a bypass past Riverside, calming an avenue that downtown wants).
 
 **Prototype (ENG3, debug-only, off):** slice 1 (#567) showed cells at today's scale (5–15 PC) are smaller than one displacement (40–80), so nothing is boxed in. Slice 2 (#568) dropped the city gate and sized cells to 1–3 displacements: an area bot is boxed in (92–99% refused), the planner and chaser are never refused, and a boxed cell refills in about 50 days. Side effect: a demolisher spreading over many cells is refused less (31–65% against 87–95%). **Owner, 2026-11-22: spillover,** where part of a cell's loss comes off its neighbours (slice 3).
+Slice 3 (#571): spillover alone can't do it (at 0.45 the spread-out demolisher is refused 62–81%, and 5 plants in 25 beside homes fail). The pick is **spill 0.15 with a slower refill (0.25×)**: the demolisher is refused 68–87%, the area bot 98–99%, the planner and chaser 0, and 1 plant in 25. A boxed cell then takes 170–240 days to refill, which is fine for passive regen once earning through a neighbourhood's values (E1) becomes the main source. This goes to the owner's playtest behind ?debug=true.
+**To do after the redesign:** retune bulldoze PC against neighbourhood trust (owner, 2026-11-22). The 50%-of-cap limit per action (#570) is a stopgap.
 Also shipped tonight: the road cut-off charge is in #563 (awaiting the owner's merge), and auto-pause on going into debt is #566.
 
 ## Why
