@@ -36,6 +36,7 @@ import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { DebtUi } from './ui/DebtUi';
+import { debtPauseDue, newDebtWatch } from './sim/debtPause';
 import { hasCapacity, seatsIfOpened } from './sim/serviceCapacity';
 import { seatWords } from './ui/capacityFormat';
 import { MusicPanel } from './ui/MusicPanel';
@@ -806,8 +807,15 @@ function cachedCoveragePreview(world: World, tx: number, ty: number, kind: numbe
   return covered;
 }
 
+/** Auto-pause when the city goes into debt (sim/debtPause.ts): not behind the title, not once the game is over. */
+const debtWatch = newDebtWatch();
+
 function frame(now: number): void {
   state.scheduler.update(now);
+  if (!titleUp && !state.world.budget.gameOver && debtPauseDue(debtWatch, state.world, state.world.budget.money) && state.scheduler.speed !== 0) {
+    setSpeed(0);
+    toastPanel.showToast(t('ui.toast.debtPausedTitle'), t('ui.toast.debtPaused'), 'alert');
+  }
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
   // So does what it connects: power, water and services reach a road or zone built while the
