@@ -361,6 +361,8 @@ export const en: TranslationSchema = {
       pcInDebt: "in political debt",
       pcDebt: "in debt",
       moneyTrend: "{amount} a tick",
+      trustCost: "{n} trust",
+      trustShort: "the neighbourhood won't allow it: {have} trust left, needs {need}",
       pcRibbon: "ribbon cutting",
       pcClosing: "for closing it",
       inDebt: "In debt · building blocked",

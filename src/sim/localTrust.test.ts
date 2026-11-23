@@ -3,6 +3,7 @@ import { BALANCE } from '../data/balance';
 import { pcQuote, chargeQuote, refundCharges, pcCap } from './politics';
 import { cellTrust, cellCap, trustCell, localTrustEnabled, refillPerTick } from './localTrust';
 import { landWorld, homes, displacementCost } from '../__tests__/pcTestWorld';
+import { pcLabel, pcNote } from '../ui/pcPreview';
 
 const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number; spill: number; homeShare: number; refillDays: number } }).localTrust;
 afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; LT.spill = 0; LT.homeShare = 0; LT.refillDays = 0; });
@@ -104,5 +105,16 @@ describe('local trust prototype (off by default)', () => {
     const charges = chargeQuote(w, q, 12, 1);
     refundCharges(w, charges, 12, 1);
     expect(w.budget.politicalCapital).toBe(before);                    // undo leaves it where it was
+  });
+
+  it('the cursor tooltip speaks of the neighbourhood: a trust price, and its refusal (owner playtest)', () => {
+    LT.enabled = true; LT.cityGate = false; LT.displacements = 2;
+    const w = city();
+    const first = pcQuote(w, { type: 'bulldoze', tx: 1, ty: 1 });
+    expect(pcLabel(first)).toContain('trust');
+    chargeQuote(w, first, 1, 1); chargeQuote(w, pcQuote(w, { type: 'bulldoze', tx: 2, ty: 1 }), 2, 1);
+    const third = pcQuote(w, { type: 'bulldoze', tx: 1, ty: 2 });
+    expect(third.localBlocked).toBe(true);
+    expect(pcNote(third, w)).toContain('neighbourhood');
   });
 });

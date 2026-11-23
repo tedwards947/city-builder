@@ -281,6 +281,8 @@ export interface TranslationSchema {
       pcInDebt: string;
       pcDebt: string;
       moneyTrend: string;
+      trustCost: string;
+      trustShort: string;
       pcRibbon: string;
       pcClosing: string;
       inDebt: string;
