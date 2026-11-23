@@ -45,6 +45,7 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcHudRate } from './ui/pcFormat';
+import { moneyTrend, TREND_GLYPH } from './ui/moneyTrend';
 import { DOCK_CHANGED } from './ui/debugDock';
 import { pcCap, overCapFadePerDay, pcQuote } from './sim/politics';
 import { landscapePreview } from './ui/landscapePreview';
@@ -707,6 +708,7 @@ const statPC    = document.getElementById('stat-pc')!;
 const statPCRate = document.getElementById('stat-pc-rate')!;
 const pcBar     = document.getElementById('pc-bar')!;
 const statMoney = document.getElementById('stat-money')!;
+const statMoneyTrend = document.getElementById('stat-money-trend')!;
 if (DEBUG) {
   // Play-test helper: a little money on demand, next to the money figure.
   const more = document.createElement('button');
@@ -1011,6 +1013,14 @@ function frame(now: number): void {
   (pcBar as HTMLElement).style.background = pcOver ? '#c9fff1' : pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   setHud(statMoney, formatMoney(state.world.budget.money));
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
+  // Trend arrow: green up while earning, red down while spending; doubled when the gap is large.
+  const { income, expenses } = state.world.budget;
+  const trend = moneyTrend(income, expenses);
+  setHud(statMoneyTrend, TREND_GLYPH[trend]);
+  statMoneyTrend.classList.toggle('up', trend === 'up' || trend === 'up2');
+  statMoneyTrend.classList.toggle('down', trend === 'down' || trend === 'down2');
+  const net = income - expenses;
+  statMoneyTrend.title = t('ui.hud.moneyTrend', { amount: (net > 0 ? '+' : '') + formatMoney(net) });
   debtUi.update();
   toastPanel.checkFull(state.world);
   setHud(statPop, state.world.stats.population.toLocaleString());

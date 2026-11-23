@@ -360,6 +360,7 @@ export const en: TranslationSchema = {
       pcIntoDebt: "leaves you {pc} in political debt",
       pcInDebt: "in political debt",
       pcDebt: "in debt",
+      moneyTrend: "{amount} a tick",
       pcRibbon: "ribbon cutting",
       pcClosing: "for closing it",
       inDebt: "In debt · building blocked",
