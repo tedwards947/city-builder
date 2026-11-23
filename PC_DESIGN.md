@@ -42,7 +42,8 @@ Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail
 
 **Vignette 3, "Greystone, your first suburb"** (to redo with outcomes): on a full map, the first suburb is where growth is; reaching a tier means trade-offs that land on neighbours (a bypass past Riverside, calming an avenue that downtown wants).
 
-**Next:** owner reviews needs draft 2; then the prototype (trust on the request grid cells), by ENG3 or CITY-ONCALL.
+**Prototype (ENG3, debug-only, off):** slice 1 (#567) showed cells at today's scale (5–15 PC) are smaller than one displacement (40–80), so nothing is boxed in. Slice 2 (#568) dropped the city gate and sized cells to 1–3 displacements: an area bot is boxed in (92–99% refused), the planner and chaser are never refused, and a boxed cell refills in about 50 days. Side effect: a demolisher spreading over many cells is refused less (31–65% against 87–95%). **Owner, 2026-11-22: spillover,** where part of a cell's loss comes off its neighbours (slice 3).
+Also shipped tonight: the road cut-off charge is in #563 (awaiting the owner's merge), and auto-pause on going into debt is #566.
 
 ## Why
 Political Capital (PC) is a dead mechanic right now. It has one way to earn it (regenerating from satisfaction) and one way to spend it (displacing residents), and a hard cap of 100. A happy city refills that from empty in about two minutes at 1× (0.4 PC per tick, 2 ticks per second), so it almost never stops you doing anything.
