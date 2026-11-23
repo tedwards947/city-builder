@@ -59,6 +59,7 @@ import {lotProblems, PROBLEM_COLOUR} from "../render/clay/problemPins";
 import {lotTrips, tripGrade, TRIP_COLOUR} from "../render/clay/commuteRoute";
 import {pcQuote, pcCap, regenPerTick} from "../sim/politics";
 import {localTrustEnabled, trustCell, cellTrust, cellCap, refillPerTick} from "../sim/localTrust";
+import {identityAt} from "../sim/identity";
 import {developedYears, isEstablished, establishedAfterYears} from "../sim/established";
 import {PC_SYMBOL, pcAmount} from "./pcFormat";
 
@@ -99,6 +100,26 @@ export function trustRow(world: World, tx: number, ty: number): string {
     : perDay > 0 ? t("ui.tileInfo.trustRefills", {...n, days: Math.max(1, Math.ceil((cap - trust) / perDay))})
     : t("ui.tileInfo.trustStuck", n);
   return `<div class="ti-detail" style="color:${trust < 0.25 * cap ? "#e07070" : "#9ab"}">${line}</div>`;
+}
+
+/**
+ * Debug-only (?debug=true, the neighbourhood identities prototype, sim/identity.ts): the tile's neighbourhood
+ * type, where it is drifting, and its raw traits. Empty without ?debug=true or for a cell with too few homes.
+ */
+export function identityRow(world: World, tx: number, ty: number, show = DEBUG): string {
+  if (!show) return "";
+  const id = identityAt(world, tx, ty);
+  if (!id) return "";
+  const type = t(`ui.tileInfo.identityType.${id.type}`);
+  const line = id.drift
+    ? t("ui.tileInfo.identityDrifting", {type, drift: t(`ui.tileInfo.identityType.${id.drift}`)})
+    : t("ui.tileInfo.identity", {type});
+  const r = id.raw, f2 = (x: number) => (Math.round(x * 100) / 100).toString();
+  const traits = t("ui.tileInfo.identityTraits", {
+    density: f2(r.density), wealth: f2(r.wealth), shops: Math.round(r.shops * 100), industry: Math.round(r.industry * 100),
+    green: f2(r.green), egalitarian: f2(r.egalitarian), planned: f2(r.planned),
+  });
+  return `<div class="ti-detail" style="color:#9ab">${line}</div><div class="ti-detail" style="color:#789;font-size:11px">${traits}</div>`;
 }
 
 /**
@@ -622,6 +643,7 @@ export class TileInfoPanel {
       }
       html += pcRows(world, tx, ty);
       html += trustRow(world, tx, ty);
+      html += identityRow(world, tx, ty);
 
       // ── Road tile ──────────────────────────────────────────────────────────────
     } else if (road !== ROAD_NONE) {
@@ -702,6 +724,7 @@ export class TileInfoPanel {
       html += establishedRow(world, i);
       html += pcRows(world, tx, ty);
       html += trustRow(world, tx, ty);
+      html += identityRow(world, tx, ty);
 
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;

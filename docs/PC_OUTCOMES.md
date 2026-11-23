@@ -130,3 +130,27 @@ The owner, under `?debug=true` (#573): "I am only able to delete one R zone and 
 | Normal play and one-off projects never refused | planner and chaser 0 refusals on 4 cities; 0 of 30 power plants beside homes |
 
 Earlier in this tuning, 3 of 30 plants were refused: a plant set among dense homes can carry more nuisance in one small cell than the whole cell holds. That is why only displacement is refused locally now.
+
+## Neighbourhood identities, prototype (2026-11-22)
+
+PC_DESIGN.md step 7, debug-only (`src/sim/identity.ts`; Inspect row under `?debug=true`). Each request-grid cell with homes gets:
+- **Traits:** egalitarian, green and planned from the vibe layers; density (mean home level); wealth (home land value against the city's median); shops; and industry in and around it.
+- **Type:** the nearest of five (family suburb, working-class, leafy wealthy, downtown, creative). Traits are scaled against the city's own cells, so a label means "greener and richer than the rest of this city", and a city is never all one type.
+- **Drift:** with a sample from about three months back, the type its traits are heading for, if it differs.
+
+**Label shares** (`scripts/identity-count.mjs`):
+
+| City | Cells | Family suburb | Working-class | Leafy wealthy | Downtown | Creative |
+|---|---|---|---|---|---|---|
+| fullcity | 66 | 20 | 12 | 9 | 13 | 12 |
+| newcity2 | 49 | 12 | 9 | 8 | 10 | 10 |
+| golden-1 | 43 | 9 | 11 | 8 | 9 | 6 |
+| gen-s1-t20000 | 24 | 4 | 5 | 4 | 8 | 3 |
+
+- **The vibe layers carry nothing.** Every tile is at neutral 128 in fullcity and golden-1. On a fresh city the planner plays for 60 days, only 16–56 of 16,384 tiles are ever off neutral at once, and the city's character stays about 0.001 (out of 100). Decay seems to wipe the nudges within days. With the layers alone the three vibe traits read 0 and creative was rare (1–7 cells).
+- **So, for now, honest proxies (owner, 2026-11-22; marked in the code):**
+  - green: the share of the cell under trees or parks (p10–p90 0.01–0.26);
+  - planned: the share of road tiles that run straight or cross (0.83–1);
+  - egalitarian: 1 − the spread of home land values ÷ their mean (0.74–0.93).
+
+  The table above uses them. The diagnosis of the vibe layers follows separately.

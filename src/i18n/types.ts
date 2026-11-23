@@ -132,6 +132,10 @@ export interface TranslationSchema {
       trustFull: string;
       trustRefills: string;
       trustStuck: string;
+      identity: string;
+      identityDrifting: string;
+      identityTraits: string;
+      identityType: { familySuburb: string; workingClass: string; leafyWealthy: string; downtown: string; creative: string };
     };
     /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
