@@ -4,8 +4,8 @@ import { pcQuote, chargeQuote, refundCharges, pcCap } from './politics';
 import { cellTrust, cellCap, trustCell, localTrustEnabled } from './localTrust';
 import { landWorld, homes, displacementCost } from '../__tests__/pcTestWorld';
 
-const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number } }).localTrust;
-afterEach(() => { LT.enabled = false; });
+const LT = (BALANCE.politicalCapital as unknown as { localTrust: { enabled: boolean; minCap: number; cityGate: boolean; displacements: number } }).localTrust;
+afterEach(() => { LT.enabled = false; LT.cityGate = true; LT.displacements = 0; });
 
 // Cell 0 (tiles 0–11) holds a few homes; cell 1 (12–23 across) holds many: most of the city's residents.
 function city() {
@@ -49,5 +49,18 @@ describe('local trust prototype (off by default)', () => {
     expect(cellTrust(w, trustCell(w, 1, 1), cap)).toBe(LT.minCap);      // another cell is untouched
     refundCharges(w, charges, 15, 5);
     expect(cellTrust(w, big, cap)).toBeCloseTo(before, 5);
+  });
+
+  it('slice 2: cells sized in displacements, and with the city gate off only the cells refuse', () => {
+    LT.enabled = true; LT.cityGate = false; LT.displacements = 2;
+    const w = city(), cap = pcCap(w), small = trustCell(w, 1, 1);
+    expect(cellCap(w, small, cap)).toBeCloseTo(2 * displacementCost(), 5);   // its homes are all level 2
+    w.budget.politicalCapital = 0;                                            // the city could not pay…
+    const q = pcQuote(w, { type: 'bulldoze', tx: 1, ty: 1 });
+    expect(q.affordable).toBe(true);                                          // …but the cell can, and only it decides
+    chargeQuote(w, q, 1, 1); chargeQuote(w, pcQuote(w, { type: 'bulldoze', tx: 2, ty: 1 }), 2, 1);
+    const third = pcQuote(w, { type: 'bulldoze', tx: 1, ty: 2 });
+    expect(third.affordable).toBe(false);                                     // two displacements spent: the third is refused
+    expect(third.localBlocked).toBe(true);
   });
 });

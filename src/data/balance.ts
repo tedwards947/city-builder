@@ -820,8 +820,9 @@ export const BALANCE = {
     // Local trust, PROTOTYPE slice 1 (sim/localTrust.ts; PC_DESIGN.md redesign): each request-grid cell
     // keeps its own trust beside the city's PC, charged where the residents live, and an action is refused
     // when a cell can't cover its part. OFF: shipped play is unchanged. A cell holds its residents' share of
-    // the city's cap × shareMult (at least minCap), and regenerates as fast.
-    localTrust: { enabled: false, minCap: 10, shareMult: 1 },
+    // the city's cap × shareMult, or `displacements` × what displacing its average home costs (at least
+    // minCap), and fills as fast as the city. cityGate false: only the cells refuse (slice 2).
+    localTrust: { enabled: false, minCap: 10, shareMult: 1, cityGate: true, displacements: 0 },
     // The cap at no population. Passive regeneration and the blight-clearing
     // reward stop at the cap; other one-off rewards may go over it.
     max: 150,

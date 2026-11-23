@@ -68,3 +68,23 @@ Not yet included: the road cut-off charge (#563, still open); requests, mileston
 - **At ×5–×20 the city's PC runs out first,** and local trust changes nothing (refusals within ±20).
 - **So with pools on today's scale, local trust only moves the refusal from one gate to the other.** It doesn't yet box a disruptor into one area while the rest flows. That needs (a) no city pool, or a much larger one, so the city never binds; (b) cells sized to a few displacements (×5–10 of the share, or a flat per-cell amount); and (c) a disruptor that concentrates, since the demolisher bulldozes a random block anywhere. Rewards (ribbon cuttings) aren't capped at a cell's cap, as in the city, so fresh cells reach 4× their cap.
 - **Next step, if wanted:** local only (the city gate off in the prototype), cells at ×5 with a floor of one displacement, and a "local demolisher" bot that works one area.
+
+## Prototype slice 2: the city gate off, cells sized in displacements, an area bot (2026-11-22)
+
+Still debug-only and off (`localTrust: { enabled, cityGate: false, displacements: 1–3 }`). Only the cells refuse; the city's PC is still charged, for comparison. A cell holds 1–3 displacements of its average home (50–500 PC; more on bigger cities) and refills in the same time as the city does.
+
+The **area bot** (`src/balance/trustStudy.ts`) plays like the planner or chaser. From day 10 to day 120 it also bulldozes and rezones a block of homes every other day in the busiest cell, then stops. Each run is 240 days on a fresh map, smallercity, gen-s1-t20000 and fullcity:
+
+| Result | 1 displacement | 2 | 3 |
+|---|---|---|---|
+| Area bot's bulldozes refused | 96–99% | 94–98% | 92–96% |
+| First refused | day 10 (its first block) | day 10 | day 10–12 |
+| Its cell's trust while it works | about 2% of cap | about 2–4% | about 2% |
+| Days to refill once it stops | 15–62 (median about 45) | 30–60 (about 51) | 43–57 (about 50) |
+| Planner and chaser refused elsewhere | 0 | 0 | 0 |
+| Other cells at the end (p10 of cap) | full | 0.97–1 | 0.98–1 |
+
+- **Boxed in locally while the rest flows: yes.** The bot gets about one displacement through per refill and is refused the rest. No normal play is refused anywhere: the planner and chaser are refused 0 times on every city, with or without the bot.
+- **Recovery takes about 50 days whatever the size,** because a cell refills in proportion to its cap. The size sets how much a player can do in one go (1–3 homes), and the regen sets how often. That's two separate dials.
+- **The citywide demolisher** (a random block anywhere) is refused less than under the city gate (31–65% against 87–95%), because every cell is its own pool and it spreads its damage. Cells end at p10 26–44% of cap. With the city gate off, the city's PC goes far below 0 (−1k to −23k). That's an artifact of keeping it for comparison; in the redesign the city pool goes.
+- **Not covered yet:** what earns trust beyond regen (the identity's values, E1), requests and the road cut-off (#563), and the UI.
