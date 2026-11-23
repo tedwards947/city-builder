@@ -114,6 +114,21 @@ export function regenTrust(world: World, cityAmount: number, cityCap: number): v
   }
 }
 
+/** How fast a cell refills compared with the city (localTrust.regenMult). */
+export const refillMult = (): number => cfg()?.regenMult ?? 1;
+
+/** The middle tile of a cell, to name it ("the neighbourhood around 34, 56"). */
+export function cellMiddle(world: World, cell: number): { tx: number; ty: number } {
+  const cs = cellSize(), cols = Math.ceil(world.grid.width / cs);
+  return { tx: (cell % cols) * cs + (cs >> 1), ty: Math.floor(cell / cols) * cs + (cs >> 1) };
+}
+
+/** The last time a cell refused an action's quote (for the debug toast saying which cell, and why). */
+export interface LocalBlock { cell: number; need: number; have: number; tick: number }
+const lastBlocks = new WeakMap<World, LocalBlock>();
+export function noteLocalBlock(world: World, block: LocalBlock): void { lastBlocks.set(world, block); }
+export function lastLocalBlock(world: World): LocalBlock | null { return lastBlocks.get(world) ?? null; }
+
 /** Spillover (slice 3): the share of a cell's loss each of its 8 neighbours also loses. */
 export const spillShare = (): number => Math.max(0, cfg()?.spill ?? 0);
 

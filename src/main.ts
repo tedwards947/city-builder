@@ -37,6 +37,7 @@ import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { DebtUi } from './ui/DebtUi';
 import { debtPauseDue, newDebtWatch } from './sim/debtPause';
+import { localTrustEnabled, lastLocalBlock, cellMiddle } from './sim/localTrust';
 import { hasCapacity, seatsIfOpened } from './sim/serviceCapacity';
 import { seatWords } from './ui/capacityFormat';
 import { MusicPanel } from './ui/MusicPanel';
@@ -129,6 +130,12 @@ const state = {
   seenChanges: 0,
   politics:  undefined as PoliticsSystem | undefined,
 };
+
+// ?debug=true plays the local trust prototype (PC_DESIGN.md redesign; sim/localTrust.ts, docs/PC_OUTCOMES.md
+// slice 3): trust per neighbourhood cell, no city gate, spillover 0.15, cells refill at a quarter of the city's
+// speed. Text only: a row in Inspect and the refusal toast. Without ?debug=true shipped play is unchanged.
+if (DEBUG) Object.assign((BALANCE.politicalCapital as unknown as { localTrust: object }).localTrust,
+  { enabled: true, cityGate: false, displacements: 2, spill: 0.15, regenMult: 0.25 });
 
 // Developer tools, only with ?debug=true.
 const trafficTuning = DEBUG
@@ -381,6 +388,14 @@ function notifyRejected(reason: FailReason): void {
   const now = performance.now();
   if (now - (lastRejectToast[reason] ?? -Infinity) < REJECT_TOAST_MS) return;
   lastRejectToast[reason] = now;
+  // The local trust prototype (?debug=true): say which neighbourhood refused, and why.
+  const block = reason === 'politicalCapital' && localTrustEnabled() ? lastLocalBlock(state.world) : null;
+  if (block && state.world.tick - block.tick <= 1) {
+    const at = cellMiddle(state.world, block.cell);
+    toastPanel.showToast(t('ui.toast.trustRefusedTitle'),
+      t('ui.toast.trustRefused', { x: at.tx, y: at.ty, have: Math.max(0, Math.round(block.have)), need: Math.round(block.need) }), 'warning');
+    return;
+  }
   toastPanel.showToast(
     t('ui.toast.cantBuildTitle'),
     t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : reason === 'notOpenWater' ? 'ui.toast.needsOpenWater' : reason === 'alreadyBuilt' ? 'ui.toast.onePerCity' : reason === 'locked' ? 'ui.toast.lockedBuilding' : 'ui.toast.noPoliticalCapital'),
