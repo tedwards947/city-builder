@@ -168,6 +168,10 @@ export const en: TranslationSchema = {
       trustFull: "Neighbourhood trust: {trust} / {cap} (full)",
       trustRefills: "Neighbourhood trust: {trust} / {cap} (refills in ~{days} days)",
       trustStuck: "Neighbourhood trust: {trust} / {cap} (not refilling: residents are unhappy)",
+      identity: "Neighbourhood: {type}",
+      identityDrifting: "Neighbourhood: {type} (drifting {drift})",
+      identityTraits: "density {density} · wealth {wealth} · shops {shops}% · industry {industry}% · green {green} · egalitarian {egalitarian} · planned {planned}",
+      identityType: { familySuburb: "family suburb", workingClass: "working-class", leafyWealthy: "leafy wealthy", downtown: "downtown", creative: "creative" },
     },
     badge: {
       crime: { name: "High crime", tip: "Crime is high here, which holds back growth and land value. Build a police station nearby." },
