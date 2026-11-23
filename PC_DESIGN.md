@@ -17,7 +17,23 @@ PC as built is a meter you pay from, and cities sit at the cap 85–100% of days
 
 **Vignettes (owner, 2026-11-22):** 1 "The new station" (a station in working-class Millbrook ripples into gentrification; let it change, hold it back, or face a protest) and 2 "Where does the power plant go?" (the same plant costs different trust per neighbourhood by its values; below zero blocks; build the detour first) were approved. 3 "Greystone grows old" is to be redone around ambitions and the capacity shift (the clinic step was moot: hospital coverage is already required).
 
-**Next:** workshop ambitions (tiers, what each identity wants, rewards), then an ENG3 prototype: trust on the request grid cells.
+**Ambitions (owner, 2026-11-22):**
+- **A tier caps density (A), with an identity landmark later (C).** Homes and shops can't grow past the neighbourhood's tier, whatever the demand.
+- **Three tiers:** tier 1 allows levels 1–2 (roughly what a new neighbourhood reaches today, so early game is unchanged); tier 2 allows level 3; tier 3 allows towers (merged 2×2 lots), and later the landmark.
+- **Needs are lasting conditions, not timed quests,** shown as a checklist in the neighbourhood panel. Tier 2 needs two, tier 3 three including one "big" item (a station or a leisure building). Mostly "within walking distance", so place matters. A tier is lost if a condition stays broken for a while.
+- **First draft of needs** (rows to tune later):
+
+| Identity | Tier 2 (level 3) | Tier 3 (towers) |
+|---|---|---|
+| Family suburb | school seats for all; a park within walking distance | quiet streets (no jammed through traffic); low crime; hospital seats |
+| Working-class | jobs within commuting reach; a station within walking distance | shops nearby; a plaza as market square; station not over capacity |
+| Leafy wealthy | a big park nearby; no industry within a few blocks | no avenue or highway through it; a museum or lido in reach |
+| Downtown | a rail station; dense shops | a plaza or museum within walking distance; office jobs; line not jammed |
+| Creative | rail; a park or plaza | a stadium or museum in reach; mixed shops and homes |
+
+Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail), which ties the E1 dilemma to growth.
+
+**Next:** what happens to buildings above a lost tier; redo vignette 3; then an ENG3 prototype (trust on the request grid cells).
 
 ## Why
 Political Capital (PC) is a dead mechanic right now. It has one way to earn it (regenerating from satisfaction) and one way to spend it (displacing residents), and a hard cap of 100. A happy city refills that from empty in about two minutes at 1× (0.4 PC per tick, 2 ticks per second), so it almost never stops you doing anything.
