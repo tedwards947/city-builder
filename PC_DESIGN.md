@@ -33,7 +33,13 @@ PC as built is a meter you pay from, and cities sit at the cap 85–100% of days
 
 Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail), which ties the E1 dilemma to growth.
 
-**Next:** what happens to buildings above a lost tier; redo vignette 3; then an ENG3 prototype (trust on the request grid cells).
+- **Losing a tier: C.** Buildings stay and nothing new grows past the cap; trust drifts down with a bubble ("Millbrook is losing its station"); long neglect leads into the poor-health decay. How often a tier would be lost: ENG3 to measure later.
+- **No ageing.** The game has no resident age or health, and neighbourhood age would bring back time-driven change. Ageing (F1) is dropped: all change comes from what the player or the city does.
+- **Conditions are outcomes that move with the city, not placements** (owner, 2026-11-22). Seats are cheap (hospitals, schools), and space is solved by planning ("leave space for a double highway and it'll never be an issue"), so placement conditions get done once and forgotten. Outcomes keep moving: commute time, traffic load on its streets, its station's load, noise and pollution, land value or crime relative to the city. Success breaks them (density overloads the station and jams the streets), and the whole city affects them, so a perfect plan still meets new pressure. Neighbour clashes stay. **The table above is to be redone in outcome terms.**
+
+**Vignette 3, "Greystone, your first suburb"** (to redo with outcomes): on a full map, the first suburb is where growth is; reaching a tier means trade-offs that land on neighbours (a bypass past Riverside, calming an avenue that downtown wants).
+
+**Next:** redo the needs table as outcomes; an ENG3 measurement (outcomes per grid cell over time in the lab cities: do they move, and how often would conditions break?); then the prototype (trust on the request grid cells).
 
 ## Why
 Political Capital (PC) is a dead mechanic right now. It has one way to earn it (regenerating from satisfaction) and one way to spend it (displacing residents), and a hard cap of 100. A happy city refills that from empty in about two minutes at 1× (0.4 PC per tick, 2 ticks per second), so it almost never stops you doing anything.
