@@ -22,7 +22,7 @@ import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
-import { localTrustEnabled, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust } from './localTrust';
+import { localTrustEnabled, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust, spillLoss } from './localTrust';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -725,6 +725,7 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
       const c = trustCell(world, p.tx, p.ty);
       const got = changeTrust(world, c, p.amount, cap, STOPS_AT_CAP.includes(p.reason));
       if (got !== 0) applied.local.push([c, got]);
+      if (got < 0) applied.local.push(...spillLoss(world, c, -got, cap));
     }
   }
   return applied;

@@ -8,7 +8,9 @@
 //     proportion to its cap, so it fills as fast as the city does;
 //   - an action is refused when a cell it would charge cannot cover that cell's part (the city rule, cell by
 //     cell: rewards don't offset; a service closure is never refused and may take a cell below 0). With
-//     cityGate false (slice 2), only cells refuse: the city's PC is still charged, for comparison.
+//     cityGate false (slice 2), only cells refuse: the city's PC is still charged, for comparison;
+//   - spillover (slice 3): a cell's loss also comes off its 8 neighbours at `spill` each (to 0, not below);
+//     only the cell where the residents live decides whether the action is refused.
 // Not saved, and not shown: the lab reads it through localTrustCells(). Requests met and failed, milestones,
 // ordinances and events stay city-wide in this slice.
 
@@ -22,6 +24,10 @@ export interface LocalTrustConfig {
   cityGate: boolean;
   /** Above 0: a cell holds this many displacements of its average home instead of its share of the city's cap (slice 2). */
   displacements: number;
+  /** Spillover (slice 3): when a cell loses trust, each of its 8 neighbours loses this share of the loss too (down to 0, not below). */
+  spill: number;
+  /** Refill speed against the city's (1 = a cell fills in the same time as the city; 0.25 = four times as long). */
+  regenMult: number;
 }
 const cfg = (): LocalTrustConfig => (BALANCE.politicalCapital as unknown as { localTrust: LocalTrustConfig }).localTrust;
 export const localTrustEnabled = (): boolean => cfg()?.enabled === true;
@@ -101,11 +107,38 @@ export function regenTrust(world: World, cityAmount: number, cityCap: number): v
   for (const [cell, n] of s.residents) {
     if (n <= 0) continue;
     const t = cellTrust(world, cell, cityCap), cap = cellCap(world, cell, cityCap);
-    const amount = cityAmount * cap / Math.max(1e-9, cityCap);
+    const amount = cityAmount * cap / Math.max(1e-9, cityCap) * (cityAmount > 0 ? (cfg().regenMult ?? 1) : 1);
     if (amount > 0) { if (t < cap) s.trust.set(cell, Math.min(cap, t + amount)); }
     else if (t > 0) s.trust.set(cell, Math.max(0, t + amount));
     else if (!s.trust.has(cell)) s.trust.set(cell, t);
   }
+}
+
+/** Spillover (slice 3): the share of a cell's loss each of its 8 neighbours also loses. */
+export const spillShare = (): number => Math.max(0, cfg()?.spill ?? 0);
+
+/** The 8 cells around `cell` on the grid (fewer at the map's edge). */
+export function neighbourCells(world: World, cell: number): number[] {
+  const cs = cellSize(), cols = Math.ceil(world.grid.width / cs), rows = Math.ceil(world.grid.height / cs);
+  const cx = cell % cols, cy = Math.floor(cell / cols), out: number[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const x = cx + dx, y = cy + dy;
+    if (x >= 0 && y >= 0 && x < cols && y < rows) out.push(y * cols + x);
+  }
+  return out;
+}
+
+/** Take `loss` (> 0) off a cell's neighbours' trust, down to 0 and not below. Returns the changes applied, for undo. */
+export function spillLoss(world: World, cell: number, loss: number, cityCap: number): [number, number][] {
+  const share = spillShare(), out: [number, number][] = [];
+  if (!(share > 0) || !(loss > 0)) return out;
+  const s = state(world);
+  for (const n of neighbourCells(world, cell)) {
+    const t = cellTrust(world, n, cityCap), take = Math.min(Math.max(0, t), loss * share);
+    if (take > 0) { s.trust.set(n, t - take); out.push([n, -take]); }
+  }
+  return out;
 }
 
 /** For the lab: every cell with residents or trust recorded, with its trust and cap. */
