@@ -14,6 +14,7 @@ import { t } from '../i18n';
 import { BALANCE } from '../data/balance';
 import { buildingKindForTool } from './Toolbar';
 import { PC_SYMBOL, pcAmount } from './pcFormat';
+import { localTrustEnabled, cityGateOn, lastLocalBlock } from '../sim/localTrust';
 
 export interface PcPreview {
   at: { tx: number; ty: number };
@@ -62,7 +63,8 @@ export function pcActionForTool(tool: Tool, tx: number, ty: number, world?: Worl
  */
 export function pcLabel(q: PcQuote, showZero = false): string {
   const parts: string[] = [];
-  if (q.cost > 0) parts.push(PC_SYMBOL + ' ' + pcAmount(q.cost));
+  // Local trust prototype with the city gate off: costs come out of the neighbourhood, so say trust, not PC.
+  if (q.cost > 0) parts.push(localTrustEnabled() && !cityGateOn() ? t('ui.hud.trustCost', { n: pcAmount(q.cost) }) : PC_SYMBOL + ' ' + pcAmount(q.cost));
   if (q.reward > 0) parts.push('+' + PC_SYMBOL + ' ' + pcAmount(q.reward));
   if (parts.length === 0 && showZero) parts.push(PC_SYMBOL + ' 0');
   return parts.join(' ');
@@ -75,6 +77,11 @@ export function pcLabel(q: PcQuote, showZero = false): string {
  * reward is a ribbon cutting, or that the cost is for closing a service.
  */
 export function pcNote(q: PcQuote, world: World): string | undefined {
+  if (!q.affordable && q.localBlocked) {
+    // The prototype's neighbourhood refused it (the toast says the same): name it, not the city's PC.
+    const b = lastLocalBlock(world);
+    return t('ui.hud.trustShort', { have: Math.max(0, Math.floor(b?.have ?? 0)), need: Math.ceil(b?.need ?? 0) });
+  }
   if (!q.affordable) return t(world.budget.politicalCapital < 0 ? 'ui.hud.pcInDebt' : 'ui.hud.pcShort');
   // What the city will owe afterwards, counting any debt it is already in.
   if (q.shortfall > 0) return t('ui.hud.pcIntoDebt', { pc: PC_SYMBOL + ' ' + pcAmount(Math.max(q.shortfall, q.cost - world.budget.politicalCapital)) });
