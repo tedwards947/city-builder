@@ -22,7 +22,7 @@ import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
-import { localTrustEnabled, trustCell, cellTrust, changeTrust, regenTrust } from './localTrust';
+import { localTrustEnabled, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust } from './localTrust';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -447,6 +447,7 @@ function totalUp(world: World, q: PcQuote): void {
       byCell.set(c, (byCell.get(c) ?? 0) - p.amount);
     }
     const cap = pcCap(world);
+    if (!cityGateOn()) q.affordable = true;   // slice 2: only the cells refuse
     for (const [c, need] of byCell) if (cellTrust(world, c, cap) < need) { q.affordable = false; q.localBlocked = true; break; }
   }
   cost += unrefusable;

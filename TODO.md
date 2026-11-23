@@ -210,6 +210,7 @@ Approved by the owner (2026-11-19, proposals in #305):
 - Flight brief for the owner and PM (2026-11-22): docs/FLIGHT_BRIEF_2026-11-22.md. It covers a clean regression sweep after #531–#555, PC flows and Move costs, the money sink without capstones, elevated rail (`rail.paysElevated`, new and information only) and the commuter options.
 - PC outcomes study (2026-11-22, docs/PC_OUTCOMES.md): per request cell on 6 cities and a growth run. Commute, street load, station load and land value differ a lot between cells but barely move in a built city (0% of tiers would break in a year on fullcity or golden-1). They break 10–37% a year where the city is changing (growth, busy stations). Pollution and crime at homes have no spread. Flicker near thresholds needs a grace period.
 - Local trust prototype, slice 1 (2026-11-22, debug-only, off: `BALANCE.politicalCapital.localTrust`): trust per request cell beside the city's PC, charged where residents live. Only the demolisher is ever refused. At today's scale a cell (5–15 PC) is smaller than one displacement (40–80), so local trust only moves the refusal from one gate to the other. Notes in docs/PC_OUTCOMES.md.
+- Local trust prototype, slice 2 (2026-11-22, debug-only, off): the city gate off, cells of 1–3 displacements, and an area bot. The bot is boxed in locally (92–99% refused from its first block), the planner and chaser are refused 0 times, and a boxed cell refills in about 50 days. Notes in docs/PC_OUTCOMES.md.
 
 Next:
 1. Waiting on the owner: rates that rise with city size (after the owner plays).
