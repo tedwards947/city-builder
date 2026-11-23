@@ -15,7 +15,10 @@ import {
   BUILDING_POWER_PLANT, BUILDING_SEWAGE_PLANT, BUILDING_PARK,
 } from '../sim/constants';
 import { BALANCE } from '../data/balance';
-import { landWorld, home, homes, residents, displacementCost, TEST_NUISANCE } from './pcTestWorld';
+import { landWorld, home, homes, residents, displacementCost, TEST_NUISANCE, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 let w: World;
 beforeEach(() => { w = landWorld(); });

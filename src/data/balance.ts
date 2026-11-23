@@ -856,6 +856,9 @@ export const BALANCE = {
       waterCoverage:    0.20, // fraction of developed zones with water
       crime:            0.20, // (1 - average crime level)
     } as Record<string, number>,
+    // The most one action may cost, as a share of the PC cap (owner 2026-11-22; the same 50% as closing a
+    // service capstone, capstones.closurePcShare). A bigger bill is scaled down to this. 0 = no limit.
+    maxActionShare: 0.5,
     // Costs for disruptive actions — applied at execute() time, same as money costs.
     // Gating: if budget.politicalCapital < cost, the action is blocked.
     disruptionCosts: {

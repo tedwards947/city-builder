@@ -623,8 +623,26 @@ export function pcQuote(
     }
   }
 
+  capActionCost(world, q);
   totalUp(world, q);
   return q;
+}
+
+/**
+ * No single action costs more than `maxActionShare` of the PC cap (owner 2026-11-22, the same rule as
+ * closing a service capstone): a bigger bill has every cost in it scaled down together, so the preview,
+ * the charge and its undo all use the capped price. Without it, displacing a merged level-4 tower
+ * (120 residents) cost about 1.9× the cap in a 48k city, so it could never be afforded.
+ */
+function capActionCost(world: World, q: PcQuote): void {
+  const share = BALANCE.politicalCapital.maxActionShare;
+  if (!(share > 0)) return;
+  let total = 0;
+  for (const p of q.parts) if (p.amount < 0) total -= p.amount;
+  const most = share * pcCap(world);
+  if (!(total > most)) return;
+  const k = most / total;
+  for (const p of q.parts) if (p.amount < 0) p.amount *= k;
 }
 
 /**

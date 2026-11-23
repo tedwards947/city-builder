@@ -13,7 +13,10 @@ import { pcQuote } from '../sim/politics';
 import { ZONE_R, ZONE_C, ZONE_I, ROAD_HIGHWAY } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { buildLivingCity } from './fixtures/testCity';
-import { landWorld, home, displacementCost } from './pcTestWorld';
+import { landWorld, home, displacementCost, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 type Numbers = { enactCost: number; dailyUpkeep: number; dailyMoney: number; modifiers: Record<string, number> };
 const table = BALANCE.politicalCapital.ordinances as Record<string, Numbers>;
