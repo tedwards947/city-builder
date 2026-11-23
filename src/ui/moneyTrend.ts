@@ -24,5 +24,6 @@ export function moneyTrend(income: number, expenses: number): MoneyTrend {
 
 /** The glyph shown for a trend (empty when balanced). */
 export const TREND_GLYPH: Record<MoneyTrend, string> = {
-  up2: '⇈', up: '↑', flat: '', down: '↓', down2: '⇊',
+  // The doubles are stacked (owner, 2026-11-22), forced to text style (U+FE0E) so they take the colour, not emoji.
+  up2: '\u23EB\uFE0E', up: '↑', flat: '', down: '↓', down2: '\u23EC\uFE0E',
 };
