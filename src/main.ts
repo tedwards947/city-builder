@@ -139,6 +139,9 @@ const state = {
 // refusal toast. Without ?debug=true shipped play is unchanged.
 if (DEBUG) Object.assign((BALANCE.politicalCapital as unknown as { localTrust: object }).localTrust,
   { enabled: true, cityGate: false, homeShare: 0.25, refillDays: 30, spill: 0.15 });
+// ?debug=true also shows the vibe layers' target mode (owner 2026-11-23; sim/vibeTargets.ts): character from what
+// stands in each place, lasting as long as the place does. Without ?debug=true the legacy mode runs, as shipped.
+if (DEBUG) (BALANCE.vibe as { mode: string }).mode = 'target';
 
 // Developer tools, only with ?debug=true.
 const trafficTuning = DEBUG

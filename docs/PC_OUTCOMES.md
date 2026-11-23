@@ -154,3 +154,32 @@ PC_DESIGN.md step 7, debug-only (`src/sim/identity.ts`; Inspect row under `?debu
   - egalitarian: 1 − the spread of home land values ÷ their mean (0.74–0.93).
 
   The table above uses them. The diagnosis of the vibe layers follows separately.
+
+## Vibe layers: target mode (2026-11-23)
+
+**Why the layers stay neutral (legacy mode).** Every half day each tile is averaged with its 4 neighbours and rounded to a whole byte, which erases the small nudges (painting homes is +8 egalitarian, +5 planned). Then a 25% chance a pass steps every tile toward neutral removes the rest. The save path is fine. Owner: character should last much longer than months; a game month is about 2 real minutes at 1×.
+
+**Target mode** (`BALANCE.vibe.mode: 'target'`; `src/sim/vibeTargets.ts`; off as shipped, on under `?debug=true`):
+- **No decay and no blur.** Each tile eases toward a target read from an 11 × 11 box around it, kept at full precision so nothing rounds away:
+  - green: trees and parks, less industry;
+  - planned: straight or crossing roads, and one zone dominating;
+  - egalitarian: even home land values.
+- **Speed:** the half-life is a game year (about 24 real minutes at 1×), and targets are refreshed every 10 game days.
+- **Nudges:** a nudge still bumps the tile it lands on.
+- **Old cities:** a city whose layers are as good as neutral (any made so far) starts at its targets.
+- **Identities:** the classifier reads the layers in this mode instead of the proxies.
+
+**Measured** (six saved cities for a year and a fresh map grown for 900 days; then three game years of a persistence test on four cities):
+
+| | Legacy | Target |
+|---|---|---|
+| Developed tiles more than 8 from neutral | 0% on every city | 62–98% (by axis) |
+| Spread at developed tiles (p10 / p90, around 0) | 0 / 0 | green −100 / +56, egalitarian −63 / +80, planned −27 / +100 |
+| Agreement with the identity proxies (cell pairs ordered alike) | – | 0.63–0.89 |
+| A spot left alone for 3 game years | stays neutral | unchanged (99, 133, 152, 228) |
+| The greenest spot after every tree and park within 6 tiles is cleared | stays neutral | 228 → 160 after a year, 126 after 2, 110 after 3 (target 92) |
+| Run time | – | the same (± 8%) |
+
+- **Nothing in the simulation reads vibe today.** The readers are the renderer (tile and city palettes, the vibe overlay) and an unused ordinance modifier. So switching modes changes how the city looks, not how it plays.
+- **The full lab sweep in target mode against legacy** shows 10 targets moving, all on fresh-map runs or knife-edge cells: the first-year bank, days in debt, the tax and service checks. **A noise check** (legacy plus one extra random draw a tick, nothing else changed) moves the same targets the same way (8 new fails), so it is the random sequence, not behaviour. Several fresh-map lab targets flip on noise and would be better graded over a few seeds.
+- **Planned leans positive** on the lab's grid-built cities (median +28 to +59) even after centring on a typical city. That is honest for grids, but the palette will lean "planned" there.

@@ -745,6 +745,14 @@ export const BALANCE = {
     // Integer steps gated by a roll — a fractional decay is lost to byte rounding.
     // 0.25 → a fully saturated, isolated region fades in ~2000 ticks (~250 game-days).
     decayProbability: 0.25,
+    // 'legacy': the nudges above, diffused and decayed (they round away within days in play: docs/PC_OUTCOMES.md).
+    // 'target' (owner 2026-11-23, being measured): no decay or blur; each tile eases toward a target from what
+    // stands around it (sim/vibeTargets.ts: trees and parks, straight roads and one dominant zone, even land
+    // values), so character lasts as long as the place does. A game year is about 24 real minutes at 1×.
+    mode: 'legacy' as 'legacy' | 'target',
+    targetRadius: 5,         // the box around a tile its target is read from (11 × 11 tiles)
+    targetEveryDays: 10,     // how often the targets are worked out again
+    targetHalfLifeDays: 360, // half the way to a new target in a game year (about 24 real minutes at 1×)
   },
 
   // ── Abandonment ──────────────────────────────────────────────────────────────
