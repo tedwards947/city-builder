@@ -109,3 +109,24 @@ Owner: spillover for the spread-out demolisher. When a cell loses trust, each of
 - **Spillover alone can't bring the demolisher back** without refusing ordinary projects. Each 0.15 of spill adds only about 5 points of refusals, while plants beside homes start failing: 3 of 25 at 0.3, 7 of 25 at 1.0. A plant's nuisance falls on two or three cells and their neighbours.
 - **The real lever is how fast cells refill.** The cells together hold 20–60× the old city pool, so a spread-out demolisher always finds trust somewhere. A quarter-speed refill gets it to 68–87% with little spill.
 - **Pick: spill 0.15, refill 0.25×.** The demolisher is refused 68–87% on the saved cities (fullcity 68%: many small cells), the area bot 98–99%, the planner and chaser never, and 1 plant in 25. The cost: a boxed neighbourhood takes about half a year (170–240 days) to come round, against about 50 at full speed. On a fresh map the demolisher stays at about 30% under every setting: young cells have few homes, and new ones keep growing.
+
+## Play-feel tuning after the owner's playtest (2026-11-22)
+
+The owner, under `?debug=true` (#573): "I am only able to delete one R zone and then I'm banned for 150 days... way too restrictive." The bots' targets were wrong for a person. New targets: clear about a quarter of a neighbourhood's homes before refusal; refill fully in about 30 days (a third in about 10); a city-wide spree refused well before half the city is flattened; normal play and one-off projects never refused.
+
+**New settings** (still debug-only; what `?debug=true` now plays):
+- **Cell size:** `homeShare` 0.25. A cell holds a quarter of what displacing all its homes would cost, and always at least its biggest single lot, so no home is out of reach.
+- **Refill:** `refillDays` 30. A straight refill of the whole cap in 30 days, paused while the city's mood would drain PC.
+- **Spill:** `spill` 0.15, on displacement only. A project's nuisance or a closure stays where it lands.
+- **Refused locally:** only displacement. Projects (nuisance, closures, big builds) are charged to the cells and may take them below 0, which holds back demolition there, but they always go ahead.
+
+**The owner's scenario by hand** (6 cities: home lots bulldozed one by one in one neighbourhood, nearest its middle first, then days passed):
+
+| Target | Result |
+|---|---|
+| About a quarter of a neighbourhood before refusal | median neighbourhood (36–56 lots): 9–13 lots (23–30%); the busiest (64–84 lots): 17–21 (25–27%) |
+| A third back in about 10 days, full in about 30 | a third in 8–10 days, full in 27–30; the next lot is allowed after 1–4 days |
+| A city-wide spree refused well before half the city | at most 14–17% of the city's home lots cleared (11–13% at spill 0.3); the first refusal comes after 6–112 lots (small cells first) |
+| Normal play and one-off projects never refused | planner and chaser 0 refusals on 4 cities; 0 of 30 power plants beside homes |
+
+Earlier in this tuning, 3 of 30 plants were refused: a plant set among dense homes can carry more nuisance in one small cell than the whole cell holds. That is why only displacement is refused locally now.

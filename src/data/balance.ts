@@ -823,7 +823,8 @@ export const BALANCE = {
     // the city's cap × shareMult, or `displacements` × what displacing its average home costs (at least
     // minCap), and fills as fast as the city. cityGate false: only the cells refuse (slice 2). spill: the
     // share of a cell's loss each of its 8 neighbours also loses (slice 3). regenMult: refill speed (1 = as the city).
-    localTrust: { enabled: false, minCap: 10, shareMult: 1, cityGate: true, displacements: 0, spill: 0, regenMult: 1 },
+    // homeShare: a cell holds that share of what displacing all its homes costs; refillDays: a straight refill (play-feel).
+    localTrust: { enabled: false, minCap: 10, shareMult: 1, cityGate: true, displacements: 0, spill: 0, regenMult: 1, homeShare: 0, refillDays: 0 },
     // The cap at no population. Passive regeneration and the blight-clearing
     // reward stop at the cap; other one-off rewards may go over it.
     max: 150,

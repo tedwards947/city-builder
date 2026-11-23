@@ -22,7 +22,7 @@ import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
-import { localTrustEnabled, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust, spillLoss, noteLocalBlock } from './localTrust';
+import { localTrustEnabled, localHomeShareOn, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust, spillLoss, noteLocalBlock } from './localTrust';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -440,9 +440,12 @@ function totalUp(world: World, q: PcQuote): void {
   }
   q.affordable = canAfford(world, cost);
   if (localTrustEnabled() && cost > 0) {
-    // The same rule, cell by cell: each cell must cover the refusable cost charged to it.
+    // The same rule, cell by cell: each cell must cover the refusable cost charged to it. With homeShare
+    // (play-feel sizing) only displacement is refusable locally: a project's nuisance, a closure or a big
+    // build is charged to the cells (and may take them below 0, holding back demolition there) but goes ahead.
     const byCell = new Map<number, number>();
-    for (const p of q.parts) if (p.amount < 0 && !NEVER_REFUSED.includes(p.reason)) {
+    const onlyDisplacement = localHomeShareOn();
+    for (const p of q.parts) if (p.amount < 0 && !NEVER_REFUSED.includes(p.reason) && (!onlyDisplacement || p.reason === 'displacement')) {
       const c = trustCell(world, p.tx, p.ty);
       byCell.set(c, (byCell.get(c) ?? 0) - p.amount);
     }
@@ -728,7 +731,8 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
       const c = trustCell(world, p.tx, p.ty);
       const got = changeTrust(world, c, p.amount, cap, STOPS_AT_CAP.includes(p.reason));
       if (got !== 0) applied.local.push([c, got]);
-      if (got < 0) applied.local.push(...spillLoss(world, c, -got, cap));
+      // Only displacement spills: a demolition spree is what spillover answers; a plant's nuisance or a closure stays where it lands.
+      if (got < 0 && p.reason === 'displacement') applied.local.push(...spillLoss(world, c, -got, cap));
     }
   }
   return applied;

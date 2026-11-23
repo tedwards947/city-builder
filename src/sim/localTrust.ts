@@ -4,12 +4,14 @@
 //   - every PC part of a command's quote (displacement, nuisance, service closed / opened, blight cleared,
 //     a big project) is also charged to the cell of the tile it lands on, which is where the residents live;
 //   - a cell holds at most its residents' share of the city's PC cap × shareMult, or (slice 2) `displacements`
-//     × what displacing its average home costs; at least minCap. It starts full and regenerates in
+//     × what displacing its average home costs, or (play-feel) `homeShare` of what displacing all its homes
+//     costs; at least minCap. With `refillDays` it refills in a straight line over that many days. It starts full and regenerates in
 //     proportion to its cap, so it fills as fast as the city does;
 //   - an action is refused when a cell it would charge cannot cover that cell's part (the city rule, cell by
 //     cell: rewards don't offset; a service closure is never refused and may take a cell below 0). With
 //     cityGate false (slice 2), only cells refuse: the city's PC is still charged, for comparison;
-//   - spillover (slice 3): a cell's loss also comes off its 8 neighbours at `spill` each (to 0, not below);
+//   - spillover (slice 3): a cell's displacement loss also comes off its 8 neighbours at `spill` each (to 0,
+//     not below; a nuisance or closure does not spill);
 //     only the cell where the residents live decides whether the action is refused.
 // Not saved, and not shown: the lab reads it through localTrustCells(). Requests met and failed, milestones,
 // ordinances and events stay city-wide in this slice.
@@ -28,11 +30,18 @@ export interface LocalTrustConfig {
   spill: number;
   /** Refill speed against the city's (1 = a cell fills in the same time as the city; 0.25 = four times as long). */
   regenMult: number;
+  /**
+   * Play-feel sizing (owner's playtest, 2026-11-22): above 0, a cell holds this share of what displacing ALL its
+   * homes would cost (0.25: a player can clear about a quarter of a neighbourhood before it refuses).
+   */
+  homeShare: number;
+  /** Above 0: a cell refills its whole cap in this many days, in a straight line, while the city's mood is not draining PC. */
+  refillDays: number;
 }
 const cfg = (): LocalTrustConfig => (BALANCE.politicalCapital as unknown as { localTrust: LocalTrustConfig }).localTrust;
 export const localTrustEnabled = (): boolean => cfg()?.enabled === true;
 
-interface State { trust: Map<number, number>; residents: Map<number, number>; homes: Map<number, number>; population: number; tick: number; edits: number }
+interface State { trust: Map<number, number>; residents: Map<number, number>; homes: Map<number, number>; biggestLot: Map<number, number>; population: number; tick: number; edits: number }
 const states = new WeakMap<World, State>();
 
 function cellSize(): number { return (BALANCE.politicalCapital.requests as unknown as { cellSize: number }).cellSize; }
@@ -45,10 +54,10 @@ export function trustCell(world: World, tx: number, ty: number): number {
 
 function state(world: World): State {
   let s = states.get(world);
-  if (!s) states.set(world, s = { trust: new Map(), residents: new Map(), homes: new Map(), population: 0, tick: -1, edits: -1 });
+  if (!s) states.set(world, s = { trust: new Map(), residents: new Map(), homes: new Map(), biggestLot: new Map(), population: 0, tick: -1, edits: -1 });
   if (s.tick !== world.tick || s.edits !== world.grid.edits) {
     // Residents per cell, once a tick at most.
-    s.residents.clear(); s.homes.clear();
+    s.residents.clear(); s.homes.clear(); s.biggestLot.clear();
     let pop = 0;
     const { zone, devLevel, abandoned } = world.layers, pp = BALANCE.growth.popPerLevel as Record<number, number>;
     const { zoned, zonedCount } = world.index, W = world.grid.width;
@@ -58,6 +67,8 @@ function state(world: World): State {
       const n = pp[devLevel[i]] ?? 0, c = trustCell(world, i % W, Math.floor(i / W));
       s.residents.set(c, (s.residents.get(c) ?? 0) + n);
       s.homes.set(c, (s.homes.get(c) ?? 0) + 1);
+      const lot = world.layers.lot[i] ? 4 * n : n;   // a merged 2×2 lot comes down whole
+      if (lot > (s.biggestLot.get(c) ?? 0)) s.biggestLot.set(c, lot);
       pop += n;
     }
     s.population = pop;
@@ -65,6 +76,9 @@ function state(world: World): State {
   }
   return s;
 }
+
+/** Play-feel sizing is on (homeShare > 0): then only displacement is refused locally. */
+export const localHomeShareOn = (): boolean => (cfg()?.homeShare ?? 0) > 0;
 
 /** The city gate: false when only local trust refuses (slice 2). */
 export const cityGateOn = (): boolean => cfg()?.cityGate !== false;
@@ -75,6 +89,12 @@ export const cityGateOn = (): boolean => cfg()?.cityGate !== false;
  */
 export function cellCap(world: World, cell: number, cityCap: number): number {
   const s = state(world);
+  const homeShare = cfg().homeShare ?? 0;
+  if (homeShare > 0) {
+    const perResident = BALANCE.politicalCapital.disruptionCosts.bulldozePerPop * (cityCap / BALANCE.politicalCapital.max);
+    // At least enough to clear its biggest single lot, so no home is ever beyond reach.
+    return Math.max(cfg().minCap, homeShare * (s.residents.get(cell) ?? 0) * perResident, (s.biggestLot.get(cell) ?? 0) * perResident);
+  }
   const per = cfg().displacements ?? 0;
   if (per > 0) {
     const homes = s.homes.get(cell) ?? 0;
@@ -101,13 +121,24 @@ export function changeTrust(world: World, cell: number, delta: number, cityCap: 
   return after - before;
 }
 
+/**
+ * A cell's change a tick, given its cap and the city's passive change this tick: with refillDays, a straight
+ * refill of the cap over that many days, paused while the city's mood drains PC; otherwise in proportion to its
+ * cap (× regenMult for a gain).
+ */
+export function refillPerTick(cap: number, cityCap: number, cityAmount: number): number {
+  const days = cfg().refillDays ?? 0;
+  if (days > 0) return cityAmount >= 0 ? cap / (days * BALANCE.ticksPerDay) : 0;
+  return cityAmount * cap / Math.max(1e-9, cityCap) * (cityAmount > 0 ? (cfg().regenMult ?? 1) : 1);
+}
+
 /** Each tick: every cell with residents regenerates in proportion to its cap (filling as fast as the city), up to its cap. */
 export function regenTrust(world: World, cityAmount: number, cityCap: number): void {
   const s = state(world);
   for (const [cell, n] of s.residents) {
     if (n <= 0) continue;
     const t = cellTrust(world, cell, cityCap), cap = cellCap(world, cell, cityCap);
-    const amount = cityAmount * cap / Math.max(1e-9, cityCap) * (cityAmount > 0 ? (cfg().regenMult ?? 1) : 1);
+    const amount = refillPerTick(cap, cityCap, cityAmount);
     if (amount > 0) { if (t < cap) s.trust.set(cell, Math.min(cap, t + amount)); }
     else if (t > 0) s.trust.set(cell, Math.max(0, t + amount));
     else if (!s.trust.has(cell)) s.trust.set(cell, t);
