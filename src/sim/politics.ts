@@ -720,7 +720,12 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
   }
   // Keep what was actually applied: a reward may have been cut at the cap.
   const applied: PcCharges = { before: world.budget.politicalCapital, regenTotal: world.pcRegenTotal, changes: [] };
+  // Local trust prototype with the city gate off: the neighbourhoods pay, not the city pool. Charging both
+  // drove the city's PC far below 0 in the owner's playtest (and PC debt blocks building), so costs skip
+  // the city; rewards still reach it.
+  const citySkipsCosts = localTrustEnabled() && !cityGateOn();
   for (const [reason, delta] of wanted) {
+    if (citySkipsCosts && delta < 0) continue;
     const got = changePc(world, delta, reason, { tx, ty });
     if (got !== 0) applied.changes.push([reason, got]);
   }

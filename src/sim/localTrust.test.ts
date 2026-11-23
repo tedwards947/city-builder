@@ -92,4 +92,17 @@ describe('local trust prototype (off by default)', () => {
     }
     expect(cleared).toBe(36);
   });
+
+  it('with the city gate off, the neighbourhoods pay and the city PC is not charged (owner playtest)', () => {
+    LT.enabled = true; LT.cityGate = false; LT.homeShare = 0.25; LT.refillDays = 30;
+    const w = city(), cap = pcCap(w), big = trustCell(w, 15, 5);
+    const before = w.budget.politicalCapital, trustBefore = cellTrust(w, big, cap);
+    for (let x = 12; x < 22; x++) { const q = pcQuote(w, { type: 'bulldoze', tx: x, ty: 0 }); chargeQuote(w, q, x, 0); w.setZone(x, 0, 0); }
+    expect(w.budget.politicalCapital).toBe(before);                    // ten homes cleared: the city pool untouched
+    expect(cellTrust(w, big, cap)).toBeLessThan(trustBefore);          // the neighbourhood paid
+    const q = pcQuote(w, { type: 'bulldoze', tx: 12, ty: 1 });
+    const charges = chargeQuote(w, q, 12, 1);
+    refundCharges(w, charges, 12, 1);
+    expect(w.budget.politicalCapital).toBe(before);                    // undo leaves it where it was
+  });
 });
