@@ -21,15 +21,18 @@ PC as built is a meter you pay from, and cities sit at the cap 85–100% of days
 - **A tier caps density (A), with an identity landmark later (C).** Homes and shops can't grow past the neighbourhood's tier, whatever the demand.
 - **Three tiers:** tier 1 allows levels 1–2 (roughly what a new neighbourhood reaches today, so early game is unchanged); tier 2 allows level 3; tier 3 allows towers (merged 2×2 lots), and later the landmark.
 - **Needs are lasting conditions, not timed quests,** shown as a checklist in the neighbourhood panel. Tier 2 needs two, tier 3 three including one "big" item (a station or a leisure building). Mostly "within walking distance", so place matters. A tier is lost if a condition stays broken for a while.
-- **First draft of needs** (rows to tune later):
+- **Needs, outcome draft 2 (PM, 2026-11-22, from ENG3's docs/PC_OUTCOMES.md; for owner review).** Only four outcomes carry signal today: commute, street load, station load and land value. Pollution and crime at homes are flat, so they are out until those models change. Tier 2 needs one outcome, tier 3 two, stricter. Limits start from the owner's cities' ranges (p10–p90) and ENG3 tunes them. Land value is an absolute level, not a share of the median (that would be zero-sum). **Grace:** a condition must stay broken 3 months before the tier drops, with a ±0.05 band against flicker.
 
 | Identity | Tier 2 (level 3) | Tier 3 (towers) |
 |---|---|---|
-| Family suburb | school seats for all; a park within walking distance | quiet streets (no jammed through traffic); low crime; hospital seats |
-| Working-class | jobs within commuting reach; a station within walking distance | shops nearby; a plaza as market square; station not over capacity |
-| Leafy wealthy | a big park nearby; no industry within a few blocks | no avenue or highway through it; a museum or lido in reach |
-| Downtown | a rail station; dense shops | a plaza or museum within walking distance; office jobs; line not jammed |
-| Creative | rail; a park or plaza | a stadium or museum in reach; mixed shops and homes |
+| Family suburb | worst street tile ≤ 1.2 (quiet streets) | worst street tile ≤ 0.9; commute ≤ 8 |
+| Working-class | commute ≤ 8 | commute ≤ 6; a station within walking distance, its load ≤ 0.9 |
+| Leafy wealthy | median street load ≤ 0.4 | median street load ≤ 0.3; land value ≥ a high level |
+| Downtown | a station within walking distance, its load ≤ 1.0 | station load ≤ 0.8; commute ≤ 6 |
+| Creative | commute ≤ 9 | a station within walking distance, its load ≤ 0.9; land value ≥ a middle level |
+
+What ENG3's data says this does: in a built city tiers hold unless the player acts; while the city grows or a line fills up, 10–37% of tiers break a year. Success breaks them (density loads the station and the streets).
+Open: a station "within walking distance" is a placement gate inside an outcome. ENG3's option B would make that explicit, with one stable placement and one moving outcome per tier. Owner to say.
 
 Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail), which ties the E1 dilemma to growth.
 
@@ -39,7 +42,7 @@ Neighbouring needs clash (leafy wants no avenue, downtown wants traffic and rail
 
 **Vignette 3, "Greystone, your first suburb"** (to redo with outcomes): on a full map, the first suburb is where growth is; reaching a tier means trade-offs that land on neighbours (a bypass past Riverside, calming an avenue that downtown wants).
 
-**Next:** redo the needs table as outcomes; an ENG3 measurement (outcomes per grid cell over time in the lab cities: do they move, and how often would conditions break?); then the prototype (trust on the request grid cells).
+**Next:** owner reviews needs draft 2; then the prototype (trust on the request grid cells), by ENG3 or CITY-ONCALL.
 
 ## Why
 Political Capital (PC) is a dead mechanic right now. It has one way to earn it (regenerating from satisfaction) and one way to spend it (displacing residents), and a hard cap of 100. A happy city refills that from empty in about two minutes at 1× (0.4 PC per tick, 2 ticks per second), so it almost never stops you doing anything.
