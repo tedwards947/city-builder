@@ -165,6 +165,7 @@ export const en: TranslationSchema = {
       pcClose: "Closing it would cost {pc}",
       pcCloseLast: "Closing it would cost {pc} and leave you in political debt",
       pcDisplace: "Demolishing displaces {n} residents: {pc}",
+      pcCutOff: "Cuts {n} residents off from their last road: {pc}",
       trustFull: "Neighbourhood trust: {trust} / {cap} (full)",
       trustRefills: "Neighbourhood trust: {trust} / {cap} (refills in ~{days} days)",
       trustStuck: "Neighbourhood trust: {trust} / {cap} (not refilling: residents are unhappy)",

@@ -129,6 +129,7 @@ export interface TranslationSchema {
       pcClose: string;
       pcCloseLast: string;
       pcDisplace: string;
+      pcCutOff: string;
       trustFull: string;
       trustRefills: string;
       trustStuck: string;

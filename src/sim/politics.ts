@@ -287,12 +287,12 @@ const N4 = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 
 /**
  * The developed, non-abandoned zone tiles beside (tx, ty) that would lose
- * their last street or avenue if (tx, ty) became a highway. Only a street or
- * avenue there gives access now, so a highway on empty land (or over a
- * highway) cuts nobody off: a home that never had a road is left alone
- * (owner's rule). Reads the world, changes nothing.
+ * their last street or avenue if (tx, ty) stopped giving access: bulldozed,
+ * or turned into a highway. Only a street or avenue there gives access now,
+ * so a tile with no road (or a highway) cuts nobody off: a home that never
+ * had a road is left alone (owner's rule). Reads the world, changes nothing.
  */
-export function zonesCutOffByHighway(world: World, tx: number, ty: number): { tx: number; ty: number }[] {
+export function zonesCutOffByRoadLoss(world: World, tx: number, ty: number): { tx: number; ty: number }[] {
   const { grid, layers } = world;
   const out: { tx: number; ty: number }[] = [];
   const here = grid.inBounds(tx, ty) ? layers.roadClass[grid.idx(tx, ty)] : ROAD_NONE;
@@ -311,7 +311,7 @@ export function zonesCutOffByHighway(world: World, tx: number, ty: number): { tx
       const lx = li % grid.width, ly = (li - lx) / grid.width;
       for (const [adx, ady] of N4) {
         const ax = lx + adx, ay = ly + ady;
-        if (ax === tx && ay === ty) continue;            // the tile that becomes a highway
+        if (ax === tx && ay === ty) continue;            // the tile that loses its road
         if (!grid.inBounds(ax, ay)) continue;
         const rc = layers.roadClass[grid.idx(ax, ay)];
         if (rc !== ROAD_NONE && rc !== ROAD_HIGHWAY) { hasAccess = true; break; }
@@ -321,6 +321,27 @@ export function zonesCutOffByHighway(world: World, tx: number, ty: number): { tx
     if (!hasAccess) for (const li of tiles) out.push({ tx: li % grid.width, ty: (li - (li % grid.width)) / grid.width });
   }
   return out;
+}
+
+/** A street or avenue turned into a highway gives no access: the same tiles as bulldozing it. */
+export const zonesCutOffByHighway = zonesCutOffByRoadLoss;
+
+/**
+ * Homes left with no street or avenue abandon, so cutting them off costs what
+ * displacing them would. Shops and industry cost nothing (no residents).
+ * Returns the residents cut off, for the quote's displacedPopulation.
+ */
+function chargeCutOff(world: World, q: PcQuote, tx: number, ty: number): number {
+  const { grid, layers } = world;
+  let residents = 0;
+  for (const z of zonesCutOffByRoadLoss(world, tx, ty)) {
+    const zi = grid.idx(z.tx, z.ty);
+    if (layers.zone[zi] !== ZONE_R) continue;
+    const pop = BALANCE.growth.popPerLevel[layers.devLevel[zi]] ?? 0;
+    residents += pop;
+    addPart(q, 'displacement', z.tx, z.ty, -(pop * displacementPerResident(world, zi)));
+  }
+  return residents;
 }
 
 // ── Nuisance (unpopular things near homes) ───────────────────────────────────
@@ -514,6 +535,8 @@ export function pcQuote(
   switch (action.type) {
     case 'bulldoze':
       displace(i, true);
+      // Bulldozing a street or avenue: homes it was the last road for abandon.
+      displacedElsewhere += chargeCutOff(world, q, tx, ty);
       // Closing a service: the residents it covered object.
       {
         const parts = serviceClosureValue(world, tx, ty, service);
@@ -557,14 +580,7 @@ export function pcQuote(
       if (!world.isBuildable(tx, ty, true) || layers.roadClass[i] >= action.roadClass) return q;
       displace(i, false);
       // A highway gives no access: homes left with no other road abandon.
-      if (action.roadClass === ROAD_HIGHWAY) {
-        for (const z of zonesCutOffByHighway(world, tx, ty)) {
-          const zi = grid.idx(z.tx, z.ty);
-          if (layers.zone[zi] !== ZONE_R) continue;
-          const pop = BALANCE.growth.popPerLevel[layers.devLevel[zi]] ?? 0;
-          addPart(q, 'displacement', z.tx, z.ty, -(pop * displacementPerResident(world, zi)));
-        }
-      }
+      if (action.roadClass === ROAD_HIGHWAY) displacedElsewhere += chargeCutOff(world, q, tx, ty);
       break;
     }
   }

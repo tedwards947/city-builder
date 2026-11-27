@@ -73,7 +73,8 @@ function problemChips(world: World, i: number): string {
 /** How far the lot's trips are, each as a bar against the commute limit ('' before the first traffic pass). */
 /**
  * What demolishing the thing on this tile would cost in political capital:
- * closing a service, or displacing the residents of a home. Empty if nothing.
+ * closing a service, displacing the residents of a home, or cutting homes off
+ * from their last road. Empty if nothing.
  */
 function pcRows(world: World, tx: number, ty: number): string {
   const q = pcQuote(world, {type: "bulldoze", tx, ty});
@@ -82,7 +83,7 @@ function pcRows(world: World, tx: number, ty: number): string {
   const closing = q.parts.some(p => p.reason === "serviceClosed");
   const line = closing
     ? t(q.shortfall > 0 ? "ui.tileInfo.pcCloseLast" : "ui.tileInfo.pcClose", {pc})
-    : t("ui.tileInfo.pcDisplace", {n: q.displacedPopulation, pc});
+    : t(world.layers.roadClass[world.grid.idx(tx, ty)] !== ROAD_NONE ? "ui.tileInfo.pcCutOff" : "ui.tileInfo.pcDisplace", {n: q.displacedPopulation, pc});
   return `<div class="ti-growth-header">${t("ui.tileInfo.pcHeader")}</div><div class="ti-detail">${line}</div>`;
 }
 
