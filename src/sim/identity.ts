@@ -125,14 +125,17 @@ function scaler(all: Traits[]): (raw: Traits) => Traits {
 const MONTH_DAYS = 30, KEEP = 4;
 const history = new WeakMap<World, { day: number; raw: Map<number, Traits> }[]>();
 
-const cache = new WeakMap<World, { tick: number; edits: number; ids: Map<number, CellIdentity> }>();
+const cache = new WeakMap<World, { day: number; ids: Map<number, CellIdentity> }>();
+/** How many times identities were worked out (a test reads it). */
+export const identityStats = { computes: 0 };
 
-/** Every cell's identity now (and, from about three months back, where it is heading). Worked out once a tick at most. */
+/** Every cell's identity now (and, from about three months back, where it is heading). Worked out once a game day at most (drift is monthly; recomputing every tick while Inspect was open took the game to about 1 fps). */
 export function cellIdentities(world: World): Map<number, CellIdentity> {
-  const c = cache.get(world);
-  if (c && c.tick === world.tick && c.edits === world.grid.edits) return c.ids;
+  const day = Math.floor(world.tick / BALANCE.ticksPerDay), c = cache.get(world);
+  if (c && c.day === day) return c.ids;
+  identityStats.computes++;
   const ids = computeIdentities(world);
-  cache.set(world, { tick: world.tick, edits: world.grid.edits, ids });
+  cache.set(world, { day, ids });
   return ids;
 }
 
