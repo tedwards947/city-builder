@@ -5,7 +5,7 @@
 // report to balance-results/latest.json (the previous one is kept as
 // previous.json and used for trends).
 //
-// Cities: a fresh 128×128 town every run; the owner's testcity1 if it is on
+// Cities: a fresh 128×128 town every run (seeds 7, 11, 23, graded as one: --fresh-seeds); the owner's testcity1 if it is on
 // this machine (cities/testcity1.citysave.json or ~/Downloads/
 // testcity1.citysave.json; never commit it); the owner's golden-1
 // (cities/golden-1.citysave.json, 35k residents: committed with the owner's OK, #392,
@@ -85,7 +85,10 @@ if (!quick && !args.includes('--no-saves')) {
 }
 args.forEach((a, k) => { if (a === '--city' && !saves.some((s) => resolve(s.path) === resolve(args[k + 1]))) saves.push({ id: basename(args[k + 1]).replace('.citysave.json', ''), path: args[k + 1] }); });
 
-const fresh = args.includes('--no-fresh') ? [] : [{ id: 'fresh-128', kind: 'fresh', size: 128, seed: 7 }];
+// The fresh map is blank land, so its seed only changes the random sequence: it is run on a few seeds and each
+// target graded on most of them passing (lab.ts combineFreshSeeds; ENGINEER 3, 2026-11-27). --fresh-seeds 7 for one.
+const freshSeeds = (opt('--fresh-seeds') ?? '7,11,23').split(',').map(Number).filter(Number.isFinite);
+const fresh = args.includes('--no-fresh') ? [] : freshSeeds.map((seed) => ({ id: `fresh-128@s${seed}`, kind: 'fresh', size: 128, seed }));
 const cities = [...fresh, ...saves.map((s) => ({ id: s.id, kind: 'save', text: readFileSync(s.path, 'utf8') }))];
 const list = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
 const previousPath = opt('--previous') ?? out;
@@ -111,7 +114,7 @@ async function runChildren() {
   mkdirSync(dir, { recursive: true });
   const todo = [];
   for (const suite of suites) {
-    if (fresh.length) todo.push({ tag: `${suite}/fresh-128`, args: ['--suite', suite, '--no-saves'] });
+    for (const f of fresh) todo.push({ tag: `${suite}/${f.id}`, args: ['--suite', suite, '--no-saves', '--fresh-seeds', String(f.seed), '--no-combine'] });
     for (const sv of saves) todo.push({ tag: `${suite}/${sv.id}`, args: ['--suite', suite, '--no-saves', '--no-fresh', '--city', sv.path] });
   }
   console.log(`${todo.length} jobs (${suites.length} suites × ${fresh.length + saves.length} cities), ${jobs} at a time`);
@@ -141,7 +144,7 @@ const server = await createServer({ root, logLevel: 'error', server: { middlewar
 try {
   const { runLab, mergeReports } = await server.ssrLoadModule('/src/balance/lab.ts');
   const t0 = Date.now();
-  const report = jobs > 1 ? mergeReports(await runChildren()) : runLab({
+  const report = jobs > 1 ? mergeReports(await runChildren(), previous) : runLab({
     suites: opt('--suite') ? [opt('--suite')] : undefined,
     variants,
     customVariants: tuned ? { T: { name: 'Tuned', desc: `Auto-tuner result from ${tuned.start} (${tuned.evals} evaluations, ${tuned.generatedAt}).`, values: tuned.best.values } } : undefined,
@@ -156,6 +159,7 @@ try {
     daysSave: Number(opt('--days-save') ?? 150),
     cities,
     previous,
+    combineSeeds: !args.includes('--no-combine'),
     log: (l) => console.log(l),
   });
   report.gitSha = gitSha;
