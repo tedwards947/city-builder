@@ -133,6 +133,7 @@ Second engine session: engine tasks the main engine session isn't on, cleanup an
 Balance Lab: targets, tuner, grading and the tuned numbers (`src/balance/`, `scripts/balance*.mjs`).
 
 Done and merged:
+- Fresh map graded over seeds 7, 11, 23 (2026-11-27): a target's fresh-128 cell passes when most seeds pass. One seed let econ.firstYearBank, econ.noSoftlock and tax.noDominant flip on random-sequence noise alone (the vibe noise check). Seed 7 was the lucky one: under the shipped numbers econ.firstYearBank passes on 1 of 3 (36k; seeds 11 and 23 bank 19.6k and 11.2k against 30–60k) and tax.noDominant on 1 of 3 (level 15 beats neutral on people and income on seeds 11 and 23), so both now fail honestly. Open: the owner to decide whether the first-year bank or the target moves, and why tax 15 out-grows neutral.
 - Tuned PC preset T (`src/balance/tunedT.ts`) (#169, #190, #245, #250, #255): 96/98 PC on the lab's test cities after #255.
 - Lab grades the economy, service capacity, debt game over and tax slider; debt and tax suite (#185, #193, #195, #197, #246).
 - Trade suite: seaport and goods targets (#219); ENGINE shipped the numbers (#220).

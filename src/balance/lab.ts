@@ -107,10 +107,12 @@ export interface LabOptions {
   customVariants?: Record<string, { name: string; desc: string; values: Record<string, unknown> }>;
   /** The previous report, for trends. */
   previous?: Report | null;
+  /** false: leave a fresh map's seeds (`fresh-128@s7`, …) as separate cities, for a parent that merges children first. */
+  combineSeeds?: boolean;
   log?: (line: string) => void;
 }
 
-export interface TargetResult extends Outcome { trend?: 'new' | 'same' | 'better' | 'worse' | 'fixed' | 'broke'; prev?: unknown }
+export interface TargetResult extends Outcome { trend?: 'new' | 'same' | 'better' | 'worse' | 'fixed' | 'broke'; prev?: unknown; /** A fresh map graded over seeds: each seed's own result. */ seeds?: Record<string, { value: unknown; pass: boolean | null }> }
 /** The variant or preset passing the largest share of graded results; `tied` lists any with the same share. */
 type Best = { variant: string; pass: number; of: number; tied: string[] };
 type Summary = { pass: number; fail: number; na: number; later: number; failing: string[] };
@@ -588,6 +590,7 @@ export function runLab(o: LabOptions): Report {
     Object.assign(BALANCE.maintenance, shippedEcon.maintenance); Object.assign(BALANCE.tax, shippedEcon.tax, { level: { ...shippedEcon.tax.level } }); Object.assign(BALANCE.budget, shippedEcon.budget);
   }
   for (const c of o.cities) report.cities.push({ id: c.id, kind: c.kind, population: population.get(c.id) ?? popOf(c) });
+  if (o.combineSeeds !== false) combineFreshSeeds(report, o.previous);
   finishReport(report, {
     pc: variants, econ: presets, svc: svcIds, trade: tradeIds, taxdebt: taxDebtIds, airport: airportIds,
     rail: railIds, landscape: landscapeIds, lots: lotsIds, stadium: stadiumIds, leisure: leisureIds, connections: connectionsIds, capstones: capstonesIds,
@@ -603,6 +606,47 @@ const SUMMARY_FIELDS: Record<Suite, [keyof Report, keyof Report]> = {
   leisure: ['leisureSummary', 'leisureBest'], connections: ['connectionsSummary', 'connectionsBest'],
   capstones: ['capstonesSummary', 'capstonesBest'],
 };
+
+/** The id of one seed of a fresh map graded over several seeds: `fresh-128@s7`. */
+export const seedCityId = (base: string, seed: number) => `${base}@s${seed}`;
+const SEED_ID = /^(.+)@s(-?\d+)$/;
+
+/**
+ * Fresh maps graded over a few seeds (ENGINEER 3, 2026-11-27). A fresh map is blank land, so its seed only changes
+ * the sim's random sequence; one seed let a single unlucky run flip econ.firstYearBank, econ.noSoftlock and
+ * tax.noDominant (a check that added one random draw a tick moved exactly those). The cells of every seed of
+ * `base` (city ids `base@sN`) become one cell for `base`: it passes when most seeds pass, and carries the outcome
+ * of the median seed (ranked by miss, the passing ones first) with every seed's value in the note and in `seeds`.
+ */
+export function combineFreshSeeds(report: Report, previous?: Report | null): void {
+  const groups = new Map<string, string[]>();
+  for (const c of report.cities) { const m = SEED_ID.exec(c.id); if (c.kind === 'fresh' && m) groups.set(m[1], [...(groups.get(m[1]) ?? []), c.id]); }
+  if (!groups.size) return;
+  const seedOf = (id: string) => SEED_ID.exec(id)![2];
+  const show = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v) : v === null || v === undefined ? '-' : JSON.stringify(v));
+  for (const [base, ids] of groups) {
+    for (const t of report.targets) for (const [key, byCity] of Object.entries(t.results)) {
+      const cells = ids.filter(id => byCity[id]).map(id => ({ seed: seedOf(id), r: byCity[id] })).sort((a, b) => Number(a.seed) - Number(b.seed));
+      for (const id of ids) delete byCity[id];
+      if (!cells.length) continue;
+      const graded = cells.filter(c => c.r.pass !== null);
+      let out: Outcome;
+      if (!graded.length) out = { ...cells[0].r, pass: null };
+      else {
+        const passes = graded.filter(c => c.r.pass).length, pass = passes * 2 > graded.length;
+        const ranked = [...graded].sort((a, b) => Number(b.r.pass) - Number(a.r.pass) || (a.r.miss ?? 0) - (b.r.miss ?? 0));
+        const mid = ranked[Math.floor((ranked.length - 1) / 2)].r;
+        out = { value: mid.value, pass, miss: pass ? 0 : Math.max(mid.miss ?? 0, 1e-6), note: `${passes} of ${graded.length} seeds pass (${cells.map(c => `s${c.seed} ${show(c.r.value)}${c.r.pass === false ? ' ✗' : ''}`).join(', ')})${mid.note ? `; median seed: ${mid.note}` : ''}` };
+      }
+      const prev = previous?.targets?.find(x => x.id === t.id)?.results[key]?.[base];
+      byCity[base] = { ...out, seeds: Object.fromEntries(cells.map(c => [`s${c.seed}`, { value: c.r.value, pass: c.r.pass }])), trend: trendOf(out, prev), ...(prev ? { prev: prev.value } : {}) } as TargetResult;
+    }
+    const pops = report.cities.filter(c => ids.includes(c.id)).map(c => c.population).sort((a, b) => a - b);
+    const at = report.cities.findIndex(c => ids.includes(c.id));
+    report.cities = report.cities.filter(c => !ids.includes(c.id));
+    report.cities.splice(at, 0, { id: base, kind: 'fresh', population: pops[Math.floor((pops.length - 1) / 2)] ?? 0 });
+  }
+}
 
 /** Count pass / fail / n/a per suite and key (variant or preset), pick each suite's best, and the economy verdict. */
 function finishReport(report: Report, keys: Partial<Record<Suite, string[]>>): void {
@@ -645,7 +689,7 @@ function deepMerge(into: Record<string, unknown>, from: Record<string, unknown>)
  * balance -- --jobs N runs one child per suite and city): runs, results and
  * cities joined, the targets in TARGETS order, summaries counted again.
  */
-export function mergeReports(parts: Report[]): Report {
+export function mergeReports(parts: Report[], previous?: Report | null): Report {
   if (!parts.length) throw new Error('nothing to merge');
   const out = JSON.parse(JSON.stringify(parts[0])) as Report;
   const byId = new Map(out.targets.map(t => [t.id, t]));
@@ -669,6 +713,7 @@ export function mergeReports(parts: Report[]): Report {
   }
   out.targets = TARGETS.filter(t => byId.has(t.id)).map(t => byId.get(t.id)!);
   out.options.suites = [...new Set(parts.flatMap(p => p.options.suites))];
+  combineFreshSeeds(out, previous);
   out.options.cities = out.cities.map(c => c.id);
   const keys: Partial<Record<Suite, string[]>> = {};
   for (const [suite, [sumKey]] of Object.entries(SUMMARY_FIELDS) as [Suite, [keyof Report, keyof Report]][])
