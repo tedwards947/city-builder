@@ -745,6 +745,14 @@ export const BALANCE = {
     // Integer steps gated by a roll — a fractional decay is lost to byte rounding.
     // 0.25 → a fully saturated, isolated region fades in ~2000 ticks (~250 game-days).
     decayProbability: 0.25,
+    // 'legacy': the nudges above, diffused and decayed (they round away within days in play: docs/PC_OUTCOMES.md).
+    // 'target' (owner 2026-11-23, being measured): no decay or blur; each tile eases toward a target from what
+    // stands around it (sim/vibeTargets.ts: trees and parks, straight roads and one dominant zone, even land
+    // values), so character lasts as long as the place does. A game year is about 24 real minutes at 1×.
+    mode: 'legacy' as 'legacy' | 'target',
+    targetRadius: 5,         // the box around a tile its target is read from (11 × 11 tiles)
+    targetEveryDays: 10,     // how often the targets are worked out again
+    targetHalfLifeDays: 360, // half the way to a new target in a game year (about 24 real minutes at 1×)
   },
 
   // ── Abandonment ──────────────────────────────────────────────────────────────
@@ -817,6 +825,14 @@ export const BALANCE = {
   // reads them back from here, so this block is the only copy of T.
   // Disruptive player actions drain it. The cap is enforced by PoliticsSystem.
   politicalCapital: {
+    // Local trust, PROTOTYPE slice 1 (sim/localTrust.ts; PC_DESIGN.md redesign): each request-grid cell
+    // keeps its own trust beside the city's PC, charged where the residents live, and an action is refused
+    // when a cell can't cover its part. OFF: shipped play is unchanged. A cell holds its residents' share of
+    // the city's cap × shareMult, or `displacements` × what displacing its average home costs (at least
+    // minCap), and fills as fast as the city. cityGate false: only the cells refuse (slice 2). spill: the
+    // share of a cell's loss each of its 8 neighbours also loses (slice 3). regenMult: refill speed (1 = as the city).
+    // homeShare: a cell holds that share of what displacing all its homes costs; refillDays: a straight refill (play-feel).
+    localTrust: { enabled: false, minCap: 10, shareMult: 1, cityGate: true, displacements: 0, spill: 0, regenMult: 1, homeShare: 0, refillDays: 0 },
     // The cap at no population. Passive regeneration and the blight-clearing
     // reward stop at the cap; other one-off rewards may go over it.
     max: 150,
@@ -850,6 +866,9 @@ export const BALANCE = {
       waterCoverage:    0.20, // fraction of developed zones with water
       crime:            0.20, // (1 - average crime level)
     } as Record<string, number>,
+    // The most one action may cost, as a share of the PC cap (owner 2026-11-22; the same 50% as closing a
+    // service capstone, capstones.closurePcShare). A bigger bill is scaled down to this. 0 = no limit.
+    maxActionShare: 0.5,
     // Costs for disruptive actions — applied at execute() time, same as money costs.
     // Gating: if budget.politicalCapital < cost, the action is blocked.
     disruptionCosts: {

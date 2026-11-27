@@ -10,7 +10,10 @@ import { pcCap, capScale, pcQuote, changePc, regenPc, regenRate, regenPerTick, f
 import { ZONE_R, ZONE_C, BUILDING_PARK, ROAD_STREET } from '../sim/constants';
 import { BALANCE } from '../data/balance';
 import { PoliticsSystem } from '../sim/systems/PoliticsSystem';
-import { landWorld, home } from './pcTestWorld';
+import { landWorld, home, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 interface PcEvent { delta: number; reason: string; tx?: number; ty?: number; undo: boolean }
 interface PcAction { delta: number; tx?: number; ty?: number; undo: boolean }

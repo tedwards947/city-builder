@@ -2,11 +2,14 @@ import './pcOffBaseline';
 import { describe, it, expect } from 'vitest';
 import { hoverPcPreview, pcActionForTool, pcLabel } from '../ui/pcPreview';
 import { milestoneText } from '../ui/MilestoneBanner';
-import { landWorld, home, homes, displacementCost, TEST_NUISANCE } from './pcTestWorld';
+import { landWorld, home, homes, displacementCost, TEST_NUISANCE, withoutActionCap } from './pcTestWorld';
 import { CommandHistory } from '../commands/CommandHistory';
 import { PlaceBuildingCommand } from '../commands/PlaceBuildingCommand';
 import { ROAD_STREET, BUILDING_PARK } from '../sim/constants';
 import type { ServiceValueConfig } from '../sim/serviceValue';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 // 1 PC per resident for a park; a second park is worth half; closing costs twice what is lost.
 const SERVICE_ON: ServiceValueConfig = { perResident: { 8: 1 }, repeatFactor: 0.5, closureMultiplier: 2 };

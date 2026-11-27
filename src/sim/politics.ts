@@ -22,6 +22,7 @@ import type { ServiceValueConfig } from './serviceValue';
 import { ordinanceModifier } from './ordinances';
 import { bigProjectPc } from './leisure';
 import { isEstablished } from './established';
+import { localTrustEnabled, localHomeShareOn, cityGateOn, trustCell, cellTrust, changeTrust, regenTrust, spillLoss, noteLocalBlock } from './localTrust';
 
 /** Why political capital changed. */
 export type PcReason =
@@ -195,6 +196,7 @@ export function regenPc(world: World, amount: number): void {
   }
   world.budget.politicalCapital = next;
   world.pcRegenTotal += next - pc;
+  if (localTrustEnabled()) regenTrust(world, amount, pcCap(world));
 }
 
 // ── Population milestones ────────────────────────────────────────────────────
@@ -430,6 +432,8 @@ export interface PcQuote {
    * warning beside the price.
    */
   notConnected?: true;
+  /** Local trust prototype (sim/localTrust.ts, off by default): set when a cell the action charges can't cover its part. */
+  localBlocked?: true;
 }
 
 function emptyQuote(): PcQuote {
@@ -456,6 +460,23 @@ function totalUp(world: World, q: PcQuote): void {
     else free += p.amount;
   }
   q.affordable = canAfford(world, cost);
+  if (localTrustEnabled() && cost > 0) {
+    // The same rule, cell by cell: each cell must cover the refusable cost charged to it. With homeShare
+    // (play-feel sizing) only displacement is refusable locally: a project's nuisance, a closure or a big
+    // build is charged to the cells (and may take them below 0, holding back demolition there) but goes ahead.
+    const byCell = new Map<number, number>();
+    const onlyDisplacement = localHomeShareOn();
+    for (const p of q.parts) if (p.amount < 0 && !NEVER_REFUSED.includes(p.reason) && (!onlyDisplacement || p.reason === 'displacement')) {
+      const c = trustCell(world, p.tx, p.ty);
+      byCell.set(c, (byCell.get(c) ?? 0) - p.amount);
+    }
+    const cap = pcCap(world);
+    if (!cityGateOn()) q.affordable = true;   // slice 2: only the cells refuse
+    for (const [c, need] of byCell) {
+      const have = cellTrust(world, c, cap);
+      if (have < need) { q.affordable = false; q.localBlocked = true; noteLocalBlock(world, { cell: c, need, have, tick: world.tick }); break; }
+    }
+  }
   cost += unrefusable;
   q.cost = cost;
   // The debt added: what PC above zero does not cover.
@@ -624,8 +645,26 @@ export function pcQuote(
     }
   }
 
+  capActionCost(world, q);
   totalUp(world, q);
   return q;
+}
+
+/**
+ * No single action costs more than `maxActionShare` of the PC cap (owner 2026-11-22, the same rule as
+ * closing a service capstone): a bigger bill has every cost in it scaled down together, so the preview,
+ * the charge and its undo all use the capped price. Without it, displacing a merged level-4 tower
+ * (120 residents) cost about 1.9× the cap in a 48k city, so it could never be afforded.
+ */
+function capActionCost(world: World, q: PcQuote): void {
+  const share = BALANCE.politicalCapital.maxActionShare;
+  if (!(share > 0)) return;
+  let total = 0;
+  for (const p of q.parts) if (p.amount < 0) total -= p.amount;
+  const most = share * pcCap(world);
+  if (!(total > most)) return;
+  const k = most / total;
+  for (const p of q.parts) if (p.amount < 0) p.amount *= k;
 }
 
 /**
@@ -678,6 +717,8 @@ export interface PcCharges {
   regenTotal: number;
   /** The change applied for each reason, in order. */
   changes: [reason: PcReason, delta: number][];
+  /** Local trust prototype: the change applied to each cell, for undo. */
+  local?: [cell: number, delta: number][];
 }
 
 /** The charges of a command that has not run. */
@@ -695,9 +736,25 @@ export function chargeQuote(world: World, q: PcQuote, tx: number, ty: number): P
   }
   // Keep what was actually applied: a reward may have been cut at the cap.
   const applied: PcCharges = { before: world.budget.politicalCapital, regenTotal: world.pcRegenTotal, changes: [] };
+  // Local trust prototype with the city gate off: the neighbourhoods pay, not the city pool. Charging both
+  // drove the city's PC far below 0 in the owner's playtest (and PC debt blocks building), so costs skip
+  // the city; rewards still reach it.
+  const citySkipsCosts = localTrustEnabled() && !cityGateOn();
   for (const [reason, delta] of wanted) {
+    if (citySkipsCosts && delta < 0) continue;
     const got = changePc(world, delta, reason, { tx, ty });
     if (got !== 0) applied.changes.push([reason, got]);
+  }
+  if (localTrustEnabled()) {
+    const cap = pcCap(world);
+    applied.local = [];
+    for (const p of q.parts) {
+      const c = trustCell(world, p.tx, p.ty);
+      const got = changeTrust(world, c, p.amount, cap, STOPS_AT_CAP.includes(p.reason));
+      if (got !== 0) applied.local.push([c, got]);
+      // Only displacement spills: a demolition spree is what spillover answers; a plant's nuisance or a closure stays where it lands.
+      if (got < 0 && p.reason === 'displacement') applied.local.push(...spillLoss(world, c, -got, cap));
+    }
   }
   return applied;
 }
@@ -737,4 +794,5 @@ export function refundCharges(world: World, charges: PcCharges, tx: number, ty: 
     }
     changePc(world, back, reason, { tx, ty, undo: true });
   }
+  if (charges.local) for (let k = charges.local.length - 1; k >= 0; k--) changeTrust(world, charges.local[k][0], -charges.local[k][1], pcCap(world), false);
 }

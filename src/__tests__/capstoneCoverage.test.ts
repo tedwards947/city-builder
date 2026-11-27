@@ -16,7 +16,10 @@ import { buildingSeats, homeSeat } from '../sim/serviceCapacity';
 import { coveredBy, isServiceKind, serviceClosureValue, serviceOpeningValue } from '../sim/serviceValue';
 import { pcCap, pcQuote } from '../sim/politics';
 import { headcountCost } from '../sim/runningCost';
-import { landWorld, homes } from './pcTestWorld';
+import { landWorld, homes, withoutActionCap } from './pcTestWorld';
+
+// These tests check the PC formulas' own prices: the one-action limit is tested in pcActionCap.test.ts.
+withoutActionCap();
 
 const ROW = 20;
 const POP = BALANCE.growth.popPerLevel[3];

@@ -130,6 +130,13 @@ export interface TranslationSchema {
       pcCloseLast: string;
       pcDisplace: string;
       pcCutOff: string;
+      trustFull: string;
+      trustRefills: string;
+      trustStuck: string;
+      identity: string;
+      identityDrifting: string;
+      identityTraits: string;
+      identityType: { familySuburb: string; workingClass: string; leafyWealthy: string; downtown: string; creative: string };
     };
     /** Map badges: `name` is the chip / tooltip title, `tip` what it means and what to do. */
     badge: Record<'crime' | 'health' | 'power' | 'water' | 'commute' | 'cutoff' | 'road' | 'death', { name: string; tip: string }> & { lots: string };
@@ -214,6 +221,10 @@ export interface TranslationSchema {
       savedCityUnreadable: string;
       autosaveFailedTitle: string;
       autosaveFailed: string;
+      debtPausedTitle: string;
+      trustRefusedTitle: string;
+      trustRefused: string;
+      debtPaused: string;
       resourceShortage: string;
       resourceRestored: string;
       powerDemandExceeds: string;
@@ -274,6 +285,9 @@ export interface TranslationSchema {
       pcIntoDebt: string;
       pcInDebt: string;
       pcDebt: string;
+      moneyTrend: string;
+      trustCost: string;
+      trustShort: string;
       pcRibbon: string;
       pcClosing: string;
       inDebt: string;

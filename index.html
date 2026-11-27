@@ -25,6 +25,9 @@
     #stat-pc { display: inline-block; min-width: 8ch; }
     #citystats .value.money { color: #7dd87d; }
     #citystats .value.money.negative { color: #e07070; }
+    /* Money trend (src/ui/moneyTrend.ts): a fixed-width slot after the figure so the pane never shifts */
+    #stat-money-trend { display: inline-block; width: 1.1em; text-align: center; font-weight: 700; }
+    #stat-money-trend.up { color: #7dd87d; } #stat-money-trend.down { color: #e07070; }
     #citystats .value.short { color: #e07070; }
     /* Debt meter under Money (src/ui/DebtUi.ts): the debt as a share of the limit; striped and draining during the council's countdown */
     #stat-debt { color: #9ab; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -436,7 +439,7 @@
         <span class="label" data-i18n="ui.hud.polCapital">Pol. Capital</span> <span class="value pc" id="stat-pc">100 / 100</span>
         <div id="pc-bar-row"><div id="pc-bar-bg"><div id="pc-bar" style="width:100%"></div></div><span id="stat-pc-rate"></span></div>
       </div>
-      <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span>
+      <div><span class="label" data-i18n="ui.hud.money">Money</span> <span class="value money" id="stat-money">$0</span><span id="stat-money-trend"></span>
         <div id="stat-debt" hidden><div id="stat-debt-bg"><div id="stat-debt-bar"></div></div><span id="stat-debt-label"></span></div>
       </div>
       <div><span class="label" data-i18n="ui.hud.population">Population</span> <span class="value" id="stat-pop">0</span></div>

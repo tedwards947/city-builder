@@ -36,6 +36,8 @@ import { SoundEffects } from './audio/SoundEffects';
 import { NewGameDialog } from './ui/NewGameDialog';
 import { SaveLoadPanel } from './ui/SaveLoadPanel';
 import { DebtUi } from './ui/DebtUi';
+import { debtPauseDue, newDebtWatch } from './sim/debtPause';
+import { localTrustEnabled, lastLocalBlock, cellMiddle } from './sim/localTrust';
 import { hasCapacity, seatsIfOpened } from './sim/serviceCapacity';
 import { seatWords } from './ui/capacityFormat';
 import { MusicPanel } from './ui/MusicPanel';
@@ -43,6 +45,7 @@ import { TileInfoPanel } from './ui/TileInfoPanel';
 import { BadgeTooltip } from './ui/BadgeTooltip';
 import { PcFloat } from './ui/PcFloat';
 import { pcOfCap, pcHudRate } from './ui/pcFormat';
+import { moneyTrend, TREND_GLYPH } from './ui/moneyTrend';
 import { DOCK_CHANGED } from './ui/debugDock';
 import { pcCap, overCapFadePerDay, pcQuote } from './sim/politics';
 import { landscapePreview } from './ui/landscapePreview';
@@ -128,6 +131,17 @@ const state = {
   seenChanges: 0,
   politics:  undefined as PoliticsSystem | undefined,
 };
+
+// ?debug=true plays the local trust prototype (PC_DESIGN.md redesign; sim/localTrust.ts, docs/PC_OUTCOMES.md,
+// play-feel tuning after the owner's playtest): trust per neighbourhood cell, no city gate; a neighbourhood lets
+// you clear about a quarter of its homes, refills in about 30 days, and a clearance spills 0.15 onto each
+// neighbour. Only demolition is refused; projects are charged but go ahead. Text only: a row in Inspect and the
+// refusal toast. Without ?debug=true shipped play is unchanged.
+if (DEBUG) Object.assign((BALANCE.politicalCapital as unknown as { localTrust: object }).localTrust,
+  { enabled: true, cityGate: false, homeShare: 0.25, refillDays: 30, spill: 0.15 });
+// ?debug=true also shows the vibe layers' target mode (owner 2026-11-23; sim/vibeTargets.ts): character from what
+// stands in each place, lasting as long as the place does. Without ?debug=true the legacy mode runs, as shipped.
+if (DEBUG) (BALANCE.vibe as { mode: string }).mode = 'target';
 
 // Developer tools, only with ?debug=true.
 const trafficTuning = DEBUG
@@ -380,6 +394,14 @@ function notifyRejected(reason: FailReason): void {
   const now = performance.now();
   if (now - (lastRejectToast[reason] ?? -Infinity) < REJECT_TOAST_MS) return;
   lastRejectToast[reason] = now;
+  // The local trust prototype (?debug=true): say which neighbourhood refused, and why.
+  const block = reason === 'politicalCapital' && localTrustEnabled() ? lastLocalBlock(state.world) : null;
+  if (block && state.world.tick - block.tick <= 1) {
+    const at = cellMiddle(state.world, block.cell);
+    toastPanel.showToast(t('ui.toast.trustRefusedTitle'),
+      t('ui.toast.trustRefused', { x: at.tx, y: at.ty, have: Math.max(0, Math.round(block.have)), need: Math.round(block.need) }), 'warning');
+    return;
+  }
   toastPanel.showToast(
     t('ui.toast.cantBuildTitle'),
     t(reason === 'funds' ? 'ui.toast.noFunds' : reason === 'noWater' ? 'ui.toast.needsWater' : reason === 'notOpenWater' ? 'ui.toast.needsOpenWater' : reason === 'alreadyBuilt' ? 'ui.toast.onePerCity' : reason === 'locked' ? 'ui.toast.lockedBuilding' : 'ui.toast.noPoliticalCapital'),
@@ -691,6 +713,7 @@ const statPC    = document.getElementById('stat-pc')!;
 const statPCRate = document.getElementById('stat-pc-rate')!;
 const pcBar     = document.getElementById('pc-bar')!;
 const statMoney = document.getElementById('stat-money')!;
+const statMoneyTrend = document.getElementById('stat-money-trend')!;
 if (DEBUG) {
   // Play-test helper: a little money on demand, next to the money figure.
   const more = document.createElement('button');
@@ -806,8 +829,15 @@ function cachedCoveragePreview(world: World, tx: number, ty: number, kind: numbe
   return covered;
 }
 
+/** Auto-pause when the city goes into debt (sim/debtPause.ts): not behind the title, not once the game is over. */
+const debtWatch = newDebtWatch();
+
 function frame(now: number): void {
   state.scheduler.update(now);
+  if (!titleUp && !state.world.budget.gameOver && debtPauseDue(debtWatch, state.world, state.world.budget.money) && state.scheduler.speed !== 0) {
+    setSpeed(0);
+    toastPanel.showToast(t('ui.toast.debtPausedTitle'), t('ui.toast.debtPaused'), 'alert');
+  }
   // A road edit shows in the traffic straight away, even while paused.
   state.transit.refreshIfRoadsChanged(state.world);
   // So does what it connects: power, water and services reach a road or zone built while the
@@ -988,6 +1018,14 @@ function frame(now: number): void {
   (pcBar as HTMLElement).style.background = pcOver ? '#c9fff1' : pc < pcMax * 0.2 ? '#e07070' : pc < pcMax * 0.5 ? '#e0b050' : '#7dd8c0';
   setHud(statMoney, formatMoney(state.world.budget.money));
   statMoney.classList.toggle('negative', state.world.budget.money < 0);
+  // Trend arrow: green up while earning, red down while spending; doubled when the gap is large.
+  const { income, expenses } = state.world.budget;
+  const trend = moneyTrend(income, expenses);
+  setHud(statMoneyTrend, TREND_GLYPH[trend]);
+  statMoneyTrend.classList.toggle('up', trend === 'up' || trend === 'up2');
+  statMoneyTrend.classList.toggle('down', trend === 'down' || trend === 'down2');
+  const net = income - expenses;
+  statMoneyTrend.title = t('ui.hud.moneyTrend', { amount: (net > 0 ? '+' : '') + formatMoney(net) });
   debtUi.update();
   toastPanel.checkFull(state.world);
   setHud(statPop, state.world.stats.population.toLocaleString());
