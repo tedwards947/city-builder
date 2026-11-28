@@ -83,6 +83,7 @@ export const en: TranslationSchema = {
       coverageRadius: "Coverage radius: {range} tiles",
       coverageWholeCity: "Coverage: the whole city",
       details: "Details",
+      detailsHint: "Hold Shift for details",
       allServicesInReach: "✓ All services in reach",
       unmetLeft: "{n} of {total} left for Lv {level}: {list}",
       costs: "Costs: ${amount}/day",

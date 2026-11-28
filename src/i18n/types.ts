@@ -47,6 +47,7 @@ export interface TranslationSchema {
       coverageRadius: string;
       coverageWholeCity: string;
       details: string;
+      detailsHint: string;
       allServicesInReach: string;
       unmetLeft: string;
       costs: string;
