@@ -356,6 +356,9 @@ w. **Trains bunch up and look stuck on busy lines** (owner, 2026-11-27; GRAPHICS
 x. **Simulation in a Web Worker?** (owner, 2026-11-27; ENGINE estimating the effort). Daily recalcs show as hitches on the render thread. ENG2 is fixing the current one by making it fast and spreading it out. A worker would keep drawing smooth everywhere, but it's an architecture change (synchronous UI reads such as hover PC quotes and Inspect, commands and undo, the lab, saves). Decide once engine's estimate is in.
 - Also later: real neighbourhood borders along avenues, rail and water instead of the 12×12 squares (PC_DESIGN step 2B). The owner finds squares workable for now: "the alternatives are probably tougher".
 
+y. **Explain vibe to players** (owner, 2026-11-27: "if I wasn't the one designing this game, I wouldn't know what the heck vibe is and how it worked"). Tooltips on the vibe view and key (what vibe is; what each colour means; what pushes it: parks and trees for green, grid roads for planned, even land values for egalitarian), an Inspect line in plain words, and a step in the tutorial. Also the neighbourhood identity labels and trust once they ship. GRAPHICS for the UI, PM for the copy.
+- Vibe art mix (owner, 2026-11-27, in progress): vibe variants are mixed in by strength instead of every lot flipping at once; new vibe art only where the mix shows gaps.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
