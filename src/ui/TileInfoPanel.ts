@@ -15,7 +15,7 @@ import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_
 import { headcountCost, perResidentCost, perUnitCost } from '../sim/runningCost';
 import type { BuildingEntity } from '../sim/World';
 import { overheadPlatform } from '../sim/buildingShapes';
-import { capstoneRow, capstoneResidents, isServiceCapstone } from '../sim/capstones';
+import { capstoneRow, capstoneResidents, isServiceCapstone, isCapstone, serviceRange } from '../sim/capstones';
 import { eventStatus } from '../sim/eventDays';
 import { attractionAt, hasGateway, lacksLeisure, leisureReachAt } from '../sim/leisureTraffic';
 import { buildingTripsAt } from '../sim/buildingTraffic';
@@ -343,7 +343,7 @@ function analyzeZone(
  * city and the boost to shops; without one, the warning. Upkeep either way.
  */
 /** An attraction: visitors against capacity, ticket income, the shops' share, and the warnings. Upkeep last. */
-function attractionRows(world: World, tx: number, ty: number, kind: number): string {
+function attractionRows(world: World, tx: number, ty: number, _kind: number): string {
   const a = attractionAt(world, tx, ty);
   if (!a) return "";
   const n1 = (v: number) => v.toFixed(1);
@@ -357,7 +357,7 @@ function attractionRows(world: World, tx: number, ty: number, kind: number): str
     if (a.toShops > 0) html += `<div class="ti-detail">${t("ui.tileInfo.attractionToShops", {n: a.toShops})}</div>`;
   }
   if (a.pull > 0 && !hasGateway(world)) html += `<div class="ti-detail" style="color:#e8b030">${t("ui.tileInfo.attractionResidentsOnly")}</div>`;
-  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
+  return html;
 }
 
 /** The stadium's game days: when the next is, fans in the seats, and how the last went. */
@@ -456,7 +456,7 @@ function airportRows(world: World, tx: number, ty: number): string {
     const boost = row?.demandMult?.C ?? 1;
     if (boost > 1) html += `<div class="ti-detail">${t("ui.tileInfo.airportDemand", {pct: Math.round((boost - 1) * 100)})}</div>`;
   }
-  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[BUILDING_AIRPORT]?.maintenance ?? 0})}</div>`;
+  return html;
 }
 
 /** Notes for the track on other levels of a tile: elevated overhead (unless it is the heading already) and a subway underneath. */
@@ -516,7 +516,7 @@ export function connectionRows(world: World, i: number): string {
 }
 
 /** A train station: what it does, then riders boarding and fares, or the warning that it has no road. Upkeep either way. */
-function stationRows(world: World, tx: number, ty: number, kind: number): string {
+function stationRows(world: World, tx: number, ty: number, _kind: number): string {
   const i = world.grid.idx(tx, ty);
   let html = `<div class="ti-detail">${t("ui.tileInfo.stationAbout")}</div>`;
   if (world.buildingAccessRoads(tx, ty).length === 0) {
@@ -534,7 +534,7 @@ function stationRows(world: World, tx: number, ty: number, kind: number): string
   // and off at one platform tile, so the others can be empty at a station that is working.)
   const peak = stationPeak(world, tx, ty);
   if (peak) html += railRows(world, peak.tile, peak.level);
-  return html + `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[kind]?.maintenance ?? 0})}</div>`;
+  return html;
 }
 
 /** A street or avenue beside any tile of the building at (tx, ty). */
@@ -543,12 +543,80 @@ function isBuildingConnected(world: World, tx: number, ty: number): boolean {
   return world.buildingAccessRoads(tx, ty).length > 0;
 }
 
+export type VerdictTone = "ok" | "warn" | "bad";
+export interface Verdict { key: string; params?: Record<string, string | number>; tone: VerdictTone }
+
+const ROAD_JAMMED = 140, ROAD_BUSY = 85;   // congestion (0-255), as the road rows grade it
+const STATION_OVER = 1.15;                 // rail load past which the traffic view marks it red
+
+/**
+ * One plain line on how this tile is doing: a zone (growing, stuck on what, abandoned), a service
+ * (overloaded or fine), a road (clear, busy, jammed), a station (riders, over capacity), a plant
+ * (short or fine). null for tiles with nothing to judge. The source is the same checks the rows use.
+ */
+export function tileVerdict(world: World, tx: number, ty: number): Verdict | null {
+  if (!world.grid.inBounds(tx, ty)) return null;
+  const i = world.grid.idx(tx, ty), L = world.layers, building = L.building[i];
+  if (building !== 0) {
+    if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_STATION_ELEVATED || building === BUILDING_SUBWAY_STATION) {
+      if (world.buildingAccessRoads(tx, ty).length === 0) return {key: "stationNoRoad", tone: "bad"};
+      const peak = stationPeak(world, tx, ty);
+      if (!peak || !world.traffic) return {key: "ok", tone: "ok"};
+      if (railLoad(world.traffic, peak.tile, peak.level) >= STATION_OVER) return {key: "stationOver", tone: "bad"};
+      return {key: "stationRiders", params: {n: Math.round(peak.riders).toLocaleString("en-US")}, tone: "ok"};
+    }
+    const util = UTILITY_OF[building] ?? (capstoneRow(building) && ["power", "water", "sewage"].includes(capstoneRow(building)!.need) ? {u: capstoneRow(building)!.need as "power" | "water" | "sewage"} : undefined);
+    if (util) {
+      if (world.buildingAccessRoads(tx, ty).length === 0) return {key: "notConnected", tone: "bad"};
+      const s = world.stats;
+      const [demand, supply] = util.u === "power" ? [s.powerDemand, s.powerSupply] : util.u === "water" ? [s.waterDemand, s.waterSupply] : [s.sewageDemand, s.sewageSupply];
+      if (supply < demand) return {key: "plantShort", params: {supply: Math.round(supply).toLocaleString("en-US"), demand: Math.round(demand).toLocaleString("en-US")}, tone: "bad"};
+      return {key: "ok", tone: "ok"};
+    }
+    if (serviceRange(building) !== undefined) {
+      const seats = hasCapacity(building) ? buildingSeats(world, tx, ty) : null;
+      const sv = seats ? seatsView(seats) : null;
+      if (sv && sv.leftOut > 0) return {key: "overloaded", params: {n: sv.leftOut.toLocaleString("en-US")}, tone: "bad"};
+      if (isCapstone(building) && world.buildingAccessRoads(tx, ty).length === 0) return {key: "notConnected", tone: "bad"};
+      return {key: "ok", tone: "ok"};
+    }
+    return null;
+  }
+  if (L.roadClass[i] !== ROAD_NONE) {
+    const cong = L.congestion[i];
+    return cong >= ROAD_JAMMED ? {key: "jammed", tone: "bad"} : cong >= ROAD_BUSY ? {key: "busy", tone: "warn"} : {key: "clear", tone: "ok"};
+  }
+  if (L.zone[i] !== ZONE_NONE && L.terrain[i] !== TERRAIN_WATER) {
+    const {reqs, maxLevel} = analyzeZone(world, tx, ty), unmet = reqs.filter((r) => !r.met);
+    if (L.abandoned[i] !== 0) {
+      return !hasRoadAccess(world, tx, ty) ? {key: "abandonedNoRoad", tone: "bad"}
+        : unmet.length > 0 ? {key: "abandonedWhy", params: {why: unmet[0].label.toLowerCase()}, tone: "bad"} : {key: "abandoned", tone: "bad"};
+    }
+    if (L.devLevel[i] >= maxLevel) return {key: "full", tone: "ok"};
+    if (unmet.length > 0) return {key: "stuck", params: {what: unmet[0].label.toLowerCase()}, tone: "warn"};
+    return {key: "growing", tone: "ok"};
+  }
+  return null;
+}
+
+/** The verdict as a line under the heading ('' for none). */
+export function verdictHtml(v: Verdict | null): string {
+  if (!v) return "";
+  const color = v.tone === "ok" ? "#7dd87d" : v.tone === "warn" ? "#e0b050" : "#e07070";
+  return `<div class="ti-verdict" style="color:${color};font-weight:600">${t("ui.tileInfo.verdict." + v.key, v.params)}</div>`;
+}
+
 export class TileInfoPanel {
   private readonly el: HTMLElement;
   private visible = false;
 
   constructor() {
     this.el = document.getElementById("tile-info")!;
+    // The Details block's open state outlives a rebuild (the toggle event does not bubble: listen on capture).
+    this.el.addEventListener("toggle", (e) => {
+      const d = e.target as HTMLElement;
+      if (d.classList?.contains("ti-details")) { this.detailsOpen = (d as HTMLDetailsElement).open; this.lastKey = ""; }
+    }, true);
   }
 
   setVisible(v: boolean): void {
@@ -566,7 +634,23 @@ export class TileInfoPanel {
     this._render(world, tile.tx, tile.ty, paused);
   }
 
+  private lastKey = "";
+  private lastHtml = "";
+  private detailsOpen = DEBUG;
+
   private _render(world: World, tx: number, ty: number, paused = false): void {
+    // Rebuild only when the tile or its data changed (also keeps the Details toggle where the player left it).
+    const key = `${tx},${ty},${world.tick},${world.grid.edits},${paused},${this.detailsOpen}`;
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+    const html = tileInfoHtml(world, tx, ty, paused, DEBUG, this.detailsOpen);
+    if (html === this.lastHtml) return;
+    this.lastHtml = html;
+    this.el.innerHTML = html;
+  }
+}
+
+export function tileInfoHtml(world: World, tx: number, ty: number, paused = false, debug = DEBUG, detailsOpen = debug): string {
     const i = world.grid.idx(tx, ty);
     const terrain = world.layers.terrain[i];
     const zone = world.layers.zone[i];
@@ -594,11 +678,11 @@ export class TileInfoPanel {
         ? t(BUILDING_NAME[building])
         : `${t("buildings.building")} #${building}`;
       html += `<div class="ti-type">${name}</div>`;
+      html += verdictHtml(tileVerdict(world, tx, ty));
       // Show coverage radius for service buildings
       if (building >= BUILDING_POLICE && BALANCE.service.coverageRange[building] !== undefined) {
         const range = BALANCE.service.coverageRange[building];
         html += `<div class="ti-detail">${t("ui.tileInfo.coverageRadius", {range})}</div>`;
-        html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: buildingUpkeep(building)})}</div>`;
       }
       // Schools and hospitals serve a limited number of residents: seats (or beds) taken, a bar, and who is left out.
       const seats = hasCapacity(building) ? buildingSeats(world, tx, ty) : null;
@@ -624,12 +708,17 @@ export class TileInfoPanel {
       if (building === BUILDING_LARGE_POWER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.power.largePlantOutput})}</div>`;
       if (building === BUILDING_LARGE_WATER_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.output", {amount: BALANCE.water.largePlantOutput})}</div>`;
       if (building === BUILDING_LARGE_SEWAGE_PLANT) html += `<div class="ti-detail">${t("ui.tileInfo.capacity", {amount: BALANCE.sewage.largePlantOutput})}</div>`;
-      if (isLargeUtility(building)) html += `<div class="ti-detail">${t("ui.tileInfo.maintenance", {amount: BALANCE.buildings[building]?.maintenance ?? 0})}</div>`;
       html += capstoneRows(world, tx, ty, building);
       if (building === BUILDING_AIRPORT) html += airportRows(world, tx, ty);
       html += attractionRows(world, tx, ty, building);
       if (building === BUILDING_STADIUM) html += stadiumRows(world);
       if (building === BUILDING_STATION || building === BUILDING_STATION_L || building === BUILDING_STATION_ELEVATED || building === BUILDING_SUBWAY_STATION) html += stationRows(world, tx, ty, building);
+
+      // One cost row: a service or plant's running cost already includes its upkeep; for the rest, the upkeep alone.
+      if (!(seats || UTILITY_OF[building] || capstoneRow(building))) {
+        const day = buildingUpkeep(building) * BALANCE.ticksPerDay;
+        if (day > 0) html += `<div class="ti-detail">${t("ui.tileInfo.costs", {amount: Math.round(day).toLocaleString("en-US")})}</div>`;
+      }
 
       // Connectivity warning for utilities
       if (
@@ -716,179 +805,91 @@ export class TileInfoPanel {
       // A merged lot is one building: say so, with the residents of all its tiles.
       const lot = lotSummary(world, i);
       const levelText = lot ? t(lot.shape === "square" ? "ui.tileInfo.bigLot" : "ui.tileInfo.bigLotPair") : `Lv ${dev}/${BALANCE.growth.maxLevel}`;
-      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> ${levelText}${isAbandoned ? ` <span style="color:#e84;font-weight:bold">${t("ui.tileInfo.abandoned")}</span>` : ""}</div>`;
-      if (!lot && BALANCE.lots.chancePerDay > 0 && world.lotStreak[i] > 0) {
-        html += `<div class="ti-detail">${t("ui.tileInfo.bigLotStreak", {days: Math.min(world.lotStreak[i], BALANCE.lots.streakDays), need: BALANCE.lots.streakDays})}</div>`;
-      }
+      html += `<div class="ti-type">${zoneName} <span class="ti-dots">${dots}</span> ${levelText}</div>`;
+      const {reqs, maxLevel} = analyzeZone(world, tx, ty);
+      const unmet = reqs.filter((r) => !r.met);
+      html += verdictHtml(tileVerdict(world, tx, ty));
       if (lot && lot.residents > 0) html += `<div class="ti-detail">${t("ui.tileInfo.bigLotResidents", {count: lot.residents})}</div>`;
       html += problemChips(world, i);
-      html += establishedRow(world, i);
-      html += pcRows(world, tx, ty);
-      html += trustRow(world, tx, ty);
-      html += identityRow(world, tx, ty);
-
       if (fire > 0) {
         html += `<div class="ti-detail" style="color:#f60;font-weight:bold">${t("common.onFire")} ${t("common.ticksLeft", {ticks: fire})}</div>`;
       }
-
-      if (isAbandoned) {
-        html += `<div class="ti-detail" style="color:#e84">${t("ui.tileInfo.growthBlockedAbandoned")}</div>`;
-      } else {
+      // The Details block: everything that is not a problem right now. (?debug=true opens it and adds the raw numbers.)
+      let det = "";
+      if (!lot && debug && BALANCE.lots.chancePerDay > 0 && world.lotStreak[i] > 0) {
+        det += `<div class="ti-detail">${t("ui.tileInfo.bigLotStreak", {days: Math.min(world.lotStreak[i], BALANCE.lots.streakDays), need: BALANCE.lots.streakDays})}</div>`;
+      }
+      det += establishedRow(world, i);
+      det += pcRows(world, tx, ty);
+      if (debug) {
+        det += trustRow(world, tx, ty);
+        det += identityRow(world, tx, ty, true);
         const distress = world.layers.distress[i];
-        if (distress > 0) {
-          const threshold = BALANCE.abandonment.abandonThreshold;
-          html += `<div class="ti-detail" style="color:#cc5">${t("ui.tileInfo.distress", {distress, threshold})}</div>`;
+        if (!isAbandoned && distress > 0) {
+          det += `<div class="ti-detail" style="color:#cc5">${t("ui.tileInfo.distress", {distress, threshold: BALANCE.abandonment.abandonThreshold})}</div>`;
         }
       }
 
       const landValue = world.layers.landValue[i];
-      const lvKey =
-        landValue < 60
-          ? "landValue.low"
-          : landValue < 110
-            ? "landValue.medium"
-            : landValue < 160
-              ? "landValue.good"
-              : "landValue.prime";
-      const lvLabel = t(lvKey);
-      html += `<div class="ti-detail">${t("ui.tileInfo.landValue", {value: landValue, label: lvLabel})}</div>`;
+      const lvKey = landValue < 60 ? "landValue.low" : landValue < 110 ? "landValue.medium" : landValue < 160 ? "landValue.good" : "landValue.prime";
+      det += `<div class="ti-detail">${t("ui.tileInfo.landValue", {value: landValue, label: t(lvKey)})}</div>`;
 
-      if (pollution > 0) {
-        const pKey =
-          pollution < 40
-            ? "common.low"
-            : pollution < 100
-              ? "common.medium"
-              : "common.high";
-        const pLabel = t(pKey);
-        html += `<div class="ti-detail ti-poll">${t("ui.tileInfo.pollution", {value: pollution, label: pLabel})}</div>`;
-      }
-
-      if (crime > 0) {
-        const cKey =
-          crime < 40
-            ? "common.low"
-            : crime < 100
-              ? "common.medium"
-              : "common.high";
-        const cLabel = t(cKey);
-        html += `<div class="ti-detail" style="color:#e55">${t("ui.tileInfo.crime", {value: crime, label: cLabel})}</div>`;
-      }
+      const level3 = (v: number) => (v < 40 ? "common.low" : v < 100 ? "common.medium" : "common.high");
+      if (pollution > 0) det += `<div class="ti-detail ti-poll">${t("ui.tileInfo.pollution", {value: pollution, label: t(level3(pollution))})}</div>`;
+      if (crime > 0) det += `<div class="ti-detail" style="color:#e55">${t("ui.tileInfo.crime", {value: crime, label: t(level3(crime))})}</div>`;
 
       if (zone === ZONE_R) {
-        // A place at the school and the hospital: has one, or why not (full vs. out of reach: bigger vs. closer).
+        // Services: only a place that is missing is a line of its own; all seated is one tick.
+        let seated = 0, total = 0;
         for (const kind of [BUILDING_POLICE, BUILDING_FIRE, BUILDING_SCHOOL, BUILDING_HOSPITAL]) {
           const seat = hasCapacity(kind) ? homeSeat(world, tx, ty, kind) : null;
           if (!seat) continue;
+          total++;
           const state = homeSeatState(seat), key = state === "full" ? "fullState" : state;
-          const color = state === "has" ? "#7dd87d" : state === "full" ? "#e0b050" : "#e07070";
+          if (state === "has") { seated++; continue; }
+          const color = state === "full" ? "#e0b050" : "#e07070";
           html += `<div class="ti-detail">${t(BUILDING_NAME[kind])}: <span style="color:${color}">${t(seatWords(kind) + "." + key)}</span></div>`;
         }
+        if (total > 0 && seated === total) html += `<div class="ti-detail" style="color:#7dd87d">${t("ui.tileInfo.allServicesInReach")}</div>`;
         const edu = world.layers.education[i];
-        const eduKey =
-          edu < 50
-            ? "education.uneducated"
-            : edu < 120
-              ? "education.basic"
-              : edu < 200
-                ? "education.educated"
-                : "education.highlyEducated";
-        const eduLabel = t(eduKey);
-        html += `<div class="ti-detail" style="color:#5cf">${t("ui.tileInfo.education", {value: edu, label: eduLabel})}</div>`;
-
+        const eduKey = edu < 50 ? "education.uneducated" : edu < 120 ? "education.basic" : edu < 200 ? "education.educated" : "education.highlyEducated";
+        det += `<div class="ti-detail" style="color:#5cf">${t("ui.tileInfo.education", {value: edu, label: t(eduKey)})}</div>`;
         const sick = world.layers.sickness[i];
         if (sick > 0) {
-          const sickKey =
-            sick < 80
-              ? "sickness.mild"
-              : sick < 160
-                ? "sickness.moderate"
-                : "sickness.severe";
-          const sickLabel = t(sickKey);
+          const sickKey = sick < 80 ? "sickness.mild" : sick < 160 ? "sickness.moderate" : "sickness.severe";
           const sickColor = sick < 80 ? "#5cc" : sick < 160 ? "#fc0" : "#f55";
-          html += `<div class="ti-detail" style="color:${sickColor}">${t("ui.tileInfo.sickness", {value: sick, label: sickLabel})}${!world.layers.hospital[i] ? t("sickness.noHospital") : ""}</div>`;
+          det += `<div class="ti-detail" style="color:${sickColor}">${t("ui.tileInfo.sickness", {value: sick, label: t(sickKey)})}${!world.layers.hospital[i] ? t("sickness.noHospital") : ""}</div>`;
         }
-
         const rd = world.layers.recentDeath[i];
-        if (rd > 0) {
-          html += `<div class="ti-detail" style="color:#ccd;font-weight:bold">${t("ui.tileInfo.recentDeath", {ticks: rd})}</div>`;
-        }
+        if (rd > 0) html += `<div class="ti-detail" style="color:#ccd;font-weight:bold">${t("ui.tileInfo.recentDeath", {ticks: rd})}</div>`;
       }
-
-      if (fireRisk > 0) {
-        const fKey =
-          fireRisk < 40
-            ? "common.low"
-            : fireRisk < 100
-              ? "common.medium"
-              : "common.high";
-        const fLabel = t(fKey);
-        html += `<div class="ti-detail" style="color:#f80">${t("ui.tileInfo.fireRisk", {value: fireRisk, label: fLabel})}</div>`;
-      }
+      if (fireRisk > 0) det += `<div class="ti-detail" style="color:#f80">${t("ui.tileInfo.fireRisk", {value: fireRisk, label: t(level3(fireRisk))})}</div>`;
 
       // Demand and tax display
-      const demand =
-        zone === ZONE_R
-          ? world.stats.rDemand
-          : zone === ZONE_C
-            ? world.stats.cDemand
-            : world.stats.iDemand;
-      const demandColor =
-        demand >= 1.2 ? "#5c5" : demand >= 0.8 ? "#cc5" : "#e55";
-      html += `<div class="ti-detail" style="color:${demandColor}">${t("ui.tileInfo.demand", {value: demand.toFixed(2)})}</div>`;
-
-      const neutralRate =
-        zone === ZONE_R
-          ? BALANCE.tax.zoneR
-          : zone === ZONE_C
-            ? BALANCE.tax.zoneC
-            : BALANCE.tax.zoneI;
-      const currentRate =
-        zone === ZONE_R
-          ? world.budget.taxRates.R
-          : zone === ZONE_C
-            ? world.budget.taxRates.C
-            : world.budget.taxRates.I;
-      const taxMult = Math.max(
-        BALANCE.demand.min,
-        Math.min(BALANCE.demand.max, neutralRate / currentRate * taxDemandMult(world.budget.taxLevel)),
-      );
+      const demand = zone === ZONE_R ? world.stats.rDemand : zone === ZONE_C ? world.stats.cDemand : world.stats.iDemand;
+      const demandColor = demand >= 1.2 ? "#5c5" : demand >= 0.8 ? "#cc5" : "#e55";
+      det += `<div class="ti-detail" style="color:${demandColor}">${t("ui.tileInfo.demand", {value: demand.toFixed(2)})}</div>`;
+      const neutralRate = zone === ZONE_R ? BALANCE.tax.zoneR : zone === ZONE_C ? BALANCE.tax.zoneC : BALANCE.tax.zoneI;
+      const currentRate = zone === ZONE_R ? world.budget.taxRates.R : zone === ZONE_C ? world.budget.taxRates.C : world.budget.taxRates.I;
+      const taxMult = Math.max(BALANCE.demand.min, Math.min(BALANCE.demand.max, neutralRate / currentRate * taxDemandMult(world.budget.taxLevel)));
       const taxDelta = Math.round((taxMult - 1) * 100);
-      const taxColor = taxDelta >= 0 ? "#5c5" : "#e55";
-      const taxSign = taxDelta >= 0 ? "+" : "";
-      html += `<div class="ti-detail" style="color:${taxColor}">${t("ui.tileInfo.taxRate", {rate: currentRate.toFixed(1), sign: taxSign, delta: taxDelta})}</div>`;
+      det += `<div class="ti-detail" style="color:${taxDelta >= 0 ? "#5c5" : "#e55"}">${t("ui.tileInfo.taxRate", {rate: currentRate.toFixed(1), sign: taxDelta >= 0 ? "+" : "", delta: taxDelta})}</div>`;
+      if (!isAbandoned) det += tripRows(world, i);
 
-      if (!isAbandoned) html += tripRows(world, i);
-
-      const {reqs, maxLevel} = analyzeZone(world, tx, ty);
-
-      if (isAbandoned) {
-        html += `<div class="ti-growth-header" style="color:#e84">${t("ui.tileInfo.growthBlockedAbandoned")}</div>`;
-      } else if (dev >= maxLevel) {
-        html += `<div class="ti-growth-ok">${t("ui.tileInfo.fullyDeveloped")}</div>`;
-      } else {
-        html += `<div class="ti-growth-header">${t("ui.tileInfo.toReachLevel", {level: dev + 1})}</div>`;
-        for (const req of reqs) {
-          const icon = req.met
-            ? `<span class="ti-yes">${t("common.yes")}</span>`
-            : `<span class="ti-no">${t("common.no")}</span>`;
-          html += `<div class="ti-req">${icon} ${req.label}</div>`;
-        }
-        // Level 2 -> 3 homes: the first missing gate is a school when sewage and services are already fine.
-        if (zone === ZONE_R && dev === 2 && world.layers.sewage[i] !== 0 && world.layers.services[i] !== 0
-            && world.layers.education[i] < BALANCE.education.growthThreshold) {
-          html += `<div class="ti-detail" style="color:#e8b030">${t("ui.tileInfo.needsSchool")}</div>`;
-        }
-        const allMet = reqs.every((r) => r.met);
-        if (allMet) {
-          const effectivePct = Math.round(
-            (zone === ZONE_R
-              ? (BALANCE.growth.homeProbabilityByLevel[dev] ?? BALANCE.growth.probability)
-              : BALANCE.growth.probability) * demand * 100,
-          );
-          html += `<div class="ti-growth-ok">${t("ui.tileInfo.allMetGrowing", {pct: effectivePct})}</div>`;
+      // Growth: only what is still missing, with a count.
+      if (!isAbandoned && dev < maxLevel) {
+        if (unmet.length > 0) {
+          html += `<div class="ti-req"><span class="ti-no">${t("common.no")}</span> ${t("ui.tileInfo.unmetLeft", {n: unmet.length, total: reqs.length, level: dev + 1, list: unmet.map((r) => r.label).join(", ")})}</div>`;
+          if (zone === ZONE_R && dev === 2 && world.layers.sewage[i] !== 0 && world.layers.services[i] !== 0
+              && world.layers.education[i] < BALANCE.education.growthThreshold) {
+            html += `<div class="ti-detail" style="color:#e8b030">${t("ui.tileInfo.needsSchool")}</div>`;
+          }
+        } else {
+          const effectivePct = Math.round((zone === ZONE_R ? (BALANCE.growth.homeProbabilityByLevel[dev] ?? BALANCE.growth.probability) : BALANCE.growth.probability) * demand * 100);
+          det += `<div class="ti-growth-ok">${t("ui.tileInfo.allMetGrowing", {pct: effectivePct})}</div>`;
         }
       }
+      html += `<details class="ti-details"${detailsOpen ? " open" : ""}><summary style="cursor:pointer;color:#9ab">${t("ui.tileInfo.details")}</summary>${det}</details>`;
 
       // ── Empty tile ─────────────────────────────────────────────────────────────
     } else {
@@ -920,8 +921,7 @@ export class TileInfoPanel {
       if (L.building[i] !== BUILDING_SUBWAY_STATION) html += otherLevelRows(world, i, elevatedIsHeading);
     }
 
-    if (DEBUG) html += trafficDebugHtml(world, i);
+    if (debug) html += trafficDebugHtml(world, i);
 
-    this.el.innerHTML = html;
-  }
+    return html;
 }
