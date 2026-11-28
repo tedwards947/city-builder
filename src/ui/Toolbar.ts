@@ -6,6 +6,7 @@
 // click. Everything is built from TOOLBAR below: to add a tool, add an item to
 // a family; to add a family, add an entry.
 
+import { DEBUG } from '../debug';
 import { BUILDING_LARGE_POWER_PLANT, BUILDING_LARGE_WATER_PLANT, BUILDING_LARGE_SEWAGE_PLANT, BUILDING_SEAPORT, BUILDING_AIRPORT, BUILDING_STATION, BUILDING_STATION_L, BUILDING_STATION_ELEVATED, BUILDING_RAMP_ELEVATED, BUILDING_RAMP_SUBWAY, BUILDING_SUBWAY_STATION } from '../sim/constants';
 import { BRUSH_RADII, landscapeBrush, setLandscapeBrush, treeChoice, setTreeChoice } from '../input/landscape';
 import { TREE_SPECIES_MAX } from '../sim/landscaping';
@@ -31,7 +32,7 @@ import { placementRules } from '../sim/buildingShapes';
 import { iconSvg } from './toolbarIcons';
 import type { IconName } from './toolbarIcons';
 
-export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
+export type ToolbarOverlay = 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover' | 'neighbourhoods';
 export type ToolbarAction = 'new' | 'save' | 'load' | 'tutorial' | 'budget' | 'ordinances' | 'requests' | 'undo' | 'redo' | 'underground' | 'lowBuildings';
 
 /** One pickable thing. `key` names its strings: ui.toolbar.<key> and ui.toolbarDesc.<key>. */
@@ -181,6 +182,8 @@ export const TOOLBAR: ToolbarEntry[] = [
     { key: 'healthMap', icon: 'hospital', overlay: 'health', hotkey: 'b' },
     { key: 'policeMap', icon: 'police', overlay: 'police', hotkey: 'p' },
     { key: 'fireMap', icon: 'fire', overlay: 'fireCover', hotkey: 'j' },
+    // ?debug=true only: the trust and identity prototypes' neighbourhoods (render/NeighbourhoodOverlay.ts).
+    { key: 'neighbourhoodMap', icon: 'neighbourhoods', overlay: 'neighbourhoods', hotkey: 'n', shown: () => DEBUG },
     // U also switches it (main.ts); no hotkey here, so the key is not handled twice.
     { key: 'undergroundView', icon: 'underground', action: 'underground', sepBefore: true },
     { key: 'lowBuildings', icon: 'lowBuildings', action: 'lowBuildings' },

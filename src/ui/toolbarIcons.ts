@@ -55,6 +55,7 @@ const ICONS = {
   layers: p('M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'),
   traffic: p('M5 16v-3l2-5h10l2 5v3zM6 13h12M7 16v2M17 16v2'),
   crime: p('M3 9c6-3 12-3 18 0 0 5-3 7-6 7-1.5 0-2-2-3-2s-1.5 2-3 2c-3 0-6-2-6-7zM7.5 11.5h2M14.5 11.5h2'),
+  neighbourhoods: p('M3 3h18v18H3zM12 3v18M3 12h18M6.5 7.5h2M15.5 16.5h2'),
   vibe: p('M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 3v4M17 5h4'),
   ordinances: p('M7 4h11a2 2 0 012 2v1h-4M7 4a2 2 0 00-2 2v12a2 2 0 002 2h9a2 2 0 002-2V7M7 4a2 2 0 012 2M9 10h6M9 14h6'),
   requests: p('M9 6h11M9 12h11M9 18h11M4.5 6h.1M4.5 12h.1M4.5 18h.1'),
