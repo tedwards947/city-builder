@@ -32,6 +32,10 @@ export type ClayVibe = '' | 'green' | 'gritty' | 'communal' | 'wealthy';
 const PLOT_ASPECT = 0.905;
 /** A vibe axis must lean at least this far (of -1..1) before a variant is used. */
 const VIBE_THRESHOLD = 0.25;
+/** How far an axis can lean in play: a vibe target reaches 100 of the byte's 128 (sim/vibeTargets.ts). */
+const VIBE_FULL = 100 / 128;
+/** The share of lots drawn in the vibe variant at full lean; the rest keep their everyday designs. */
+const VIBE_MAX_SHARE = 0.6;
 
 /**
  * The 1×1 park's looks: today's fountain park, then the park variety round (owner took all seven, 2026-11-21):
@@ -200,19 +204,35 @@ export function clayVibeFor(vibe: VibeState): ClayVibe {
 }
 
 /**
+ * The share of lots that show the vibe variant (owner, 2026-11-27: a whole area flipping to one design at once
+ * looked like copies): none at the threshold, rising with the lean to VIBE_MAX_SHARE at full strength.
+ */
+export function clayVibeShare(vibe: VibeState): number {
+  const lean = Math.max(Math.abs(vibe.green), Math.abs(vibe.egalitarian));
+  return VIBE_MAX_SHARE * Math.max(0, Math.min(1, (lean - VIBE_THRESHOLD) / (VIBE_FULL - VIBE_THRESHOLD)));
+}
+
+/** A lot's fixed draw in [0, 1) from its tile and design number: it shows the vibe variant while the share is above it, so it never flickers as the vibe eases. */
+export function lotDraw(tile: number, lotId: number): number {
+  let h = Math.imul(tile ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(lotId + 0x632be5ab, 0xc2b2ae35);
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
+
+/**
  * The sprite for a tile (`lotId` picks among the designs for that slot), or undefined if there is none (empty zone, unknown
  * building) or it has not loaded yet; the chunk layer's flat drawing then
- * shows instead.
+ * shows instead. `tile` (its index) mixes vibe variants in among the everyday designs (clayVibeShare).
  */
-export function pickClaySprite(zone: number, building: number, dev: number, vibe: VibeState, abandoned: boolean, lotId = 0): ClaySprite | undefined {
+export function pickClaySprite(zone: number, building: number, dev: number, vibe: VibeState, abandoned: boolean, lotId = 0, tile = 0): ClaySprite | undefined {
   if (sprites.size === 0) return undefined;
   if (building === BUILDING_PARK) return sprites.get(PARK_DESIGNS[lotId % PARK_DESIGNS.length]) ?? sprites.get('park');
   if (building !== BUILDING_NONE) return sprites.get(BUILDING_ID[building]);
   const prefix = ZONE_PREFIX[zone];
   if (!prefix || dev < 1) return undefined;
   const base = `${prefix}-${Math.min(3, dev)}`;
-  // An abandoned building always looks run down.
-  const v = abandoned ? 'gritty' : clayVibeFor(vibe);
+  // An abandoned building always looks run down; otherwise only a share of the lots show the vibe.
+  const v = abandoned ? 'gritty' : lotDraw(tile, lotId) < clayVibeShare(vibe) ? clayVibeFor(vibe) : '';
   const list = (v && groups.get(`${base}|${v}`)) || groups.get(`${base}|`);
   return list && list[lotId % list.length];
 }
