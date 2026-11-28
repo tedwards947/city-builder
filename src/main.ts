@@ -1,3 +1,5 @@
+import { KeyPan, panKeyOf, panStep, TAP_TILES } from './input/keyPan';
+import { TILE_SIZE } from './render/Projection';
 import { isLargeBuilding } from './sim/buildingShapes';
 import { placementFor, cyclePlacementTurn, resetPlacementTurn } from './input/placement';
 import { hasDocks } from './sim/buildingShapes';
@@ -628,6 +630,23 @@ document.querySelectorAll<HTMLButtonElement>('.speed').forEach(btn => {
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
+// Arrow keys pan the view (src/input/keyPan.ts): a tap nudges, holding pans smoothly. Never while typing or in a dialog.
+const keyPan = new KeyPan();
+const panBlocked = (): boolean => titleUp || debtUi.blocking || !!document.querySelector('.modal:not(.hidden)');
+window.addEventListener('keydown', (e) => {
+  const k = panKeyOf(e.key);
+  if (!k || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target) || panBlocked()) return;
+  e.preventDefault();
+  keyPan.press(k, performance.now());
+});
+window.addEventListener('keyup', (e) => {
+  const k = panKeyOf(e.key);
+  if (!k) return;
+  const nudge = keyPan.release(k, performance.now());
+  if (nudge && !panBlocked()) camera.panBy(-nudge.x * TAP_TILES * TILE_SIZE * camera.zoom, -nudge.y * TAP_TILES * TILE_SIZE * camera.zoom);
+});
+window.addEventListener('blur', () => keyPan.clear());
+
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
@@ -832,7 +851,11 @@ function cachedCoveragePreview(world: World, tx: number, ty: number, kind: numbe
 /** Auto-pause when the city goes into debt (sim/debtPause.ts): not behind the title, not once the game is over. */
 const debtWatch = newDebtWatch();
 
+let lastPanAt = 0;
 function frame(now: number): void {
+  const pd = keyPan.direction(performance.now());
+  if ((pd.x !== 0 || pd.y !== 0) && !panBlocked()) { const st = panStep(pd, (now - lastPanAt) / 1000); camera.panBy(-st.x, -st.y); }
+  lastPanAt = now;
   state.scheduler.update(now);
   if (!titleUp && !state.world.budget.gameOver && debtPauseDue(debtWatch, state.world, state.world.budget.money) && state.scheduler.speed !== 0) {
     setSpeed(0);
