@@ -436,7 +436,21 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "right": 113,
     "bottom": 109
   },
+  "res-1-b-gritty": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
   "res-1-b": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "res-1-c-green": {
     "w": 128,
     "h": 128,
     "left": 13,
@@ -457,7 +471,21 @@ export const CLAY_SPRITE_DATA: Record<string, ClaySpriteMeta> = {
     "right": 113,
     "bottom": 109
   },
+  "res-1-d-wealthy": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
   "res-1-d": {
+    "w": 128,
+    "h": 128,
+    "left": 13,
+    "right": 113,
+    "bottom": 109
+  },
+  "res-1-e-communal": {
     "w": 128,
     "h": 128,
     "left": 13,
