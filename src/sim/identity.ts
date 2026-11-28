@@ -59,8 +59,10 @@ export function cellTraits(world: World): Map<number, { homes: number; raw: Trai
     }
   }
   const homeLv: number[] = [];
-  for (let k = 0; k < world.index.zonedCount; k++) {
-    const t = world.index.zoned[k];
+  // Read the index once: outside a tick it is not pinned, and every `world.index` rebuilds it (that was the whole cost).
+  const { zoned, zonedCount } = world.index;
+  for (let k = 0; k < zonedCount; k++) {
+    const t = zoned[k];
     if (!L.devLevel[t] || L.abandoned[t]) continue;
     const c = Math.floor(Math.floor(t / width) / cs) * cols + Math.floor((t % width) / cs), a = get(c), w = levelWeight(L.devLevel[t]);
     if (L.zone[t] === ZONE_R) {
