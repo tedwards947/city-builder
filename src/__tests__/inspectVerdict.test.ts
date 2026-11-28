@@ -68,6 +68,13 @@ describe('the pane', () => {
     expect(text(html)).toContain('Land value');
     expect(html.indexOf('Land value')).toBeGreaterThan(html.indexOf('<details'));
   });
+  it('the hint to hold Shift shows only while Details is closed', () => {
+    const w = town();
+    expect(tileInfoHtml(w, 8, 9, false, false, false)).toContain('Hold Shift for details');
+    const open = tileInfoHtml(w, 8, 9, false, false, true);   // Shift held
+    expect(open).not.toContain('Hold Shift for details');
+    expect(open).toMatch(/<details class="ti-details" open>/);
+  });
   it('?debug=true opens Details and adds the raw numbers', () => {
     const w = town();
     const html = tileInfoHtml(w, 8, 9, false, true);

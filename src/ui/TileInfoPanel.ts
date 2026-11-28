@@ -612,11 +612,10 @@ export class TileInfoPanel {
 
   constructor() {
     this.el = document.getElementById("tile-info")!;
-    // The Details block's open state outlives a rebuild (the toggle event does not bubble: listen on capture).
-    this.el.addEventListener("toggle", (e) => {
-      const d = e.target as HTMLElement;
-      if (d.classList?.contains("ti-details")) { this.detailsOpen = (d as HTMLDetailsElement).open; this.lastKey = ""; }
-    }, true);
+    // The pane follows the hover tile and ignores the pointer, so Details opens while Shift is held.
+    window.addEventListener("keydown", (e) => { if (e.key === "Shift") this.shift = true; });
+    window.addEventListener("keyup", (e) => { if (e.key === "Shift") this.shift = false; });
+    window.addEventListener("blur", () => { this.shift = false; });
   }
 
   setVisible(v: boolean): void {
@@ -636,14 +635,14 @@ export class TileInfoPanel {
 
   private lastKey = "";
   private lastHtml = "";
-  private detailsOpen = DEBUG;
+  private shift = false;
 
   private _render(world: World, tx: number, ty: number, paused = false): void {
     // Rebuild only when the tile or its data changed (also keeps the Details toggle where the player left it).
-    const key = `${tx},${ty},${world.tick},${world.grid.edits},${paused},${this.detailsOpen}`;
+    const key = `${tx},${ty},${world.tick},${world.grid.edits},${paused},${this.shift}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
-    const html = tileInfoHtml(world, tx, ty, paused, DEBUG, this.detailsOpen);
+    const html = tileInfoHtml(world, tx, ty, paused, DEBUG, DEBUG || this.shift);
     if (html === this.lastHtml) return;
     this.lastHtml = html;
     this.el.innerHTML = html;
@@ -890,6 +889,7 @@ export function tileInfoHtml(world: World, tx: number, ty: number, paused = fals
         }
       }
       html += `<details class="ti-details"${detailsOpen ? " open" : ""}><summary style="cursor:pointer;color:#9ab">${t("ui.tileInfo.details")}</summary>${det}</details>`;
+      if (!detailsOpen) html += `<div class="ti-hint" style="color:#789;font-size:10px">${t("ui.tileInfo.detailsHint")}</div>`;
 
       // ── Empty tile ─────────────────────────────────────────────────────────────
     } else {
