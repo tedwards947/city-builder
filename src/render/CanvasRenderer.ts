@@ -500,7 +500,7 @@ export class CanvasRenderer {
         if (isLotAnchor(lotQ) && dev > 0) markerQueue.push(i, sxi, syi);
         // A pair of shops (lot 5–8) keeps its two level-3 pictures until its own art has loaded.
         const merged = (lotQ >= 1 && lotQ <= 4) || (lotQ >= 5 && this._pairArt(world, i));
-        const clay = big || merged || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant);
+        const clay = big || merged || (building === BUILDING_SUBWAY_STATION && railArtReady()) ? undefined : pickClaySprite(zone, building, dev, localVibe, isAbandoned, visualVariant, i);
 
         if (clay) {
           // The lot ID picks the design (low bits) and the ground tone (higher bits).
