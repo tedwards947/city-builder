@@ -161,13 +161,44 @@ const _fireOverlayColors: string[] = Array.from({ length: 256 }, (_, v) => {
 const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [string, string])[]> = {
   crime: [['rgba(255,0,0,0.1)', 'Low'], ['rgba(255,0,0,0.4)', 'Moderate'], ['rgba(255,0,0,0.8)', 'High']],
   fire:  [['#333', 'None'], ['rgba(255,64,0,0.4)', 'Moderate'], ['rgba(255,128,0,0.8)', 'High']],
-  vibe:  [['rgba(0,200,0,0.4)', 'Green'], ['rgba(200,100,0,0.4)', 'Industrial'], ['rgba(0,100,200,0.4)', 'Social']],
+  vibe:  [],   // its own key, _drawVibeLegend
   // The marks themselves are drawn by _drawSeatView (main.ts passes seatView for these four).
   school: [['#7db8f0', 'Seats free'], ['#e0b050', 'School full / home without a seat']],
   health: [['#7db8f0', 'Beds free'], ['#e0b050', 'Hospital full / home without a bed']],
   police: [['#7db8f0', 'Room to cover'], ['#e0b050', 'Station full / home not covered']],
   fireCover: [['#7db8f0', 'Room to cover'], ['#e0b050', 'Station full / home not covered']],
 };
+
+// The vibe map. Each tile is tinted by its strongest axis: one colour for each end of each axis, fainter the
+// nearer neutral (128). A tile within VIBE_NEUTRAL of neutral on every axis is left clear.
+/** The tint of each end of each axis: [positive, negative] for green, egalitarian, planned. */
+export const VIBE_COLORS: readonly (readonly [readonly [number, number, number], readonly [number, number, number]])[] = [
+  [[64, 200, 80], [226, 110, 34]],    // green: green / industrial (rust)
+  [[70, 120, 245], [215, 70, 180]],   // egalitarian: blue / laissez-faire (magenta)
+  [[50, 210, 215], [235, 210, 60]],   // planned: cyan / organic (yellow)
+];
+/** How far from neutral (of the 100 a target can reach, sim/vibeTargets.ts) counts as full strength. */
+const VIBE_FULL = 100;
+/** Within this of neutral on every axis a tile gets no tint: the vibe study's "carries character" is beyond it (balance/vibeStudy.ts). */
+export const VIBE_NEUTRAL = 8;
+const VIBE_STEPS = 10;
+const vibeAlpha = (s: number) => 0.12 + 0.5 * s;
+/** Fill styles per axis end and strength step, made once. */
+const _vibeFills: string[] = [];
+for (let a = 0; a < 3; a++) for (let end = 0; end < 2; end++) for (let k = 0; k <= VIBE_STEPS; k++) {
+  const [r, g, b] = VIBE_COLORS[a][end];
+  _vibeFills.push(`rgba(${r},${g},${b},${vibeAlpha(k / VIBE_STEPS).toFixed(3)})`);
+}
+/** The vibe map's tint for a tile's three vibe bytes (green, egalitarian, planned); null for neutral. */
+export function vibeTint(green: number, egal: number, planned: number): string | null {
+  const d = [green - 128, egal - 128, planned - 128];
+  let a = 0;
+  if (Math.abs(d[1]) > Math.abs(d[a])) a = 1;
+  if (Math.abs(d[2]) > Math.abs(d[a])) a = 2;
+  if (Math.abs(d[a]) <= VIBE_NEUTRAL) return null;
+  const s = Math.min(1, Math.abs(d[a]) / VIBE_FULL);
+  return _vibeFills[(a * 2 + (d[a] > 0 ? 0 : 1)) * (VIBE_STEPS + 1) + Math.round(s * VIBE_STEPS)];
+}
 
 /** How long a burned-out lot keeps smouldering on screen (render-only, real time). */
 const SMOULDER_MS = 20000;
@@ -490,16 +521,8 @@ export class CanvasRenderer {
 
         // 2. Draw Overlays
         if (vibeOverlay) {
-            const vg = world.layers.vibeGreen[i];
-            const ve = world.layers.vibeEgalitarian[i];
-            // Green vibe -> Green color
-            // Industrial vibe -> Orange/Brown
-            // Egalitarian -> Blue tint
-            const r = vg < 128 ? 200 : 0;
-            const g = vg > 128 ? 200 : 100;
-            const b = ve > 128 ? 200 : 0;
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
-            ctx.fillRect(sxi, syi, tsi, tsi);
+          const fill = vibeTint(world.layers.vibeGreen[i], world.layers.vibeEgalitarian[i], world.layers.vibePlanned[i]);
+          if (fill !== null) { ctx.fillStyle = fill; ctx.fillRect(sxi, syi, tsi, tsi); }
         }
 
         if (crimeOverlay && crimeV > 10) {
@@ -892,7 +915,55 @@ export class CanvasRenderer {
     ctx.stroke();
   }
 
+  /** The vibe map's key, in rows like the traffic key: one row per axis with both ends, then how strength shows. */
+  private _drawVibeLegend(ctx: CanvasRenderingContext2D, viewportH: number): void {
+    const rgba = (c: readonly number[], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+    const strong = vibeAlpha(1), mild = vibeAlpha(0.3), G = VIBE_COLORS[0][0];
+    // [swatch fill, or null for an empty outlined square; label]
+    const rows: [string, [string | null, string][]][] = [
+      [tr('ui.vibeLegend.green'), [[rgba(VIBE_COLORS[0][0], strong), tr('ui.vibeLegend.greenUp')], [rgba(VIBE_COLORS[0][1], strong), tr('ui.vibeLegend.greenDown')]]],
+      [tr('ui.vibeLegend.egal'), [[rgba(VIBE_COLORS[1][0], strong), tr('ui.vibeLegend.egalUp')], [rgba(VIBE_COLORS[1][1], strong), tr('ui.vibeLegend.egalDown')]]],
+      [tr('ui.vibeLegend.planned'), [[rgba(VIBE_COLORS[2][0], strong), tr('ui.vibeLegend.plannedUp')], [rgba(VIBE_COLORS[2][1], strong), tr('ui.vibeLegend.plannedDown')]]],
+      [tr('ui.vibeLegend.strength'), [[rgba(G, strong), tr('ui.vibeLegend.strong')], [rgba(G, mild), tr('ui.vibeLegend.mild')], [null, tr('ui.vibeLegend.neutral')]]],
+    ];
+    ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    const rowH = 16, titleW = 62, x0 = 12;
+    const note = tr('ui.vibeLegend.note');
+    const y0 = viewportH - 30 - rows.length * rowH;
+    let maxW = ctx.measureText(note).width;
+    for (const [, stops] of rows) {
+      let w = titleW;
+      for (const [, label] of stops) w += 14 + ctx.measureText(label).width + 12;
+      maxW = Math.max(maxW, w);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(x0 - 6, y0 - 5, maxW + 6, (rows.length + 1) * rowH + 6);
+    rows.forEach(([title, stops], r) => {
+      const y = y0 + r * rowH;
+      ctx.fillStyle = '#999';
+      ctx.fillText(title, x0, y + 5);
+      let x = x0 + titleW;
+      for (const [fill, label] of stops) {
+        if (fill === null) { ctx.strokeStyle = '#888'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, 9, 9); }
+        else {
+          // Over a mid grey, as a tint shows over the map, so mild reads fainter than strong.
+          ctx.fillStyle = '#5a5e58'; ctx.fillRect(x, y, 10, 10);
+          ctx.fillStyle = fill; ctx.fillRect(x, y, 10, 10);
+        }
+        ctx.fillStyle = '#ccc';
+        ctx.fillText(label, x + 14, y + 5);
+        x += 14 + ctx.measureText(label).width + 12;
+      }
+    });
+    ctx.fillStyle = '#999';
+    ctx.fillText(note, x0, y0 + rows.length * rowH + 5);
+  }
+
   private _drawOverlayLegend(ctx: CanvasRenderingContext2D, overlay: Exclude<MapOverlay, 'none'>, viewportH: number): void {
+    if (overlay === 'vibe') { this._drawVibeLegend(ctx, viewportH); return; }
     const lx = 12, ly = viewportH - 30;
     ctx.globalAlpha = 1.0;
     ctx.font = '11px sans-serif';
