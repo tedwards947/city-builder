@@ -42,6 +42,7 @@ import { Projection, TILE_SIZE } from './Projection';
 import { resolvePalette, resolveTilePalette } from './CharacterPalette';
 import type { VibeState } from './SpriteTypes';
 import { SmoothZoom } from './SmoothZoom';
+import { NeighbourhoodOverlay, trustColor } from './NeighbourhoodOverlay';
 import { ChunkCache } from './ChunkCache';
 import { chunkPainter, CLAY_TREE_MIN_TILE } from './chunkPainter';
 import { drawnRoadAt, drawnRoadsAround } from './drawnRoads';
@@ -62,7 +63,7 @@ const LOT_FADED_ALPHA = 0.22;
 /** Zone and dezone tools: they act on a whole merged lot. */
 const isZoneTool = (tool: string): boolean => tool.startsWith('zone');
 
-export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
+export type MapOverlay = 'none' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover' | 'neighbourhoods';
 
 /** Everything about a frame besides the world and the camera. All optional. */
 export interface RenderOptions {
@@ -162,6 +163,8 @@ const OVERLAY_LEGENDS: Record<Exclude<MapOverlay, 'none'>, readonly (readonly [s
   crime: [['rgba(255,0,0,0.1)', 'Low'], ['rgba(255,0,0,0.4)', 'Moderate'], ['rgba(255,0,0,0.8)', 'High']],
   fire:  [['#333', 'None'], ['rgba(255,64,0,0.4)', 'Moderate'], ['rgba(255,128,0,0.8)', 'High']],
   vibe:  [],   // its own key, _drawVibeLegend
+  // Debug-only (NeighbourhoodOverlay.ts): each neighbourhood's trust; its key is built from the localised strings in _drawOverlayLegend.
+  neighbourhoods: [],
   // The marks themselves are drawn by _drawSeatView (main.ts passes seatView for these four).
   school: [['#7db8f0', 'Seats free'], ['#e0b050', 'School full / home without a seat']],
   health: [['#7db8f0', 'Beds free'], ['#e0b050', 'Hospital full / home without a bed']],
@@ -252,6 +255,7 @@ export class CanvasRenderer {
   private _lastBurn = new Map<number, number>();
   private _lastBurnWorld: World | null = null;
   private readonly _smooth = new SmoothZoom();
+  private readonly _neighbourhoods = new NeighbourhoodOverlay();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -337,6 +341,9 @@ export class CanvasRenderer {
         drawTrains(ctx, world, ox, oy, ts, now, b.x0, b.y0, b.x1, b.y1, RAIL_SUBWAY);
       }
     }
+
+    // 2c. The Neighbourhoods view (debug-only): cell borders, trust tints, identity labels.
+    if (overlay === 'neighbourhoods' && !bare) this._neighbourhoods.draw(ctx, world, camera, bounds, ts);
 
     // 3. Problem badges and district pins.
     if (bare) { this._badges.length = 0; this._requestBadges.length = 0; return; }
@@ -969,7 +976,9 @@ export class CanvasRenderer {
     ctx.font = '11px sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';   // the badges leave it centred
-    const entries = OVERLAY_LEGENDS[overlay];
+    const entries = overlay === 'neighbourhoods'
+      ? [[trustColor(1, 0.8), tr('ui.neighbourhoodLegend.full')], [trustColor(0.5, 0.8), tr('ui.neighbourhoodLegend.half')], [trustColor(0, 0.8), tr('ui.neighbourhoodLegend.empty')], ['rgba(255,255,255,0.85)', tr('ui.neighbourhoodLegend.edges')]] as const
+      : OVERLAY_LEGENDS[overlay];
     // A dark backing, so the key reads over a bright city.
     let total = 0;
     for (const [, label] of entries) total += 28 + ctx.measureText(label).width;

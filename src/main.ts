@@ -382,7 +382,7 @@ let hoverTile: { tx: number; ty: number } | null = null;
 /** The last tile the pointer was over on the map (it stays when the pointer leaves for a button). */
 let lastMapTile: { tx: number; ty: number } | null = null;
 // At most one overlay is shown at a time.
-type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover';
+type Overlay = 'none' | 'traffic' | 'crime' | 'fire' | 'vibe' | 'school' | 'health' | 'police' | 'fireCover' | 'neighbourhoods';
 let overlay: Overlay = 'none';
 
 // A refused click or drag says why, at most once every few seconds per reason
@@ -701,7 +701,7 @@ window.addEventListener('keydown', (e) => {
   if (item?.action === 'ordinances') { if (ordinancesShown()) togglePanel('ordinances'); }
   else if (item?.action === 'requests') { if (!item.shown || item.shown()) togglePanel('requests'); }
   else if (item?.tool !== undefined) setTool(item.tool);
-  else if (item?.overlay !== undefined) toggleOverlay(item.overlay);
+  else if (item?.overlay !== undefined && (!item.shown || item.shown())) toggleOverlay(item.overlay);
 });
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
