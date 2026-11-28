@@ -353,6 +353,9 @@ w. **Trains bunch up and look stuck on busy lines** (owner, 2026-11-27; GRAPHICS
    - Trains keep a minimum gap and never overlap.
    - Overload shows as crowded-looking trains plus the Traffic view's red rail-load colour.
 
+x. **Simulation in a Web Worker?** (owner, 2026-11-27; ENGINE estimating the effort). Daily recalcs show as hitches on the render thread. ENG2 is fixing the current one by making it fast and spreading it out. A worker would keep drawing smooth everywhere, but it's an architecture change (synchronous UI reads such as hover PC quotes and Inspect, commands and undo, the lab, saves). Decide once engine's estimate is in.
+- Also later: real neighbourhood borders along avenues, rail and water instead of the 12×12 squares (PC_DESIGN step 2B). The owner finds squares workable for now: "the alternatives are probably tougher".
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
