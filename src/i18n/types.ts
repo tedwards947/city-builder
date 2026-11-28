@@ -46,6 +46,11 @@ export interface TranslationSchema {
       terrain: string;
       coverageRadius: string;
       coverageWholeCity: string;
+      details: string;
+      allServicesInReach: string;
+      unmetLeft: string;
+      costs: string;
+      verdict: Record<'growing' | 'full' | 'stuck' | 'abandoned' | 'abandonedNoRoad' | 'abandonedWhy' | 'ok' | 'overloaded' | 'notConnected' | 'jammed' | 'busy' | 'clear' | 'stationOver' | 'stationRiders' | 'stationNoRoad' | 'plantShort', string>;
       stationPlatform: string;
       maintenance: string;
       output: string;
