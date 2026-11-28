@@ -348,6 +348,11 @@ v. **Move buildings** (owner, 2026-11-21; ENGINE then GRAPHICS). A Move tool for
    - **Graphics:** a Move tool. Click a building, it follows the cursor like the placement ghost with its price shown, and a click puts it down.
    - **Context:** the owner feels PC is "close but not there yet" and wants it to be something useful. Move is one more meaningful PC spend; fold it into any PC redesign.
 
+w. **Trains bunch up and look stuck on busy lines** (owner, 2026-11-27; GRAPHICS, when free). On an overloaded line the trains pile up and stop, which "looks broken". Congestion should read as packed trains nose to tail, not a frozen heap. Drawing only (src/render/clay/trainNet.ts); the sim's rail capacity and overload stay as they are.
+   - Trains always move: an overload slows them, to about half speed at worst, never to a stop.
+   - Trains keep a minimum gap and never overlap.
+   - Overload shows as crowded-looking trains plus the Traffic view's red rail-load colour.
+
 
 
    - **ENGINE's part is built** (spot finder, camera tour, launch rule, Continue / New city / Load, a placeholder title). Still owed: the real showcase save from ENGINEER 3 (replace `public/showcase/showcase.citysave.json`, now a small generated city), and the screen's look and the logo from GRAPHICS (`#title-screen` in `index.html`).
